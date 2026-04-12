@@ -6,11 +6,11 @@ export function isProd() {
   return import.meta.env.PROD;
 }
 
-export function getBackendBaseUrl() {
-  return (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+export function getApiBaseUrl() {
+  return ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api').replace(/\/$/, '');
 }
 
-export function getBackendUrl(path: string) {
+export function getApiUrl(path: string) {
   const safePath = path.startsWith('/') ? path : `/${path}`;
-  return `${getBackendBaseUrl()}${safePath}`;
+  return `${getApiBaseUrl()}${safePath}`;
 }

@@ -13,11 +13,26 @@ export type HealthResponse = {
   timestamp: string;
 };
 
+export type RuntimeConfigResponse = {
+  limits: {
+    promptMaxChars: number;
+    chatHistoryMaxItems: number;
+    requestMaxBytes: number;
+  };
+};
+
+export type RepairContext = {
+  attempt: number;
+  error: string;
+  rawLines?: string[];
+};
+
 export type GenerateRequest = {
   prompt: string;
   messages?: BuilderApiMessage[];
   currentSpec?: Spec | null;
   runtimeState?: BuilderRuntimeState | null;
+  repairContext?: RepairContext;
 };
 
 export type GenerateResponse = {
@@ -29,4 +44,11 @@ export type GenerateResponse = {
     completionTokens: number;
     totalTokens: number;
   } | null;
+};
+
+export type RequestCompactionNotice = {
+  actions: Array<'chat-history' | 'repair-raw-lines'>;
+  requestBytes: number | null;
+  droppedMessages: number;
+  droppedRawLines: boolean;
 };

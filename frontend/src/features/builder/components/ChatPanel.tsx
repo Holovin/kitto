@@ -12,6 +12,8 @@ import type { BuilderMessage } from '../utils/state';
 type ChatPanelProps = {
   messages: BuilderMessage[];
   prompt: string;
+  promptLength: number;
+  promptMaxChars: number | null;
   onPromptChange: (value: string) => void;
   onSend: () => void;
   onExport: () => void;
@@ -24,6 +26,7 @@ type ChatPanelProps = {
   canRedo: boolean;
   isStreaming: boolean;
   requestError: string | null;
+  requestNotice: string | null;
   backendDisconnected: boolean;
 };
 
@@ -48,6 +51,8 @@ function MessageBubble({ message }: { message: BuilderMessage }) {
 export function ChatPanel({
   messages,
   prompt,
+  promptLength,
+  promptMaxChars,
   onPromptChange,
   onSend,
   onExport,
@@ -60,6 +65,7 @@ export function ChatPanel({
   canRedo,
   isStreaming,
   requestError,
+  requestNotice,
   backendDisconnected,
 }: ChatPanelProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -161,9 +167,13 @@ export function ChatPanel({
       <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-5 pt-4 md:px-6 md:pb-6">
         {backendDisconnected ? (
           <div className="mb-4 rounded-[1.5rem] border border-destructive/20 bg-destructive/10 px-5 py-4 text-sm text-destructive">
-            Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until `/health`
+            Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until `/api/health`
             recovers.
           </div>
+        ) : null}
+
+        {requestNotice ? (
+          <div className="mb-4 rounded-[1.5rem] border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-950">{requestNotice}</div>
         ) : null}
 
         {requestError ? (
@@ -188,6 +198,7 @@ export function ChatPanel({
             onKeyDown={handleComposerKeyDown}
             placeholder="Describe the app or change you want."
             disabled={isStreaming}
+            maxLength={promptMaxChars ?? undefined}
             style={{ resize: 'none' }}
             className="mx-4 h-32 min-h-32 max-h-[40vh] !resize-none rounded-[1.5rem] border-border/70 bg-background/80"
           />
@@ -198,6 +209,9 @@ export function ChatPanel({
             <p className="text-xs text-muted-foreground">
               <CornerDownLeft className="mr-1 inline size-3.5" />
               Press Cmd/Ctrl+Enter to send.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {promptMaxChars ? `${promptLength}/${promptMaxChars}` : `${promptLength} chars`}
             </p>
             <Button onClick={onSend} disabled={isStreaming || prompt.trim().length === 0} size="lg" className="rounded-full px-7">
               {isStreaming ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowUpRight className="size-4" />}

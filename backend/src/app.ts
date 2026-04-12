@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from './env.js';
+import { configRoute } from './routes/config.js';
 import { healthRoute } from './routes/health.js';
 import { llmJsonRenderRoute } from './routes/llm-json-render.js';
 
@@ -22,11 +23,23 @@ app.use(
     origin: env.FRONTEND_ORIGIN,
     allowHeaders: ['Content-Type'],
     allowMethods: ['GET', 'POST', 'OPTIONS'],
+    exposeHeaders: [
+      'Retry-After',
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+      'X-Kitto-Request-Compacted',
+      'X-Kitto-Request-Compaction-Actions',
+      'X-Kitto-Request-Bytes',
+      'X-Kitto-Request-Dropped-Messages',
+      'X-Kitto-Request-Dropped-Raw-Lines',
+    ],
   }),
 );
 
-app.route('/', healthRoute);
-app.route('/', llmJsonRenderRoute);
+app.route('/api', healthRoute);
+app.route('/api', configRoute);
+app.route('/api', llmJsonRenderRoute);
 
 if (existsSync(frontendDistDir)) {
   app.use(

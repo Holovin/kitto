@@ -1,13 +1,16 @@
 import { Hono } from 'hono';
+import { APIConnectionTimeoutError } from 'openai';
 import { z } from 'zod';
 import { type Spec } from '@json-render/core';
-import { GenerateSpecInput, generateSpec, streamSpec } from '../services/openai.js';
+import { applyRequestNormalizationHeaders, normalizeGenerateInput, RequestNormalizationError } from '../llm/normalize-request.js';
+import type { BuilderMessage, GenerateSpecInput } from '../llm/types.js';
+import { generateSpec, streamSpec } from '../services/openai.js';
 import { env, isOpenAIConfigured } from '../env.js';
 
 const builderMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string().trim().min(1),
-});
+}) satisfies z.ZodType<BuilderMessage>;
 
 const specSchema = z
   .object({
@@ -87,6 +90,23 @@ async function parseGenerateInput(request: Request): Promise<GenerateSpecInput> 
   };
 }
 
+function createRouteErrorResponse(error: unknown, fallbackMessage: string) {
+  if (error instanceof z.ZodError) {
+    return createJsonError(error.issues.map((issue) => issue.message).join('; '), 400);
+  }
+
+  if (error instanceof RequestNormalizationError) {
+    return createJsonError(error.message, error.status, error.headers);
+  }
+
+  if (error instanceof APIConnectionTimeoutError) {
+    return createJsonError(`OpenAI request timed out after ${env.OPENAI_REQUEST_TIMEOUT_MS}ms.`, 504);
+  }
+
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  return createJsonError(message, 500);
+}
+
 export const llmJsonRenderRoute = new Hono();
 
 llmJsonRenderRoute.use('*', async (c, next) => {
@@ -128,17 +148,15 @@ llmJsonRenderRoute.post('/llm/generate', async (c) => {
   }
 
   try {
-    const input = await parseGenerateInput(c.req.raw);
+    const parsedInput = await parseGenerateInput(c.req.raw);
+    const { input, meta } = normalizeGenerateInput(parsedInput);
     const result = await generateSpec(input);
+    const response = c.json(result);
 
-    return c.json(result);
+    applyRequestNormalizationHeaders(response.headers, meta);
+    return response;
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createJsonError(error.issues.map((issue) => issue.message).join('; '), 400);
-    }
-
-    const message = error instanceof Error ? error.message : 'Unknown generation error.';
-    return createJsonError(message, 500);
+    return createRouteErrorResponse(error, 'Unknown generation error.');
   }
 });
 
@@ -148,7 +166,8 @@ llmJsonRenderRoute.post('/llm/generate/stream', async (c) => {
   }
 
   try {
-    const input = await parseGenerateInput(c.req.raw);
+    const parsedInput = await parseGenerateInput(c.req.raw);
+    const { input, meta } = normalizeGenerateInput(parsedInput);
     const { stream } = streamSpec(input);
     const encoder = new TextEncoder();
     const abortSignal = c.req.raw.signal;
@@ -217,19 +236,17 @@ llmJsonRenderRoute.post('/llm/generate/stream', async (c) => {
       },
     });
 
-    return new Response(body, {
+    const response = new Response(body, {
       headers: {
         'Content-Type': 'application/x-ndjson; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
       },
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createJsonError(error.issues.map((issue) => issue.message).join('; '), 400);
-    }
 
-    const message = error instanceof Error ? error.message : 'Unknown streaming error.';
-    return createJsonError(message, 500);
+    applyRequestNormalizationHeaders(response.headers, meta);
+    return response;
+  } catch (error) {
+    return createRouteErrorResponse(error, 'Unknown streaming error.');
   }
 });

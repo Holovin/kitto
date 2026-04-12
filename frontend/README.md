@@ -30,22 +30,24 @@ Default frontend ports:
 
 The frontend talks to the backend through:
 
-- `GET /health`
-- `POST /llm/generate`
-- `POST /llm/generate/stream`
+- `GET /api/config`
+- `GET /api/health`
+- `POST /api/llm/generate`
+- `POST /api/llm/generate/stream`
 
-During development, Vite proxies `/health` and `/llm` to the backend target.
+During development, Vite proxies `/api/*` to the backend target.
 
-The proxy target is resolved in this order:
+Frontend env is intentionally limited to API addressing only:
 
-1. `frontend/.env*` via `VITE_BACKEND_URL`
-2. `backend/.env*` via `VITE_BACKEND_URL`
-3. fallback to `http://localhost:${PORT}` from the backend env, defaulting to `8787`
+```env
+VITE_API_BASE_URL=/api
+VITE_DEV_API_TARGET=http://localhost:8787
+```
 
 If you want to point the frontend at a remote backend, set:
 
 ```env
-VITE_BACKEND_URL=http://localhost:8787
+VITE_API_BASE_URL=https://your-backend.example.com/api
 ```
 
 ## App Routes
@@ -57,10 +59,12 @@ VITE_BACKEND_URL=http://localhost:8787
 ## Main Features
 
 - chat-driven builder with streaming responses
+- runtime-config bootstrap from `/api/config`
 - live preview and definition tabs
 - auto-scroll to the newest chat message
 - import/export of JSON definitions
-- polling health status every 30 seconds
+- polling `/api/health` every 30 seconds
+- backend compaction notices surfaced in the chat UI
 - undo/redo capped to 10 snapshots
 - persisted builder/runtime state via `redux-remember`
 - guarded `open_url` actions that only allow `http` and `https`

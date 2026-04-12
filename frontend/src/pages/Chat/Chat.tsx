@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useUIStream } from '@json-render/react';
 import type { Spec } from '@json-render/core';
-import { useHealthQuery } from '@api/apiSlice';
-import { getBackendUrl } from '@helpers/environment';
+import { useHealthQuery, useRuntimeConfigQuery } from '@api/apiSlice';
+import { getApiUrl } from '@helpers/environment';
 import { ChatPanel } from '@features/builder/components/ChatPanel';
 import { PreviewTabs } from '@features/builder/components/PreviewTabs';
+import { useSpecStream } from '@features/builder/api/useSpecStream';
 import {
   appendMessage,
   enqueueSnapshot,
@@ -30,6 +30,7 @@ import {
 } from '@features/builder/utils/state';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { BUILDER_RESET_SLICE_KEYS, clearRememberedSlices } from '@store/store';
+import type { RequestCompactionNotice } from '@features/builder/api/contracts';
 
 const previewDemoActions = [
   { id: 'todo-create', label: 'Create a todo list', presetId: 'todo' },
@@ -72,6 +73,29 @@ function createStreamErrorKey(streamError: Error, rawLinesCount: number, repairA
   return `${repairAttempt}:${rawLinesCount}:${streamError.message}`;
 }
 
+function formatRequestCompactionNotice(notice: RequestCompactionNotice | null) {
+  if (!notice) {
+    return null;
+  }
+
+  const parts: string[] = [];
+
+  if (notice.droppedRawLines) {
+    parts.push('removed repair debug lines');
+  }
+
+  if (notice.droppedMessages > 0) {
+    parts.push(`dropped ${notice.droppedMessages} older chat message${notice.droppedMessages === 1 ? '' : 's'}`);
+  }
+
+  if (parts.length === 0) {
+    parts.push('compacted the request');
+  }
+
+  const sizeLabel = notice.requestBytes ? ` Final request size: ${notice.requestBytes} bytes.` : '';
+  return `Backend compacted this request before sending it to OpenAI: ${parts.join(' and ')}.${sizeLabel}`;
+}
+
 export default function ChatPage() {
   const dispatch = useAppDispatch();
   const builderState = useAppSelector((state) => state.builder);
@@ -80,6 +104,7 @@ export default function ChatPage() {
   const [panelError, setPanelError] = useState<string | null>(null);
   const activeRequestRef = useRef<PendingGenerationRequest | null>(null);
   const handledStreamErrorRef = useRef<string | null>(null);
+  const { data: runtimeConfig } = useRuntimeConfigQuery();
   const { data: healthData, error: healthError, isLoading: healthLoading, isFetching: healthFetching } = useHealthQuery(undefined, {
     pollingInterval: 30_000,
   });
@@ -88,8 +113,8 @@ export default function ChatPage() {
   const builderMessages = Array.isArray(builderState.messages) ? builderState.messages : [];
   const builderLastPrompt = typeof builderState.lastPrompt === 'string' ? builderState.lastPrompt : '';
 
-  const { spec: streamedSpec, isStreaming, error, rawLines, send } = useUIStream({
-    api: getBackendUrl('/llm/generate/stream'),
+  const { spec: streamedSpec, isStreaming, error, rawLines, send, requestCompactionNotice } = useSpecStream({
+    api: getApiUrl('/llm/generate/stream'),
     onComplete: (nextSpec) => {
       const completedRequest = activeRequestRef.current;
       activeRequestRef.current = null;
@@ -118,6 +143,9 @@ export default function ChatPage() {
   const canRedo = builderFuture.length > 0 && !isStreaming;
   const isBackendDisconnected = !healthLoading && !healthFetching && !healthData && Boolean(healthError);
   const requestError = builderState.request.error ?? error?.message ?? null;
+  const promptMaxChars = runtimeConfig?.limits.promptMaxChars ?? null;
+  const chatHistoryMaxItems = runtimeConfig?.limits.chatHistoryMaxItems ?? Number.POSITIVE_INFINITY;
+  const requestNotice = useMemo(() => formatRequestCompactionNotice(requestCompactionNotice), [requestCompactionNotice]);
 
   useEffect(() => {
     if (!error || isStreaming) {
@@ -150,8 +178,9 @@ export default function ChatPage() {
         }),
       );
       dispatch(startGeneration({ prompt: repairRequest.prompt }));
-      void send(repairRequest.prompt, {
-        previousSpec: cloneSpec(repairRequest.previousSpec),
+      void send({
+        prompt: repairRequest.prompt,
+        currentSpec: cloneSpec(repairRequest.previousSpec),
         messages: repairRequest.messages,
         runtimeState: cloneRuntimeState(repairRequest.runtimeState),
         repairContext: {
@@ -199,6 +228,7 @@ export default function ChatPage() {
 
     const streamMessages = nextMessages
       .filter((message) => message.role !== 'system')
+      .slice(-chatHistoryMaxItems)
       .map((message) => ({
         role: message.role === 'user' ? 'user' : 'assistant',
         content: message.content,
@@ -212,8 +242,9 @@ export default function ChatPage() {
     };
     activeRequestRef.current = request;
 
-    await send(trimmedPrompt, {
-      previousSpec: cloneSpec(request.previousSpec),
+    await send({
+      prompt: trimmedPrompt,
+      currentSpec: cloneSpec(request.previousSpec),
       messages: request.messages,
       runtimeState: cloneRuntimeState(request.runtimeState),
     });
@@ -344,6 +375,8 @@ export default function ChatPage() {
       <ChatPanel
         messages={builderMessages}
         prompt={prompt}
+        promptLength={prompt.length}
+        promptMaxChars={promptMaxChars}
         onPromptChange={setPrompt}
         onSend={() => void handleSend()}
         onExport={handleExportDefinition}
@@ -356,6 +389,7 @@ export default function ChatPage() {
         canRedo={canRedo}
         isStreaming={isStreaming}
         requestError={requestError}
+        requestNotice={requestNotice}
         backendDisconnected={isBackendDisconnected}
       />
 

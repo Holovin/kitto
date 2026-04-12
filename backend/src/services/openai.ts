@@ -1,23 +1,8 @@
 import OpenAI from 'openai';
-import type { Spec } from '@json-render/core';
-import { compileSpecStream } from '@json-render/core';
+import { compileSpecStream, type Spec } from '@json-render/core';
 import { env, isOpenAIConfigured } from '../env.js';
 import { buildJsonRenderSystemPrompt, buildJsonRenderUserPrompt, finalizeGeneratedSpec } from '../prompts/json-render.js';
-
-type BuilderMessage = { role: 'user' | 'assistant'; content: string };
-type RepairContext = {
-  attempt: number;
-  error: string;
-  rawLines?: string[];
-};
-
-export type GenerateSpecInput = {
-  prompt: string;
-  messages?: BuilderMessage[];
-  currentSpec?: Spec | null;
-  runtimeState?: Record<string, unknown> | null;
-  repairContext?: RepairContext;
-};
+import type { GenerateSpecInput } from '../llm/types.js';
 
 export type TokenUsage = {
   promptTokens: number;
@@ -35,6 +20,7 @@ function getClient() {
   if (!client) {
     client = new OpenAI({
       apiKey: env.OPENAI_API_KEY,
+      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
     });
   }
 

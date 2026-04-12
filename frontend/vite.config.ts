@@ -7,12 +7,7 @@ import babel from '@rolldown/plugin-babel';
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const frontendEnv = loadEnv(mode, __dirname, '');
-  const backendEnv = loadEnv(mode, path.resolve(__dirname, '../backend'), '');
-
-  const backendTarget =
-    frontendEnv.VITE_BACKEND_URL?.replace(/\/$/, '') ??
-    backendEnv.VITE_BACKEND_URL?.replace(/\/$/, '') ??
-    `http://localhost:${backendEnv.PORT || '8787'}`;
+  const backendTarget = frontendEnv.VITE_DEV_API_TARGET?.replace(/\/$/, '') ?? 'http://localhost:8787';
 
   return {
     plugins: [
@@ -39,8 +34,7 @@ export default defineConfig(({ mode }) => {
       port: 5556,
       strictPort: true,
       proxy: {
-        '/health': backendTarget,
-        '/llm': backendTarget,
+        '/api': backendTarget,
       },
     },
     preview: {

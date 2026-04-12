@@ -1,13 +1,16 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { getBackendBaseUrl } from '@helpers/environment';
-import type { GenerateRequest, GenerateResponse, HealthResponse } from '@features/builder/api/contracts';
+import { getApiBaseUrl } from '@helpers/environment';
+import type { GenerateRequest, GenerateResponse, HealthResponse, RuntimeConfigResponse } from '@features/builder/api/contracts';
 
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: getBackendBaseUrl(),
+    baseUrl: getApiBaseUrl(),
   }),
   endpoints: (builder) => ({
+    runtimeConfig: builder.query<RuntimeConfigResponse, void>({
+      query: () => '/config',
+    }),
     health: builder.query<HealthResponse, void>({
       query: () => '/health',
     }),
@@ -21,4 +24,4 @@ export const apiSlice = createApi({
   }),
 });
 
-export const { useGenerateMutation, useHealthQuery, useLazyHealthQuery } = apiSlice;
+export const { useGenerateMutation, useHealthQuery, useLazyHealthQuery, useRuntimeConfigQuery } = apiSlice;
