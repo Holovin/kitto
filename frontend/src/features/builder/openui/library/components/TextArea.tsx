@@ -1,0 +1,44 @@
+import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
+import { Textarea as TextareaUI } from '@components/ui/textarea';
+import { z } from 'zod';
+import { nullableTextSchema } from './shared';
+
+type TextAreaRendererProps = ComponentRenderProps<{
+  helper?: string | null;
+  label: string;
+  name: string;
+  placeholder?: string | null;
+  value: StateField<string | undefined>;
+}>;
+
+function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
+  const isStreaming = useIsStreaming();
+  const field = useStateField(props.name, props.value);
+
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600">{props.label}</span>
+      <TextareaUI
+        disabled={isStreaming}
+        name={props.name}
+        placeholder={props.placeholder ?? undefined}
+        value={field.value ?? ''}
+        onChange={(event) => field.setValue(event.target.value)}
+      />
+      {props.helper ? <span className="text-xs text-slate-500">{props.helper}</span> : null}
+    </label>
+  );
+}
+
+export const TextAreaComponent = defineComponent({
+  name: 'TextArea',
+  description: 'Multi-line text input for longer descriptions, prompts, or notes.',
+  props: z.object({
+    name: z.string().describe('Stable field name used for persistence and bindings.'),
+    label: z.string().describe('Visible label for the field.'),
+    value: reactive(z.string().optional().describe('Current value, often bound to a $variable.')),
+    placeholder: nullableTextSchema.describe('Placeholder text shown when empty.'),
+    helper: nullableTextSchema.describe('Small helper copy shown below the field.'),
+  }),
+  component: OpenUiTextAreaRenderer,
+});

@@ -1,0 +1,48 @@
+import { createLibrary } from '@openuidev/react-lang';
+import { AppShellComponent } from './components/AppShell';
+import { ButtonComponent } from './components/Button';
+import { CheckboxComponent } from './components/Checkbox';
+import { GroupComponent } from './components/Group';
+import { InputComponent } from './components/Input';
+import { LinkComponent } from './components/Link';
+import { RadioGroupComponent } from './components/RadioGroup';
+import { RepeaterComponent } from './components/Repeater';
+import { ScreenComponent } from './components/Screen';
+import { SelectComponent } from './components/Select';
+import { TextComponent } from './components/Text';
+import { TextAreaComponent } from './components/TextArea';
+
+export const builderOpenUiLibrary = createLibrary({
+  root: 'AppShell',
+  componentGroups: [
+    {
+      name: 'Containers',
+      components: ['AppShell', 'Screen', 'Group', 'Repeater', 'Text'],
+      notes: ['Use Screen for major steps and Group for local layout.'],
+    },
+    {
+      name: 'Inputs',
+      components: ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select'],
+      notes: ['Bind interactive values to $variables when the user should control them.'],
+    },
+    {
+      name: 'Actions',
+      components: ['Button', 'Link'],
+      notes: ['Use Button with Action([...]) for Query and Mutation flows.'],
+    },
+  ],
+  components: [
+    AppShellComponent,
+    ScreenComponent,
+    GroupComponent,
+    RepeaterComponent,
+    TextComponent,
+    InputComponent,
+    TextAreaComponent,
+    CheckboxComponent,
+    RadioGroupComponent,
+    SelectComponent,
+    ButtonComponent,
+    LinkComponent,
+  ],
+});
