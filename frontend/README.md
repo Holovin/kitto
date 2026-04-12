@@ -1,75 +1,82 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This workspace contains the builder UI for Kitto JSON Render.
 
-Currently, two official plugins are available:
+It is a React 19 + TypeScript + Vite application that lets you describe an app in chat, stream JSON Render patches from the backend, and inspect the result in both preview and raw JSON form.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Local Development
 
-## React Compiler
+From the repo root:
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+From this workspace only:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
 ```
+
+Default frontend ports:
+
+- dev server: [http://localhost:5556](http://localhost:5556)
+- preview server: [http://localhost:5556](http://localhost:5556)
+
+## Backend Connection
+
+The frontend talks to the backend through:
+
+- `GET /health`
+- `POST /llm/generate`
+- `POST /llm/generate/stream`
+
+During development, Vite proxies `/health` and `/llm` to the backend target.
+
+The proxy target is resolved in this order:
+
+1. `frontend/.env*` via `VITE_BACKEND_URL`
+2. `backend/.env*` via `VITE_BACKEND_URL`
+3. fallback to `http://localhost:${PORT}` from the backend env, defaulting to `8787`
+
+If you want to point the frontend at a remote backend, set:
+
+```env
+VITE_BACKEND_URL=http://localhost:8787
+```
+
+## App Routes
+
+- `/` redirects to `/chat`
+- `/chat` is the main builder page
+- `/catalog` shows the supported components and actions
+
+## Main Features
+
+- chat-driven builder with streaming responses
+- live preview and definition tabs
+- auto-scroll to the newest chat message
+- import/export of JSON definitions
+- polling health status every 30 seconds
+- undo/redo capped to 10 snapshots
+- persisted builder/runtime state via `redux-remember`
+- guarded `open_url` actions that only allow `http` and `https`
+
+## Important Source Areas
+
+- `src/pages/Chat/Chat.tsx`: top-level builder page orchestration
+- `src/features/builder/components/ChatPanel.tsx`: chat UI, import/export controls, composer
+- `src/features/builder/components/PreviewTabs.tsx`: preview and definition panels
+- `src/features/builder/jsonui/`: catalog, registry, runtime wiring
+- `src/api/apiSlice.ts`: RTK Query endpoints
+- `src/router/router.tsx`: route definitions
+- `src/store/store.ts`: Redux store and persistence setup
+
+## Build Notes
+
+- `npm run build` runs `tsc -b && vite build`
+- the built assets are emitted to `frontend/dist`
+- the backend serves `frontend/dist` in production
