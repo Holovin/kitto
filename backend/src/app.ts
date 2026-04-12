@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
+import { createConfigRoutes } from './routes/config.js';
 import { createHealthRoutes } from './routes/health.js';
 import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
 
@@ -17,9 +18,11 @@ export function createApp(env: AppEnv) {
 
   app.use('/api/*', cors({ origin: env.FRONTEND_ORIGIN }));
 
+  const configRoutes = createConfigRoutes(env);
   const healthRoutes = createHealthRoutes(env);
   const llmRoutes = createLlmOpenUiRoutes(env);
 
+  app.route('/api', configRoutes);
   app.route('/api', healthRoutes);
   app.route('/api', llmRoutes);
 

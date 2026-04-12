@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, FileUp, Redo2, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
 import { streamBuilderDefinition } from '@features/builder/api/streamGenerate';
-import { builderRequestLimits, validateBuilderLlmRequest } from '@features/builder/config';
+import { getBuilderRequestLimits, validateBuilderLlmRequest } from '@features/builder/config';
 import { createResetDefinitionExport, createBuilderSnapshot, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { useHealthPolling } from '@features/builder/hooks/useHealthPolling';
@@ -19,11 +20,10 @@ import {
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
-import type { BuilderChatMessage, BuilderLlmRequest, BuilderParseIssue } from '@features/builder/types';
+import type { BuilderChatMessage, BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderParseIssue } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { resetAppState } from '@store/errorRecovery';
-import { useGenerateAppMutation } from '@api/apiSlice';
 
 function getRequestErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -67,12 +67,26 @@ function formatValidationIssue(issue: BuilderParseIssue) {
   return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
 }
 
-function buildRepairPrompt(userPrompt: string, issues: BuilderParseIssue[], attemptNumber: number) {
-  return [
+function truncateText(value: string, maxChars: number) {
+  if (maxChars <= 0) {
+    return '';
+  }
+
+  if (value.length <= maxChars) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+}
+
+function buildRepairPrompt(userPrompt: string, issues: BuilderParseIssue[], attemptNumber: number, promptMaxChars: number) {
+  const maxUserPromptChars = Math.max(256, Math.floor(promptMaxChars * 0.35));
+  const sections = [
     `The previous OpenUI draft is invalid. Repair attempt ${attemptNumber}.`,
-    `Original user request:\n${userPrompt}`,
+    `Original user request:\n${truncateText(userPrompt, maxUserPromptChars)}`,
     'Fix every validation issue below and return a complete corrected program.',
-    ...issues.map((issue) => `- ${formatValidationIssue(issue)}`),
+  ];
+  const constraintSection = [
     'Important constraints:',
     '- Do not leave unresolved references.',
     '- Every @Run(statementId) must reference a defined Query or Mutation statement.',
@@ -80,11 +94,55 @@ function buildRepairPrompt(userPrompt: string, issues: BuilderParseIssue[], atte
     '- Preserve the intended UI and behavior unless a broken part must be rewritten to become valid.',
     '- Return only raw OpenUI Lang source.',
   ].join('\n');
+  const selectedIssueLines: string[] = [];
+
+  for (const issue of issues) {
+    const nextIssueLines = [...selectedIssueLines, `- ${formatValidationIssue(issue)}`];
+    const candidatePrompt = [...sections, nextIssueLines.join('\n'), constraintSection].filter(Boolean).join('\n\n');
+
+    if (candidatePrompt.length > promptMaxChars) {
+      break;
+    }
+
+    selectedIssueLines.push(`- ${formatValidationIssue(issue)}`);
+  }
+
+  if (!selectedIssueLines.length && issues[0]) {
+    selectedIssueLines.push(`- ${truncateText(formatValidationIssue(issues[0]), 240)}`);
+  }
+
+  return truncateText([...sections, selectedIssueLines.join('\n'), constraintSection].filter(Boolean).join('\n\n'), promptMaxChars);
 }
 
 function createValidationFailureMessage(issues: BuilderParseIssue[]) {
   const summary = issues.slice(0, 3).map(formatValidationIssue).join(' | ');
   return `The model kept returning invalid OpenUI after automatic repair. ${summary || 'Please try again.'}`;
+}
+
+function buildRequestChatHistory(messages: BuilderChatMessage[], maxItems: number) {
+  return messages
+    .filter((message) => !(message.role === 'system' && message.tone === 'info'))
+    .slice(-maxItems)
+    .map(({ content, role }) => ({ content, role }));
+}
+
+function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
+  if (!compaction || compaction.omittedChatMessages <= 0) {
+    return null;
+  }
+
+  const omittedLabel = compaction.omittedChatMessages === 1 ? '1 older message' : `${compaction.omittedChatMessages} older messages`;
+  const omittedVerb = compaction.omittedChatMessages === 1 ? 'was' : 'were';
+
+  if (compaction.compactedByBytes) {
+    return `The request was too large, so ${omittedLabel} ${omittedVerb} omitted before sending it to the model.`;
+  }
+
+  if (compaction.compactedByItemLimit) {
+    return `The chat context was compacted to the most recent window, so ${omittedLabel} ${omittedVerb} omitted from this request.`;
+  }
+
+  return null;
 }
 
 export function ChatPanel() {
@@ -99,6 +157,8 @@ export function ChatPanel() {
   const redoHistory = useAppSelector(selectRedoHistory);
   const isStreaming = useAppSelector(selectIsStreaming);
   const domainData = useAppSelector(selectDomainData);
+  const configState = useConfigQuery();
+  const requestLimits = getBuilderRequestLimits(configState.data);
   const previousSnapshot = history.at(-2);
   const redoSnapshot = redoHistory.at(-1);
   const isEmptyCanvas = !committedSource.trim() && history.length === 1;
@@ -151,11 +211,11 @@ export function ChatPanel() {
       }
 
       const repairRequest: BuilderLlmRequest = {
-        prompt: buildRepairPrompt(request.prompt, validation.issues, attempt),
+        prompt: buildRepairPrompt(request.prompt, validation.issues, attempt, requestLimits.promptMaxChars),
         currentSource: candidateSource,
         chatHistory: request.chatHistory,
       };
-      const repairRequestValidationError = validateBuilderLlmRequest(repairRequest);
+      const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 
       if (repairRequestValidationError) {
         throw new Error(repairRequestValidationError);
@@ -182,9 +242,9 @@ export function ChatPanel() {
     const request: BuilderLlmRequest = {
       prompt: nextPrompt,
       currentSource: committedSource,
-      chatHistory: chatMessages.map(({ content, role }) => ({ content, role })),
+      chatHistory: buildRequestChatHistory(chatMessages, requestLimits.chatHistoryMaxItems),
     };
-    const requestValidationError = validateBuilderLlmRequest(request);
+    const requestValidationError = validateBuilderLlmRequest(request, requestLimits);
 
     if (requestValidationError) {
       setFeedback(requestValidationError);
@@ -199,7 +259,7 @@ export function ChatPanel() {
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      const source = await streamBuilderDefinition({
+      const streamResult = await streamBuilderDefinition({
         apiBaseUrl: getBackendApiBaseUrl(),
         request,
         signal: abortController.signal,
@@ -209,8 +269,20 @@ export function ChatPanel() {
         },
       });
 
-      const validatedResult = await ensureValidGeneratedSource(source, request);
+      const validatedResult = await ensureValidGeneratedSource(streamResult.source, request);
       const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
+      const compactionNotice = createCompactionNotice(streamResult.compaction);
+
+      if (compactionNotice) {
+        dispatch(
+          builderActions.appendChatMessage({
+            role: 'system',
+            tone: 'info',
+            content: compactionNotice,
+          }),
+        );
+      }
+
       dispatch(
         builderActions.completeStreaming({
           source: validatedResult.source,
@@ -226,6 +298,18 @@ export function ChatPanel() {
           const fallbackResponse = await generateApp(request).unwrap();
           const validatedResult = await ensureValidGeneratedSource(fallbackResponse.source, request);
           const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
+          const compactionNotice = createCompactionNotice(fallbackResponse.compaction);
+
+          if (compactionNotice) {
+            dispatch(
+              builderActions.appendChatMessage({
+                role: 'system',
+                tone: 'info',
+                content: compactionNotice,
+              }),
+            );
+          }
+
           dispatch(
             builderActions.completeStreaming({
               source: validatedResult.source,
@@ -411,7 +495,7 @@ export function ChatPanel() {
         <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
           <Textarea
             className="min-h-[8rem] w-full text-[0.8rem] leading-5 shadow-none"
-            maxLength={builderRequestLimits.promptMaxChars}
+            maxLength={requestLimits.promptMaxChars}
             placeholder="Describe the app or change you want."
             value={draftPrompt}
             onChange={(event) => dispatch(builderActions.setDraftPrompt(event.target.value))}

@@ -1,3 +1,4 @@
+import { useConfigQuery } from '@api/apiSlice';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@components/ui/button';
 import { BootLoader } from '@features/builder/components/BootLoader';
@@ -8,8 +9,11 @@ import { SiteRoutes } from '@router/siteRoutes';
 
 export function BaseLayout() {
   const location = useLocation();
+  const configState = useConfigQuery();
   const healthState = useHealthPolling();
+  const hasResolvedConfig = configState.isSuccess || configState.isError;
   const hasResolvedHealthCheck = healthState.isSuccess || healthState.isError;
+  const hasResolvedBootstrap = hasResolvedConfig && hasResolvedHealthCheck;
   const connectionStatus = !hasResolvedHealthCheck ? 'loading' : healthState.isSuccess ? 'connected' : 'disconnected';
   const activePath = location.pathname;
   const isChatRoute = activePath === SiteRoutes.home.path || activePath === SiteRoutes.chat.path;
@@ -17,7 +21,7 @@ export function BaseLayout() {
 
   return (
     <div className={cn(isChatRoute ? 'h-dvh overflow-hidden' : 'min-h-screen')}>
-      {!hasResolvedHealthCheck ? <BootLoader /> : null}
+      {!hasResolvedBootstrap ? <BootLoader /> : null}
       <div className={cn('mx-auto flex max-w-[90rem] flex-col px-4 py-4 sm:px-6 lg:px-8', isChatRoute ? 'h-full overflow-hidden' : 'min-h-screen')}>
         <header className="mb-4 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/86 px-5 py-5 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 lg:flex-1">

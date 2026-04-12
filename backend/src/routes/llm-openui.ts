@@ -15,6 +15,28 @@ class RequestValidationError extends Error {
 }
 
 type LlmRouteErrorStatus = 400 | 413 | 500;
+const RAW_REQUEST_MAX_BYTES_MULTIPLIER = 4;
+const textEncoder = new TextEncoder();
+
+interface LlmRequestCompaction {
+  compactedByBytes: boolean;
+  compactedByItemLimit: boolean;
+  omittedChatMessages: number;
+}
+
+interface ParsedLlmRequest {
+  chatHistory: Array<{
+    content: string;
+    role: 'assistant' | 'system' | 'user';
+  }>;
+  currentSource: string;
+  prompt: string;
+}
+
+interface ParsedLlmRequestResult {
+  compaction?: LlmRequestCompaction;
+  request: ParsedLlmRequest;
+}
 
 function createLlmRequestSchema(env: AppEnv) {
   return z.object({
@@ -22,18 +44,14 @@ function createLlmRequestSchema(env: AppEnv) {
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(env.LLM_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_PROMPT_MAX_CHARS} characters.`),
-    currentSource: z
-      .string()
-      .max(env.LLM_CURRENT_SOURCE_MAX_CHARS, `Current source is too large. Limit: ${env.LLM_CURRENT_SOURCE_MAX_CHARS} characters.`)
-      .default(''),
+    currentSource: z.string().default(''),
     chatHistory: z
       .array(
         z.object({
           role: z.enum(['assistant', 'system', 'user']),
-          content: z.string().max(env.LLM_CHAT_MESSAGE_MAX_CHARS, `Chat message is too large. Limit: ${env.LLM_CHAT_MESSAGE_MAX_CHARS} characters.`),
+          content: z.string(),
         }),
       )
-      .max(env.LLM_CHAT_HISTORY_MAX_ITEMS, `Chat history is too large. Limit: ${env.LLM_CHAT_HISTORY_MAX_ITEMS} messages.`)
       .default([]),
   });
 }
@@ -79,22 +97,70 @@ function formatSseEvent(event: string, data: string) {
   return `event: ${event}\n${payload}\n\n`;
 }
 
+function getRequestSizeBytes(request: ParsedLlmRequest) {
+  return textEncoder.encode(JSON.stringify(request)).byteLength;
+}
+
+function getRawRequestMaxBytes(env: AppEnv) {
+  return env.LLM_REQUEST_MAX_BYTES * RAW_REQUEST_MAX_BYTES_MULTIPLIER;
+}
+
+function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): ParsedLlmRequestResult {
+  let compactedByBytes = false;
+  let compactedByItemLimit = false;
+  let omittedChatMessages = 0;
+  let chatHistory = request.chatHistory;
+
+  if (chatHistory.length > env.LLM_CHAT_HISTORY_MAX_ITEMS) {
+    omittedChatMessages += chatHistory.length - env.LLM_CHAT_HISTORY_MAX_ITEMS;
+    compactedByItemLimit = true;
+    chatHistory = chatHistory.slice(-env.LLM_CHAT_HISTORY_MAX_ITEMS);
+  }
+
+  let compactedRequest: ParsedLlmRequest = {
+    ...request,
+    chatHistory,
+  };
+
+  while (getRequestSizeBytes(compactedRequest) > env.LLM_REQUEST_MAX_BYTES && compactedRequest.chatHistory.length > 0) {
+    compactedByBytes = true;
+    omittedChatMessages += 1;
+    compactedRequest = {
+      ...compactedRequest,
+      chatHistory: compactedRequest.chatHistory.slice(1),
+    };
+  }
+
+  return {
+    compaction:
+      omittedChatMessages > 0
+        ? {
+            compactedByBytes,
+            compactedByItemLimit,
+            omittedChatMessages,
+          }
+        : undefined,
+    request: compactedRequest,
+  };
+}
+
 async function parseLlmRequest(context: Context, env: AppEnv) {
   const contentLengthHeader = context.req.header('content-length');
+  const rawRequestMaxBytes = getRawRequestMaxBytes(env);
 
   if (contentLengthHeader) {
     const contentLength = Number.parseInt(contentLengthHeader, 10);
 
-    if (Number.isFinite(contentLength) && contentLength > env.LLM_REQUEST_MAX_BYTES) {
-      throw new RequestValidationError(`Request body is too large. Limit: ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413);
+    if (Number.isFinite(contentLength) && contentLength > rawRequestMaxBytes) {
+      throw new RequestValidationError('Request body is too large to process safely.', 413);
     }
   }
 
   const rawBody = await context.req.text();
-  const rawBodyBytes = new TextEncoder().encode(rawBody).byteLength;
+  const rawBodyBytes = textEncoder.encode(rawBody).byteLength;
 
-  if (rawBodyBytes > env.LLM_REQUEST_MAX_BYTES) {
-    throw new RequestValidationError(`Request body is too large. Limit: ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413);
+  if (rawBodyBytes > rawRequestMaxBytes) {
+    throw new RequestValidationError('Request body is too large to process safely.', 413);
   }
 
   let parsedBody: unknown;
@@ -105,7 +171,14 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
     throw new RequestValidationError('Request body must be valid JSON.');
   }
 
-  return createLlmRequestSchema(env).parse(parsedBody);
+  const request = createLlmRequestSchema(env).parse(parsedBody);
+  const compactedRequest = compactLlmRequest(request, env);
+
+  if (getRequestSizeBytes(compactedRequest.request) > env.LLM_REQUEST_MAX_BYTES) {
+    throw new RequestValidationError(`Request body is too large. Limit: ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413);
+  }
+
+  return compactedRequest;
 }
 
 export function createLlmOpenUiRoutes(env: AppEnv) {
@@ -119,10 +192,11 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
 
   llmRoutes.post('/llm/generate', async (context) => {
     try {
-      const request = await parseLlmRequest(context, env);
+      const { compaction, request } = await parseLlmRequest(context, env);
       const source = await generateOpenUiSource(env, request, context.req.raw.signal);
 
       return context.json({
+        compaction,
         model: env.OPENAI_MODEL,
         source,
       });
@@ -138,7 +212,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
 
   llmRoutes.post('/llm/generate/stream', async (context) => {
     try {
-      const request = await parseLlmRequest(context, env);
+      const { compaction, request } = await parseLlmRequest(context, env);
       const abortController = new AbortController();
       const encoder = new TextEncoder();
       const handleClientAbort = () => abortController.abort();
@@ -195,6 +269,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
               writeEvent(
                 'done',
                 JSON.stringify({
+                  compaction,
                   model: env.OPENAI_MODEL,
                   source: finalSource || streamedSource,
                 }),

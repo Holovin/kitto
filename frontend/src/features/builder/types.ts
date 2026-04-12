@@ -41,18 +41,34 @@ export interface BuilderLlmRequest {
   chatHistory: Array<Pick<BuilderChatMessage, 'content' | 'role'>>;
 }
 
+export interface BuilderLlmRequestCompaction {
+  compactedByBytes: boolean;
+  compactedByItemLimit: boolean;
+  omittedChatMessages: number;
+}
+
 export interface BuilderDemoSelection {
   id: string;
   label: string;
 }
 
 export interface BuilderLlmResponse {
+  compaction?: BuilderLlmRequestCompaction;
   model: string;
   source: string;
 }
 
+export interface BuilderConfigResponse {
+  limits: {
+    chatHistoryMaxItems: number;
+    promptMaxChars: number;
+    requestMaxBytes: number;
+  };
+}
+
 export interface HealthResponse {
   model: string;
+  openaiConfigured: boolean;
   status: 'ok';
   timestamp: string;
 }

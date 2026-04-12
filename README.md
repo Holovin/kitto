@@ -66,12 +66,12 @@ In development, Vite proxies `/api/*` to the backend. If you deploy the frontend
 The backend is intended for local use, but it still enforces basic request controls:
 
 - configurable request size limits
-- configurable prompt/chat/source length limits
+- configurable prompt and chat-history limits
 - configurable in-memory rate limiting for LLM endpoints
 - OpenAI request timeouts
 - stream cancellation when the browser disconnects
 
-Frontend request guards mirror the same limits for faster feedback, but the backend remains authoritative.
+Frontend request guards load the public prompt and chat-window limits from `/api/config` for faster feedback, but the backend remains authoritative.
 
 ## Documentation
 

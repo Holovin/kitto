@@ -32,8 +32,6 @@ cp backend/.env.example backend/.env
 ### LLM safeguards
 
 - `LLM_PROMPT_MAX_CHARS`
-- `LLM_CURRENT_SOURCE_MAX_CHARS`
-- `LLM_CHAT_MESSAGE_MAX_CHARS`
 - `LLM_CHAT_HISTORY_MAX_ITEMS`
 - `LLM_REQUEST_MAX_BYTES`
 - `LLM_RATE_LIMIT_MAX_REQUESTS`
@@ -55,6 +53,22 @@ Example response:
   "model": "gpt-5.4-mini",
   "timestamp": "2026-04-12T17:00:00.000Z",
   "openaiConfigured": true
+}
+```
+
+### `GET /api/config`
+
+Returns the frontend-safe runtime config that the browser loads at startup.
+
+Example response:
+
+```json
+{
+  "limits": {
+    "promptMaxChars": 4096,
+    "chatHistoryMaxItems": 40,
+    "requestMaxBytes": 300000
+  }
 }
 ```
 
@@ -87,6 +101,7 @@ Event types:
 ## Notes
 
 - The backend only exposes `/api/*` routes. Root-level `/health` and `/llm/*` are not part of the supported API anymore.
-- Request size and chat limits are enforced before the OpenAI call.
+- Request size and prompt limits are enforced before the OpenAI call.
+- `LLM_CHAT_HISTORY_MAX_ITEMS` controls the recent chat window sent to OpenAI, and the backend may compact older chat messages further when the request body would otherwise exceed `LLM_REQUEST_MAX_BYTES`.
 - Streaming requests abort the upstream OpenAI stream when the browser disconnects.
 - Rate limiting is in-memory and process-local, which is appropriate for this local project setup.

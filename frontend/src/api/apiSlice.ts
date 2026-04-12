@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { BuilderLlmRequest, BuilderLlmResponse, HealthResponse } from '@features/builder/types';
+import type { BuilderConfigResponse, BuilderLlmRequest, BuilderLlmResponse, HealthResponse } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 
 export const apiSlice = createApi({
@@ -8,6 +8,9 @@ export const apiSlice = createApi({
     baseUrl: getBackendApiBaseUrl(),
   }),
   endpoints: (builder) => ({
+    config: builder.query<BuilderConfigResponse, void>({
+      query: () => '/config',
+    }),
     health: builder.query<HealthResponse, void>({
       query: () => '/health',
     }),
@@ -21,4 +24,4 @@ export const apiSlice = createApi({
   }),
 });
 
-export const { useGenerateAppMutation, useHealthQuery } = apiSlice;
+export const { useConfigQuery, useGenerateAppMutation, useHealthQuery } = apiSlice;

@@ -1,4 +1,4 @@
-import type { BuilderLlmRequest } from '@features/builder/types';
+import type { BuilderLlmRequest, BuilderLlmRequestCompaction } from '@features/builder/types';
 
 interface StreamBuilderDefinitionOptions {
   apiBaseUrl: string;
@@ -8,8 +8,14 @@ interface StreamBuilderDefinitionOptions {
 }
 
 interface StreamDonePayload {
+  compaction?: BuilderLlmRequestCompaction;
   model?: string;
   source?: string;
+}
+
+export interface StreamBuilderDefinitionResult {
+  compaction?: BuilderLlmRequestCompaction;
+  source: string;
 }
 
 function parseServerSentEvent(eventBlock: string) {
@@ -51,7 +57,7 @@ export async function streamBuilderDefinition({
   onChunk,
   request,
   signal,
-}: StreamBuilderDefinitionOptions) {
+}: StreamBuilderDefinitionOptions): Promise<StreamBuilderDefinitionResult> {
   const response = await fetch(`${apiBaseUrl}/llm/generate/stream`, {
     method: 'POST',
     headers: {
@@ -106,7 +112,10 @@ export async function streamBuilderDefinition({
           throw new Error('Received a malformed "done" event from the backend stream.');
         }
 
-        return payload.source ?? fullSource;
+        return {
+          compaction: payload.compaction,
+          source: payload.source ?? fullSource,
+        };
       }
     }
 
@@ -119,5 +128,7 @@ export async function streamBuilderDefinition({
     throw new Error('The model stream ended before it returned any OpenUI source.');
   }
 
-  return fullSource;
+  return {
+    source: fullSource,
+  };
 }

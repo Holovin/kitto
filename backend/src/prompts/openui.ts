@@ -252,16 +252,22 @@ export interface PromptBuildRequest {
   prompt: string;
 }
 
+interface BuildOpenUiUserPromptOptions {
+  chatHistoryMaxItems?: number;
+}
+
 export function buildOpenUiSystemPrompt() {
   return systemPrompt;
 }
 
-export function buildOpenUiUserPrompt(request: PromptBuildRequest) {
+export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: BuildOpenUiUserPromptOptions = {}) {
   const prompt = typeof request.prompt === 'string' ? request.prompt : '';
   const currentSourceValue = typeof request.currentSource === 'string' ? request.currentSource : '';
   const chatHistory = Array.isArray(request.chatHistory) ? request.chatHistory : [];
+  const chatHistoryMaxItems =
+    typeof options.chatHistoryMaxItems === 'number' && options.chatHistoryMaxItems > 0 ? Math.floor(options.chatHistoryMaxItems) : 8;
   const recentHistory = chatHistory
-    .slice(-8)
+    .slice(-chatHistoryMaxItems)
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
     .join('\n');
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';

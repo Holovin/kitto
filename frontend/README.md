@@ -36,13 +36,8 @@ Available variables:
 
 - `VITE_API_BASE_URL` — backend base URL, default `/api`
 - `VITE_DEV_API_TARGET` — Vite proxy target in development
-- `VITE_LLM_PROMPT_MAX_CHARS`
-- `VITE_LLM_CURRENT_SOURCE_MAX_CHARS`
-- `VITE_LLM_CHAT_MESSAGE_MAX_CHARS`
-- `VITE_LLM_CHAT_HISTORY_MAX_ITEMS`
-- `VITE_LLM_REQUEST_MAX_BYTES`
 
-The request guard values are read in `src/features/builder/config.ts`.
+Request guard values are loaded from `GET /api/config` when the app boots.
 
 ## Development flow
 
@@ -55,9 +50,10 @@ By default:
 ## Key frontend features
 
 - health polling against `/api/health`
+- runtime config bootstrap from `/api/config`
 - streaming generation via SSE
 - fallback to non-streaming generation if streaming fails before the first chunk
-- client-side request-size checks before hitting the backend
+- client-side prompt and chat-window guards before hitting the backend
 - local persistence for builder and domain state through `redux-remember`
 - chat autoscroll and import/export of saved definitions
 

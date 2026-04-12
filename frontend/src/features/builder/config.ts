@@ -1,51 +1,40 @@
-import type { BuilderLlmRequest } from '@features/builder/types';
+import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
 
-function parsePositiveInteger(value: string | undefined, fallback: number) {
-  if (!value) {
+function parsePositiveInteger(value: unknown, fallback: number) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
     return fallback;
   }
 
-  const parsedValue = Number.parseInt(value, 10);
-  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
+  return value;
 }
 
 function formatLimitValue(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-export const builderRequestLimits = {
-  promptMaxChars: parsePositiveInteger(import.meta.env.VITE_LLM_PROMPT_MAX_CHARS, 40_000),
-  currentSourceMaxChars: parsePositiveInteger(import.meta.env.VITE_LLM_CURRENT_SOURCE_MAX_CHARS, 200_000),
-  chatMessageMaxChars: parsePositiveInteger(import.meta.env.VITE_LLM_CHAT_MESSAGE_MAX_CHARS, 20_000),
-  chatHistoryMaxItems: parsePositiveInteger(import.meta.env.VITE_LLM_CHAT_HISTORY_MAX_ITEMS, 40),
-  requestMaxBytes: parsePositiveInteger(import.meta.env.VITE_LLM_REQUEST_MAX_BYTES, 1_500_000),
-} as const;
+export const DEFAULT_BUILDER_REQUEST_LIMITS = {
+  promptMaxChars: 4_096,
+  chatHistoryMaxItems: 40,
+  requestMaxBytes: 300_000,
+};
 
-const textEncoder = new TextEncoder();
+export interface BuilderRequestLimits {
+  chatHistoryMaxItems: number;
+  promptMaxChars: number;
+  requestMaxBytes: number;
+}
 
-export function validateBuilderLlmRequest(request: BuilderLlmRequest) {
-  if (request.prompt.length > builderRequestLimits.promptMaxChars) {
-    return `Prompt is too large. Limit: ${formatLimitValue(builderRequestLimits.promptMaxChars)} characters.`;
-  }
+export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits {
+  return {
+    promptMaxChars: parsePositiveInteger(config?.limits.promptMaxChars, DEFAULT_BUILDER_REQUEST_LIMITS.promptMaxChars),
+    chatHistoryMaxItems: parsePositiveInteger(config?.limits.chatHistoryMaxItems, DEFAULT_BUILDER_REQUEST_LIMITS.chatHistoryMaxItems),
+    requestMaxBytes: parsePositiveInteger(config?.limits.requestMaxBytes, DEFAULT_BUILDER_REQUEST_LIMITS.requestMaxBytes),
+  };
+}
 
-  if (request.currentSource.length > builderRequestLimits.currentSourceMaxChars) {
-    return `Current source is too large. Limit: ${formatLimitValue(builderRequestLimits.currentSourceMaxChars)} characters.`;
-  }
-
-  if (request.chatHistory.length > builderRequestLimits.chatHistoryMaxItems) {
-    return `Chat history is too large. Limit: ${formatLimitValue(builderRequestLimits.chatHistoryMaxItems)} messages.`;
-  }
-
-  const oversizedMessage = request.chatHistory.find((message) => message.content.length > builderRequestLimits.chatMessageMaxChars);
-
-  if (oversizedMessage) {
-    return `One of the previous chat messages is too large. Limit: ${formatLimitValue(builderRequestLimits.chatMessageMaxChars)} characters per message.`;
-  }
-
-  const requestSizeBytes = textEncoder.encode(JSON.stringify(request)).byteLength;
-
-  if (requestSizeBytes > builderRequestLimits.requestMaxBytes) {
-    return `Request body is too large. Limit: ${formatLimitValue(builderRequestLimits.requestMaxBytes)} bytes.`;
+export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: BuilderRequestLimits) {
+  if (request.prompt.length > limits.promptMaxChars) {
+    return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
   }
 
   return null;

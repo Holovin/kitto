@@ -22,7 +22,7 @@ function getClient(env: AppEnv) {
   return cachedClient.client;
 }
 
-function buildResponseInput(request: PromptBuildRequest): ResponseInput {
+function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
   return [
     {
       role: 'system',
@@ -30,7 +30,7 @@ function buildResponseInput(request: PromptBuildRequest): ResponseInput {
     },
     {
       role: 'user',
-      content: [{ type: 'input_text', text: buildOpenUiUserPrompt(request) }],
+      content: [{ type: 'input_text', text: buildOpenUiUserPrompt(request, { chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS }) }],
     },
   ];
 }
@@ -101,7 +101,7 @@ export async function generateOpenUiSource(env: AppEnv, request: PromptBuildRequ
   const response = await client.responses.create(
     {
       model: env.OPENAI_MODEL,
-      input: buildResponseInput(request),
+      input: buildResponseInput(env, request),
     },
     {
       signal,
@@ -122,7 +122,7 @@ export async function streamOpenUiSource(
   const stream = client.responses.stream(
     {
       model: env.OPENAI_MODEL,
-      input: buildResponseInput(request),
+      input: buildResponseInput(env, request),
     },
     {
       signal,

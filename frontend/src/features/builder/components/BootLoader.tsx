@@ -9,7 +9,7 @@ export function BootLoader() {
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Kitto boot</p>
           <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Connecting to the backend</h2>
           <p className="text-sm leading-6 text-slate-600">
-            The fullscreen loader stays visible until the first health check finishes.
+            The fullscreen loader stays visible until the initial health check and runtime config finish loading.
           </p>
         </div>
       </div>
