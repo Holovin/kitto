@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { applySpecStreamPatch, parseSpecStreamLine, type Spec } from '@json-render/core';
-import type { GenerateRequest, RequestCompactionNotice } from './contracts';
+import type { GenerateRequest, GenerateResponse, RequestCompactionNotice } from './contracts';
 
 type TokenUsage = {
   promptTokens: number;
@@ -12,6 +12,11 @@ type UseSpecStreamOptions = {
   api: string;
   onComplete?: (spec: Spec) => void;
   onError?: (error: Error) => void;
+};
+
+type GenerateOnceResult = {
+  result: GenerateResponse;
+  requestCompactionNotice: RequestCompactionNotice | null;
 };
 
 function cloneSpec(spec: Spec | null | undefined): Spec {
@@ -67,6 +72,59 @@ function parseRequestCompactionNotice(headers: Headers): RequestCompactionNotice
   };
 }
 
+async function parseResponseError(response: Response) {
+  let errorMessage = `HTTP error: ${response.status}`;
+
+  try {
+    const errorData = (await response.json()) as { message?: string; error?: string };
+
+    if (errorData.message) {
+      errorMessage = errorData.message;
+    } else if (errorData.error) {
+      errorMessage = errorData.error;
+    }
+  } catch {
+    // Ignore JSON parsing failures and fall back to the HTTP status.
+  }
+
+  return new Error(errorMessage);
+}
+
+function parseStreamPatchLine(line: string) {
+  const patch = parseSpecStreamLine(line);
+
+  if (!patch) {
+    throw new Error('Invalid stream patch line received from backend.');
+  }
+
+  return patch;
+}
+
+export async function generateOnce(api: string, body: GenerateRequest, signal?: AbortSignal): Promise<GenerateOnceResult> {
+  const response = await fetch(api, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const requestCompactionNotice = parseRequestCompactionNotice(response.headers);
+
+  if (!response.ok) {
+    throw await parseResponseError(response);
+  }
+
+  const result = (await response.json()) as GenerateResponse;
+
+  if (!result?.spec || typeof result.spec !== 'object') {
+    throw new Error('Fallback response did not include a valid spec.');
+  }
+
+  return {
+    result,
+    requestCompactionNotice,
+  };
+}
+
 export function useSpecStream({ api, onComplete, onError }: UseSpecStreamOptions) {
   const [spec, setSpec] = useState<Spec | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -111,21 +169,7 @@ export function useSpecStream({ api, onComplete, onError }: UseSpecStreamOptions
         setRequestCompactionNotice(parseRequestCompactionNotice(response.headers));
 
         if (!response.ok) {
-          let errorMessage = `HTTP error: ${response.status}`;
-
-          try {
-            const errorData = (await response.json()) as { message?: string; error?: string };
-
-            if (errorData.message) {
-              errorMessage = errorData.message;
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
-            }
-          } catch {
-            // Ignore JSON parsing failures and fall back to the HTTP status.
-          }
-
-          throw new Error(errorMessage);
+          throw await parseResponseError(response);
         }
 
         const reader = response.body?.getReader();
@@ -162,11 +206,7 @@ export function useSpecStream({ api, onComplete, onError }: UseSpecStreamOptions
               continue;
             }
 
-            const patch = parseSpecStreamLine(trimmed);
-
-            if (!patch) {
-              continue;
-            }
+            const patch = parseStreamPatchLine(trimmed);
 
             setRawLines((previous) => [...previous, trimmed]);
             currentSpec = applySpecStreamPatch<Record<string, unknown>>(
@@ -184,16 +224,14 @@ export function useSpecStream({ api, onComplete, onError }: UseSpecStreamOptions
           if (usageLine) {
             setUsage(usageLine);
           } else {
-            const patch = parseSpecStreamLine(trimmed);
+            const patch = parseStreamPatchLine(trimmed);
 
-            if (patch) {
-              setRawLines((previous) => [...previous, trimmed]);
-              currentSpec = applySpecStreamPatch<Record<string, unknown>>(
-                currentSpec as unknown as Record<string, unknown>,
-                patch,
-              ) as unknown as Spec;
-              setSpec(cloneSpec(currentSpec));
-            }
+            setRawLines((previous) => [...previous, trimmed]);
+            currentSpec = applySpecStreamPatch<Record<string, unknown>>(
+              currentSpec as unknown as Record<string, unknown>,
+              patch,
+            ) as unknown as Spec;
+            setSpec(cloneSpec(currentSpec));
           }
         }
 

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Spec } from '@json-render/core';
-import { useHealthQuery, useRuntimeConfigQuery } from '@api/apiSlice';
+import { useRuntimeConfigQuery } from '@api/apiSlice';
 import { getApiUrl } from '@helpers/environment';
 import { ChatPanel } from '@features/builder/components/ChatPanel';
 import { PreviewTabs } from '@features/builder/components/PreviewTabs';
-import { useSpecStream } from '@features/builder/api/useSpecStream';
+import { generateOnce, useSpecStream } from '@features/builder/api/useSpecStream';
+import { useBackendStatus } from '@features/system/useBackendStatus';
 import {
   appendMessage,
   enqueueSnapshot,
@@ -30,7 +31,7 @@ import {
 } from '@features/builder/utils/state';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { BUILDER_RESET_SLICE_KEYS, clearRememberedSlices } from '@store/store';
-import type { RequestCompactionNotice } from '@features/builder/api/contracts';
+import type { GenerateRequest, RequestCompactionNotice } from '@features/builder/api/contracts';
 
 const previewDemoActions = [
   { id: 'todo-create', label: 'Create a todo list', presetId: 'todo' },
@@ -51,11 +52,25 @@ type StreamConversationMessage = {
 
 type PendingGenerationRequest = {
   prompt: string;
-  messages: StreamConversationMessage[];
-  previousSpec: Spec | null;
+  payload: GenerateRequest;
   runtimeState: BuilderRuntimeState;
   repairAttempt: number;
 };
+
+function cloneGenerateRequest(request: GenerateRequest): GenerateRequest {
+  return {
+    ...request,
+    currentSpec: cloneSpec(request.currentSpec ?? null),
+    messages: request.messages?.map((message) => ({ ...message })),
+    runtimeState: request.runtimeState ? cloneRuntimeState(request.runtimeState) : null,
+    repairContext: request.repairContext
+      ? {
+          ...request.repairContext,
+          rawLines: request.repairContext.rawLines ? [...request.repairContext.rawLines] : undefined,
+        }
+      : undefined,
+  };
+}
 
 function isRecoverableStreamError(streamError: Error, rawLines: string[]) {
   if (NON_RECOVERABLE_STREAM_ERROR_PATTERNS.some((pattern) => pattern.test(streamError.message))) {
@@ -102,23 +117,25 @@ export default function ChatPage() {
   const runtimeState = useAppSelector((state) => state.runtime);
   const [prompt, setPrompt] = useState('');
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [isFallbackGenerating, setIsFallbackGenerating] = useState(false);
+  const [fallbackRequestCompactionNotice, setFallbackRequestCompactionNotice] = useState<RequestCompactionNotice | null>(null);
   const activeRequestRef = useRef<PendingGenerationRequest | null>(null);
   const handledStreamErrorRef = useRef<string | null>(null);
+  const fallbackAbortControllerRef = useRef<AbortController | null>(null);
   const { data: runtimeConfig } = useRuntimeConfigQuery();
-  const { data: healthData, error: healthError, isLoading: healthLoading, isFetching: healthFetching } = useHealthQuery(undefined, {
-    pollingInterval: 30_000,
-  });
+  const { status: backendStatus } = useBackendStatus();
   const builderHistory = Array.isArray(builderState.history) ? builderState.history : [];
   const builderFuture = Array.isArray(builderState.future) ? builderState.future : [];
   const builderMessages = Array.isArray(builderState.messages) ? builderState.messages : [];
   const builderLastPrompt = typeof builderState.lastPrompt === 'string' ? builderState.lastPrompt : '';
+  const streamApi = getApiUrl('/llm/generate/stream');
+  const generateApi = getApiUrl('/llm/generate');
 
-  const { spec: streamedSpec, isStreaming, error, rawLines, send, requestCompactionNotice } = useSpecStream({
-    api: getApiUrl('/llm/generate/stream'),
-    onComplete: (nextSpec) => {
-      const completedRequest = activeRequestRef.current;
+  const applyGeneratedSpec = useCallback(
+    (nextSpec: Spec, completedRequest: PendingGenerationRequest | null) => {
       activeRequestRef.current = null;
       handledStreamErrorRef.current = null;
+      setIsFallbackGenerating(false);
       setPanelError(null);
       const mergedRuntimeState = mergeRuntimeStateWithSpec(nextSpec, completedRequest?.runtimeState ?? runtimeState);
 
@@ -134,18 +151,100 @@ export default function ChatPage() {
         }),
       );
     },
+    [dispatch, runtimeState],
+  );
+
+  const failGenerationRequest = useCallback(
+    (message: string) => {
+      activeRequestRef.current = null;
+      handledStreamErrorRef.current = null;
+      setIsFallbackGenerating(false);
+      dispatch(failGeneration(message));
+      dispatch(
+        appendMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `Generation failed: ${message}`,
+          createdAt: new Date().toISOString(),
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const { spec: streamedSpec, isStreaming, error, rawLines, send, clear, requestCompactionNotice } = useSpecStream({
+    api: streamApi,
+    onComplete: (nextSpec) => {
+      const completedRequest = activeRequestRef.current;
+      applyGeneratedSpec(nextSpec, completedRequest);
+    },
   });
 
+  useEffect(() => {
+    return () => {
+      fallbackAbortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const startFallbackGeneration = useCallback(
+    async (request: PendingGenerationRequest, streamError: Error) => {
+      fallbackAbortControllerRef.current?.abort();
+      const controller = new AbortController();
+
+      fallbackAbortControllerRef.current = controller;
+      setIsFallbackGenerating(true);
+
+      try {
+        const { result, requestCompactionNotice: fallbackNotice } = await generateOnce(
+          generateApi,
+          cloneGenerateRequest(request.payload),
+          controller.signal,
+        );
+
+        if (fallbackAbortControllerRef.current !== controller) {
+          return;
+        }
+
+        if (fallbackNotice) {
+          setFallbackRequestCompactionNotice(fallbackNotice);
+        }
+
+        applyGeneratedSpec(result.spec, request);
+      } catch (fallbackError) {
+        if (fallbackError instanceof DOMException && fallbackError.name === 'AbortError') {
+          return;
+        }
+
+        const nextError = fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError));
+        const finalMessage =
+          nextError.message === streamError.message
+            ? nextError.message
+            : `Stream request failed: ${streamError.message}. Fallback request failed: ${nextError.message}`;
+
+        failGenerationRequest(finalMessage);
+      } finally {
+        if (fallbackAbortControllerRef.current === controller) {
+          fallbackAbortControllerRef.current = null;
+          setIsFallbackGenerating(false);
+        }
+      }
+    },
+    [applyGeneratedSpec, failGenerationRequest, generateApi],
+  );
+
+  const isGenerating = isStreaming || isFallbackGenerating;
   const streamVisibleSpec = streamedSpec && streamedSpec.root ? streamedSpec : null;
-  const activeSpec = (isStreaming ? streamVisibleSpec : builderState.spec) as Spec | null;
+  const activeSpec = (isGenerating ? streamVisibleSpec ?? builderState.spec : builderState.spec) as Spec | null;
   const definitionState = useMemo(() => getDefinitionValidation(activeSpec), [activeSpec]);
-  const canUndo = builderHistory.length > 0 && !isStreaming;
-  const canRedo = builderFuture.length > 0 && !isStreaming;
-  const isBackendDisconnected = !healthLoading && !healthFetching && !healthData && Boolean(healthError);
-  const requestError = builderState.request.error ?? error?.message ?? null;
+  const canUndo = builderHistory.length > 0 && !isGenerating;
+  const canRedo = builderFuture.length > 0 && !isGenerating;
+  const requestError = builderState.request.error ?? null;
   const promptMaxChars = runtimeConfig?.limits.promptMaxChars ?? null;
   const chatHistoryMaxItems = runtimeConfig?.limits.chatHistoryMaxItems ?? Number.POSITIVE_INFINITY;
-  const requestNotice = useMemo(() => formatRequestCompactionNotice(requestCompactionNotice), [requestCompactionNotice]);
+  const requestNotice = useMemo(
+    () => formatRequestCompactionNotice(fallbackRequestCompactionNotice ?? requestCompactionNotice),
+    [fallbackRequestCompactionNotice, requestCompactionNotice],
+  );
 
   useEffect(() => {
     if (!error || isStreaming) {
@@ -163,8 +262,17 @@ export default function ChatPage() {
 
     if (currentRequest && isRecoverableStreamError(error, rawLines) && currentRequest.repairAttempt < MAX_STREAM_REPAIR_ATTEMPTS) {
       const repairAttempt = currentRequest.repairAttempt + 1;
+      const repairPayload: GenerateRequest = {
+        ...cloneGenerateRequest(currentRequest.payload),
+        repairContext: {
+          attempt: repairAttempt,
+          error: error.message,
+          rawLines: rawLines.slice(-40),
+        },
+      };
       const repairRequest: PendingGenerationRequest = {
         ...currentRequest,
+        payload: repairPayload,
         repairAttempt,
       };
 
@@ -178,36 +286,22 @@ export default function ChatPage() {
         }),
       );
       dispatch(startGeneration({ prompt: repairRequest.prompt }));
-      void send({
-        prompt: repairRequest.prompt,
-        currentSpec: cloneSpec(repairRequest.previousSpec),
-        messages: repairRequest.messages,
-        runtimeState: cloneRuntimeState(repairRequest.runtimeState),
-        repairContext: {
-          attempt: repairAttempt,
-          error: error.message,
-          rawLines: rawLines.slice(-40),
-        },
-      });
+      void send(cloneGenerateRequest(repairRequest.payload));
       return;
     }
 
-    activeRequestRef.current = null;
-    dispatch(failGeneration(error.message));
-    dispatch(
-      appendMessage({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Generation failed: ${error.message}`,
-        createdAt: new Date().toISOString(),
-      }),
-    );
-  }, [dispatch, error, isStreaming, rawLines, send]);
+    if (!currentRequest) {
+      failGenerationRequest(error.message);
+      return;
+    }
+
+    void startFallbackGeneration(currentRequest, error);
+  }, [dispatch, error, failGenerationRequest, isStreaming, rawLines, send, startFallbackGeneration]);
 
   async function handleSend() {
     const trimmedPrompt = prompt.trim();
 
-    if (!trimmedPrompt || isStreaming) {
+    if (!trimmedPrompt || isGenerating) {
       return;
     }
 
@@ -224,7 +318,9 @@ export default function ChatPage() {
     dispatch(startGeneration({ prompt: trimmedPrompt }));
     setPanelError(null);
     setPrompt('');
+    setFallbackRequestCompactionNotice(null);
     handledStreamErrorRef.current = null;
+    fallbackAbortControllerRef.current?.abort();
 
     const streamMessages = nextMessages
       .filter((message) => message.role !== 'system')
@@ -233,21 +329,23 @@ export default function ChatPage() {
         role: message.role === 'user' ? 'user' : 'assistant',
         content: message.content,
       })) as StreamConversationMessage[];
+    const previousSpec = cloneSpec(builderState.spec);
+    const nextRuntimeState = cloneRuntimeState(runtimeState);
+    const payload: GenerateRequest = {
+      prompt: trimmedPrompt,
+      currentSpec: cloneSpec(previousSpec),
+      messages: streamMessages,
+      runtimeState: cloneRuntimeState(nextRuntimeState),
+    };
     const request: PendingGenerationRequest = {
       prompt: trimmedPrompt,
-      messages: streamMessages,
-      previousSpec: cloneSpec(builderState.spec),
-      runtimeState: cloneRuntimeState(runtimeState),
+      payload,
+      runtimeState: nextRuntimeState,
       repairAttempt: 0,
     };
     activeRequestRef.current = request;
 
-    await send({
-      prompt: trimmedPrompt,
-      currentSpec: cloneSpec(request.previousSpec),
-      messages: request.messages,
-      runtimeState: cloneRuntimeState(request.runtimeState),
-    });
+    await send(cloneGenerateRequest(request.payload));
   }
 
   function handleUndo() {
@@ -285,8 +383,12 @@ export default function ChatPage() {
   }
 
   function handleResetEmpty() {
+    fallbackAbortControllerRef.current?.abort();
     activeRequestRef.current = null;
     handledStreamErrorRef.current = null;
+    setIsFallbackGenerating(false);
+    setFallbackRequestCompactionNotice(null);
+    clear();
     dispatch(resetBuilderState());
     dispatch(resetRuntimeState());
     clearRememberedSlices(BUILDER_RESET_SLICE_KEYS);
@@ -387,15 +489,15 @@ export default function ChatPage() {
         onResetEmpty={handleResetEmpty}
         canUndo={canUndo}
         canRedo={canRedo}
-        isStreaming={isStreaming}
+        isStreaming={isGenerating}
         requestError={requestError}
         requestNotice={requestNotice}
-        backendDisconnected={isBackendDisconnected}
+        backendStatus={backendStatus}
       />
 
       <PreviewTabs
         spec={activeSpec}
-        isStreaming={isStreaming}
+        isStreaming={isGenerating}
         definitionJson={definitionState.prettyJson}
         structuralIssues={definitionState.structuralIssues}
         catalogIssues={definitionState.catalogIssues}

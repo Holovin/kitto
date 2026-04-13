@@ -2,11 +2,11 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
-import { useHealthQuery } from '@api/apiSlice';
+import { useBackendStatus } from '@features/system/useBackendStatus';
 import { SiteRoutes } from '@router/siteRoutes';
 
 export default function HomePage() {
-  const { data } = useHealthQuery();
+  const { model } = useBackendStatus();
 
   return (
     <section>
@@ -25,7 +25,7 @@ export default function HomePage() {
             <Link to={SiteRoutes.catalog.path}>Open catalog</Link>
           </Button>
           <div className="rounded-full border border-border/70 bg-background/70 px-4 py-2 text-sm text-muted-foreground">
-            Backend model: {data?.model ?? 'gpt-5.4-mini'}
+            Backend model: {model}
           </div>
         </CardContent>
       </Card>

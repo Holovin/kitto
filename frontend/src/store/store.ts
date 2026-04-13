@@ -4,10 +4,9 @@ import { apiSlice } from '@api/apiSlice';
 import { builderReducer, normalizeBuilderState, type BuilderState } from '@features/builder/store/builderSlice';
 import { runtimeReducer } from '@features/builder/store/runtimeSlice';
 import { ensureRuntimeShape, type BuilderRuntimeState } from '@features/builder/utils/state';
-import { settingsReducer } from './settingsSlice';
 
 export const REMEMBER_PREFIX = '@@remember-';
-export const REMEMBERED_SLICE_KEYS = ['settings', 'builder', 'runtime'] as const;
+export const REMEMBERED_SLICE_KEYS = ['builder', 'runtime'] as const;
 export const BUILDER_RESET_SLICE_KEYS = ['builder', 'runtime'] as const;
 
 const safeBuilderReducer = (state: BuilderState | undefined, action: Parameters<typeof builderReducer>[1]) =>
@@ -19,7 +18,6 @@ const safeRuntimeReducer = (state: BuilderRuntimeState | undefined, action: Para
 const combinedReducer = combineReducers({
   builder: safeBuilderReducer,
   runtime: safeRuntimeReducer,
-  settings: settingsReducer,
   [apiSlice.reducerPath]: apiSlice.reducer,
 });
 

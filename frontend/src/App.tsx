@@ -1,16 +1,17 @@
-import { useRuntimeConfigQuery } from '@api/apiSlice';
-import { FullscreenBootLoader } from '@features/builder/components/FullscreenBootLoader';
+import { FullscreenBootErrorState, FullscreenBootLoader } from '@features/builder/components/FullscreenBootLoader';
+import { useAppBootstrap } from '@features/system/useAppBootstrap';
 import { RouterProvider } from 'react-router-dom';
 import { router } from '@router/router';
 
 export default function App() {
-  const { data, error, isLoading } = useRuntimeConfigQuery(undefined, {
-    refetchOnFocus: true,
-    refetchOnReconnect: true,
-  });
+  const { hasBootError, healthErrorMessage, isBootstrapping, retryHealthCheck } = useAppBootstrap();
 
-  if (isLoading && !data && !error) {
+  if (isBootstrapping) {
     return <FullscreenBootLoader />;
+  }
+
+  if (hasBootError) {
+    return <FullscreenBootErrorState message={healthErrorMessage} onRetry={() => void retryHealthCheck()} />;
   }
 
   return <RouterProvider router={router} />;

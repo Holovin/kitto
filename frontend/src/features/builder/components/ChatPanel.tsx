@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { ScrollArea } from '@components/ui/scroll-area';
 import { Separator } from '@components/ui/separator';
 import { Textarea } from '@components/ui/textarea';
+import type { BackendStatus } from '@features/system/useBackendStatus';
 import { cn } from '@lib/utils';
 import type { BuilderMessage } from '../utils/state';
 
@@ -27,7 +28,7 @@ type ChatPanelProps = {
   isStreaming: boolean;
   requestError: string | null;
   requestNotice: string | null;
-  backendDisconnected: boolean;
+  backendStatus: BackendStatus;
 };
 
 function MessageBubble({ message }: { message: BuilderMessage }) {
@@ -66,7 +67,7 @@ export function ChatPanel({
   isStreaming,
   requestError,
   requestNotice,
-  backendDisconnected,
+  backendStatus,
 }: ChatPanelProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -165,10 +166,17 @@ export function ChatPanel({
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-5 pt-4 md:px-6 md:pb-6">
-        {backendDisconnected ? (
+        {backendStatus === 'offline' ? (
           <div className="mb-4 rounded-[1.5rem] border border-destructive/20 bg-destructive/10 px-5 py-4 text-sm text-destructive">
             Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until `/api/health`
             recovers.
+          </div>
+        ) : null}
+
+        {backendStatus === 'misconfigured' ? (
+          <div className="mb-4 rounded-[1.5rem] border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-950">
+            Backend is reachable, but OpenAI is not configured. You can review the current definition, but new prompts will fail until
+            `OPENAI_API_KEY` is configured.
           </div>
         ) : null}
 
