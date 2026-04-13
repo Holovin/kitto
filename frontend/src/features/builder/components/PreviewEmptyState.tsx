@@ -3,6 +3,7 @@ import { Button } from '@components/ui/button';
 import { BUILDER_DEMO_PRESETS } from '@features/builder/openui/runtime/demos';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { builderActions } from '@features/builder/store/builderSlice';
+import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
 import { useAppDispatch } from '@store/hooks';
 
@@ -27,11 +28,13 @@ export function PreviewEmptyState() {
     }
 
     const nextDomainData = structuredClone(demoPreset.domainData);
+    const snapshot = createBuilderSnapshot(demoPreset.source, {}, nextDomainData);
     dispatch(domainActions.replaceData(nextDomainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));
     dispatch(
       builderActions.applyDemoDefinition({
         label: demoPreset.label,
-        snapshot: createBuilderSnapshot(demoPreset.source, {}, nextDomainData),
+        snapshot,
       }),
     );
   }

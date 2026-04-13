@@ -1,4 +1,5 @@
 import type { BuilderLlmRequest, BuilderLlmRequestCompaction } from '@features/builder/types';
+import { createBuilderRequestError } from './requestErrors';
 
 interface StreamBuilderDefinitionOptions {
   apiBaseUrl: string;
@@ -13,7 +14,7 @@ interface StreamDonePayload {
   source?: string;
 }
 
-export interface StreamBuilderDefinitionResult {
+interface StreamBuilderDefinitionResult {
   compaction?: BuilderLlmRequestCompaction;
   source: string;
 }
@@ -40,16 +41,20 @@ function parseServerSentEvent(eventBlock: string) {
   };
 }
 
-async function getResponseErrorMessage(response: Response) {
+async function getResponseError(response: Response) {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
-    const payload = (await response.json()) as { error?: string };
-    return payload.error ?? `Request failed with status ${response.status}`;
+    return createBuilderRequestError(await response.json(), {
+      message: `Request failed with status ${response.status}.`,
+      status: response.status,
+    });
   }
 
-  const text = await response.text();
-  return text || `Request failed with status ${response.status}`;
+  return createBuilderRequestError(await response.text(), {
+    message: `Request failed with status ${response.status}.`,
+    status: response.status,
+  });
 }
 
 export async function streamBuilderDefinition({
@@ -69,7 +74,7 @@ export async function streamBuilderDefinition({
   });
 
   if (!response.ok) {
-    throw new Error(await getResponseErrorMessage(response));
+    throw await getResponseError(response);
   }
 
   if (!response.body) {
@@ -100,7 +105,9 @@ export async function streamBuilderDefinition({
       }
 
       if (parsedEvent.event === 'error') {
-        throw new Error(parsedEvent.data || 'The backend stream returned an error.');
+        throw createBuilderRequestError(parsedEvent.data, {
+          message: 'The backend stream returned an error.',
+        });
       }
 
       if (parsedEvent.event === 'done') {

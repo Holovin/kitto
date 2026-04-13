@@ -1,4 +1,4 @@
-export interface ElementDemoDefinition {
+interface ElementDemoDefinition {
   initialDomainData?: Record<string, unknown>;
   initialRuntimeState?: Record<string, unknown>;
   source: string;
@@ -6,37 +6,49 @@ export interface ElementDemoDefinition {
 
 export const ELEMENT_DEMO_DEFINITIONS: Record<string, ElementDemoDefinition> = {
   AppShell: {
-    source: `$screen = "overview"
+    initialDomainData: {
+      navigation: {
+        currentScreenId: 'overview',
+      },
+    },
+    source: `showOverview = Mutation("navigate_screen", { screenId: "overview" })
+showDetails = Mutation("navigate_screen", { screenId: "details" })
 
-root = AppShell("AppShell demo", null, [
-  Screen("overview", "Overview", $screen == "overview", [
+root = AppShell("AppShell demo", [
+  Screen("overview", "Overview", null, [
     Group("Root shell", "AppShell wraps the whole generated app and renders active screens below the title.", "vertical", [
       Text("Switch between screens to inspect how the shell behaves.", "body", "start"),
-      Button("Show details", "secondary", Action([@Set($screen, "details")]), false)
+      Button("Show details", "secondary", Action([@Run(showDetails)]), false)
     ])
   ]),
-  Screen("details", "Details", $screen == "details", [
+  Screen("details", "Details", null, [
     Group("Nested content", "This is still rendered inside the same AppShell.", "vertical", [
       Text("Only the active Screen is visible at a time.", "body", "start"),
-      Button("Show overview", "ghost", Action([@Set($screen, "overview")]), false)
+      Button("Show overview", "ghost", Action([@Run(showOverview)]), false)
     ])
   ])
 ])`,
   },
   Screen: {
-    source: `$activeScreen = "alpha"
+    initialDomainData: {
+      navigation: {
+        currentScreenId: 'alpha',
+      },
+    },
+    source: `showAlpha = Mutation("navigate_screen", { screenId: "alpha" })
+showBeta = Mutation("navigate_screen", { screenId: "beta" })
 
-root = AppShell("Screen demo", null, [
-  Screen("alpha", "Alpha", $activeScreen == "alpha", [
-    Group("First screen", "Toggle which Screen is active.", "vertical", [
+root = AppShell("Screen demo", [
+  Screen("alpha", "Alpha", null, [
+    Group("First screen", "Toggle which Screen is active through persisted navigation.currentScreenId.", "vertical", [
       Text("Alpha is visible right now.", "body", "start"),
-      Button("Go to beta", "default", Action([@Set($activeScreen, "beta")]), false)
+      Button("Go to beta", "default", Action([@Run(showBeta)]), false)
     ])
   ]),
-  Screen("beta", "Beta", $activeScreen == "beta", [
-    Group("Second screen", "Only one Screen should render at a time.", "vertical", [
+  Screen("beta", "Beta", null, [
+    Group("Second screen", "isActive stays optional here; explicit booleans still override this automatic flow.", "vertical", [
       Text("Beta is active.", "body", "start"),
-      Button("Go to alpha", "secondary", Action([@Set($activeScreen, "alpha")]), false)
+      Button("Go to alpha", "secondary", Action([@Run(showAlpha)]), false)
     ])
   ])
 ])`,
@@ -50,7 +62,7 @@ roleOptions = [
   { label: "Designer", value: "designer" }
 ]
 
-root = AppShell("Group demo", null, [
+root = AppShell("Group demo", [
   Screen("main", "Layout", true, [
     Group("Vertical group", "Typical stacked form content.", "vertical", [
       Input("name", "Name", $name, "Ada Lovelace", null),
@@ -82,7 +94,7 @@ rows = @Each(items, "item", Group(null, null, "horizontal", [
   Text(item.label, "body", "start")
 ]))
 
-root = AppShell("Repeater demo", null, [
+root = AppShell("Repeater demo", [
   Screen("main", "Rows", true, [
     Group("Data source", "Append rows to watch Repeater redraw.", "vertical", [
       Input("draft", "New row", $draft, "Add row", null),
@@ -96,7 +108,7 @@ root = AppShell("Repeater demo", null, [
 ])`,
   },
   Text: {
-    source: `root = AppShell("Text demo", null, [
+    source: `root = AppShell("Text demo", [
   Screen("main", "Typography", true, [
     Group("Text variants", "Inspect the supported tones and alignment props.", "vertical", [
       Text("Eyebrow label", "eyebrow", "start"),
@@ -112,7 +124,7 @@ root = AppShell("Repeater demo", null, [
   Input: {
     source: `$name = "Ada Lovelace"
 
-root = AppShell("Input demo", null, [
+root = AppShell("Input demo", [
   Screen("main", "Main", true, [
     Group("Bound field", null, "vertical", [
       Input("name", "Name", $name, "Ada Lovelace", null),
@@ -124,7 +136,7 @@ root = AppShell("Input demo", null, [
   TextArea: {
     source: `$notes = "This textarea is bound to local reactive state."
 
-root = AppShell("TextArea demo", null, [
+root = AppShell("TextArea demo", [
   Screen("main", "Main", true, [
     Group("Long-form input", "Type to inspect multiline binding.", "vertical", [
       TextArea("notes", "Notes", $notes, "Write something longer", null),
@@ -136,7 +148,7 @@ root = AppShell("TextArea demo", null, [
   Checkbox: {
     source: `$accepted = false
 
-root = AppShell("Checkbox demo", null, [
+root = AppShell("Checkbox demo", [
   Screen("main", "Main", true, [
     Group("Toggle", "Checkbox writes boolean state directly.", "vertical", [
       Checkbox("accepted", "I accept the agreement", $accepted, "Toggle me to inspect checked state."),
@@ -154,7 +166,7 @@ planOptions = [
   { label: "Enterprise", value: "enterprise" }
 ]
 
-root = AppShell("RadioGroup demo", null, [
+root = AppShell("RadioGroup demo", [
   Screen("main", "Main", true, [
     Group("Single choice", "Pick one option at a time.", "vertical", [
       RadioGroup("plan", "Plan", $plan, planOptions, "Only one value can be active."),
@@ -172,7 +184,7 @@ frequencyOptions = [
   { label: "Monthly", value: "monthly" }
 ]
 
-root = AppShell("Select demo", null, [
+root = AppShell("Select demo", [
   Screen("main", "Main", true, [
     Group("Dropdown", "Use Select for compact option sets.", "vertical", [
       Select("frequency", "Frequency", $frequency, frequencyOptions, null),
@@ -184,7 +196,7 @@ root = AppShell("Select demo", null, [
   Button: {
     source: `$count = 0
 
-root = AppShell("Button demo", null, [
+root = AppShell("Button demo", [
   Screen("main", "Main", true, [
     Group("Variants", "Inspect click behavior and variants.", "vertical", [
       Text("Clicks: " + $count, "title", "start"),
@@ -198,7 +210,7 @@ root = AppShell("Button demo", null, [
 ])`,
   },
   Link: {
-    source: `root = AppShell("Link demo", null, [
+    source: `root = AppShell("Link demo", [
   Screen("main", "Main", true, [
     Group("Anchors", "Inspect the visual treatment of links.", "vertical", [
       Link("Open OpenAI docs", "https://platform.openai.com/docs", true),

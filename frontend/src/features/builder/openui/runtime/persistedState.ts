@@ -40,7 +40,7 @@ export function createBuilderSnapshot(
   };
 }
 
-export function createDefinitionExport(
+function createDefinitionExport(
   source: string,
   runtimeState: Record<string, unknown>,
   domainData: Record<string, unknown>,
@@ -78,17 +78,21 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
 
 export function parseImportedDefinition(rawValue: string) {
   const parsedValue = builderDefinitionSchema.parse(JSON.parse(rawValue));
+  const normalizedHistory =
+    parsedValue.history.length > 0
+      ? parsedValue.history.map((snapshot) => {
+          const initialRuntimeState = snapshot.initialRuntimeState ?? snapshot.runtimeState;
+          const initialDomainData = snapshot.initialDomainData ?? snapshot.domainData;
+
+          return createBuilderSnapshot(snapshot.source, initialRuntimeState, initialDomainData, {
+            initialRuntimeState,
+            initialDomainData,
+          });
+        })
+      : [createBuilderSnapshot(parsedValue.source, parsedValue.runtimeState, parsedValue.domainData)];
 
   return {
     ...parsedValue,
-    history:
-      parsedValue.history.length > 0
-        ? parsedValue.history.map((snapshot) =>
-            createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
-              initialRuntimeState: snapshot.initialRuntimeState ?? {},
-              initialDomainData: snapshot.initialDomainData ?? DEFAULT_DOMAIN_DATA,
-            }),
-          )
-        : [createBuilderSnapshot(parsedValue.source, parsedValue.runtimeState, parsedValue.domainData)],
+    history: normalizedHistory,
   };
 }

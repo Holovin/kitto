@@ -1,0 +1,114 @@
+import { APIConnectionError, APIConnectionTimeoutError, APIError } from 'openai';
+import { ZodError } from 'zod';
+
+type PublicErrorCode = 'internal_error' | 'timeout_error' | 'upstream_error' | 'validation_error';
+type ValidationStatus = 400 | 413;
+type PublicErrorStatus = ValidationStatus | 500 | 502 | 504;
+
+interface PublicError {
+  code: PublicErrorCode;
+  message: string;
+  status: PublicErrorStatus;
+}
+
+interface PublicErrorPayload {
+  code: PublicErrorCode;
+  error: string;
+  status: PublicErrorStatus;
+}
+
+interface RequestValidationErrorOptions {
+  publicMessage?: string;
+}
+
+export class RequestValidationError extends Error {
+  readonly publicMessage: string;
+  readonly status: ValidationStatus;
+
+  constructor(message: string, status: ValidationStatus = 400, options?: RequestValidationErrorOptions) {
+    super(message);
+    this.name = 'RequestValidationError';
+    this.status = status;
+    this.publicMessage = options?.publicMessage ?? message;
+  }
+}
+
+export class UpstreamFailureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UpstreamFailureError';
+  }
+}
+
+function getValidationMessage(error: ZodError) {
+  if (error.issues.some((issue) => issue.code === 'too_big')) {
+    return 'Request body is too large to process safely.';
+  }
+
+  return 'The request payload is invalid.';
+}
+
+function isTimeoutError(error: unknown) {
+  if (error instanceof APIConnectionTimeoutError) {
+    return true;
+  }
+
+  return error instanceof Error && (error.name === 'APIConnectionTimeoutError' || error.name === 'TimeoutError');
+}
+
+function toPublicError(error: unknown): PublicError {
+  if (error instanceof RequestValidationError) {
+    return {
+      code: 'validation_error',
+      message: error.publicMessage,
+      status: error.status,
+    };
+  }
+
+  if (error instanceof ZodError) {
+    return {
+      code: 'validation_error',
+      message: getValidationMessage(error),
+      status: 400,
+    };
+  }
+
+  if (isTimeoutError(error)) {
+    return {
+      code: 'timeout_error',
+      message: 'The model request timed out.',
+      status: 504,
+    };
+  }
+
+  if (error instanceof UpstreamFailureError || error instanceof APIConnectionError || error instanceof APIError) {
+    return {
+      code: 'upstream_error',
+      message: 'The model service could not complete the request.',
+      status: 502,
+    };
+  }
+
+  return {
+    code: 'internal_error',
+    message: 'Internal server error.',
+    status: 500,
+  };
+}
+
+export function toPublicErrorPayload(error: unknown): PublicErrorPayload {
+  const publicError = toPublicError(error);
+
+  return {
+    code: publicError.code,
+    error: publicError.message,
+    status: publicError.status,
+  };
+}
+
+export function logServerError(error: unknown, scope: string) {
+  const publicError = toPublicError(error);
+  const logMethod = publicError.code === 'validation_error' ? console.warn : console.error;
+
+  logMethod(`[${scope}] ${publicError.status} ${publicError.code}`, error);
+}

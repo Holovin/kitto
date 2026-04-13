@@ -12,13 +12,13 @@ function formatLimitValue(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-export const DEFAULT_BUILDER_REQUEST_LIMITS = {
+const DEFAULT_BUILDER_REQUEST_LIMITS = {
   promptMaxChars: 4_096,
   chatHistoryMaxItems: 40,
   requestMaxBytes: 300_000,
 };
 
-export interface BuilderRequestLimits {
+interface BuilderRequestLimits {
   chatHistoryMaxItems: number;
   promptMaxChars: number;
   requestMaxBytes: number;

@@ -7,7 +7,6 @@ export const AppShellComponent = defineComponent({
   description: 'Root container for the generated app. Use it once as the root statement and pass Screen children.',
   props: z.object({
     title: nullableTextSchema.describe('Primary heading for the generated app shell.'),
-    description: nullableTextSchema.describe('Short supporting copy under the title.'),
     children: z.array(z.unknown()).default([]).describe('Screen or Group children rendered inside the shell.'),
   }),
   component: ({ props, renderNode }) => (

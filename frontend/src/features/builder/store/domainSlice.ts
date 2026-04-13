@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 import { appendPathValue, mergePathValue, removePathValue, writePathValue } from './path';
 
-export interface DomainState {
+interface DomainState {
   data: Record<string, unknown>;
 }
 
@@ -10,15 +10,23 @@ const initialState: DomainState = {
   data: structuredClone(DEFAULT_DOMAIN_DATA),
 };
 
-export function normalizeDomainState(value: unknown): DomainState {
+export function normalizeDomainState(
+  value: unknown,
+  fallbackData: Record<string, unknown> = DEFAULT_DOMAIN_DATA,
+): DomainState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return structuredClone(initialState);
+    return {
+      data: structuredClone(fallbackData),
+    };
   }
 
   const candidateData = (value as { data?: unknown }).data;
 
   return {
-    data: candidateData && typeof candidateData === 'object' && !Array.isArray(candidateData) ? (candidateData as Record<string, unknown>) : structuredClone(DEFAULT_DOMAIN_DATA),
+    data:
+      candidateData && typeof candidateData === 'object' && !Array.isArray(candidateData)
+        ? (candidateData as Record<string, unknown>)
+        : structuredClone(fallbackData),
   };
 }
 

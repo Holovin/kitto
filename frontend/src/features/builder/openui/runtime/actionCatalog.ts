@@ -1,4 +1,4 @@
-export interface OpenUiActionDefinition {
+interface OpenUiActionDefinition {
   inputSchema: Record<string, unknown>;
   name: string;
   signature: string;

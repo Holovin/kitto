@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../env.js';
+import { UpstreamFailureError } from '../errors/publicError.js';
 import { buildOpenUiSystemPrompt, buildOpenUiUserPrompt, type PromptBuildRequest } from '../prompts/openui.js';
 
 let cachedClient: { apiKey: string; client: OpenAI } | null = null;
@@ -80,13 +81,13 @@ function extractResponseText(response: unknown) {
 
 function normalizeOpenUiSource(rawSource: unknown) {
   if (typeof rawSource !== 'string') {
-    throw new Error('The model response did not include text output.');
+    throw new UpstreamFailureError('The model response did not include text output.');
   }
 
   const trimmedSource = rawSource.trim();
 
   if (!trimmedSource) {
-    throw new Error('The model returned an empty OpenUI document.');
+    throw new UpstreamFailureError('The model returned an empty OpenUI document.');
   }
 
   if (!trimmedSource.startsWith('```')) {

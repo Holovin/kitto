@@ -4,6 +4,7 @@ import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
+import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { streamBuilderDefinition } from '@features/builder/api/streamGenerate';
 import { getBuilderRequestLimits, validateBuilderLlmRequest } from '@features/builder/config';
 import { createResetDefinitionExport, createBuilderSnapshot, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
@@ -19,6 +20,7 @@ import {
   selectRedoHistory,
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
+import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
 import type { BuilderChatMessage, BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderParseIssue } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
@@ -26,11 +28,7 @@ import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { resetAppState } from '@store/errorRecovery';
 
 function getRequestErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'The request failed before the builder received a valid response.';
+  return getBuilderRequestErrorMessage(error);
 }
 
 function getMessageBubbleClasses(message: BuilderChatMessage) {
@@ -283,6 +281,7 @@ export function ChatPanel() {
         );
       }
 
+      dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));
       dispatch(
         builderActions.completeStreaming({
           source: validatedResult.source,
@@ -310,6 +309,7 @@ export function ChatPanel() {
             );
           }
 
+          dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));
           dispatch(
             builderActions.completeStreaming({
               source: validatedResult.source,
@@ -365,6 +365,7 @@ export function ChatPanel() {
       const importedDefinition = parseImportedDefinition(rawValue);
       resetAppState();
       dispatch(domainActions.replaceData(importedDefinition.domainData));
+      dispatch(builderSessionActions.replaceRuntimeSessionState(importedDefinition.runtimeState));
       dispatch(
         builderActions.loadDefinition({
           source: importedDefinition.source,
@@ -387,6 +388,7 @@ export function ChatPanel() {
     }
 
     dispatch(domainActions.replaceData(previousSnapshot.domainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(previousSnapshot.runtimeState));
     dispatch(builderActions.undoLatest());
   }
 
@@ -396,6 +398,7 @@ export function ChatPanel() {
     }
 
     dispatch(domainActions.replaceData(redoSnapshot.domainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(redoSnapshot.runtimeState));
     dispatch(builderActions.redoLatest());
   }
 

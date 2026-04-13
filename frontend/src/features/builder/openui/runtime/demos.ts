@@ -1,4 +1,4 @@
-export interface BuilderDemoPreset {
+interface BuilderDemoPreset {
   description: string;
   domainData: Record<string, unknown>;
   id: string;
@@ -27,7 +27,7 @@ filterOptions = [
   { value: "active", label: "Active only" },
   { value: "completed", label: "Completed only" }
 ]
-root = AppShell("Starter task board", "Todo demo with due dates, filtering, local persistence, and collection rendering.", [
+root = AppShell("Starter task board", [
   Screen("main", "Task builder", true, [
     Group("Compose", "These controls write into local persisted browser state.", "vertical", [
       Input("taskTitle", "Task title", $taskTitle, "Create a todo list", null),
@@ -45,8 +45,7 @@ root = AppShell("Starter task board", "Todo demo with due dates, filtering, loca
   ])
 ])`;
 
-const quizDemoSource = `$screen = "intro"
-$answer1 = ""
+const quizDemoSource = `$answer1 = ""
 $answer2 = ""
 $answer3 = ""
 $agreement = false
@@ -66,48 +65,54 @@ stateOptions = [
   { label: "open_url(url)", value: "open_url" },
   { label: "remove_state(path, index)", value: "remove_state" }
 ]
+goIntro = Mutation("navigate_screen", { screenId: "intro" })
+goQ1 = Mutation("navigate_screen", { screenId: "q1" })
+goQ2 = Mutation("navigate_screen", { screenId: "q2" })
+goQ3 = Mutation("navigate_screen", { screenId: "q3" })
+goAgreement = Mutation("navigate_screen", { screenId: "agreement" })
+goResult = Mutation("navigate_screen", { screenId: "result" })
 score = ($answer1 == "Paris" ? 1 : 0) + ($answer2 == "Hooks" ? 1 : 0) + ($answer3 == "write_state" ? 1 : 0)
 
-root = AppShell("Quiz demo", "Three questions, radio buttons, next buttons, an agreement step, and a result screen.", [
-  Screen("intro", "Welcome", $screen == "intro", [
-    Group("How it works", "This demo shows screen flow without using the app router.", "vertical", [
+root = AppShell("Quiz demo", [
+  Screen("intro", "Welcome", null, [
+    Group("How it works", "This demo shows screen flow through persisted navigation.currentScreenId.", "vertical", [
       Text("Answer three questions and accept the agreement before submit.", "body", "start"),
-      Button("Start quiz", "default", Action([@Set($screen, "q1")]), false)
+      Button("Start quiz", "default", Action([@Run(goQ1)]), false)
     ])
   ]),
-  Screen("q1", "Question 1", $screen == "q1", [
+  Screen("q1", "Question 1", null, [
     RadioGroup("answer1", "Which city is the capital of France?", $answer1, capitalOptions, null),
     Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Set($screen, "q2")]), $answer1 == ""),
-      Button("Back", "ghost", Action([@Set($screen, "intro")]), false)
+      Button("Next", "default", Action([@Run(goQ2)]), $answer1 == "", "next-q1"),
+      Button("Back", "ghost", Action([@Run(goIntro)]), false, "back-q1")
     ])
   ]),
-  Screen("q2", "Question 2", $screen == "q2", [
+  Screen("q2", "Question 2", null, [
     RadioGroup("answer2", "Which feature made local React state easier?", $answer2, reactOptions, null),
     Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Set($screen, "q3")]), $answer2 == ""),
-      Button("Back", "ghost", Action([@Set($screen, "q1")]), false)
+      Button("Next", "default", Action([@Run(goQ3)]), $answer2 == "", "next-q2"),
+      Button("Back", "ghost", Action([@Run(goQ1)]), false, "back-q2")
     ])
   ]),
-  Screen("q3", "Question 3", $screen == "q3", [
+  Screen("q3", "Question 3", null, [
     RadioGroup("answer3", "Which operation writes a scalar value into persisted state?", $answer3, stateOptions, null),
     Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Set($screen, "agreement")]), $answer3 == ""),
-      Button("Back", "ghost", Action([@Set($screen, "q2")]), false)
+      Button("Next", "default", Action([@Run(goAgreement)]), $answer3 == "", "next-q3"),
+      Button("Back", "ghost", Action([@Run(goQ2)]), false, "back-q3")
     ])
   ]),
-  Screen("agreement", "Agreement", $screen == "agreement", [
+  Screen("agreement", "Agreement", null, [
     Checkbox("agreement", "I confirm that I reviewed all answers before submit.", $agreement, "A checkbox gate before the last action."),
     Group(null, null, "horizontal", [
-      Button("Show result", "default", Action([@Set($screen, "result")]), !$agreement),
-      Button("Back", "ghost", Action([@Set($screen, "q3")]), false)
+      Button("Show result", "default", Action([@Run(goResult)]), !$agreement),
+      Button("Back", "ghost", Action([@Run(goQ3)]), false, "back-agreement")
     ])
   ]),
-  Screen("result", "Result", $screen == "result", [
+  Screen("result", "Result", null, [
     Group("Score", "Conditional rendering and local state stay inside the generated app.", "vertical", [
       Text(score + " / 3", "title", "start"),
       Text(score == 3 ? "Perfect score." : score == 2 ? "Almost there." : "Try another round.", "body", "start"),
-      Button("Restart", "secondary", Action([@Reset($answer1, $answer2, $answer3, $agreement), @Set($screen, "intro")]), false)
+      Button("Restart", "secondary", Action([@Reset($answer1, $answer2, $answer3, $agreement), @Run(goIntro)]), false)
     ])
   ])
 ])`;
@@ -126,7 +131,7 @@ rows = @Each(submissions, "submission", Group(null, null, "vertical", [
   Text(submission.email, "muted", "start")
 ]))
 
-root = AppShell("Agreement form demo", "Text fields, checkbox agreement, persistence, and a live submissions list.", [
+root = AppShell("Agreement form demo", [
   Screen("main", "Signup", true, [
     Group("Form", "A small flow that requires checkbox agreement before submit.", "vertical", [
       Input("name", "Full name", $name, "Alex Johnson", null),
@@ -172,7 +177,11 @@ export const BUILDER_DEMO_PRESETS: BuilderDemoPreset[] = [
     label: 'Quiz flow',
     description: 'Three questions, radio buttons, next buttons, agreement gating, and a result screen.',
     source: quizDemoSource,
-    domainData: {},
+    domainData: {
+      navigation: {
+        currentScreenId: 'intro',
+      },
+    },
   },
   {
     id: 'agreement-demo',

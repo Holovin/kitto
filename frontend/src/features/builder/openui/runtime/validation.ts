@@ -4,7 +4,7 @@ import type { BuilderParseIssue } from '@features/builder/types';
 
 const parser = createParser(builderOpenUiLibrary.toJSONSchema(), 'AppShell');
 
-export interface OpenUiValidationResult {
+interface OpenUiValidationResult {
   isValid: boolean;
   issues: BuilderParseIssue[];
 }

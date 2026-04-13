@@ -1,20 +1,10 @@
 import { Hono, type Context } from 'hono';
-import { ZodError, z } from 'zod';
+import { APIUserAbortError } from 'openai';
+import { z } from 'zod';
 import type { AppEnv } from '../env.js';
+import { logServerError, RequestValidationError, toPublicErrorPayload } from '../errors/publicError.js';
 import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
 import { generateOpenUiSource, streamOpenUiSource } from '../services/openai.js';
-
-class RequestValidationError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = 'RequestValidationError';
-    this.status = status;
-  }
-}
-
-type LlmRouteErrorStatus = 400 | 413 | 500;
 const RAW_REQUEST_MAX_BYTES_MULTIPLIER = 4;
 const textEncoder = new TextEncoder();
 
@@ -56,36 +46,12 @@ function createLlmRequestSchema(env: AppEnv) {
   });
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof RequestValidationError) {
-    return error.message;
-  }
-
-  if (error instanceof ZodError) {
-    return error.issues[0]?.message ?? 'The LLM request payload did not match the expected shape.';
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Unexpected backend error.';
-}
-
-function getErrorStatus(error: unknown) {
-  if (error instanceof RequestValidationError) {
-    return error.status as LlmRouteErrorStatus;
-  }
-
-  if (error instanceof ZodError) {
-    return 400 satisfies LlmRouteErrorStatus;
-  }
-
-  return 500 satisfies LlmRouteErrorStatus;
-}
-
 function isAbortError(error: unknown) {
-  return error instanceof Error && (error.name === 'AbortError' || error.message === 'This operation was aborted');
+  return (
+    error instanceof APIUserAbortError ||
+    (error instanceof Error &&
+      (error.name === 'AbortError' || error.name === 'APIUserAbortError' || error.message === 'This operation was aborted'))
+  );
 }
 
 function formatSseEvent(event: string, data: string) {
@@ -152,7 +118,9 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
     const contentLength = Number.parseInt(contentLengthHeader, 10);
 
     if (Number.isFinite(contentLength) && contentLength > rawRequestMaxBytes) {
-      throw new RequestValidationError('Request body is too large to process safely.', 413);
+      throw new RequestValidationError(`Content-Length ${contentLength} exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`, 413, {
+        publicMessage: 'Request body is too large to process safely.',
+      });
     }
   }
 
@@ -160,7 +128,9 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
   const rawBodyBytes = textEncoder.encode(rawBody).byteLength;
 
   if (rawBodyBytes > rawRequestMaxBytes) {
-    throw new RequestValidationError('Request body is too large to process safely.', 413);
+    throw new RequestValidationError(`Request body size ${rawBodyBytes} bytes exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`, 413, {
+      publicMessage: 'Request body is too large to process safely.',
+    });
   }
 
   let parsedBody: unknown;
@@ -168,14 +138,18 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
   try {
     parsedBody = JSON.parse(rawBody);
   } catch {
-    throw new RequestValidationError('Request body must be valid JSON.');
+    throw new RequestValidationError('Request body could not be parsed as JSON.', 400, {
+      publicMessage: 'Request body must be valid JSON.',
+    });
   }
 
   const request = createLlmRequestSchema(env).parse(parsedBody);
   const compactedRequest = compactLlmRequest(request, env);
 
   if (getRequestSizeBytes(compactedRequest.request) > env.LLM_REQUEST_MAX_BYTES) {
-    throw new RequestValidationError(`Request body is too large. Limit: ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413);
+    throw new RequestValidationError(`Compacted request still exceeded the safe request limit of ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413, {
+      publicMessage: 'Request body is too large to process safely.',
+    });
   }
 
   return compactedRequest;
@@ -201,12 +175,9 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         source,
       });
     } catch (error) {
-      return context.json(
-        {
-          error: getErrorMessage(error),
-        },
-        getErrorStatus(error),
-      );
+      logServerError(error, 'POST /api/llm/generate');
+      const publicError = toPublicErrorPayload(error);
+      return context.json(publicError, publicError.status);
     }
   });
 
@@ -281,7 +252,8 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                 return;
               }
 
-              writeEvent('error', getErrorMessage(error));
+              logServerError(error, 'POST /api/llm/generate/stream');
+              writeEvent('error', JSON.stringify(toPublicErrorPayload(error)));
               closeController();
             }
           })();
@@ -301,12 +273,9 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         },
       });
     } catch (error) {
-      return context.json(
-        {
-          error: getErrorMessage(error),
-        },
-        getErrorStatus(error),
-      );
+      logServerError(error, 'POST /api/llm/generate/stream');
+      const publicError = toPublicErrorPayload(error);
+      return context.json(publicError, publicError.status);
     }
   });
 

@@ -2,10 +2,16 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { rememberEnhancer, rememberReducer } from 'redux-remember';
 import { apiSlice } from '@api/apiSlice';
 import { builderReducer, normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { builderSessionReducer, normalizeBuilderSessionState } from '@features/builder/store/builderSessionSlice';
 import { domainReducer, normalizeDomainState } from '@features/builder/store/domainSlice';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 const combinedReducer = combineReducers({
   builder: builderReducer,
+  builderSession: builderSessionReducer,
   domain: domainReducer,
   [apiSlice.reducerPath]: apiSlice.reducer,
 });
@@ -17,12 +23,23 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),
   enhancers: (getDefaultEnhancers) =>
     getDefaultEnhancers().concat(
-      rememberEnhancer(window.localStorage, ['builder', 'domain'], {
-        migrate: async (state) => ({
-          ...state,
-          builder: normalizeBuilderState(state.builder),
-          domain: normalizeDomainState(state.domain),
-        }),
+      rememberEnhancer(window.localStorage, ['builder'], {
+        migrate: async (state) => {
+          const builder = normalizeBuilderState(state.builder);
+          const latestSnapshot = builder.history.at(-1);
+          const legacyRuntimeState =
+            isRecord(state.builder) && isRecord(state.builder.runtimeState) ? state.builder.runtimeState : undefined;
+
+          return {
+            ...state,
+            builder,
+            builderSession: normalizeBuilderSessionState(
+              state.builderSession,
+              legacyRuntimeState ?? latestSnapshot?.runtimeState ?? {},
+            ),
+            domain: normalizeDomainState(state.domain, latestSnapshot?.domainData ?? {}),
+          };
+        },
       }),
     ),
 });

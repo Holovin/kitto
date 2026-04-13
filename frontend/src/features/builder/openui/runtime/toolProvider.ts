@@ -1,5 +1,5 @@
-import { builderActions } from '@features/builder/store/builderSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
+import { CURRENT_SCREEN_PATH } from '@features/builder/store/navigation';
 import { readPath } from '@features/builder/store/path';
 import { store } from '@store/store';
 
@@ -15,15 +15,7 @@ function getRecordValue(value: unknown) {
   return value as Record<string, unknown>;
 }
 
-function syncLatestSnapshot() {
-  store.dispatch(
-    builderActions.syncLatestSnapshot({
-      domainData: store.getState().domain.data,
-    }),
-  );
-}
-
-export function createBuilderToolProvider() {
+function createBuilderToolProvider() {
   return {
     read_state: async (args: Record<string, unknown>) => {
       const path = getPathValue(args.path);
@@ -39,7 +31,6 @@ export function createBuilderToolProvider() {
           value: args.value,
         }),
       );
-      syncLatestSnapshot();
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     merge_state: async (args: Record<string, unknown>) => {
@@ -51,7 +42,6 @@ export function createBuilderToolProvider() {
           patch,
         }),
       );
-      syncLatestSnapshot();
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     append_state: async (args: Record<string, unknown>) => {
@@ -62,7 +52,6 @@ export function createBuilderToolProvider() {
           value: args.value,
         }),
       );
-      syncLatestSnapshot();
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     remove_state: async (args: Record<string, unknown>) => {
@@ -73,7 +62,6 @@ export function createBuilderToolProvider() {
           index: typeof args.index === 'number' ? args.index : 0,
         }),
       );
-      syncLatestSnapshot();
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     open_url: async (args: Record<string, unknown>) => {
@@ -90,11 +78,10 @@ export function createBuilderToolProvider() {
 
       store.dispatch(
         domainActions.writeState({
-          path: 'navigation.currentScreenId',
+          path: CURRENT_SCREEN_PATH,
           value: screenId,
         }),
       );
-      syncLatestSnapshot();
       return { screenId };
     },
   };

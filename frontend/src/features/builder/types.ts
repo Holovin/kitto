@@ -1,7 +1,7 @@
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
 export type BuilderTabId = 'preview' | 'definition';
-export type BuilderMessageRole = 'assistant' | 'system' | 'user';
-export type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
+type BuilderMessageRole = 'assistant' | 'system' | 'user';
+type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 
 export interface BuilderChatMessage {
   id: string;
@@ -45,11 +45,6 @@ export interface BuilderLlmRequestCompaction {
   compactedByBytes: boolean;
   compactedByItemLimit: boolean;
   omittedChatMessages: number;
-}
-
-export interface BuilderDemoSelection {
-  id: string;
-  label: string;
 }
 
 export interface BuilderLlmResponse {

@@ -98,7 +98,8 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'navigate_screen',
-    description: 'Persist the active screen id in browser state when a flow should move between screens.',
+    description:
+      'Persist navigation.currentScreenId in browser state when a flow should move between screens. Screen components without an explicit boolean isActive automatically follow this value.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -119,12 +120,13 @@ const systemPrompt = generatePrompt({
   root: 'AppShell',
   components: {
     AppShell: {
-      signature: 'AppShell(title?, description?, children)',
+      signature: 'AppShell(title?, children)',
       description: 'Root container for the generated app. Must be assigned to root.',
     },
     Screen: {
       signature: 'Screen(id, title?, isActive?, children)',
-      description: 'Screen-level section for steps or view states inside the generated app.',
+      description:
+        'Screen-level section for steps or view states inside the generated app. Explicit boolean isActive overrides automatic navigation; use null to let Screen follow persisted navigation.currentScreenId.',
     },
     Group: {
       signature: 'Group(title?, description?, direction, children)',
@@ -159,8 +161,9 @@ const systemPrompt = generatePrompt({
       description: 'Dropdown choice from { label, value } options.',
     },
     Button: {
-      signature: 'Button(label, variant, action, disabled?)',
-      description: 'Action trigger. Use Action([...]) with @Run, @Set, @Reset, or @OpenUrl steps.',
+      signature: 'Button(label, variant, action, disabled?, id?)',
+      description:
+        'Action trigger. Use Action([...]) with @Run, @Set, @Reset, or @OpenUrl steps. Pass a stable id as the last argument when labels repeat.',
     },
     Link: {
       signature: 'Link(label, url, newTab?)',
@@ -196,7 +199,7 @@ addTodo = Mutation("append_state", { path: "app.todos", value: { title: $draft, 
 todoRows = @Each(todos, "todo", Group(null, null, "vertical", [
   Checkbox("done-" + todo.title, todo.title, todo.completed, null)
 ]))
-root = AppShell("Todo list", "Persistent browser todo list", [
+root = AppShell("Todo list", [
   Screen("main", "Tasks", true, [
     Group("Composer", "Capture the next task", "vertical", [
       Input("draft", "Task", $draft, "Create a todo list", null),
@@ -205,21 +208,38 @@ root = AppShell("Todo list", "Persistent browser todo list", [
     Repeater(todoRows, "No tasks yet.")
   ])
 ])`,
-    `$screen = "intro"
-root = AppShell("Quiz", "Multi-step flow with screen state", [
-  Screen("intro", "Welcome", $screen == "intro", [
+    `goIntro = Mutation("navigate_screen", { screenId: "intro" })
+goQuestion1 = Mutation("navigate_screen", { screenId: "question1" })
+goQuestion2 = Mutation("navigate_screen", { screenId: "question2" })
+goResult = Mutation("navigate_screen", { screenId: "result" })
+root = AppShell("Quiz", [
+  Screen("intro", "Welcome", null, [
     Text("Three quick questions are coming next.", "body", "start"),
-    Button("Start", "default", Action([@Set($screen, "question1")]), false)
+    Button("Start", "default", Action([@Run(goQuestion1)]), false)
   ]),
-  Screen("question1", "Question 1", $screen == "question1", [
+  Screen("question1", "Question 1", null, [
     RadioGroup("answer", "Pick one answer", "a", [
       { label: "Option A", value: "a" },
       { label: "Option B", value: "b" }
     ], null),
-    Button("Next", "secondary", Action([@Set($screen, "result")]), false)
+    Group(null, null, "horizontal", [
+      Button("Next", "secondary", Action([@Run(goQuestion2)]), false, "next-question1"),
+      Button("Back", "ghost", Action([@Run(goIntro)]), false, "back-question1")
+    ])
   ]),
-  Screen("result", "Result", $screen == "result", [
-    Text("Show result screen after the last question.", "title", "start")
+  Screen("question2", "Question 2", null, [
+    RadioGroup("answer", "Pick another answer", "a", [
+      { label: "Option A", value: "a" },
+      { label: "Option B", value: "b" }
+    ], null),
+    Group(null, null, "horizontal", [
+      Button("Next", "secondary", Action([@Run(goResult)]), false, "next-question2"),
+      Button("Back", "ghost", Action([@Run(goQuestion1)]), false, "back-question2")
+    ])
+  ]),
+  Screen("result", "Result", null, [
+    Text("Show result screen after the last question.", "title", "start"),
+    Button("Restart", "ghost", Action([@Run(goIntro)]), false)
   ])
 ])`,
   ],
@@ -232,10 +252,13 @@ root = AppShell("Quiz", "Multi-step flow with screen state", [
     'Use Screen for screen-level sections and Group for local layout.',
     'Use Repeater for collections and prefer `@Each(...)` to build repeated rows.',
     'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
-    'Prefer local $variables for ephemeral UI state such as tabs, screen flow, and draft inputs.',
+    'Prefer local $variables for ephemeral UI state such as tabs and draft inputs.',
+    'For multi-screen flows, prefer Mutation("navigate_screen", { screenId }) and let Screen derive visibility from persisted navigation.currentScreenId by passing null for isActive.',
+    'Explicit boolean isActive still wins when you need a deterministic first screen or a pinned/hidden screen.',
     'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
     'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
     'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
+    'When multiple Button components share the same label, pass a stable id as the final Button argument so button state and actions do not collide.',
     'Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.',
     'Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.',
     'Generated apps must stay browser-safe and must not depend on server-side execution after generation.',

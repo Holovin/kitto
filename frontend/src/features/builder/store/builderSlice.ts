@@ -88,14 +88,25 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
       return [];
     }
 
+    const initialRuntimeState = isRecord(snapshot.initialRuntimeState)
+      ? snapshot.initialRuntimeState
+      : isRecord(snapshot.runtimeState)
+        ? snapshot.runtimeState
+        : {};
+    const initialDomainData = isRecord(snapshot.initialDomainData)
+      ? snapshot.initialDomainData
+      : isRecord(snapshot.domainData)
+        ? snapshot.domainData
+        : DEFAULT_DOMAIN_DATA;
+
     return [
       createBuilderSnapshot(
         typeof snapshot.source === 'string' ? snapshot.source : DEFAULT_OPENUI_SOURCE,
-        isRecord(snapshot.runtimeState) ? snapshot.runtimeState : {},
-        isRecord(snapshot.domainData) ? snapshot.domainData : DEFAULT_DOMAIN_DATA,
+        initialRuntimeState,
+        initialDomainData,
         {
-          initialRuntimeState: isRecord(snapshot.initialRuntimeState) ? snapshot.initialRuntimeState : {},
-          initialDomainData: isRecord(snapshot.initialDomainData) ? snapshot.initialDomainData : DEFAULT_DOMAIN_DATA,
+          initialRuntimeState,
+          initialDomainData,
         },
       ),
     ];
@@ -104,7 +115,7 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
   return normalizedSnapshots.length > 0 ? trimHistory(normalizedSnapshots) : fallback;
 }
 
-export interface BuilderState {
+interface BuilderState {
   activeTab: BuilderTabId;
   chatMessages: BuilderChatMessage[];
   committedSource: string;
@@ -113,7 +124,6 @@ export interface BuilderState {
   isStreaming: boolean;
   parseIssues: BuilderParseIssue[];
   redoHistory: BuilderSnapshot[];
-  runtimeState: Record<string, unknown>;
   streamError: string | null;
   streamedSource: string;
 }
@@ -129,7 +139,6 @@ const initialState: BuilderState = {
   isStreaming: false,
   parseIssues: [],
   redoHistory: [],
-  runtimeState: {},
   streamError: null,
   streamedSource: DEFAULT_OPENUI_SOURCE,
 };
@@ -139,9 +148,9 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     return structuredClone(initialState);
   }
 
-  const committedSource = typeof value.committedSource === 'string' ? value.committedSource : DEFAULT_OPENUI_SOURCE;
-  const runtimeState = isRecord(value.runtimeState) ? value.runtimeState : {};
   const history = normalizeSnapshots(value.history, [initialSnapshot]);
+  const latestSnapshot = history.at(-1) ?? initialSnapshot;
+  const committedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
 
   return {
     activeTab: value.activeTab === 'definition' ? 'definition' : 'preview',
@@ -152,7 +161,6 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     isStreaming: false,
     parseIssues: Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
     redoHistory: normalizeSnapshots(value.redoHistory, []),
-    runtimeState,
     streamError: typeof value.streamError === 'string' ? value.streamError : null,
     streamedSource: typeof value.streamedSource === 'string' ? value.streamedSource : committedSource,
   };
@@ -196,8 +204,7 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.committedSource = action.payload.source;
       state.streamedSource = action.payload.source;
-      state.runtimeState = structuredClone(action.payload.snapshot.runtimeState);
-      state.history = trimHistory([...state.history, action.payload.snapshot]);
+      state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
       state.redoHistory = [];
       pushMessage(
         state.chatMessages,
@@ -223,32 +230,6 @@ export const builderSlice = createSlice({
     ) {
       pushMessage(state.chatMessages, createMessage(action.payload.role, action.payload.content, action.payload.tone));
     },
-    setRuntimeState(state, action: PayloadAction<Record<string, unknown>>) {
-      state.runtimeState = structuredClone(action.payload);
-    },
-    syncLatestSnapshot(
-      state,
-      action: PayloadAction<{
-        domainData?: Record<string, unknown>;
-        runtimeState?: Record<string, unknown>;
-      }>,
-    ) {
-      const latestSnapshot = state.history.at(-1);
-
-      if (!latestSnapshot) {
-        return;
-      }
-
-      if (action.payload.domainData) {
-        latestSnapshot.domainData = structuredClone(action.payload.domainData);
-      }
-
-      if (action.payload.runtimeState) {
-        latestSnapshot.runtimeState = structuredClone(action.payload.runtimeState);
-      }
-
-      latestSnapshot.committedAt = new Date().toISOString();
-    },
     resetCurrentAppState(state) {
       const latestSnapshot = state.history.at(-1);
 
@@ -256,12 +237,8 @@ export const builderSlice = createSlice({
         return;
       }
 
-      state.runtimeState = {};
       state.streamError = null;
       state.isStreaming = false;
-      latestSnapshot.runtimeState = {};
-      latestSnapshot.domainData = cloneForState(latestSnapshot.initialDomainData);
-      latestSnapshot.committedAt = new Date().toISOString();
       pushMessage(state.chatMessages, createMessage('system', 'Reset the generated app state to its initial version.', 'info'));
     },
     undoLatest(state) {
@@ -280,7 +257,6 @@ export const builderSlice = createSlice({
       state.redoHistory = trimHistory([...state.redoHistory, cloneForState(currentSnapshot)]);
       state.committedSource = previousSnapshot.source;
       state.streamedSource = previousSnapshot.source;
-      state.runtimeState = cloneForState(previousSnapshot.runtimeState);
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
@@ -297,7 +273,6 @@ export const builderSlice = createSlice({
       state.history = trimHistory([...state.history, cloneForState(redoSnapshot)]);
       state.committedSource = redoSnapshot.source;
       state.streamedSource = redoSnapshot.source;
-      state.runtimeState = cloneForState(redoSnapshot.runtimeState);
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
@@ -316,7 +291,6 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.draftPrompt = '';
       state.chatMessages = createInitialChatMessages();
-      state.runtimeState = structuredClone(action.payload.runtimeState);
       state.history = trimHistory(action.payload.history);
       state.parseIssues = [];
       state.redoHistory = [];
@@ -338,8 +312,7 @@ export const builderSlice = createSlice({
       state.committedSource = action.payload.snapshot.source;
       state.streamedSource = action.payload.snapshot.source;
       state.draftPrompt = '';
-      state.runtimeState = structuredClone(action.payload.snapshot.runtimeState);
-      state.history = trimHistory([...state.history, action.payload.snapshot]);
+      state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
       state.parseIssues = [];
       state.redoHistory = [];
       state.streamError = null;
@@ -359,7 +332,6 @@ export const builderSlice = createSlice({
       state.isStreaming = false;
       state.parseIssues = [];
       state.redoHistory = [];
-      state.runtimeState = {};
       state.streamError = null;
     },
   },
