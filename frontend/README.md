@@ -1,21 +1,41 @@
 # Frontend
 
-This package contains the Kitto builder UI. It lets you chat with the backend, stream OpenUI source, preview the generated app, inspect the raw definition, and browse supported component schemas.
-
-## Main routes
-
-- `/` and `/chat` — builder experience with chat, preview, import/export, undo/redo, and auto-repair for invalid OpenUI drafts
-- `/elements` — schema explorer and live sandbox for supported OpenUI components
+This package contains the Kitto builder UI. It lets you prompt the backend for OpenUI source, stream the draft into the browser, preview the generated app, inspect the raw definition, and explore the supported OpenUI surface from the `/elements` route.
 
 ## Stack
 
 - React 19
 - Vite 8
-- Redux Toolkit
-- RTK Query
 - React Router 7
+- Redux Toolkit + RTK Query
 - `@openuidev/react-lang`
 - Tailwind CSS 4
+- Radix UI primitives
+
+## Routes
+
+- `/` and `/chat` - main builder experience
+- `/elements` - component and action explorer with live demos and schema views
+
+## Builder behavior
+
+- bootstraps request limits from `GET /api/config`
+- polls `GET /api/health` every 30 seconds and on focus/reconnect
+- streams generation from `POST /api/llm/generate/stream`
+- falls back to `POST /api/llm/generate` if streaming fails before the first chunk
+- validates generated OpenUI locally and retries automatic repair up to two times
+- persists builder state in `localStorage`
+- supports import/export, undo/redo, builder reset, and runtime state reset
+
+## Supported OpenUI surface
+
+### Components
+
+`AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
+
+### Actions
+
+`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`, `navigate_screen`
 
 ## Scripts
 
@@ -26,7 +46,7 @@ This package contains the Kitto builder UI. It lets you chat with the backend, s
 
 ## Environment
 
-Frontend env is optional. If no overrides are provided, the app uses `/api` as the backend base URL.
+Frontend env is optional:
 
 ```bash
 cp frontend/.env.example frontend/.env
@@ -34,33 +54,25 @@ cp frontend/.env.example frontend/.env
 
 Available variables:
 
-- `VITE_API_BASE_URL` — backend base URL, default `/api`
-- `VITE_DEV_API_TARGET` — Vite proxy target in development
+- `VITE_API_BASE_URL` - backend base URL used in the browser, default `/api`
+- `VITE_DEV_API_TARGET` - Vite proxy target in development, default `http://localhost:8787`
 
-Request guard values are loaded from `GET /api/config` when the app boots.
-
-## Development flow
+## Local development
 
 By default:
 
 - Vite runs on `http://localhost:5555`
-- API requests go to `/api/*`
-- The dev proxy forwards `/api/*` to the backend target from `VITE_DEV_API_TARGET`, or to `http://localhost:<backend PORT>` inferred from `backend/.env`
+- frontend API calls go to `/api/*`
+- the dev proxy forwards `/api/*` to `VITE_DEV_API_TARGET`
+- if `VITE_DEV_API_TARGET` is not set, Vite reads `PORT` from `backend/.env` and falls back to `http://localhost:<PORT>`
 
-## Key frontend features
+## Key files
 
-- health polling against `/api/health`
-- runtime config bootstrap from `/api/config`
-- streaming generation via SSE
-- fallback to non-streaming generation if streaming fails before the first chunk
-- client-side prompt and chat-window guards before hitting the backend
-- local persistence for builder and domain state through `redux-remember`
-- chat autoscroll and import/export of saved definitions
-
-## File map
-
-- `src/api/apiSlice.ts` — RTK Query endpoints
-- `src/features/builder/components/ChatPanel.tsx` — chat UI and generation flow
-- `src/features/builder/components/PreviewTabs.tsx` — preview and definition tabs
-- `src/features/builder/hooks/useHealthPolling.ts` — shared health polling config
-- `src/store/store.ts` — Redux store setup
+- `src/layouts/BaseLayout.tsx` - app shell, navigation, and connection badge
+- `src/features/builder/components/ChatPanel.tsx` - prompt composer, chat feed, import/export, undo/redo
+- `src/features/builder/components/PreviewTabs.tsx` - preview/definition tabs and runtime reset
+- `src/features/builder/hooks/useBuilderSubmission.ts` - streaming, fallback, validation, and auto-repair flow
+- `src/features/builder/hooks/useBuilderBootstrap.ts` - config bootstrap and health polling
+- `src/pages/Elements/Elements.tsx` - schema explorer and live OpenUI sandbox
+- `src/api/apiSlice.ts` - RTK Query endpoints
+- `src/store/store.ts` - Redux store and persisted builder state

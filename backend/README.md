@@ -1,17 +1,17 @@
 # Backend
 
-This package exposes a small Hono API for the Kitto builder frontend. It serves health information and generates OpenUI source through the OpenAI Responses API.
+This package exposes the Kitto API and OpenAI integration. It serves health and runtime-config endpoints, generates OpenUI source through the OpenAI Responses API, streams partial output over SSE, and serves the built frontend when `frontend/dist` is available.
 
 ## Scripts
 
-- `npm run dev --workspace backend` — start the backend with `tsx watch`
-- `npm run lint --workspace backend` — TypeScript type-check only
-- `npm run build --workspace backend` — compile to `backend/dist`
-- `npm run start --workspace backend` — run the compiled server
+- `npm run dev --workspace backend` - start the backend with `tsx watch`
+- `npm run lint --workspace backend` - TypeScript type-check only
+- `npm run build --workspace backend` - compile to `backend/dist`
+- `npm run start --workspace backend` - run the compiled server
 
 ## Environment
 
-Copy the example file first:
+Create the env file first:
 
 ```bash
 cp backend/.env.example backend/.env
@@ -19,48 +19,37 @@ cp backend/.env.example backend/.env
 
 ### Required
 
-- `OPENAI_API_KEY` — OpenAI API key used for generation
+- `OPENAI_API_KEY` - API key used for generation
 
-### Common settings
+### Runtime settings
 
-- `OPENAI_MODEL` — model name for Responses API, default `gpt-5.4-mini`
-- `OPENAI_REQUEST_TIMEOUT_MS` — upstream OpenAI timeout in milliseconds
-- `PORT` — backend port, default `8787`
-- `FRONTEND_ORIGIN` — allowed browser origin for CORS
-- `LOG_LEVEL` — backend log level
+- `OPENAI_MODEL` - Responses API model, default `gpt-5.4-mini`
+- `OPENAI_REQUEST_TIMEOUT_MS` - upstream timeout in milliseconds, default `120000`
+- `PORT` - HTTP port, default `8787`
+- `FRONTEND_ORIGIN` - allowed browser origin for CORS, default `http://localhost:5555`
+- `LOG_LEVEL` - `debug`, `info`, `warn`, `error`, or `silent`
 
-### LLM safeguards
+### Request limits and safeguards
 
-- `LLM_PROMPT_MAX_CHARS`
-- `LLM_CHAT_HISTORY_MAX_ITEMS`
-- `LLM_REQUEST_MAX_BYTES`
-- `LLM_RATE_LIMIT_MAX_REQUESTS`
-- `LLM_RATE_LIMIT_WINDOW_MS`
+- `LLM_PROMPT_MAX_CHARS` - default `4096`
+- `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`
+- `LLM_REQUEST_MAX_BYTES` - default `300000`
+- `LLM_RATE_LIMIT_MAX_REQUESTS` - default `60`
+- `LLM_RATE_LIMIT_WINDOW_MS` - default `60000`
 
-These values are parsed and validated in `src/env.ts`.
+These values are parsed and validated in `src/env.ts`. The browser receives the public request limits from `GET /api/config`.
 
 ## API
 
+The backend exposes `/api/*` routes only.
+
 ### `GET /api/health`
 
-Returns backend status, configured model, timestamp, and whether an OpenAI key is configured.
-
-Example response:
-
-```json
-{
-  "status": "ok",
-  "model": "gpt-5.4-mini",
-  "timestamp": "2026-04-12T17:00:00.000Z",
-  "openaiConfigured": true
-}
-```
+Returns backend status, the configured model, a timestamp, and whether `OPENAI_API_KEY` is present.
 
 ### `GET /api/config`
 
-Returns the frontend-safe runtime config that the browser loads at startup.
-
-Example response:
+Returns frontend-safe request limits:
 
 ```json
 {
@@ -74,9 +63,7 @@ Example response:
 
 ### `POST /api/llm/generate`
 
-Generates the full OpenUI source in one response.
-
-Request shape:
+Accepts:
 
 ```json
 {
@@ -88,20 +75,26 @@ Request shape:
 }
 ```
 
+Returns a full JSON payload with `source`, `model`, and optional `compaction`.
+
 ### `POST /api/llm/generate/stream`
 
-Streams partial source over Server-Sent Events.
+Accepts the same request shape and streams Server-Sent Events:
 
-Event types:
+- `chunk` - incremental source delta
+- `done` - final JSON payload with `source`, `model`, and optional `compaction`
+- `error` - terminal public error payload
 
-- `chunk` — partial source delta
-- `done` — final JSON payload with `model` and `source`
-- `error` — terminal error message
+## Current behavior
+
+- rejects oversized raw request bodies before JSON parsing
+- compacts chat history when item or byte limits are exceeded
+- rate-limits LLM endpoints with in-memory middleware
+- cancels the upstream OpenAI request when the client disconnects
+- returns public validation, timeout, upstream, and internal error payloads
+- serves `frontend/dist/index.html` as an SPA fallback for non-API routes when the frontend build exists
 
 ## Notes
 
-- The backend only exposes `/api/*` routes. Root-level `/health` and `/llm/*` are not part of the supported API anymore.
-- Request size and prompt limits are enforced before the OpenAI call.
-- `LLM_CHAT_HISTORY_MAX_ITEMS` controls the recent chat window sent to OpenAI, and the backend may compact older chat messages further when the request body would otherwise exceed `LLM_REQUEST_MAX_BYTES`.
-- Streaming requests abort the upstream OpenAI stream when the browser disconnects.
-- Rate limiting is in-memory and process-local, which is appropriate for this local project setup.
+- `/health`, `/config`, and `/llm/*` at the root level intentionally return `404`
+- rate limiting is process-local and meant for local development, not distributed deployment
