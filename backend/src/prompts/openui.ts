@@ -1,4 +1,7 @@
-import { generatePrompt, type ToolSpec } from '@openuidev/lang-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { generatePrompt, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 
 const toolSpecifications: ToolSpec[] = [
   {
@@ -98,84 +101,14 @@ const toolSpecifications: ToolSpec[] = [
   },
 ];
 
-const systemPrompt = generatePrompt({
-  root: 'AppShell',
-  components: {
-    AppShell: {
-      signature: 'AppShell(children)',
-      description: 'Technical root wrapper for the generated app. Must be assigned to root and does not render visual chrome of its own.',
-    },
-    Screen: {
-      signature: 'Screen(id, title, isActive?, children)',
-      description:
-        'Screen-level section for steps or view states inside the generated app. Explicit boolean isActive overrides automatic navigation; use null to let Screen follow persisted navigation.currentScreenId.',
-    },
-    Group: {
-      signature: 'Group(title?, direction, children)',
-      description: 'Local layout container. direction is vertical or horizontal.',
-    },
-    Repeater: {
-      signature: 'Repeater(children, emptyText?)',
-      description: 'Collection container. Usually receives @Each(...) results.',
-    },
-    Text: {
-      signature: 'Text(value, variant, align)',
-      description: 'Display copy. variant can be body, muted, title, or code.',
-    },
-    Input: {
-      signature: 'Input(name, label, value, placeholder?)',
-      description: 'Single-line text field. Bind value to a $variable for user input.',
-    },
-    TextArea: {
-      signature: 'TextArea(name, label, value, placeholder?)',
-      description: 'Multi-line text input.',
-    },
-    Checkbox: {
-      signature: 'Checkbox(name, label, checked)',
-      description: 'Boolean field for consent, toggles, and checklist rows. Put the visible item text directly in the label.',
-    },
-    RadioGroup: {
-      signature: 'RadioGroup(name, label, value, options)',
-      description: 'Single-choice list of { label, value } options.',
-    },
-    Select: {
-      signature: 'Select(name, label, value, options)',
-      description: 'Dropdown choice from { label, value } options.',
-    },
-    Button: {
-      signature: 'Button(id, label, variant, action, disabled?)',
-      description:
-        'Action trigger. The first argument must be a stable id string. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps.',
-    },
-    Link: {
-      signature: 'Link(label, url, newTab?)',
-      description: 'Plain text link for routes or external URLs.',
-    },
-  },
-  componentGroups: [
-    {
-      name: 'Containers',
-      components: ['AppShell', 'Screen', 'Group', 'Repeater', 'Text'],
-      notes: ['Use Screen for major steps and Group for local layout.'],
-    },
-    {
-      name: 'Inputs',
-      components: ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select'],
-      notes: ['Bind interactive props to $variables when the user should control them.'],
-    },
-    {
-      name: 'Actions',
-      components: ['Button', 'Link'],
-      notes: ['Use Button with Action([...]) for all imperative flows.'],
-    },
-  ],
-  tools: toolSpecifications,
-  toolCalls: true,
-  bindings: true,
-  preamble:
-    'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.',
-  toolExamples: [
-    `$draft = ""
+const promptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const componentSpecPath = path.resolve(promptDirectory, '../../../shared/openui/component-spec.json');
+
+const preamble =
+  'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
+
+const toolExamples = [
+  `$draft = ""
 todos = Query("read_state", { path: "app.todos" }, [])
 addTodo = Mutation("append_state", { path: "app.todos", value: { title: $draft, completed: false } })
 todoRows = @Each(todos, "todo", Group(null, "vertical", [
@@ -190,7 +123,7 @@ root = AppShell([
     Repeater(todoRows, "No tasks yet.")
   ])
 ])`,
-    `goIntro = Mutation("navigate_screen", { screenId: "intro" })
+  `goIntro = Mutation("navigate_screen", { screenId: "intro" })
 goQuestion1 = Mutation("navigate_screen", { screenId: "question1" })
 goQuestion2 = Mutation("navigate_screen", { screenId: "question2" })
 goResult = Mutation("navigate_screen", { screenId: "result" })
@@ -224,29 +157,33 @@ root = AppShell([
     Button("restart-quiz", "Restart", "destructive", Action([@Run(goIntro)]), false)
   ])
 ])`,
-  ],
-  additionalRules: [
-    'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
-    'Return the full updated program every time, not a patch.',
-    'The root statement must be `root = AppShell([...])`.',
-    'Use only the provided components and the supported tool names.',
-    'Keep props shallow. Avoid deeply nested configuration objects.',
-    'Use Screen for screen-level sections and Group for local layout.',
-    'Use Repeater for collections and prefer `@Each(...)` to build repeated rows.',
-    'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
-    'Prefer local $variables for ephemeral UI state such as tabs and draft inputs.',
-    'For multi-screen flows, prefer Mutation("navigate_screen", { screenId }) and let Screen derive visibility from persisted navigation.currentScreenId by passing null for isActive.',
-    'Explicit boolean isActive still wins when you need a deterministic first screen or a pinned/hidden screen.',
-    'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
-    'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
-    'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
-    'Every Button must start with a stable id string so button state and actions stay deterministic.',
-    'Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.',
-    'Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.',
-    'Generated apps must stay browser-safe and must not depend on server-side execution after generation.',
-    'Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them.',
-  ],
-});
+];
+
+const additionalRules = [
+  'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
+  'Return the full updated program every time, not a patch.',
+  'The root statement must be `root = AppShell([...])`.',
+  'Use only the provided components and the supported tool names.',
+  'Keep props shallow. Avoid deeply nested configuration objects.',
+  'Use Screen for screen-level sections and Group for local layout.',
+  'Use Repeater for collections and prefer `@Each(...)` to build repeated rows.',
+  'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
+  'Prefer local $variables for ephemeral UI state such as tabs and draft inputs.',
+  'For multi-screen flows, prefer Mutation("navigate_screen", { screenId }) and let Screen derive visibility from persisted navigation.currentScreenId by passing null for isActive.',
+  'Explicit boolean isActive still wins when you need a deterministic first screen or a pinned/hidden screen.',
+  'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
+  'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
+  'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
+  'Every Button must start with a stable id string so button state and actions stay deterministic.',
+  'Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.',
+  'Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.',
+  'Generated apps must stay browser-safe and must not depend on server-side execution after generation.',
+  'Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them.',
+];
+
+function readComponentSpec() {
+  return JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as PromptSpec;
+}
 
 export interface PromptBuildRequest {
   chatHistory: Array<{
@@ -262,7 +199,17 @@ interface BuildOpenUiUserPromptOptions {
 }
 
 export function buildOpenUiSystemPrompt() {
-  return systemPrompt;
+  return generatePrompt({
+    ...readComponentSpec(),
+    tools: toolSpecifications,
+    toolCalls: true,
+    bindings: true,
+    editMode: false,
+    inlineMode: false,
+    preamble,
+    toolExamples,
+    additionalRules,
+  });
 }
 
 export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: BuildOpenUiUserPromptOptions = {}) {

@@ -1,0 +1,91 @@
+{
+  "root": "AppShell",
+  "components": {
+    "AppShell": {
+      "signature": "AppShell(children?: any[])",
+      "description": "Technical root wrapper for the generated app. Use it once as root; it renders children without any visual chrome."
+    },
+    "Screen": {
+      "signature": "Screen(id: string, title: string, isActive?: boolean, children?: any[])",
+      "description": "Screen-level section. Explicit isActive overrides navigation; when isActive is omitted, the screen follows persisted navigation.currentScreenId."
+    },
+    "Group": {
+      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[])",
+      "description": "Local layout container for related controls or content. Use vertical for stacked sections and horizontal for inline actions."
+    },
+    "Repeater": {
+      "signature": "Repeater(children?: any[], emptyText?: string | any)",
+      "description": "Collection container. Pass an array of rows, usually created with @Each(...), and it will render them as a vertical list."
+    },
+    "Text": {
+      "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\")",
+      "description": "Generic text node for headings, helper copy, code-style snippets, and status lines."
+    },
+    "Input": {
+      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any)",
+      "description": "Single-line text input. Bind the value to a $variable for two-way state."
+    },
+    "TextArea": {
+      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any)",
+      "description": "Multi-line text input for longer descriptions, prompts, or notes."
+    },
+    "Checkbox": {
+      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>)",
+      "description": "Boolean toggle. Bind checked to a $variable when the user should control visibility or confirmation state."
+    },
+    "RadioGroup": {
+      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[])",
+      "description": "Single-choice list of options. Good for quizzes, steps, and mode switches."
+    },
+    "Select": {
+      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[])",
+      "description": "Dropdown selector for choosing one item from a short list of label/value pairs."
+    },
+    "Button": {
+      "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>)",
+      "description": "Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps."
+    },
+    "Link": {
+      "signature": "Link(label: string, url: string, newTab?: boolean)",
+      "description": "Text link for navigation to an external URL or a known browser route."
+    }
+  },
+  "componentGroups": [
+    {
+      "name": "Containers",
+      "components": [
+        "AppShell",
+        "Screen",
+        "Group",
+        "Repeater",
+        "Text"
+      ],
+      "notes": [
+        "Use Screen for major steps and Group for local layout."
+      ]
+    },
+    {
+      "name": "Inputs",
+      "components": [
+        "Input",
+        "TextArea",
+        "Checkbox",
+        "RadioGroup",
+        "Select"
+      ],
+      "notes": [
+        "Bind interactive values to $variables when the user should control them."
+      ]
+    },
+    {
+      "name": "Actions",
+      "components": [
+        "Button",
+        "Link"
+      ],
+      "notes": [
+        "Use Button with Action([...]) for Query and Mutation flows."
+      ]
+    }
+  ]
+}

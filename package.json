@@ -6,8 +6,9 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently -n frontend,backend -c cyan,magenta \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
-    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "generate:openui-spec": "node scripts/generate-openui-spec.mjs",
+    "dev": "npm run generate:openui-spec && concurrently -n frontend,backend -c cyan,magenta \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
+    "build": "npm run generate:openui-spec && npm run build --workspace frontend && npm run build --workspace backend",
     "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
     "start": "npm run start --workspace backend"
   },
