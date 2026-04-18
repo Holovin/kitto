@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type OpenUIError, type ParseResult, Renderer } from '@openuidev/react-lang';
+import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OpenUiNavigationProvider } from '@features/builder/openui/runtime/OpenUiNavigationProvider';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
+import { getToolPathValue, getToolRecordValue } from '@features/builder/openui/runtime/toolArguments';
 import { CURRENT_SCREEN_PATH, getCurrentScreenId } from '@features/builder/store/navigation';
 import { appendPathValue, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
 import type { BuilderParseIssue } from '@features/builder/types';
@@ -58,52 +60,6 @@ function getOpenUiSchema(componentName: string, schema: ComponentSchema) {
   });
 
   return [spec?.signature ?? `${componentName}()`, spec?.description ? `// ${spec.description}` : null, ...propertyLines].filter(Boolean).join('\n');
-}
-
-function getPathValue(path: unknown) {
-  return typeof path === 'string' ? path : '';
-}
-
-function getRecordValue(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function mapParseResultToIssues(result: ParseResult | null): BuilderParseIssue[] {
-  if (!result) {
-    return [];
-  }
-
-  const validationIssues = result.meta.errors.map((error) => ({
-    code: error.code,
-    message: error.message,
-    statementId: error.statementId,
-    source: 'parser',
-  }));
-
-  const unresolvedIssues =
-    !result.meta.incomplete && result.meta.unresolved.length > 0
-      ? result.meta.unresolved.map((statementId) => ({
-          code: 'unresolved-reference',
-          message: 'This statement was referenced but never defined in the final source.',
-          statementId,
-          source: 'parser',
-        }))
-      : [];
-
-  return [...validationIssues, ...unresolvedIssues];
-}
-
-function mapOpenUiErrorsToIssues(errors: OpenUIError[]): BuilderParseIssue[] {
-  return errors.map((error) => ({
-    code: error.code,
-    message: error.message,
-    statementId: error.statementId,
-    source: error.source,
-  }));
 }
 
 function mergeRuntimeDefaults(
@@ -186,11 +142,11 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const toolProvider = useMemo(
     () => ({
       read_state: async (args: Record<string, unknown>) => {
-        const path = getPathValue(args.path);
+        const path = getToolPathValue(args.path);
         return structuredClone(readPath(domainDataRef.current, path) ?? null);
       },
       write_state: async (args: Record<string, unknown>) => {
-        const path = getPathValue(args.path);
+        const path = getToolPathValue(args.path);
         let nextValue: unknown = null;
 
         setDomainData((previousState) => {
@@ -204,8 +160,8 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
         return nextValue;
       },
       merge_state: async (args: Record<string, unknown>) => {
-        const path = getPathValue(args.path);
-        const patch = getRecordValue(args.patch ?? args.value);
+        const path = getToolPathValue(args.path);
+        const patch = getToolRecordValue(args.patch ?? args.value);
         let nextValue: unknown = null;
 
         setDomainData((previousState) => {
@@ -219,7 +175,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
         return nextValue;
       },
       append_state: async (args: Record<string, unknown>) => {
-        const path = getPathValue(args.path);
+        const path = getToolPathValue(args.path);
         let nextValue: unknown = null;
 
         setDomainData((previousState) => {
@@ -233,7 +189,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
         return nextValue;
       },
       remove_state: async (args: Record<string, unknown>) => {
-        const path = getPathValue(args.path);
+        const path = getToolPathValue(args.path);
         const index = typeof args.index === 'number' ? args.index : 0;
         let nextValue: unknown = null;
 

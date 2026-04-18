@@ -2,29 +2,18 @@ import { domainActions } from '@features/builder/store/domainSlice';
 import { CURRENT_SCREEN_PATH } from '@features/builder/store/navigation';
 import { readPath } from '@features/builder/store/path';
 import { store } from '@store/store';
-
-function getPathValue(path: unknown) {
-  return typeof path === 'string' ? path : '';
-}
-
-function getRecordValue(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-}
+import { getToolPathValue, getToolRecordValue } from './toolArguments';
 
 function createBuilderToolProvider() {
   return {
     read_state: async (args: Record<string, unknown>) => {
-      const path = getPathValue(args.path);
+      const path = getToolPathValue(args.path);
       const value = readPath(store.getState().domain.data, path);
 
       return structuredClone(value ?? null);
     },
     write_state: async (args: Record<string, unknown>) => {
-      const path = getPathValue(args.path);
+      const path = getToolPathValue(args.path);
       store.dispatch(
         domainActions.writeState({
           path,
@@ -34,8 +23,8 @@ function createBuilderToolProvider() {
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     merge_state: async (args: Record<string, unknown>) => {
-      const path = getPathValue(args.path);
-      const patch = getRecordValue(args.patch ?? args.value);
+      const path = getToolPathValue(args.path);
+      const patch = getToolRecordValue(args.patch ?? args.value);
       store.dispatch(
         domainActions.mergeState({
           path,
@@ -45,7 +34,7 @@ function createBuilderToolProvider() {
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     append_state: async (args: Record<string, unknown>) => {
-      const path = getPathValue(args.path);
+      const path = getToolPathValue(args.path);
       store.dispatch(
         domainActions.appendState({
           path,
@@ -55,7 +44,7 @@ function createBuilderToolProvider() {
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
     remove_state: async (args: Record<string, unknown>) => {
-      const path = getPathValue(args.path);
+      const path = getToolPathValue(args.path);
       store.dispatch(
         domainActions.removeState({
           path,
