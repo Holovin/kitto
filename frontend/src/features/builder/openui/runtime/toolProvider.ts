@@ -53,15 +53,6 @@ function createBuilderToolProvider() {
       );
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
     },
-    open_url: async (args: Record<string, unknown>) => {
-      const url = typeof args.url === 'string' ? args.url : '';
-
-      if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-
-      return { opened: Boolean(url), url };
-    },
     navigate_screen: async (args: Record<string, unknown>) => {
       const screenId = typeof args.screenId === 'string' ? args.screenId : '';
 

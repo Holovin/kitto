@@ -79,24 +79,6 @@ const toolSpecifications: ToolSpec[] = [
     },
   },
   {
-    name: 'open_url',
-    description: 'Open a URL in the browser. Use this for external documentation or resources.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string' },
-      },
-      required: ['url'],
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        opened: { type: 'boolean' },
-        url: { type: 'string' },
-      },
-    },
-  },
-  {
     name: 'navigate_screen',
     description:
       'Persist navigation.currentScreenId in browser state when a flow should move between screens. Screen components without an explicit boolean isActive automatically follow this value.',
@@ -163,7 +145,7 @@ const systemPrompt = generatePrompt({
     Button: {
       signature: 'Button(label, variant, action, disabled?, id?)',
       description:
-        'Action trigger. Use Action([...]) with @Run, @Set, @Reset, or @OpenUrl steps. Pass a stable id as the last argument when labels repeat.',
+        'Action trigger. Use Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps. Pass a stable id as the last argument when labels repeat.',
     },
     Link: {
       signature: 'Link(label, url, newTab?)',

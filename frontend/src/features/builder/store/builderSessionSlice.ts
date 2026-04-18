@@ -24,9 +24,7 @@ export function normalizeBuilderSessionState(
 
   const runtimeSessionState = isRecord(value.runtimeSessionState)
     ? value.runtimeSessionState
-    : isRecord(value.runtimeState)
-      ? value.runtimeState
-      : fallbackRuntimeState;
+    : fallbackRuntimeState;
 
   return {
     runtimeSessionState: structuredClone(runtimeSessionState),

@@ -5,10 +5,6 @@ import { builderReducer, normalizeBuilderState } from '@features/builder/store/b
 import { builderSessionReducer, normalizeBuilderSessionState } from '@features/builder/store/builderSessionSlice';
 import { domainReducer, normalizeDomainState } from '@features/builder/store/domainSlice';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
 const combinedReducer = combineReducers({
   builder: builderReducer,
   builderSession: builderSessionReducer,
@@ -27,16 +23,11 @@ export const store = configureStore({
         migrate: async (state) => {
           const builder = normalizeBuilderState(state.builder);
           const latestSnapshot = builder.history.at(-1);
-          const legacyRuntimeState =
-            isRecord(state.builder) && isRecord(state.builder.runtimeState) ? state.builder.runtimeState : undefined;
 
           return {
             ...state,
             builder,
-            builderSession: normalizeBuilderSessionState(
-              state.builderSession,
-              legacyRuntimeState ?? latestSnapshot?.runtimeState ?? {},
-            ),
+            builderSession: normalizeBuilderSessionState(state.builderSession, latestSnapshot?.runtimeState ?? {}),
             domain: normalizeDomainState(state.domain, latestSnapshot?.domainData ?? {}),
           };
         },

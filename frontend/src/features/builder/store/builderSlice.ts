@@ -88,25 +88,23 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
       return [];
     }
 
-    const initialRuntimeState = isRecord(snapshot.initialRuntimeState)
-      ? snapshot.initialRuntimeState
-      : isRecord(snapshot.runtimeState)
-        ? snapshot.runtimeState
-        : {};
-    const initialDomainData = isRecord(snapshot.initialDomainData)
-      ? snapshot.initialDomainData
-      : isRecord(snapshot.domainData)
-        ? snapshot.domainData
-        : DEFAULT_DOMAIN_DATA;
+    if (
+      !isRecord(snapshot.runtimeState) ||
+      !isRecord(snapshot.domainData) ||
+      !isRecord(snapshot.initialRuntimeState) ||
+      !isRecord(snapshot.initialDomainData)
+    ) {
+      return [];
+    }
 
     return [
       createBuilderSnapshot(
         typeof snapshot.source === 'string' ? snapshot.source : DEFAULT_OPENUI_SOURCE,
-        initialRuntimeState,
-        initialDomainData,
+        snapshot.runtimeState,
+        snapshot.domainData,
         {
-          initialRuntimeState,
-          initialDomainData,
+          initialRuntimeState: snapshot.initialRuntimeState,
+          initialDomainData: snapshot.initialDomainData,
         },
       ),
     ];

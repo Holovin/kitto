@@ -5,6 +5,7 @@ import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OpenUiNavigationProvider } from '@features/builder/openui/runtime/OpenUiNavigationProvider';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
@@ -20,6 +21,7 @@ type ComponentSchema = {
   required?: string[];
 };
 
+type ActionSchemaViewMode = 'demo' | 'spec';
 type SchemaViewMode = 'demo' | 'openui' | 'json';
 
 type ElementSandboxProps = {
@@ -122,6 +124,83 @@ function ElementSchemaPanel({
   );
 }
 
+function ActionSectionHeading({ children }: { children: string }) {
+  return <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">{children}</p>;
+}
+
+function ActionSchemaPanel({
+  demoExample,
+  inputSchema,
+}: {
+  demoExample: string;
+  inputSchema: Record<string, unknown>;
+}) {
+  const [viewMode, setViewMode] = useState<ActionSchemaViewMode>('spec');
+
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ActionSectionHeading>Input schema</ActionSectionHeading>
+        <div className="flex items-center gap-2">
+          <Button
+            className="h-7 rounded-lg px-2.5 text-xs shadow-none"
+            size="sm"
+            variant={viewMode === 'spec' ? 'default' : 'secondary'}
+            onClick={() => setViewMode('spec')}
+          >
+            Spec
+          </Button>
+          <Button
+            className="h-7 rounded-lg px-2.5 text-xs shadow-none"
+            size="sm"
+            variant={viewMode === 'demo' ? 'default' : 'secondary'}
+            onClick={() => setViewMode('demo')}
+          >
+            Demo
+          </Button>
+        </div>
+      </div>
+      <div className="mt-3 overflow-hidden rounded-[1.25rem] bg-slate-950">
+        <pre className="w-full max-w-full overflow-auto whitespace-pre-wrap break-words p-4 text-xs leading-6 text-slate-100">
+          <code>{viewMode === 'spec' ? formatJson(inputSchema) : demoExample}</code>
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function ActionDocumentationPanel({
+  returns,
+  summary,
+  useWhen,
+}: {
+  returns: string;
+  summary: string;
+  useWhen: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <ActionSectionHeading>Documentation</ActionSectionHeading>
+      <div className="mt-3 rounded-[1.25rem] border border-slate-200 bg-white p-4 text-slate-700">
+        <div className="space-y-4 text-sm leading-6">
+          <div>
+            <p className="font-semibold text-slate-950">What it does</p>
+            <p className="mt-1 text-slate-600">{summary}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-950">Use when</p>
+            <p className="mt-1 text-slate-600">{useWhen}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-950">Returns</p>
+            <p className="mt-1 text-slate-600">{returns}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ElementSandbox({ componentName, source, initialDomainData, initialRuntimeState }: ElementSandboxProps) {
   const [initialDomainDataSnapshot] = useState<Record<string, unknown>>(() => cloneRecord(initialDomainData));
   const [initialRuntimeStateSnapshot] = useState<Record<string, unknown>>(() => cloneRecord(initialRuntimeState));
@@ -203,15 +282,6 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 
         return nextValue;
       },
-      open_url: async (args: Record<string, unknown>) => {
-        const url = typeof args.url === 'string' ? args.url : '';
-
-        if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
-
-        return { opened: Boolean(url), url };
-      },
       navigate_screen: async (args: Record<string, unknown>) => {
         const screenId = typeof args.screenId === 'string' ? args.screenId : '';
 
@@ -259,6 +329,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
                   key={`${componentName}-${resetVersion}`}
                   initialState={runtimeState}
                   library={builderOpenUiLibrary}
+                  onAction={handleOpenUiActionEvent}
                   onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
                   onParseResult={(result) => {
                     setParseIssues(mapParseResultToIssues(result));
@@ -324,7 +395,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 
 export default function ElementsPage() {
   return (
-    <section className="w-full min-w-0 space-y-6 overflow-x-hidden">
+    <section className="w-full min-w-0 space-y-6">
       <Card className="min-w-0 border-white/70 bg-white/92">
         <CardHeader className="border-b border-slate-200/70 pb-4">
           <CardTitle className="text-2xl">Elements</CardTitle>
@@ -369,16 +440,22 @@ export default function ElementsPage() {
         <CardHeader className="border-b border-slate-200/70 pb-4">
           <CardTitle className="text-2xl">Actions</CardTitle>
         </CardHeader>
-        <CardContent className="grid min-w-0 gap-4 pt-6 lg:grid-cols-2">
+        <CardContent className="grid min-w-0 gap-4 pt-6">
           {OPENUI_ACTION_DEFINITIONS.map((action) => (
             <Card key={action.name} className="min-w-0 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none">
               <CardHeader className="border-b border-slate-200/70 pb-4">
-                <CardTitle className="break-words text-lg">{action.signature}</CardTitle>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <CardTitle className="break-words text-lg">{action.signature}</CardTitle>
+                  <p className="text-sm font-medium text-slate-500">{action.shortDescription}</p>
+                </div>
               </CardHeader>
-              <CardContent className="min-w-0 pt-6">
-                <pre className="w-full max-w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
-                  <code>{formatJson(action.inputSchema)}</code>
-                </pre>
+              <CardContent className="grid min-w-0 gap-4 pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.92fr)]">
+                <ActionSchemaPanel demoExample={action.demoExample} inputSchema={action.inputSchema} />
+                <ActionDocumentationPanel
+                  returns={action.documentation.returns}
+                  summary={action.documentation.summary}
+                  useWhen={action.documentation.useWhen}
+                />
               </CardContent>
             </Card>
           ))}

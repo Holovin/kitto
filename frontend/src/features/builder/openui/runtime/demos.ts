@@ -16,7 +16,6 @@ createTask = Mutation("append_state", {
   path: "app.tasks",
   value: { title: $taskTitle, dueDate: $dueDate, completed: false }
 })
-docsLink = Mutation("open_url", { url: "https://platform.openai.com/docs" })
 taskRows = @Each(visibleTasks, "task", Group(null, null, "vertical", [
   Text(task.title, "title"),
   Text(task.dueDate == "" ? "No due date yet" : "Due: " + task.dueDate, "muted"),
@@ -33,10 +32,7 @@ root = AppShell("Starter task board", [
       Input("taskTitle", "Task title", $taskTitle, "Create a todo list", null),
       Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD", null),
       Select("filter", "Filter", $filter, filterOptions, "Allow filtering by completed"),
-      Group(null, null, "horizontal", [
-        Button("Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle, $dueDate)]), false),
-        Button("Open OpenAI docs", "secondary", Action([@Run(docsLink)]), false)
-      ])
+      Button("Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle, $dueDate)]), false)
     ]),
     Group("Live preview", "The list below is rendered from Query(read_state).", "vertical", [
       Text("Tasks in storage: " + @Count(tasks), "muted", "start"),
@@ -62,7 +58,7 @@ reactOptions = [
 ]
 stateOptions = [
   { label: "write_state(path, value)", value: "write_state" },
-  { label: "open_url(url)", value: "open_url" },
+  { label: "merge_state(path, patch)", value: "merge_state" },
   { label: "remove_state(path, index)", value: "remove_state" }
 ]
 goIntro = Mutation("navigate_screen", { screenId: "intro" })

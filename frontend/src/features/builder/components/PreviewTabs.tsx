@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OpenUiNavigationProvider } from '@features/builder/openui/runtime/OpenUiNavigationProvider';
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
@@ -96,6 +97,7 @@ export function PreviewTabs() {
                     initialState={runtimeSessionState}
                     isStreaming={isStreaming}
                     library={builderOpenUiLibrary}
+                    onAction={handleOpenUiActionEvent}
                     onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
                     onParseResult={(result) => dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)))}
                     onStateUpdate={(state) => {

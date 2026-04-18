@@ -7,8 +7,8 @@ const looseRecordSchema = z.record(z.string(), z.unknown());
 const builderSnapshotSchema = z.object({
   committedAt: z.string(),
   domainData: looseRecordSchema,
-  initialDomainData: looseRecordSchema.optional(),
-  initialRuntimeState: looseRecordSchema.optional(),
+  initialDomainData: looseRecordSchema,
+  initialRuntimeState: looseRecordSchema,
   runtimeState: looseRecordSchema,
   source: z.string(),
 });
@@ -62,9 +62,9 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
     return createDefinitionExport(source, {}, DEFAULT_DOMAIN_DATA, [createBuilderSnapshot(source, {}, DEFAULT_DOMAIN_DATA)]);
   }
 
-  const resetSnapshot = createBuilderSnapshot(source, latestSnapshot.initialRuntimeState ?? {}, latestSnapshot.initialDomainData ?? DEFAULT_DOMAIN_DATA, {
-    initialRuntimeState: latestSnapshot.initialRuntimeState ?? {},
-    initialDomainData: latestSnapshot.initialDomainData ?? DEFAULT_DOMAIN_DATA,
+  const resetSnapshot = createBuilderSnapshot(source, latestSnapshot.initialRuntimeState, latestSnapshot.initialDomainData, {
+    initialRuntimeState: latestSnapshot.initialRuntimeState,
+    initialDomainData: latestSnapshot.initialDomainData,
   });
 
   return {
@@ -81,12 +81,9 @@ export function parseImportedDefinition(rawValue: string) {
   const normalizedHistory =
     parsedValue.history.length > 0
       ? parsedValue.history.map((snapshot) => {
-          const initialRuntimeState = snapshot.initialRuntimeState ?? snapshot.runtimeState;
-          const initialDomainData = snapshot.initialDomainData ?? snapshot.domainData;
-
-          return createBuilderSnapshot(snapshot.source, initialRuntimeState, initialDomainData, {
-            initialRuntimeState,
-            initialDomainData,
+          return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
+            initialRuntimeState: snapshot.initialRuntimeState,
+            initialDomainData: snapshot.initialDomainData,
           });
         })
       : [createBuilderSnapshot(parsedValue.source, parsedValue.runtimeState, parsedValue.domainData)];

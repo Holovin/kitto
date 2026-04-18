@@ -34,12 +34,11 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
 export const ButtonComponent = defineComponent({
   name: 'Button',
   description:
-    'Clickable action trigger. Use Action([...]) for local state, Query re-fetches, Mutation runs, or @OpenUrl steps. Provide a stable id when buttons share the same label.',
-  // Keep `id` last so legacy positional Button(label, ...) definitions still parse correctly.
+    'Clickable action trigger. Use Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps. Provide a stable id when buttons share the same label.',
   props: z.object({
     label: z.string().describe('Visible button label.'),
     variant: variantSchema.describe('Visual style: default, secondary, ghost, or destructive.'),
-    action: z.unknown().optional().describe('Usually Action([...]) with @Run, @Set, @Reset, or @OpenUrl steps.'),
+    action: z.unknown().optional().describe('Usually Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps.'),
     disabled: reactive(z.boolean().optional().default(false).describe('Whether the button is disabled.')),
     id: z.string().optional().describe('Stable optional action/state key. Provide it when buttons share the same label.'),
   }),
