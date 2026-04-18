@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { nullableTextSchema } from './shared';
 
 type TextAreaRendererProps = ComponentRenderProps<{
-  helper?: string | null;
   label: string;
   name: string;
   placeholder?: string | null;
@@ -25,7 +24,6 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
         value={field.value ?? ''}
         onChange={(event) => field.setValue(event.target.value)}
       />
-      {props.helper ? <span className="text-xs text-slate-500">{props.helper}</span> : null}
     </label>
   );
 }
@@ -38,7 +36,6 @@ export const TextAreaComponent = defineComponent({
     label: z.string().describe('Visible label for the field.'),
     value: reactive(z.string().optional().describe('Current value, often bound to a $variable.')),
     placeholder: nullableTextSchema.describe('Placeholder text shown when empty.'),
-    helper: nullableTextSchema.describe('Small helper copy shown below the field.'),
   }),
   component: OpenUiTextAreaRenderer,
 });

@@ -1,10 +1,9 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { z } from 'zod';
-import { choiceOptionSchema, nullableTextSchema } from './shared';
+import { choiceOptionSchema } from './shared';
 
 type SelectRendererProps = ComponentRenderProps<{
-  helper?: string | null;
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
@@ -30,7 +29,6 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
           ))}
         </SelectContent>
       </SelectUI>
-      {props.helper ? <span className="text-xs text-slate-500">{props.helper}</span> : null}
     </div>
   );
 }
@@ -43,7 +41,6 @@ export const SelectComponent = defineComponent({
     label: z.string().describe('Visible label for the select field.'),
     value: reactive(z.string().optional().describe('Currently selected value, often bound to a $variable.')),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
-    helper: nullableTextSchema.describe('Small helper copy shown below the select.'),
   }),
   component: OpenUiSelectRenderer,
 });

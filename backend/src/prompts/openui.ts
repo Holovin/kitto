@@ -102,50 +102,50 @@ const systemPrompt = generatePrompt({
   root: 'AppShell',
   components: {
     AppShell: {
-      signature: 'AppShell(title?, children)',
-      description: 'Root container for the generated app. Must be assigned to root.',
+      signature: 'AppShell(children)',
+      description: 'Technical root wrapper for the generated app. Must be assigned to root and does not render visual chrome of its own.',
     },
     Screen: {
-      signature: 'Screen(id, title?, isActive?, children)',
+      signature: 'Screen(id, title, isActive?, children)',
       description:
         'Screen-level section for steps or view states inside the generated app. Explicit boolean isActive overrides automatic navigation; use null to let Screen follow persisted navigation.currentScreenId.',
     },
     Group: {
-      signature: 'Group(title?, description?, direction, children)',
-      description: 'Local layout container. direction is vertical, horizontal, or grid.',
+      signature: 'Group(title?, direction, children)',
+      description: 'Local layout container. direction is vertical or horizontal.',
     },
     Repeater: {
       signature: 'Repeater(children, emptyText?)',
       description: 'Collection container. Usually receives @Each(...) results.',
     },
     Text: {
-      signature: 'Text(value, tone, align)',
-      description: 'Display copy. tone can be body, muted, title, eyebrow, or code.',
+      signature: 'Text(value, variant, align)',
+      description: 'Display copy. variant can be body, muted, title, or code.',
     },
     Input: {
-      signature: 'Input(name, label, value, placeholder?, helper?)',
+      signature: 'Input(name, label, value, placeholder?)',
       description: 'Single-line text field. Bind value to a $variable for user input.',
     },
     TextArea: {
-      signature: 'TextArea(name, label, value, placeholder?, helper?)',
+      signature: 'TextArea(name, label, value, placeholder?)',
       description: 'Multi-line text input.',
     },
     Checkbox: {
-      signature: 'Checkbox(name, label, checked, helper?)',
-      description: 'Boolean field for consent, toggles, and checklist rows. Put the visible item text in the label.',
+      signature: 'Checkbox(name, label, checked)',
+      description: 'Boolean field for consent, toggles, and checklist rows. Put the visible item text directly in the label.',
     },
     RadioGroup: {
-      signature: 'RadioGroup(name, label, value, options, helper?)',
+      signature: 'RadioGroup(name, label, value, options)',
       description: 'Single-choice list of { label, value } options.',
     },
     Select: {
-      signature: 'Select(name, label, value, options, helper?)',
+      signature: 'Select(name, label, value, options)',
       description: 'Dropdown choice from { label, value } options.',
     },
     Button: {
-      signature: 'Button(label, variant, action, disabled?, id?)',
+      signature: 'Button(id, label, variant, action, disabled?)',
       description:
-        'Action trigger. Use Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps. Pass a stable id as the last argument when labels repeat.',
+        'Action trigger. The first argument must be a stable id string. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps.',
     },
     Link: {
       signature: 'Link(label, url, newTab?)',
@@ -178,14 +178,14 @@ const systemPrompt = generatePrompt({
     `$draft = ""
 todos = Query("read_state", { path: "app.todos" }, [])
 addTodo = Mutation("append_state", { path: "app.todos", value: { title: $draft, completed: false } })
-todoRows = @Each(todos, "todo", Group(null, null, "vertical", [
-  Checkbox("done-" + todo.title, todo.title, todo.completed, null)
+todoRows = @Each(todos, "todo", Group(null, "vertical", [
+  Checkbox("done-" + todo.title, todo.title, todo.completed)
 ]))
-root = AppShell("Todo list", [
+root = AppShell([
   Screen("main", "Tasks", true, [
-    Group("Composer", "Capture the next task", "vertical", [
-      Input("draft", "Task", $draft, "Create a todo list", null),
-      Button("Add task", "default", Action([@Run(addTodo), @Run(todos), @Reset($draft)]), false)
+    Group("Composer", "vertical", [
+      Input("draft", "Task", $draft, "Create a todo list"),
+      Button("add-task", "Add task", "default", Action([@Run(addTodo), @Run(todos), @Reset($draft)]), false)
     ]),
     Repeater(todoRows, "No tasks yet.")
   ])
@@ -194,41 +194,41 @@ root = AppShell("Todo list", [
 goQuestion1 = Mutation("navigate_screen", { screenId: "question1" })
 goQuestion2 = Mutation("navigate_screen", { screenId: "question2" })
 goResult = Mutation("navigate_screen", { screenId: "result" })
-root = AppShell("Quiz", [
+root = AppShell([
   Screen("intro", "Welcome", null, [
     Text("Three quick questions are coming next.", "body", "start"),
-    Button("Start", "default", Action([@Run(goQuestion1)]), false)
+    Button("start-quiz", "Start", "default", Action([@Run(goQuestion1)]), false)
   ]),
   Screen("question1", "Question 1", null, [
     RadioGroup("answer", "Pick one answer", "a", [
       { label: "Option A", value: "a" },
       { label: "Option B", value: "b" }
-    ], null),
-    Group(null, null, "horizontal", [
-      Button("Next", "secondary", Action([@Run(goQuestion2)]), false, "next-question1"),
-      Button("Back", "ghost", Action([@Run(goIntro)]), false, "back-question1")
+    ]),
+    Group(null, "horizontal", [
+      Button("next-question1", "Next", "secondary", Action([@Run(goQuestion2)]), false),
+      Button("back-question1", "Back", "secondary", Action([@Run(goIntro)]), false)
     ])
   ]),
   Screen("question2", "Question 2", null, [
     RadioGroup("answer", "Pick another answer", "a", [
       { label: "Option A", value: "a" },
       { label: "Option B", value: "b" }
-    ], null),
-    Group(null, null, "horizontal", [
-      Button("Next", "secondary", Action([@Run(goResult)]), false, "next-question2"),
-      Button("Back", "ghost", Action([@Run(goQuestion1)]), false, "back-question2")
+    ]),
+    Group(null, "horizontal", [
+      Button("next-question2", "Next", "secondary", Action([@Run(goResult)]), false),
+      Button("back-question2", "Back", "secondary", Action([@Run(goQuestion1)]), false)
     ])
   ]),
   Screen("result", "Result", null, [
     Text("Show result screen after the last question.", "title", "start"),
-    Button("Restart", "ghost", Action([@Run(goIntro)]), false)
+    Button("restart-quiz", "Restart", "destructive", Action([@Run(goIntro)]), false)
   ])
 ])`,
   ],
   additionalRules: [
     'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
     'Return the full updated program every time, not a patch.',
-    'The root statement must be `root = AppShell(...)`.',
+    'The root statement must be `root = AppShell([...])`.',
     'Use only the provided components and the supported tool names.',
     'Keep props shallow. Avoid deeply nested configuration objects.',
     'Use Screen for screen-level sections and Group for local layout.',
@@ -240,7 +240,7 @@ root = AppShell("Quiz", [
     'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
     'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
     'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
-    'When multiple Button components share the same label, pass a stable id as the final Button argument so button state and actions do not collide.',
+    'Every Button must start with a stable id string so button state and actions stay deterministic.',
     'Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.',
     'Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.',
     'Generated apps must stay browser-safe and must not depend on server-side execution after generation.',

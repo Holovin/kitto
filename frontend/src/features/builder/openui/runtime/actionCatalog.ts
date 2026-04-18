@@ -45,7 +45,7 @@ saveName = Mutation("write_state", {
 })
 
 // Run the mutation from a button.
-Button("Save", "default", Action([@Run(saveName)]), false)`,
+Button("save-name", "Save", "default", Action([@Run(saveName)]), false)`,
     documentation: {
       summary: 'Replaces the value at a state path with the value you provide.',
       useWhen: 'Use this for direct assignments, form saves, toggles, or resets when you already know the full next value.',
@@ -74,7 +74,7 @@ updateProfile = Mutation("merge_state", {
 })
 
 // Apply the partial update from a button.
-Button("Update profile", "default", Action([@Run(updateProfile)]), false)`,
+Button("update-profile", "Update profile", "default", Action([@Run(updateProfile)]), false)`,
     documentation: {
       summary: 'Merges a partial object patch into the existing object at a state path.',
       useWhen: 'Use this when you want to update a few fields without overwriting the entire record.',
@@ -106,7 +106,7 @@ addTask = Mutation("append_state", {
 })
 
 // Append the item on click.
-Button("Add task", "default", Action([@Run(addTask)]), false)`,
+Button("add-task", "Add task", "default", Action([@Run(addTask)]), false)`,
     documentation: {
       summary: 'Appends a new item to the array stored at a state path.',
       useWhen: 'Use this for list-style data such as todos, cart items, messages, or comments.',
@@ -135,7 +135,7 @@ removeFirstTask = Mutation("remove_state", {
 })
 
 // Delete the first item on click.
-Button("Remove first", "ghost", Action([@Run(removeFirstTask)]), false)`,
+Button("remove-first", "Remove first", "destructive", Action([@Run(removeFirstTask)]), false)`,
     documentation: {
       summary: 'Removes an item from the array at the given index.',
       useWhen: 'Use this to delete list entries without rebuilding the full array manually.',
@@ -166,7 +166,7 @@ goDetails = Mutation("navigate_screen", {
 })
 
 // Move to the next screen.
-Button("Continue", "default", Action([@Run(goDetails)]), false)`,
+Button("continue", "Continue", "default", Action([@Run(goDetails)]), false)`,
     documentation: {
       summary: 'Switches the preview to another screen in the current OpenUI app.',
       useWhen: 'Use this for internal navigation flows such as moving from a list screen to a detail or confirmation screen.',

@@ -2,28 +2,27 @@ import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAct
 import { Button as ButtonUI } from '@components/ui/button';
 import { z } from 'zod';
 
-const variantSchema = z.enum(['default', 'secondary', 'ghost', 'destructive']).default('default');
+const variantSchema = z.enum(['default', 'secondary', 'destructive']).default('default');
 
 type ButtonRendererProps = ComponentRenderProps<{
   action?: unknown;
   disabled?: StateField<boolean>;
-  id?: string;
+  id: string;
   label: string;
-  variant: 'default' | 'secondary' | 'ghost' | 'destructive';
+  variant: 'default' | 'secondary' | 'destructive';
 }>;
 
 function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const triggerAction = useTriggerAction();
   const isStreaming = useIsStreaming();
-  const actionKey = props.id ?? props.label;
-  const disabledField = useStateField(`__button_disabled__:${actionKey}`, props.disabled);
+  const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
 
   return (
     <ButtonUI
       disabled={isStreaming || Boolean(disabledField.value)}
       variant={props.variant}
       onClick={() => {
-        void triggerAction(actionKey, undefined, props.action as never);
+        void triggerAction(props.label, undefined, props.action as never);
       }}
     >
       {props.label}
@@ -34,13 +33,13 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
 export const ButtonComponent = defineComponent({
   name: 'Button',
   description:
-    'Clickable action trigger. Use Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps. Provide a stable id when buttons share the same label.',
+    'Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps.',
   props: z.object({
+    id: z.string().describe('Stable action and state key. Required first argument.'),
     label: z.string().describe('Visible button label.'),
-    variant: variantSchema.describe('Visual style: default, secondary, ghost, or destructive.'),
-    action: z.unknown().optional().describe('Usually Action([...]) with @Run, @Set, @Reset, or @ToAssistant steps.'),
+    variant: variantSchema.describe('Visual style: default, secondary, or destructive.'),
+    action: z.unknown().optional().describe('Usually Action([...]) with one or more @Run, @Set, @Reset, or @ToAssistant steps executed in order.'),
     disabled: reactive(z.boolean().optional().default(false).describe('Whether the button is disabled.')),
-    id: z.string().optional().describe('Stable optional action/state key. Provide it when buttons share the same label.'),
   }),
   component: OpenUiButtonRenderer,
 });

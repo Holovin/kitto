@@ -139,7 +139,7 @@ function ActionSchemaPanel({
 
   return (
     <div className="min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-h-7 flex-wrap items-center justify-between gap-3">
         <ActionSectionHeading>Input schema</ActionSectionHeading>
         <div className="flex items-center gap-2">
           <Button
@@ -180,7 +180,9 @@ function ActionDocumentationPanel({
 }) {
   return (
     <div className="min-w-0">
-      <ActionSectionHeading>Documentation</ActionSectionHeading>
+      <div className="flex min-h-7 items-center">
+        <ActionSectionHeading>Documentation</ActionSectionHeading>
+      </div>
       <div className="mt-3 rounded-[1.25rem] border border-slate-200 bg-white p-4 text-slate-700">
         <div className="space-y-4 text-sm leading-6">
           <div>
@@ -356,14 +358,14 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
           </div>
 
           <div className="min-w-0 space-y-4">
-            <div className="min-w-0">
-              <p className="mb-2 text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Reactive state</p>
+            <div className="flex min-w-0 flex-col gap-3">
+              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Reactive state</p>
               <pre className="max-h-[22rem] w-full max-w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
                 <code>{formatJson(runtimeState)}</code>
               </pre>
             </div>
-            <div className="min-w-0">
-              <p className="mb-2 text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Persisted data</p>
+            <div className="flex min-w-0 flex-col gap-3">
+              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Persisted data</p>
               <pre className="max-h-[22rem] w-full max-w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
                 <code>{formatJson(domainData)}</code>
               </pre>

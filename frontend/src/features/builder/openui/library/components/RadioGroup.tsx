@@ -1,10 +1,9 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { RadioGroup as RadioGroupUI, RadioGroupItem } from '@components/ui/radio-group';
 import { z } from 'zod';
-import { choiceOptionSchema, nullableTextSchema } from './shared';
+import { choiceOptionSchema } from './shared';
 
 type RadioGroupRendererProps = ComponentRenderProps<{
-  helper?: string | null;
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
@@ -17,10 +16,7 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600">{props.label}</span>
-        {props.helper ? <span className="text-xs text-slate-500">{props.helper}</span> : null}
-      </div>
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600">{props.label}</span>
       <RadioGroupUI disabled={isStreaming} value={field.value ?? ''} onValueChange={field.setValue}>
         {props.options.map((option) => (
           <label
@@ -44,7 +40,6 @@ export const RadioGroupComponent = defineComponent({
     label: z.string().describe('Visible label for the option set.'),
     value: reactive(z.string().optional().describe('Currently selected option value, often bound to a $variable.')),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
-    helper: nullableTextSchema.describe('Small helper copy shown below the label.'),
   }),
   component: OpenUiRadioGroupRenderer,
 });

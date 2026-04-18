@@ -16,25 +16,25 @@ createTask = Mutation("append_state", {
   path: "app.tasks",
   value: { title: $taskTitle, dueDate: $dueDate, completed: false }
 })
-taskRows = @Each(visibleTasks, "task", Group(null, null, "vertical", [
+taskRows = @Each(visibleTasks, "task", Group(null, "vertical", [
   Text(task.title, "title"),
   Text(task.dueDate == "" ? "No due date yet" : "Due: " + task.dueDate, "muted"),
-  Checkbox("completed-" + task.title, "Completed", task.completed, "Preview state is persisted locally.")
+  Checkbox("completed-" + task.title, "Completed", task.completed)
 ]))
 filterOptions = [
   { value: "all", label: "All tasks" },
   { value: "active", label: "Active only" },
   { value: "completed", label: "Completed only" }
 ]
-root = AppShell("Starter task board", [
+root = AppShell([
   Screen("main", "Task builder", true, [
-    Group("Compose", "These controls write into local persisted browser state.", "vertical", [
-      Input("taskTitle", "Task title", $taskTitle, "Create a todo list", null),
-      Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD", null),
-      Select("filter", "Filter", $filter, filterOptions, "Allow filtering by completed"),
-      Button("Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle, $dueDate)]), false)
+    Group("Compose", "vertical", [
+      Input("taskTitle", "Task title", $taskTitle, "Create a todo list"),
+      Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD"),
+      Select("filter", "Filter", $filter, filterOptions),
+      Button("add-task", "Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle, $dueDate)]), false)
     ]),
-    Group("Live preview", "The list below is rendered from Query(read_state).", "vertical", [
+    Group("Live preview", "vertical", [
       Text("Tasks in storage: " + @Count(tasks), "muted", "start"),
       Repeater(taskRows, "Nothing here yet. Add a task from the composer above.")
     ])
@@ -69,46 +69,46 @@ goAgreement = Mutation("navigate_screen", { screenId: "agreement" })
 goResult = Mutation("navigate_screen", { screenId: "result" })
 score = ($answer1 == "Paris" ? 1 : 0) + ($answer2 == "Hooks" ? 1 : 0) + ($answer3 == "write_state" ? 1 : 0)
 
-root = AppShell("Quiz demo", [
+root = AppShell([
   Screen("intro", "Welcome", null, [
-    Group("How it works", "This demo shows screen flow through persisted navigation.currentScreenId.", "vertical", [
+    Group("How it works", "vertical", [
       Text("Answer three questions and accept the agreement before submit.", "body", "start"),
-      Button("Start quiz", "default", Action([@Run(goQ1)]), false)
+      Button("start-quiz", "Start quiz", "default", Action([@Run(goQ1)]), false)
     ])
   ]),
   Screen("q1", "Question 1", null, [
-    RadioGroup("answer1", "Which city is the capital of France?", $answer1, capitalOptions, null),
-    Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Run(goQ2)]), $answer1 == "", "next-q1"),
-      Button("Back", "ghost", Action([@Run(goIntro)]), false, "back-q1")
+    RadioGroup("answer1", "Which city is the capital of France?", $answer1, capitalOptions),
+    Group(null, "horizontal", [
+      Button("next-q1", "Next", "default", Action([@Run(goQ2)]), $answer1 == ""),
+      Button("back-q1", "Back", "secondary", Action([@Run(goIntro)]), false)
     ])
   ]),
   Screen("q2", "Question 2", null, [
-    RadioGroup("answer2", "Which feature made local React state easier?", $answer2, reactOptions, null),
-    Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Run(goQ3)]), $answer2 == "", "next-q2"),
-      Button("Back", "ghost", Action([@Run(goQ1)]), false, "back-q2")
+    RadioGroup("answer2", "Which feature made local React state easier?", $answer2, reactOptions),
+    Group(null, "horizontal", [
+      Button("next-q2", "Next", "default", Action([@Run(goQ3)]), $answer2 == ""),
+      Button("back-q2", "Back", "secondary", Action([@Run(goQ1)]), false)
     ])
   ]),
   Screen("q3", "Question 3", null, [
-    RadioGroup("answer3", "Which operation writes a scalar value into persisted state?", $answer3, stateOptions, null),
-    Group(null, null, "horizontal", [
-      Button("Next", "default", Action([@Run(goAgreement)]), $answer3 == "", "next-q3"),
-      Button("Back", "ghost", Action([@Run(goQ2)]), false, "back-q3")
+    RadioGroup("answer3", "Which operation writes a scalar value into persisted state?", $answer3, stateOptions),
+    Group(null, "horizontal", [
+      Button("next-q3", "Next", "default", Action([@Run(goAgreement)]), $answer3 == ""),
+      Button("back-q3", "Back", "secondary", Action([@Run(goQ2)]), false)
     ])
   ]),
   Screen("agreement", "Agreement", null, [
-    Checkbox("agreement", "I confirm that I reviewed all answers before submit.", $agreement, "A checkbox gate before the last action."),
-    Group(null, null, "horizontal", [
-      Button("Show result", "default", Action([@Run(goResult)]), !$agreement),
-      Button("Back", "ghost", Action([@Run(goQ3)]), false, "back-agreement")
+    Checkbox("agreement", "I confirm that I reviewed all answers before submit.", $agreement),
+    Group(null, "horizontal", [
+      Button("show-result", "Show result", "default", Action([@Run(goResult)]), !$agreement),
+      Button("back-agreement", "Back", "secondary", Action([@Run(goQ3)]), false)
     ])
   ]),
   Screen("result", "Result", null, [
-    Group("Score", "Conditional rendering and local state stay inside the generated app.", "vertical", [
+    Group("Score", "vertical", [
       Text(score + " / 3", "title", "start"),
       Text(score == 3 ? "Perfect score." : score == 2 ? "Almost there." : "Try another round.", "body", "start"),
-      Button("Restart", "secondary", Action([@Reset($answer1, $answer2, $answer3, $agreement), @Run(goIntro)]), false)
+      Button("restart-quiz", "Restart", "destructive", Action([@Reset($answer1, $answer2, $answer3, $agreement), @Run(goIntro)]), false)
     ])
   ])
 ])`;
@@ -122,23 +122,23 @@ createSubmission = Mutation("append_state", {
   path: "app.submissions",
   value: { name: $name, email: $email, accepted: true }
 })
-rows = @Each(submissions, "submission", Group(null, null, "vertical", [
+rows = @Each(submissions, "submission", Group(null, "vertical", [
   Text(submission.name, "title", "start"),
   Text(submission.email, "muted", "start")
 ]))
 
-root = AppShell("Agreement form demo", [
+root = AppShell([
   Screen("main", "Signup", true, [
-    Group("Form", "A small flow that requires checkbox agreement before submit.", "vertical", [
-      Input("name", "Full name", $name, "Alex Johnson", null),
-      Input("email", "Email", $email, "alex@example.com", null),
-      Checkbox("accepted", "I agree to the terms before submit.", $accepted, "Submit stays disabled until the checkbox is checked."),
-      Group(null, null, "horizontal", [
-        Button("Submit", "default", Action([@Run(createSubmission), @Run(submissions), @Reset($name, $email, $accepted)]), !$accepted || $name == "" || $email == ""),
+    Group("Form", "vertical", [
+      Input("name", "Full name", $name, "Alex Johnson"),
+      Input("email", "Email", $email, "alex@example.com"),
+      Checkbox("accepted", "I agree to the terms before submit.", $accepted),
+      Group(null, "horizontal", [
+        Button("submit-form", "Submit", "default", Action([@Run(createSubmission), @Run(submissions), @Reset($name, $email, $accepted)]), !$accepted || $name == "" || $email == ""),
         Link("Privacy policy", "https://platform.openai.com/docs", true)
       ])
     ]),
-    Group("Saved submissions", "Persisted browser data rendered back through Query(read_state).", "vertical", [
+    Group("Saved submissions", "vertical", [
       Text("Total saved: " + @Count(submissions), "muted", "start"),
       Repeater(rows, "No submissions yet.")
     ])
