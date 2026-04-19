@@ -22,16 +22,14 @@ export function BaseLayout() {
           isChatRoute ? 'h-full' : 'min-h-screen',
         )}
       >
-        <header className="mb-4 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/86 px-5 py-5 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 lg:flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <strong className="block text-2xl font-semibold tracking-tight text-slate-950">Kitto</strong>
-              <span className="text-xs font-medium tracking-[0.08em] text-slate-500">(openui)</span>
-              <StatusBadge model={model} status={connectionStatus} />
-            </div>
+        <header className="mb-2 flex flex-wrap items-center justify-between gap-3 py-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <strong className="block text-2xl font-semibold tracking-tight text-slate-950">Kitto</strong>
+            <span className="text-xs font-medium tracking-[0.08em] text-slate-500">(openui)</span>
+            <StatusBadge model={model} status={connectionStatus} />
           </div>
 
-          <nav className="flex flex-wrap gap-2">
+          <nav className="flex flex-wrap items-center gap-2">
             <Button asChild size="sm" variant={isChatActive ? 'default' : 'ghost'}>
               <NavLink to={SiteRoutes.home.path} end>
                 Chat

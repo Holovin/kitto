@@ -230,11 +230,45 @@ describe('builderSlice', () => {
     );
     const undone = builderReducer(withSecondCommit, builderActions.undoLatest());
     const redone = builderReducer(undone, builderActions.redoLatest());
+    const undoneToEmpty = builderReducer(undone, builderActions.undoLatest());
 
     expect(undone.committedSource).toBe(firstSnapshot.source);
     expect(undone.redoHistory).toHaveLength(1);
+    expect(undone.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Reverted to version 1 / 2.',
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+    expect(
+      undone.chatMessages.filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version ')),
+    ).toHaveLength(1);
     expect(redone.committedSource).toBe(secondSnapshot.source);
     expect(redone.redoHistory).toHaveLength(0);
+    expect(redone.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Restored version 2 / 2.',
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+    expect(
+      redone.chatMessages.filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version ')),
+    ).toHaveLength(1);
+    expect(undoneToEmpty.committedSource).toBe('');
+    expect(undoneToEmpty.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Reverted to version 0 / 2.',
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+    expect(
+      undoneToEmpty.chatMessages.filter(
+        (message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '),
+      ),
+    ).toHaveLength(1);
   });
 
   it('ignores stale completions after a newer request replaces the current request id', () => {

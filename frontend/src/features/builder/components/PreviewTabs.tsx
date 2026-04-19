@@ -390,7 +390,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
           <CardContent className="flex h-full min-h-0 flex-col gap-4 p-6">
             <div className="flex flex-wrap items-center justify-end gap-3">
               <Button
-                className="h-8 rounded-lg border border-slate-200 px-3 text-xs shadow-none"
+                className="h-8 rounded-lg border border-slate-200 px-3 text-xs shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
                 disabled={!currentSnapshot || isPreviewEmptyCanvas || isStreaming}
                 size="sm"
                 variant="secondary"

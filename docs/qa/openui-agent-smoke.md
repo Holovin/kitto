@@ -148,6 +148,10 @@ Actions:
 Expected:
 - undo restores the previous committed source and its runtime/domain snapshot
 - redo restores the later committed source
+- the chat toolbar shows `Version: N / M` followed by previous-version and next-version buttons, and that label updates in lockstep with history position, for example `Version: 1 / 2` after undo and `Version: 2 / 2` after redo
+- if you undo all the way back to the blank canvas while prior versions still exist, the `Version:` label shows `0 / M`, the previous-version button stays disabled, and `Reset` stays enabled
+- the chat keeps only one rewind-status system message; repeated `Undo`/`Redo` updates that one message instead of stacking a ladder of history notices
+- the rewind-status system message includes the visible version number
 - Definition reflects the restored committed snapshot after each action
 - no stale draft source or rejected-definition state remains after undo/redo
 

@@ -30,6 +30,11 @@ Guardrails:
 - Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
+- The chat toolbar shows `Version: N / M` before the previous-version and next-version buttons, where `N` counts committed non-empty versions and may be `0` after undoing back to a blank canvas with history still available.
+- A pristine blank builder with no committed version history shows `—` in the chat toolbar.
+- Undo/redo keep a single rewind-status system chat message and update it in place rather than stacking multiple rewind notices.
+- The rewind-status system chat message includes the same visible version number shown in the toolbar.
+- `Reset` stays enabled whenever any committed version history exists, including the `0 / M` state after undoing back to a blank canvas.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
 - Standalone HTML export always uses the committed source and the committed snapshot baseline runtime/domain state, not the builder’s current live clicked state.
 - Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.

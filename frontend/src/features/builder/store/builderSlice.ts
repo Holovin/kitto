@@ -1,4 +1,5 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
+import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
@@ -23,6 +24,21 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
   if (messages.length > MAX_MESSAGES) {
     messages.splice(0, messages.length - MAX_MESSAGES);
   }
+}
+
+function isHistoryNavigationMessage(message: Pick<BuilderChatMessage, 'content' | 'role' | 'tone'>) {
+  return (
+    message.role === 'system' &&
+    message.tone === 'info' &&
+    (message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '))
+  );
+}
+
+function pushSingletonHistoryNavigationMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
+  const filteredMessages = messages.filter((currentMessage) => !isHistoryNavigationMessage(currentMessage));
+
+  messages.splice(0, messages.length, ...filteredMessages);
+  pushMessage(messages, message);
 }
 
 function createMessage(
@@ -80,6 +96,23 @@ function validateRestoredSource(source: string) {
   }
 
   return validateOpenUiSource(source);
+}
+
+function getBuilderHistoryChatMessage(
+  action: 'redo' | 'undo',
+  state: Pick<BuilderState, 'committedSource' | 'history' | 'isStreaming' | 'redoHistory'>,
+) {
+  return formatHistoryVersionChatMessage(
+    action,
+    getBuilderHistoryVersionState({
+      committedSource: state.committedSource,
+      hasRedoSnapshot: Boolean(state.redoHistory.at(-1)),
+      hasUndoSnapshot: Boolean(state.history.at(-2)),
+      historyVersionCount: countCommittedVersions(state.history),
+      isStreaming: state.isStreaming,
+      redoVersionCount: countCommittedVersions(state.redoHistory),
+    }),
+  );
 }
 
 function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
@@ -381,7 +414,10 @@ export const builderSlice = createSlice({
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
-      pushMessage(state.chatMessages, createMessage('system', 'Reverted to the previous committed version.', 'info'));
+      pushSingletonHistoryNavigationMessage(
+        state.chatMessages,
+        createMessage('system', getBuilderHistoryChatMessage('undo', state), 'info'),
+      );
     },
     redoLatest(state) {
       const redoSnapshot = state.redoHistory.at(-1);
@@ -399,7 +435,10 @@ export const builderSlice = createSlice({
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
-      pushMessage(state.chatMessages, createMessage('system', 'Restored the last undone version.', 'info'));
+      pushSingletonHistoryNavigationMessage(
+        state.chatMessages,
+        createMessage('system', getBuilderHistoryChatMessage('redo', state), 'info'),
+      );
     },
     loadDefinition(
       state,

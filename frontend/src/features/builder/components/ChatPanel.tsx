@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, type MutableRefObject } from 'react';
-import { Redo2, RotateCcw, Send, Square, Undo2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
@@ -50,36 +50,46 @@ function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarPr
     handleRedo,
     handleResetToEmpty,
     handleUndo,
+    historyVersionLabel,
   } = useBuilderHistoryControls({
     cancelActiveRequestRef,
     onFeedbackChange,
   });
   const toolbarButtonClassName =
-    'h-7 rounded-lg border border-slate-200 bg-white/70 px-2 text-xs shadow-none hover:bg-white';
+    'h-7 rounded-lg border border-slate-200 bg-white/70 px-2 text-xs shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950';
   const toolbarIconButtonClassName =
-    'h-7 w-7 rounded-lg border border-slate-200 bg-white/70 px-0 shadow-none hover:bg-white';
+    'h-7 w-7 rounded-lg border border-slate-200 bg-white/70 px-0 shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950';
+  const toolbarVersionBadgeClassName = 'text-[0.78rem] font-medium whitespace-nowrap';
+  const toolbarVersionGroupClassName = 'flex items-center gap-1.5 px-1';
+  const toolbarVersionLabelClassName = 'text-[0.72rem] font-medium whitespace-nowrap';
 
   return (
     <div className="flex shrink-0 items-center gap-2">
+      <div className={toolbarVersionGroupClassName} style={{ color: 'var(--fg-3, #94a3b8)' }}>
+        <span className={toolbarVersionLabelClassName}>Version:</span>
+        <span aria-live="polite" className={toolbarVersionBadgeClassName}>
+          {historyVersionLabel}
+        </span>
+      </div>
       <Button
-        aria-label="Undo"
+        aria-label="Previous version"
         className={toolbarIconButtonClassName}
         disabled={!canUndo}
         size="sm"
         variant="ghost"
         onClick={handleUndo}
       >
-        <Undo2 className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4" />
       </Button>
       <Button
-        aria-label="Redo"
+        aria-label="Next version"
         className={toolbarIconButtonClassName}
         disabled={!canRedo}
         size="sm"
         variant="ghost"
         onClick={handleRedo}
       >
-        <Redo2 className="h-4 w-4" />
+        <ArrowRight className="h-4 w-4" />
       </Button>
       <Button
         className={toolbarButtonClassName}

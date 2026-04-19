@@ -2,6 +2,7 @@ import { useRef, type ChangeEvent, type MutableRefObject } from 'react';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
+import { countCommittedVersions, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
 import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { createStandaloneHtml } from '@features/builder/standalone/createStandaloneHtml';
@@ -49,10 +50,20 @@ export function useBuilderHistoryControls({
   const isStreaming = useAppSelector(selectIsStreaming);
   const previousSnapshot = history.at(-2);
   const redoSnapshot = redoHistory.at(-1);
-  const isEmptyCanvas = !committedSource.trim() && history.length === 1;
+  const historyVersionCount = countCommittedVersions(history);
+  const redoVersionCount = countCommittedVersions(redoHistory);
+  const historyVersionState = getBuilderHistoryVersionState({
+    committedSource,
+    hasRedoSnapshot: Boolean(redoSnapshot),
+    hasUndoSnapshot: Boolean(previousSnapshot),
+    historyVersionCount,
+    isStreaming,
+    redoVersionCount,
+  });
+  const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;
 
   function handleExport() {
-    if (isEmptyCanvas) {
+    if (isPristineCanvas) {
       return;
     }
 
@@ -167,7 +178,7 @@ export function useBuilderHistoryControls({
   }
 
   function handleResetToEmpty() {
-    if (isStreaming || isEmptyCanvas) {
+    if (!historyVersionState.canReset) {
       return;
     }
 
@@ -178,11 +189,11 @@ export function useBuilderHistoryControls({
   }
 
   return {
-    canExport: !isEmptyCanvas,
+    canExport: !isPristineCanvas,
     canDownloadStandalone: committedSource.trim().length > 0,
-    canRedo: Boolean(redoSnapshot) && !isStreaming,
-    canReset: !isStreaming && !isEmptyCanvas,
-    canUndo: Boolean(previousSnapshot) && !isStreaming,
+    canRedo: historyVersionState.canRedo,
+    canReset: historyVersionState.canReset,
+    canUndo: historyVersionState.canUndo,
     fileInputRef,
     handleDownloadStandalone,
     handleExport,
@@ -190,5 +201,6 @@ export function useBuilderHistoryControls({
     handleRedo,
     handleResetToEmpty,
     handleUndo,
+    historyVersionLabel: historyVersionState.versionBadgeText,
   };
 }
