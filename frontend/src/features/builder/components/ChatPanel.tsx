@@ -47,23 +47,27 @@ function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps)
     abortControllerRef,
     onFeedbackChange,
   });
+  const toolbarButtonClassName =
+    'h-7 rounded-lg border border-slate-200 bg-white/70 px-2 text-xs shadow-none hover:bg-white';
+  const toolbarIconButtonClassName =
+    'h-7 w-7 rounded-lg border border-slate-200 bg-white/70 px-0 shadow-none hover:bg-white';
 
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:justify-end">
       <Button
-        className="h-7 rounded-lg border border-slate-200 px-2 text-xs shadow-none"
+        className={toolbarButtonClassName}
         disabled={!canExport}
         size="sm"
-        variant="secondary"
+        variant="ghost"
         onClick={handleExport}
       >
         <Download className="h-4 w-4" />
         Export
       </Button>
       <Button
-        className="h-7 rounded-lg border border-slate-200 px-2 text-xs shadow-none"
+        className={toolbarButtonClassName}
         size="sm"
-        variant="secondary"
+        variant="ghost"
         onClick={() => fileInputRef.current?.click()}
       >
         <FileUp className="h-4 w-4" />
@@ -71,7 +75,7 @@ function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps)
       </Button>
       <Button
         aria-label="Undo"
-        className="h-7 w-7 rounded-lg border border-slate-200 px-0 shadow-none"
+        className={toolbarIconButtonClassName}
         disabled={!canUndo}
         size="sm"
         variant="ghost"
@@ -81,7 +85,7 @@ function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps)
       </Button>
       <Button
         aria-label="Redo"
-        className="h-7 w-7 rounded-lg border border-slate-200 px-0 shadow-none"
+        className={toolbarIconButtonClassName}
         disabled={!canRedo}
         size="sm"
         variant="ghost"
@@ -90,7 +94,7 @@ function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps)
         <Redo2 className="h-4 w-4" />
       </Button>
       <Button
-        className="h-7 rounded-lg border border-slate-200 px-2 text-xs shadow-none"
+        className={toolbarButtonClassName}
         disabled={!canReset}
         size="sm"
         variant="ghost"
@@ -120,7 +124,7 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
       <div className="space-y-3 pr-1" style={{ containIntrinsicSize: '720px', contentVisibility: 'auto' }}>
         {isBackendDisconnected ? (
-          <article className="max-w-full rounded-[1.4rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700 shadow-sm">
+          <article className="max-w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700">
             Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until
             <span className="font-semibold"> /api/health </span>
             recovers.
@@ -128,7 +132,7 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
         ) : null}
 
         {feedback ? (
-          <article className="max-w-full rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm">
+          <article className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
             {feedback}
           </article>
         ) : null}
@@ -136,7 +140,7 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
         {chatMessages.map((message) => (
           <article
             key={message.id}
-            className={`max-w-[92%] rounded-[1.4rem] border px-4 py-3 text-sm leading-6 shadow-sm ${getMessageBubbleClasses(message)}`}
+            className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${getMessageBubbleClasses(message)}`}
           >
             <p>{message.content}</p>
           </article>

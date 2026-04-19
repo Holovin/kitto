@@ -8,12 +8,8 @@ import { domainActions } from '@features/builder/store/domainSlice';
 import { useAppDispatch } from '@store/hooks';
 
 const EMPTY_PREVIEW_SUGGESTIONS = [
-  { label: 'Create a todo list', presetId: 'todo-demo' },
-  { label: 'Add due dates', presetId: 'todo-demo' },
-  { label: 'Allow filtering by completed', presetId: 'todo-demo' },
-  { label: 'Create a quiz with 3 questions', presetId: 'quiz-demo' },
-  { label: 'Show result screen after the last question', presetId: 'quiz-demo' },
-  { label: 'Add a checkbox agreement step before submit', presetId: 'agreement-demo' },
+  { label: 'Todo list', presetId: 'todo-demo' },
+  { label: 'Quiz with 3 questions', presetId: 'quiz-demo' },
 ] as const;
 
 export function PreviewEmptyState() {
@@ -48,17 +44,22 @@ export function PreviewEmptyState() {
         <h3 className="text-3xl font-semibold tracking-tight text-slate-950">Preview is empty</h3>
       </div>
 
-      <div className="flex max-w-4xl flex-wrap items-center justify-center gap-3">
-        {EMPTY_PREVIEW_SUGGESTIONS.map((suggestion) => (
-          <Button
-            key={suggestion.label}
-            size="lg"
-            variant="secondary"
-            onClick={() => handleLoadSuggestion(suggestion.label, suggestion.presetId)}
-          >
-            {suggestion.label}
-          </Button>
-        ))}
+      <div className="h-px w-full max-w-md bg-slate-200/80" />
+
+      <div className="flex flex-col items-center gap-4">
+        <p className="text-sm font-medium text-slate-500">Or try one of the prepared demos</p>
+        <div className="flex max-w-4xl flex-wrap items-center justify-center gap-3">
+          {EMPTY_PREVIEW_SUGGESTIONS.map((suggestion) => (
+            <Button
+              key={suggestion.label}
+              size="lg"
+              variant="secondary"
+              onClick={() => handleLoadSuggestion(suggestion.label, suggestion.presetId)}
+            >
+              {suggestion.label}
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   );

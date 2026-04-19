@@ -7,18 +7,16 @@ interface BuilderDemoPreset {
 }
 
 const todoDemoSource = `$taskTitle = ""
-$dueDate = ""
 $filter = "all"
 
 tasks = Query("read_state", { path: "app.tasks" }, [])
 visibleTasks = $filter == "completed" ? @Filter(tasks, "completed", "==", true) : $filter == "active" ? @Filter(tasks, "completed", "==", false) : tasks
 createTask = Mutation("append_state", {
   path: "app.tasks",
-  value: { title: $taskTitle, dueDate: $dueDate, completed: false }
+  value: { title: $taskTitle, completed: false }
 })
 taskRows = @Each(visibleTasks, "task", Group(null, "vertical", [
   Text(task.title, "title"),
-  Text(task.dueDate == "" ? "No due date yet" : "Due: " + task.dueDate, "muted"),
   Checkbox("completed-" + task.title, "Completed", task.completed)
 ]))
 filterOptions = [
@@ -30,11 +28,10 @@ root = AppShell([
   Screen("main", "Task builder", [
     Group("Compose", "vertical", [
       Input("taskTitle", "Task title", $taskTitle, "Create a todo list"),
-      Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD"),
-      Select("filter", "Filter", $filter, filterOptions),
-      Button("add-task", "Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle, $dueDate)]), false)
+      Button("add-task", "Add task", "default", Action([@Run(createTask), @Run(tasks), @Reset($taskTitle)]), false)
     ]),
     Group("Live preview", "vertical", [
+      Select("filter", "Filter", $filter, filterOptions),
       Text("Tasks in storage: " + @Count(tasks), "muted", "start"),
       Repeater(taskRows, "Nothing here yet. Add a task from the composer above.")
     ])
@@ -144,19 +141,17 @@ export const BUILDER_DEMO_PRESETS: BuilderDemoPreset[] = [
   {
     id: 'todo-demo',
     label: 'Todo board',
-    description: 'Todo list with due dates, filtering, and a persisted collection.',
+    description: 'Todo list with filtering and a persisted collection.',
     source: todoDemoSource,
     domainData: {
       app: {
         tasks: [
           {
             title: 'Draft the onboarding flow',
-            dueDate: '2026-04-18',
             completed: false,
           },
           {
             title: 'Review the launch checklist',
-            dueDate: '2026-04-20',
             completed: true,
           },
         ],

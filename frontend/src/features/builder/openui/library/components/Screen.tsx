@@ -19,7 +19,7 @@ function ScreenRenderer({
       <CardHeader>
         <CardTitle>{props.title}</CardTitle>
       </CardHeader>
-      <CardContent>{renderNode(props.children)}</CardContent>
+      <CardContent className="flex flex-col gap-6">{renderNode(props.children)}</CardContent>
     </Card>
   );
 }
