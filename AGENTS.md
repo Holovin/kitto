@@ -46,7 +46,7 @@ Steps:
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Current sandbox tools exposed to generated apps:
-  - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`, `navigate_screen`
+  - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 
 ## Architecture
 
@@ -71,7 +71,7 @@ Steps:
   - `domainData`
   - `initialRuntimeState`
   - `initialDomainData`
-- `navigation.currentScreenId` is effectively a reserved domain path used for screen navigation
+- Internal screen flow should stay in local OpenUI runtime state such as `$currentScreen`; `domainData` is for persisted tool-backed data only
 
 ## Generation Flow
 

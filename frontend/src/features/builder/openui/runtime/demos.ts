@@ -27,7 +27,7 @@ filterOptions = [
   { value: "completed", label: "Completed only" }
 ]
 root = AppShell([
-  Screen("main", "Task builder", true, [
+  Screen("main", "Task builder", [
     Group("Compose", "vertical", [
       Input("taskTitle", "Task title", $taskTitle, "Create a todo list"),
       Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD"),
@@ -45,6 +45,7 @@ const quizDemoSource = `$answer1 = ""
 $answer2 = ""
 $answer3 = ""
 $agreement = false
+$currentScreen = "intro"
 
 capitalOptions = [
   { label: "Paris", value: "Paris" },
@@ -61,56 +62,50 @@ stateOptions = [
   { label: "merge_state(path, patch)", value: "merge_state" },
   { label: "remove_state(path, index)", value: "remove_state" }
 ]
-goIntro = Mutation("navigate_screen", { screenId: "intro" })
-goQ1 = Mutation("navigate_screen", { screenId: "q1" })
-goQ2 = Mutation("navigate_screen", { screenId: "q2" })
-goQ3 = Mutation("navigate_screen", { screenId: "q3" })
-goAgreement = Mutation("navigate_screen", { screenId: "agreement" })
-goResult = Mutation("navigate_screen", { screenId: "result" })
 score = ($answer1 == "Paris" ? 1 : 0) + ($answer2 == "Hooks" ? 1 : 0) + ($answer3 == "write_state" ? 1 : 0)
 
 root = AppShell([
-  Screen("intro", "Welcome", null, [
+  Screen("intro", "Welcome", [
     Group("How it works", "vertical", [
       Text("Answer three questions and accept the agreement before submit.", "body", "start"),
-      Button("start-quiz", "Start quiz", "default", Action([@Run(goQ1)]), false)
+      Button("start-quiz", "Start quiz", "default", Action([@Set($currentScreen, "q1")]), false)
     ])
-  ]),
-  Screen("q1", "Question 1", null, [
+  ], $currentScreen == "intro"),
+  Screen("q1", "Question 1", [
     RadioGroup("answer1", "Which city is the capital of France?", $answer1, capitalOptions),
     Group(null, "horizontal", [
-      Button("next-q1", "Next", "default", Action([@Run(goQ2)]), $answer1 == ""),
-      Button("back-q1", "Back", "secondary", Action([@Run(goIntro)]), false)
+      Button("next-q1", "Next", "default", Action([@Set($currentScreen, "q2")]), $answer1 == ""),
+      Button("back-q1", "Back", "secondary", Action([@Set($currentScreen, "intro")]), false)
     ])
-  ]),
-  Screen("q2", "Question 2", null, [
+  ], $currentScreen == "q1"),
+  Screen("q2", "Question 2", [
     RadioGroup("answer2", "Which feature made local React state easier?", $answer2, reactOptions),
     Group(null, "horizontal", [
-      Button("next-q2", "Next", "default", Action([@Run(goQ3)]), $answer2 == ""),
-      Button("back-q2", "Back", "secondary", Action([@Run(goQ1)]), false)
+      Button("next-q2", "Next", "default", Action([@Set($currentScreen, "q3")]), $answer2 == ""),
+      Button("back-q2", "Back", "secondary", Action([@Set($currentScreen, "q1")]), false)
     ])
-  ]),
-  Screen("q3", "Question 3", null, [
+  ], $currentScreen == "q2"),
+  Screen("q3", "Question 3", [
     RadioGroup("answer3", "Which operation writes a scalar value into persisted state?", $answer3, stateOptions),
     Group(null, "horizontal", [
-      Button("next-q3", "Next", "default", Action([@Run(goAgreement)]), $answer3 == ""),
-      Button("back-q3", "Back", "secondary", Action([@Run(goQ2)]), false)
+      Button("next-q3", "Next", "default", Action([@Set($currentScreen, "agreement")]), $answer3 == ""),
+      Button("back-q3", "Back", "secondary", Action([@Set($currentScreen, "q2")]), false)
     ])
-  ]),
-  Screen("agreement", "Agreement", null, [
+  ], $currentScreen == "q3"),
+  Screen("agreement", "Agreement", [
     Checkbox("agreement", "I confirm that I reviewed all answers before submit.", $agreement),
     Group(null, "horizontal", [
-      Button("show-result", "Show result", "default", Action([@Run(goResult)]), !$agreement),
-      Button("back-agreement", "Back", "secondary", Action([@Run(goQ3)]), false)
+      Button("show-result", "Show result", "default", Action([@Set($currentScreen, "result")]), !$agreement),
+      Button("back-agreement", "Back", "secondary", Action([@Set($currentScreen, "q3")]), false)
     ])
-  ]),
-  Screen("result", "Result", null, [
+  ], $currentScreen == "agreement"),
+  Screen("result", "Result", [
     Group("Score", "vertical", [
       Text(score + " / 3", "title", "start"),
       Text(score == 3 ? "Perfect score." : score == 2 ? "Almost there." : "Try another round.", "body", "start"),
-      Button("restart-quiz", "Restart", "destructive", Action([@Reset($answer1, $answer2, $answer3, $agreement), @Run(goIntro)]), false)
+      Button("restart-quiz", "Restart", "destructive", Action([@Set($currentScreen, "intro"), @Reset($answer1, $answer2, $answer3, $agreement)]), false)
     ])
-  ])
+  ], $currentScreen == "result")
 ])`;
 
 const agreementDemoSource = `$name = ""
@@ -128,7 +123,7 @@ rows = @Each(submissions, "submission", Group(null, "vertical", [
 ]))
 
 root = AppShell([
-  Screen("main", "Signup", true, [
+  Screen("main", "Signup", [
     Group("Form", "vertical", [
       Input("name", "Full name", $name, "Alex Johnson"),
       Input("email", "Email", $email, "alex@example.com"),
@@ -173,11 +168,7 @@ export const BUILDER_DEMO_PRESETS: BuilderDemoPreset[] = [
     label: 'Quiz flow',
     description: 'Three questions, radio buttons, next buttons, agreement gating, and a result screen.',
     source: quizDemoSource,
-    domainData: {
-      navigation: {
-        currentScreenId: 'intro',
-      },
-    },
+    domainData: {},
   },
   {
     id: 'agreement-demo',

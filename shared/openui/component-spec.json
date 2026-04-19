@@ -6,8 +6,8 @@
       "description": "Technical root wrapper for the generated app. Use it once as root; it renders children without any visual chrome."
     },
     "Screen": {
-      "signature": "Screen(id: string, title: string, isActive?: boolean, children?: any[])",
-      "description": "Screen-level section. Explicit isActive overrides navigation; when isActive is omitted, the screen follows persisted navigation.currentScreenId."
+      "signature": "Screen(id: string, title: string, children?: any[], isActive?: boolean)",
+      "description": "Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility."
     },
     "Group": {
       "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[])",

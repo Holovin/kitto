@@ -6,51 +6,39 @@ interface ElementDemoDefinition {
 
 export const ELEMENT_DEMO_DEFINITIONS: Record<string, ElementDemoDefinition> = {
   AppShell: {
-    initialDomainData: {
-      navigation: {
-        currentScreenId: 'overview',
-      },
-    },
-    source: `showOverview = Mutation("navigate_screen", { screenId: "overview" })
-showDetails = Mutation("navigate_screen", { screenId: "details" })
+    source: `$currentScreen = "overview"
 
 root = AppShell([
-  Screen("overview", "Overview", null, [
+  Screen("overview", "Overview", [
     Group("Root shell", "vertical", [
       Text("AppShell is a technical wrapper and renders only its children.", "body", "start"),
-      Button("show-details", "Show details", "secondary", Action([@Run(showDetails)]), false)
+      Button("show-details", "Show details", "secondary", Action([@Set($currentScreen, "details")]), false)
     ])
-  ]),
-  Screen("details", "Details", null, [
+  ], $currentScreen == "overview"),
+  Screen("details", "Details", [
     Group("Nested content", "vertical", [
       Text("Only the active Screen is visible at a time.", "body", "start"),
-      Button("show-overview", "Show overview", "secondary", Action([@Run(showOverview)]), false)
+      Button("show-overview", "Show overview", "secondary", Action([@Set($currentScreen, "overview")]), false)
     ])
-  ])
+  ], $currentScreen == "details")
 ])`,
   },
   Screen: {
-    initialDomainData: {
-      navigation: {
-        currentScreenId: 'alpha',
-      },
-    },
-    source: `showAlpha = Mutation("navigate_screen", { screenId: "alpha" })
-showBeta = Mutation("navigate_screen", { screenId: "beta" })
+    source: `$currentScreen = "alpha"
 
 root = AppShell([
-  Screen("alpha", "Alpha", null, [
+  Screen("alpha", "Alpha", [
     Group("First screen", "vertical", [
       Text("Alpha is visible right now.", "body", "start"),
-      Button("go-beta", "Go to beta", "default", Action([@Run(showBeta)]), false)
+      Button("go-beta", "Go to beta", "default", Action([@Set($currentScreen, "beta")]), false)
     ])
-  ]),
-  Screen("beta", "Beta", null, [
+  ], $currentScreen == "alpha"),
+  Screen("beta", "Beta", [
     Group("Second screen", "vertical", [
       Text("Beta is active.", "body", "start"),
-      Button("go-alpha", "Go to alpha", "secondary", Action([@Run(showAlpha)]), false)
+      Button("go-alpha", "Go to alpha", "secondary", Action([@Set($currentScreen, "alpha")]), false)
     ])
-  ])
+  ], $currentScreen == "beta")
 ])`,
   },
   Group: {
@@ -63,7 +51,7 @@ roleOptions = [
 ]
 
 root = AppShell([
-  Screen("main", "Layout", true, [
+  Screen("main", "Layout", [
     Group("Vertical group", "vertical", [
       Input("name", "Name", $name, "Ada Lovelace"),
       Select("role", "Role", $role, roleOptions)
@@ -95,7 +83,7 @@ rows = @Each(items, "item", Group(null, "horizontal", [
 ]))
 
 root = AppShell([
-  Screen("main", "Rows", true, [
+  Screen("main", "Rows", [
     Group("Data source", "vertical", [
       Input("draft", "New row", $draft, "Add row"),
       Group(null, "horizontal", [
@@ -109,7 +97,7 @@ root = AppShell([
   },
   Text: {
     source: `root = AppShell([
-  Screen("main", "Typography", true, [
+  Screen("main", "Typography", [
     Group("Text variants", "vertical", [
       Text("variant=title: Title copy", "title", "start"),
       Text("variant=body: Body copy explains how the component renders general content.", "body", "start"),
@@ -125,7 +113,7 @@ root = AppShell([
     source: `$name = "Ada Lovelace"
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Bound field", "vertical", [
       Input("name", "Name", $name, "Ada Lovelace"),
       Text("Current value: " + $name, "body", "start")
@@ -137,7 +125,7 @@ root = AppShell([
     source: `$notes = "This textarea is bound to local reactive state."
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Long-form input", "vertical", [
       TextArea("notes", "Notes", $notes, "Write something longer"),
       Text("Current value: " + $notes, "muted", "start")
@@ -149,7 +137,7 @@ root = AppShell([
     source: `$accepted = false
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Toggle", "vertical", [
       Checkbox("accepted", "I accept the agreement", $accepted),
       Text($accepted ? "Accepted" : "Not accepted", "body", "start")
@@ -167,7 +155,7 @@ planOptions = [
 ]
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Single choice", "vertical", [
       RadioGroup("plan", "Plan", $plan, planOptions),
       Text("Selected: " + $plan, "body", "start")
@@ -185,7 +173,7 @@ frequencyOptions = [
 ]
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Dropdown", "vertical", [
       Select("frequency", "Frequency", $frequency, frequencyOptions),
       Text("Current value: " + $frequency, "body", "start")
@@ -198,7 +186,7 @@ root = AppShell([
 $lastModifier = ""
 
 root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Variants", "vertical", [
       Text("Clicks: " + $count, "title", "start"),
       Text("Last Modifier: " + $lastModifier, "muted", "start"),
@@ -213,7 +201,7 @@ root = AppShell([
   },
   Link: {
     source: `root = AppShell([
-  Screen("main", "Main", true, [
+  Screen("main", "Main", [
     Group("Anchors", "vertical", [
       Link("Open OpenAI docs", "https://platform.openai.com/docs", true),
       Link("Open schemas route in the same tab", "/elements", false)

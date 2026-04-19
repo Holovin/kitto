@@ -35,7 +35,9 @@ This package contains the Kitto builder UI. It lets you prompt the backend for O
 
 ### Actions
 
-`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`, `navigate_screen`
+`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+
+Use local OpenUI state such as `$currentScreen` plus `@Set(...)` for internal screen changes.
 
 ## Scripts
 

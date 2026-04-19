@@ -117,7 +117,9 @@ Legacy root-level routes such as `/health`, `/config`, and `/llm/*` intentionall
 
 ### Built-in actions in the sandbox
 
-`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`, `navigate_screen`
+`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+
+Internal screen changes should use local OpenUI state such as `$currentScreen` with `@Set(...)` instead of persisted tools.
 
 ## Runtime safeguards
 

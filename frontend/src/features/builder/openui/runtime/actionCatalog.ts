@@ -159,31 +159,4 @@ Button("remove-first", "Remove first", "destructive", Action([@Run(removeFirstTa
       required: ['path', 'index'],
     },
   },
-  {
-    demoExample: `// Create a navigation action for another screen.
-goDetails = Mutation("navigate_screen", {
-  screenId: "details"
-})
-
-// Move to the next screen.
-Button("continue", "Continue", "default", Action([@Run(goDetails)]), false)`,
-    documentation: {
-      summary: 'Switches the preview to another screen in the current OpenUI app.',
-      useWhen: 'Use this for internal navigation flows such as moving from a list screen to a detail or confirmation screen.',
-      returns: 'Returns the screen id that navigation attempted to activate.',
-    },
-    name: 'navigate_screen',
-    shortDescription: 'Switch screen',
-    signature: 'navigate_screen(screenId)',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        screenId: {
-          type: 'string',
-        },
-      },
-      required: ['screenId'],
-    },
-  },
 ];

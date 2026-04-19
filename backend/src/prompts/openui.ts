@@ -10,7 +10,7 @@ const toolSpecifications: ToolSpec[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Dot-path such as app.tasks or navigation.currentScreenId.' },
+        path: { type: 'string', description: 'Dot-path such as app.tasks, app.profile, or app.settings.theme.' },
       },
       required: ['path'],
     },
@@ -81,24 +81,6 @@ const toolSpecifications: ToolSpec[] = [
       description: 'The updated array stored at the path.',
     },
   },
-  {
-    name: 'navigate_screen',
-    description:
-      'Persist navigation.currentScreenId in browser state when a flow should move between screens. Screen components without an explicit boolean isActive automatically follow this value.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        screenId: { type: 'string' },
-      },
-      required: ['screenId'],
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        screenId: { type: 'string' },
-      },
-    },
-  },
 ];
 
 const promptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -115,7 +97,7 @@ todoRows = @Each(todos, "todo", Group(null, "vertical", [
   Checkbox("done-" + todo.title, todo.title, todo.completed)
 ]))
 root = AppShell([
-  Screen("main", "Tasks", true, [
+  Screen("main", "Tasks", [
     Group("Composer", "vertical", [
       Input("draft", "Task", $draft, "Create a todo list"),
       Button("add-task", "Add task", "default", Action([@Run(addTodo), @Run(todos), @Reset($draft)]), false)
@@ -123,39 +105,29 @@ root = AppShell([
     Repeater(todoRows, "No tasks yet.")
   ])
 ])`,
-  `goIntro = Mutation("navigate_screen", { screenId: "intro" })
-goQuestion1 = Mutation("navigate_screen", { screenId: "question1" })
-goQuestion2 = Mutation("navigate_screen", { screenId: "question2" })
-goResult = Mutation("navigate_screen", { screenId: "result" })
+  `$currentScreen = "intro"
+$name = ""
+$answer = ""
+
+answerOptions = [
+  { label: "Option A", value: "a" },
+  { label: "Option B", value: "b" }
+]
+
 root = AppShell([
-  Screen("intro", "Welcome", null, [
-    Text("Three quick questions are coming next.", "body", "start"),
-    Button("start-quiz", "Start", "default", Action([@Run(goQuestion1)]), false)
-  ]),
-  Screen("question1", "Question 1", null, [
-    RadioGroup("answer", "Pick one answer", "a", [
-      { label: "Option A", value: "a" },
-      { label: "Option B", value: "b" }
-    ]),
-    Group(null, "horizontal", [
-      Button("next-question1", "Next", "secondary", Action([@Run(goQuestion2)]), false),
-      Button("back-question1", "Back", "secondary", Action([@Run(goIntro)]), false)
-    ])
-  ]),
-  Screen("question2", "Question 2", null, [
-    RadioGroup("answer", "Pick another answer", "a", [
-      { label: "Option A", value: "a" },
-      { label: "Option B", value: "b" }
-    ]),
-    Group(null, "horizontal", [
-      Button("next-question2", "Next", "secondary", Action([@Run(goResult)]), false),
-      Button("back-question2", "Back", "secondary", Action([@Run(goQuestion1)]), false)
-    ])
-  ]),
-  Screen("result", "Result", null, [
-    Text("Show result screen after the last question.", "title", "start"),
-    Button("restart-quiz", "Restart", "destructive", Action([@Run(goIntro)]), false)
-  ])
+  Screen("intro", "Welcome", [
+    Text("Enter your name to start.", "body", "start"),
+    Input("name", "Name", $name, "Alex"),
+    Button("start-button", "Start", "default", Action([@Set($currentScreen, "question")]), false)
+  ], $currentScreen == "intro"),
+  Screen("question", "Question", [
+    RadioGroup("answer", "Choose one option", $answer, answerOptions),
+    Button("result-button", "Show result", "default", Action([@Set($currentScreen, "result")]), false)
+  ], $currentScreen == "question"),
+  Screen("result", "Result", [
+    Text("Thanks, " + $name + ".", "title", "start"),
+    Button("restart-button", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($name, $answer)]), false)
+  ], $currentScreen == "result")
 ])`,
 ];
 
@@ -168,9 +140,11 @@ const additionalRules = [
   'Use Screen for screen-level sections and Group for local layout.',
   'Use Repeater for collections and prefer `@Each(...)` to build repeated rows.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
-  'Prefer local $variables for ephemeral UI state such as tabs and draft inputs.',
-  'For multi-screen flows, prefer Mutation("navigate_screen", { screenId }) and let Screen derive visibility from persisted navigation.currentScreenId by passing null for isActive.',
-  'Explicit boolean isActive still wins when you need a deterministic first screen or a pinned/hidden screen.',
+  'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
+  'Use `Screen(id, title, children, isActive?)` when you need screen-level sections.',
+  'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
+  'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
+  'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
   'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
   'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
   'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',

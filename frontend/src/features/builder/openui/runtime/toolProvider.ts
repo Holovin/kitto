@@ -1,5 +1,4 @@
 import { domainActions } from '@features/builder/store/domainSlice';
-import { CURRENT_SCREEN_PATH } from '@features/builder/store/navigation';
 import { readPath } from '@features/builder/store/path';
 import { store } from '@store/store';
 import { getToolPathValue, getToolRecordValue } from './toolArguments';
@@ -52,17 +51,6 @@ function createBuilderToolProvider() {
         }),
       );
       return structuredClone(readPath(store.getState().domain.data, path) ?? null);
-    },
-    navigate_screen: async (args: Record<string, unknown>) => {
-      const screenId = typeof args.screenId === 'string' ? args.screenId : '';
-
-      store.dispatch(
-        domainActions.writeState({
-          path: CURRENT_SCREEN_PATH,
-          value: screenId,
-        }),
-      );
-      return { screenId };
     },
   };
 }

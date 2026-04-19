@@ -9,12 +9,10 @@ import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyStat
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
-import { OpenUiNavigationProvider } from '@features/builder/openui/runtime/OpenUiNavigationProvider';
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
   selectCommittedSource,
-  selectCurrentScreenId,
   selectHistory,
   selectIsStreaming,
   selectParseIssues,
@@ -31,7 +29,6 @@ export function PreviewTabs() {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
   const committedSource = useAppSelector(selectCommittedSource);
-  const currentScreenId = useAppSelector(selectCurrentScreenId);
   const history = useAppSelector(selectHistory);
   const isStreaming = useAppSelector(selectIsStreaming);
   const parseIssues = useAppSelector(selectParseIssues);
@@ -91,29 +88,27 @@ export function PreviewTabs() {
               </div>
             ) : (
               <div className="h-full min-h-0 overflow-y-auto">
-                <OpenUiNavigationProvider currentScreenId={currentScreenId}>
-                  <Renderer
-                    key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
-                    initialState={runtimeSessionState}
-                    isStreaming={isStreaming}
-                    library={builderOpenUiLibrary}
-                    onAction={handleOpenUiActionEvent}
-                    onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                    onParseResult={(result) => dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)))}
-                    onStateUpdate={(state) => {
-                      const nextState = state as Record<string, unknown>;
-                      dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
-                    }}
-                    queryLoader={
-                      <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Loading query...
-                      </div>
-                    }
-                    response={deferredSource}
-                    toolProvider={builderToolProvider}
-                  />
-                </OpenUiNavigationProvider>
+                <Renderer
+                  key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
+                  initialState={runtimeSessionState}
+                  isStreaming={isStreaming}
+                  library={builderOpenUiLibrary}
+                  onAction={handleOpenUiActionEvent}
+                  onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
+                  onParseResult={(result) => dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)))}
+                  onStateUpdate={(state) => {
+                    const nextState = state as Record<string, unknown>;
+                    dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
+                  }}
+                  queryLoader={
+                    <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Loading query...
+                    </div>
+                  }
+                  response={deferredSource}
+                  toolProvider={builderToolProvider}
+                />
               </div>
             )}
           </CardContent>

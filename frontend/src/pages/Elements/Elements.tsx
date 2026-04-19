@@ -7,11 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
-import { OpenUiNavigationProvider } from '@features/builder/openui/runtime/OpenUiNavigationProvider';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
 import { getToolPathValue, getToolRecordValue } from '@features/builder/openui/runtime/toolArguments';
-import { CURRENT_SCREEN_PATH, getCurrentScreenId } from '@features/builder/store/navigation';
 import { appendPathValue, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
 import type { BuilderParseIssue } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
@@ -214,7 +212,6 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const stateDeclarationDefaultsRef = useRef<Record<string, unknown>>({});
   const hasHydratedInitialRuntimeStateRef = useRef(false);
   const domainDataRef = useRef(domainData);
-  const currentScreenId = getCurrentScreenId(domainData);
 
   useEffect(() => {
     domainDataRef.current = domainData;
@@ -284,18 +281,6 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 
         return nextValue;
       },
-      navigate_screen: async (args: Record<string, unknown>) => {
-        const screenId = typeof args.screenId === 'string' ? args.screenId : '';
-
-        setDomainData((previousState) => {
-          const nextState = cloneRecord(previousState);
-          const writtenState = writePathValue(nextState, CURRENT_SCREEN_PATH, screenId) as Record<string, unknown>;
-          domainDataRef.current = writtenState;
-          return writtenState;
-        });
-
-        return { screenId };
-      },
     }),
     [],
   );
@@ -326,34 +311,32 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="min-h-[16rem]">
-              <OpenUiNavigationProvider currentScreenId={currentScreenId}>
-                <Renderer
-                  key={`${componentName}-${resetVersion}`}
-                  initialState={runtimeState}
-                  library={builderOpenUiLibrary}
-                  onAction={handleOpenUiActionEvent}
-                  onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                  onParseResult={(result) => {
-                    setParseIssues(mapParseResultToIssues(result));
-                    stateDeclarationDefaultsRef.current =
-                      result?.stateDeclarations && typeof result.stateDeclarations === 'object'
-                        ? cloneRecord(result.stateDeclarations as Record<string, unknown>)
-                        : {};
+              <Renderer
+                key={`${componentName}-${resetVersion}`}
+                initialState={runtimeState}
+                library={builderOpenUiLibrary}
+                onAction={handleOpenUiActionEvent}
+                onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
+                onParseResult={(result) => {
+                  setParseIssues(mapParseResultToIssues(result));
+                  stateDeclarationDefaultsRef.current =
+                    result?.stateDeclarations && typeof result.stateDeclarations === 'object'
+                      ? cloneRecord(result.stateDeclarations as Record<string, unknown>)
+                      : {};
 
-                    if (!hasHydratedInitialRuntimeStateRef.current) {
-                      hasHydratedInitialRuntimeStateRef.current = true;
-                      setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
-                    }
-                  }}
-                  onStateUpdate={(state) => {
+                  if (!hasHydratedInitialRuntimeStateRef.current) {
                     hasHydratedInitialRuntimeStateRef.current = true;
-                    setRuntimeState(state as Record<string, unknown>);
-                  }}
-                  queryLoader={<Badge variant="muted">Loading query…</Badge>}
-                  response={source}
-                  toolProvider={toolProvider}
-                />
-              </OpenUiNavigationProvider>
+                    setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
+                  }
+                }}
+                onStateUpdate={(state) => {
+                  hasHydratedInitialRuntimeStateRef.current = true;
+                  setRuntimeState(state as Record<string, unknown>);
+                }}
+                queryLoader={<Badge variant="muted">Loading query…</Badge>}
+                response={source}
+                toolProvider={toolProvider}
+              />
             </div>
           </div>
 
