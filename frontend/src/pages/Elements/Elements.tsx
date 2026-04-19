@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
-import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
+import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
 import {
@@ -231,6 +232,10 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
     domainDataRef.current = domainData;
   }, [domainData]);
 
+  useEffect(() => {
+    setRuntimeIssues([]);
+  }, [source]);
+
   const toolProvider = useMemo(
     () => ({
       read_state: async (args: Record<string, unknown>) => {
@@ -337,32 +342,61 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="min-h-[16rem]">
-              <Renderer
-                key={`${componentName}-${resetVersion}`}
-                initialState={runtimeState}
-                library={builderOpenUiLibrary}
-                onAction={handleOpenUiActionEvent}
-                onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                onParseResult={(result) => {
-                  setParseIssues(mapParseResultToIssues(result));
-                  stateDeclarationDefaultsRef.current =
-                    result?.stateDeclarations && typeof result.stateDeclarations === 'object'
-                      ? cloneRecord(result.stateDeclarations as Record<string, unknown>)
-                      : {};
+              <ErrorBoundary
+                fallbackRender={({ resetErrorBoundary }) => (
+                  <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50/80 p-4" role="alert">
+                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-rose-700">Sandbox runtime error</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-700">
+                      This demo crashed while rendering. Reset the sandbox to retry with the committed demo source.
+                    </p>
+                    <div className="mt-4">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          handleReset();
+                          resetErrorBoundary();
+                        }}
+                      >
+                        Reset demo
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                onError={(error) => {
+                  setRuntimeIssues([
+                    createRendererCrashIssue(error, 'sandbox-runtime-error', 'The element sandbox crashed while rendering.'),
+                  ]);
+                }}
+                resetKeys={[source, resetVersion]}
+              >
+                <Renderer
+                  key={`${componentName}-${resetVersion}`}
+                  initialState={runtimeState}
+                  library={builderOpenUiLibrary}
+                  onAction={handleOpenUiActionEvent}
+                  onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
+                  onParseResult={(result) => {
+                    setParseIssues(mapParseResultToIssues(result));
+                    stateDeclarationDefaultsRef.current =
+                      result?.stateDeclarations && typeof result.stateDeclarations === 'object'
+                        ? cloneRecord(result.stateDeclarations as Record<string, unknown>)
+                        : {};
 
-                  if (!hasHydratedInitialRuntimeStateRef.current) {
+                    if (!hasHydratedInitialRuntimeStateRef.current) {
+                      hasHydratedInitialRuntimeStateRef.current = true;
+                      setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
+                    }
+                  }}
+                  onStateUpdate={(state) => {
                     hasHydratedInitialRuntimeStateRef.current = true;
-                    setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
-                  }
-                }}
-                onStateUpdate={(state) => {
-                  hasHydratedInitialRuntimeStateRef.current = true;
-                  setRuntimeState(state as Record<string, unknown>);
-                }}
-                queryLoader={<Badge variant="muted">Loading query…</Badge>}
-                response={source}
-                toolProvider={toolProvider}
-              />
+                    setRuntimeState(state as Record<string, unknown>);
+                  }}
+                  queryLoader={<Badge variant="muted">Loading query…</Badge>}
+                  response={source}
+                  toolProvider={toolProvider}
+                />
+              </ErrorBoundary>
             </div>
           </div>
 

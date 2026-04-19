@@ -1,14 +1,16 @@
 import { useDeferredValue, useEffect, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { LoaderCircle, RotateCcw } from 'lucide-react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardTitle } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
+import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
-import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
+import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
@@ -46,6 +48,7 @@ export function PreviewTabs() {
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
+  const isPreviewSynchronized = deferredPreviewSource === previewSource;
   const isPreviewEmptyCanvas = !previewSource.trim();
   const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
@@ -60,6 +63,14 @@ export function PreviewTabs() {
     dispatch(builderActions.setActiveTab('preview'));
   }, [activeTab, dispatch, isEmptyCanvas]);
 
+  useEffect(() => {
+    if (!isShowingRejectedDefinition) {
+      dispatch(builderActions.setParseIssues([]));
+    }
+
+    setRuntimeIssues([]);
+  }, [dispatch, isShowingRejectedDefinition, previewSource]);
+
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
       return;
@@ -68,6 +79,7 @@ export function PreviewTabs() {
     dispatch(domainActions.replaceData(structuredClone(currentSnapshot.initialDomainData)));
     dispatch(builderSessionActions.replaceRuntimeSessionState(structuredClone(currentSnapshot.initialRuntimeState)));
     dispatch(builderActions.resetCurrentAppState());
+    setRuntimeIssues([]);
     setRendererResetVersion((currentValue) => currentValue + 1);
   }
 
@@ -106,33 +118,58 @@ export function PreviewTabs() {
                 </div>
               ) : (
                 <div className="h-full min-h-0 overflow-y-auto p-4 sm:p-5">
-                  <Renderer
-                    key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
-                    initialState={runtimeSessionState}
-                    isStreaming={isStreaming}
-                    library={builderOpenUiLibrary}
-                    onAction={handleOpenUiActionEvent}
-                    onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                    onParseResult={(result) => {
-                      if (isShowingRejectedDefinition) {
+                  <ErrorBoundary
+                    fallbackRender={({ error }) => (
+                      <PreviewErrorFallback
+                        error={error}
+                        onOpenDefinition={() => dispatch(builderActions.setActiveTab('definition'))}
+                      />
+                    )}
+                    onError={(error) => {
+                      if (!isPreviewSynchronized) {
                         return;
                       }
 
-                      dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
+                      setRuntimeIssues([
+                        createRendererCrashIssue(error, 'preview-runtime-error', 'The committed preview crashed while rendering.'),
+                      ]);
                     }}
-                    onStateUpdate={(state) => {
-                      const nextState = state as Record<string, unknown>;
-                      dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
-                    }}
-                    queryLoader={
-                      <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Loading query...
-                      </div>
-                    }
-                    response={deferredPreviewSource}
-                    toolProvider={builderToolProvider}
-                  />
+                    resetKeys={[deferredPreviewSource, rendererResetVersion]}
+                  >
+                    <Renderer
+                      key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
+                      initialState={runtimeSessionState}
+                      isStreaming={isStreaming}
+                      library={builderOpenUiLibrary}
+                      onAction={handleOpenUiActionEvent}
+                      onError={(errors) => {
+                        if (!isPreviewSynchronized) {
+                          return;
+                        }
+
+                        setRuntimeIssues(mapOpenUiErrorsToIssues(errors));
+                      }}
+                      onParseResult={(result) => {
+                        if (isShowingRejectedDefinition || !isPreviewSynchronized) {
+                          return;
+                        }
+
+                        dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
+                      }}
+                      onStateUpdate={(state) => {
+                        const nextState = state as Record<string, unknown>;
+                        dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
+                      }}
+                      queryLoader={
+                        <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Loading query...
+                        </div>
+                      }
+                      response={deferredPreviewSource}
+                      toolProvider={builderToolProvider}
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
 

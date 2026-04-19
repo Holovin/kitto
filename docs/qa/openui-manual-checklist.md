@@ -20,6 +20,9 @@ Guardrails:
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Definition may show streamed or rejected draft source.
 - Invalid source is never committed to Preview or builder history.
+- Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
+- Rejected draft source in Definition must not mix in stale runtime issues from the previous committed preview.
+- Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.

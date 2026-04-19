@@ -59,6 +59,7 @@ Expected:
 - while the follow-up request runs, the Preview overlay label changes to `Updating...`
 - a required checkbox appears before the user can reach the result
 - navigation still works end-to-end, including restart
+- any previous Preview runtime issue clears once the new committed valid source renders
 - no unresolved refs, parser errors, or broken actions appear
 
 ## Scenario 4 — Collection / Repeater
@@ -123,3 +124,17 @@ Expected:
 - Preview and Definition still reflect the last committed valid app rather than a partial streamed draft
 - no late commit from the aborted request appears after returning to `/chat`
 - the aborted request does not overwrite any later committed app state
+
+## Scenario 8 — Preview runtime issue lifecycle
+
+Actions:
+1. Generate or import a committed app that triggers a Preview runtime error.
+2. Confirm the Preview area shows `Preview runtime error` instead of crashing the builder shell.
+3. Open `Definition`.
+4. Commit a valid follow-up source.
+
+Expected:
+- Definition shows the current runtime issue for the crashing committed preview only
+- switching to the new valid committed source clears the previous runtime issue
+- if a rejected draft is shown in Definition, it does not mix in stale runtime issues from the last committed preview
+- the rest of the builder shell stays interactive throughout the crash

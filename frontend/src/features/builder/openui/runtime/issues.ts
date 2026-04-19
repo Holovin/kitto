@@ -1,6 +1,14 @@
 import type { OpenUIError, ParseResult } from '@openuidev/react-lang';
 import type { BuilderParseIssue } from '@features/builder/types';
 
+function getRuntimeErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return 'Unknown runtime error.';
+}
+
 export function mapParseResultToIssues(result: ParseResult | null): BuilderParseIssue[] {
   if (!result) {
     return [];
@@ -33,4 +41,12 @@ export function mapOpenUiErrorsToIssues(errors: OpenUIError[]): BuilderParseIssu
     statementId: error.statementId,
     source: error.source,
   }));
+}
+
+export function createRendererCrashIssue(error: unknown, code: string, summary: string): BuilderParseIssue {
+  return {
+    code,
+    message: `${summary} Details: ${getRuntimeErrorMessage(error)}`,
+    source: 'runtime',
+  };
 }
