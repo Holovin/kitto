@@ -110,44 +110,68 @@ const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
 const toolExamples = [
-  `$draft = ""
-todos = Query("read_state", { path: "app.todos" }, [])
-addTodo = Mutation("append_state", { path: "app.todos", value: { title: $draft, completed: false } })
-todoRows = @Each(todos, "todo", Group(null, "vertical", [
-  Checkbox("done-" + todo.title, todo.title, todo.completed)
-]))
-root = AppShell([
-  Screen("main", "Tasks", [
-    Group("Composer", "vertical", [
-      Input("draft", "Task", $draft, "Create a todo list"),
-      Button("add-task", "Add task", "default", Action([@Run(addTodo), @Run(todos), @Reset($draft)]), false)
-    ]),
-    Repeater(todoRows, "No tasks yet.")
-  ])
-])`,
-  `$currentScreen = "intro"
-$name = ""
-$answer = ""
-
-answerOptions = [
-  { label: "Option A", value: "a" },
-  { label: "Option B", value: "b" }
+  `items = [
+  { label: "First", value: "first" },
+  { label: "Second", value: "second" }
 ]
 
+itemRows = @Each(items, "item", Group("Item", "horizontal", [
+  Text(item.label, "body", "start"),
+  Text(item.value, "muted", "start")
+]))
+
 root = AppShell([
-  Screen("intro", "Welcome", [
-    Text("Enter your name to start.", "body", "start"),
-    Input("name", "Name", $name, "Alex"),
-    Button("start-button", "Start", "default", Action([@Set($currentScreen, "question")]), false)
-  ], $currentScreen == "intro"),
+  Screen("main", "Items", [
+    Repeater(itemRows, "No items yet.")
+  ])
+])`,
+  `$currentScreen = "question"
+$preferredContact = ""
+$notes = ""
+
+answerOptions = [
+  { label: "Email", value: "email" },
+  { label: "Phone", value: "phone" }
+]
+selectedAnswers = [
+  { label: "Preferred contact", value: $preferredContact },
+  { label: "Notes", value: $notes }
+]
+answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
+  Text(answer.label, "muted", "start"),
+  Text(answer.value == "" ? "No response yet." : answer.value, "body", "start")
+]))
+
+root = AppShell([
   Screen("question", "Question", [
-    RadioGroup("answer", "Choose one option", $answer, answerOptions),
-    Button("result-button", "Show result", "default", Action([@Set($currentScreen, "result")]), false)
+    RadioGroup("preferredContact", "Preferred contact", $preferredContact, answerOptions),
+    Input("notes", "Notes", $notes, "Optional"),
+    Button("show-result", "Show result", "default", Action([@Set($currentScreen, "result")]), false)
   ], $currentScreen == "question"),
   Screen("result", "Result", [
-    Text("Thanks, " + $name + ".", "title", "start"),
-    Button("restart-button", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($name, $answer)]), false)
+    Repeater(answerRows, "No answers selected."),
+    Button("back-button", "Back", "secondary", Action([@Set($currentScreen, "question")]), false)
   ], $currentScreen == "result")
+])`,
+  `$draftCard = ""
+savedCards = Query("read_state", { path: "app.savedCards" }, [])
+saveCard = Mutation("append_state", {
+  path: "app.savedCards",
+  value: { title: $draftCard, summary: "Saved from the builder" }
+})
+cardRows = @Each(savedCards, "card", Group(null, "vertical", [
+  Text(card.title, "title", "start"),
+  Text(card.summary, "muted", "start")
+]))
+
+root = AppShell([
+  Screen("main", "Saved cards", [
+    Group("Composer", "vertical", [
+      Input("draftCard", "Card title", $draftCard, "Add a saved item"),
+      Button("save-card", "Save card", "default", Action([@Run(saveCard), @Run(savedCards), @Reset($draftCard)]), $draftCard == "")
+    ]),
+    Repeater(cardRows, "No saved cards yet.")
+  ])
 ])`,
 ];
 
@@ -158,7 +182,12 @@ const additionalRules = [
   'Use only the supported components and tools provided in this prompt.',
   'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
-  'Use Repeater for collections and prefer `@Each(...)` to build repeated rows.',
+  'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
+  'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
+  'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
+  'If collection data is persisted browser data, read it through Query("read_state", { path: "..." }, defaultValue) before passing it to @Each(...).',
+  'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
+  'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
   'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
   'Screen signature is `Screen(id, title, children, isActive?)`.',

@@ -60,6 +60,15 @@ stateOptions = [
   { label: "remove_state(path, index)", value: "remove_state" }
 ]
 score = ($answer1 == "Paris" ? 1 : 0) + ($answer2 == "Hooks" ? 1 : 0) + ($answer3 == "write_state" ? 1 : 0)
+selectedAnswers = [
+  { label: "Capital of France", value: $answer1 },
+  { label: "React feature", value: $answer2 },
+  { label: "Persisted write operation", value: $answer3 }
+]
+answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
+  Text(answer.label, "muted", "start"),
+  Text(answer.value == "" ? "Not answered yet." : answer.value, "body", "start")
+]))
 
 root = AppShell([
   Screen("intro", "Welcome", [
@@ -101,6 +110,9 @@ root = AppShell([
       Text(score + " / 3", "title", "start"),
       Text(score == 3 ? "Perfect score." : score == 2 ? "Almost there." : "Try another round.", "body", "start"),
       Button("restart-quiz", "Restart", "destructive", Action([@Set($currentScreen, "intro"), @Reset($answer1, $answer2, $answer3, $agreement)]), false)
+    ]),
+    Group("Selected answers", "vertical", [
+      Repeater(answerRows, "No answers selected yet.")
     ])
   ], $currentScreen == "result")
 ])`;

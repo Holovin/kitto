@@ -72,14 +72,19 @@ Button("next-button", "Next", "default", Action([@Set($currentScreen, "next")]),
 Collections:
 
 ```txt
-Repeater(@Each(items, ...), "Empty state")
+items = Query("read_state", { path: "quiz.answers" }, [])
+rows = @Each(items, "item", Group(null, "vertical", [
+  Text(item.label, "body", "start")
+]))
+Repeater(rows, "Empty state")
 ```
 
 Do use:
 
 - `Screen(...)` for screen-level sections and `Group(...)` for local layout
-- `Repeater(...)` for collections, preferably with `@Each(...)`
+- `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
 - local `$variables` for ephemeral UI state such as draft inputs, filters, and internal screen flow
+- local arrays for runtime-only collections such as selected answers, and `Query("read_state", ...)` for persisted collections
 - `Query("read_state", ...)` with a sensible default when reading persisted data
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, or `remove_state` for exportable persistent data
 - `@Run(queryRef)` after a mutation when a rendered query result needs an immediate refresh
@@ -90,6 +95,7 @@ Do not use:
 - markdown code fences around generated OpenUI source
 - `Screen(..., null, ...)` for the required title argument
 - persisted tools for internal screen navigation
+- hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
 - unresolved `@Run(ref)` calls or any other undefined identifiers
 
 ## Required generated app coverage
@@ -100,6 +106,7 @@ Generated app behaviors that should stay supported:
 - textarea, select, radio group, or checkbox when the prompt calls for longer input or choices
 - buttons with `Action([...])`
 - collection rendering via `Repeater`
+- dynamic collection rows derived from state, query data, or local arrays instead of hardcoded duplicate content
 - local state via `$variables`
 - conditional rendering and/or multi-screen switching
 

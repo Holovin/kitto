@@ -15,7 +15,7 @@
     },
     "Repeater": {
       "signature": "Repeater(children?: any[], emptyText?: string | any)",
-      "description": "Collection container. Pass an array of rows, usually created with @Each(...), and it will render them as a vertical list."
+      "description": "Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, \"item\", rowNode) to build rows from local arrays, runtime state, or Query(\"read_state\", ...) results. Do not hardcode repeated rows when the user asked for dynamic data."
     },
     "Text": {
       "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\")",
@@ -61,7 +61,8 @@
         "Text"
       ],
       "notes": [
-        "Use Screen for major steps and Group for local layout."
+        "Use Screen for major steps and Group for local layout.",
+        "Use Repeater with rows built by @Each(collection, \"item\", ...). Read persisted collections with Query(\"read_state\", ...) before repeating them."
       ]
     },
     {

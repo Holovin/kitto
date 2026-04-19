@@ -32,6 +32,16 @@ describe('openui prompts', () => {
     expect(prompt).toContain('@Set($currentScreen');
   });
 
+  it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('Use Repeater only for dynamic or generated collections.');
+    expect(prompt).toContain('Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.');
+    expect(prompt).toContain('Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.');
+    expect(prompt).toContain('savedCards = Query("read_state", { path: "app.savedCards" }, [])');
+    expect(prompt).toContain('selectedAnswers = [');
+  });
+
   it('keeps the generated system prompt aligned with the committed component spec', () => {
     const prompt = buildOpenUiSystemPrompt();
 

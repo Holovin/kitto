@@ -6,10 +6,13 @@ import { nullableTextSchema } from './shared';
 export const RepeaterComponent = defineComponent({
   name: 'Repeater',
   description:
-    'Collection container. Pass an array of rows, usually created with @Each(...), and it will render them as a vertical list.',
+    'Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, "item", rowNode) to build rows from local arrays, runtime state, or Query("read_state", ...) results. Do not hardcode repeated rows when the user asked for dynamic data.',
   props: z.object({
-    children: z.array(z.unknown()).default([]).describe('Repeated rows or cards, often produced by @Each(...).'),
-    emptyText: nullableTextSchema.describe('Fallback message when the repeated list is empty.'),
+    children: z
+      .array(z.unknown())
+      .default([])
+      .describe('Array of already-built row or card nodes, typically returned by @Each(collection, "item", ...).'),
+    emptyText: nullableTextSchema.describe('Fallback message shown when the repeated rows array is empty.'),
   }),
   component: ({ props, renderNode }) => {
     const renderedChildren = Children.toArray(renderNode(props.children));

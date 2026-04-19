@@ -51,6 +51,9 @@ Steps:
 
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
+- Repeater collection guidance:
+  - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
+  - when the requested list is dynamic, derive rows from local arrays, runtime state, or `Query("read_state", ...)` data instead of hardcoding duplicate rows
 - Current sandbox tools exposed to generated apps:
   - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 - Built-in action events exposed by the runtime:

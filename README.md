@@ -118,6 +118,8 @@ The supported API lives under `/api/*` only.
 
 `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 
+`Repeater` is the collection primitive: build row nodes with `@Each(...)`, and when the list is persisted, load it through `Query("read_state", ...)` instead of hardcoding repeated rows.
+
 ### Persisted tools exposed through `Query(...)` and `Mutation(...)`
 
 `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`

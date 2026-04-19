@@ -70,28 +70,46 @@ root = AppShell([
   Repeater: {
     initialDomainData: {
       demo: {
-        items: [{ label: 'Row A' }, { label: 'Row B' }],
+        savedItems: [
+          { label: 'Saved item A', note: 'Persisted row from read_state' },
+          { label: 'Saved item B', note: 'Persisted row from read_state' },
+        ],
       },
     },
     source: `$draft = ""
 
-items = Query("read_state", { path: "demo.items" }, [])
-appendItem = Mutation("append_state", { path: "demo.items", value: { label: $draft } })
-removeFirstItem = Mutation("remove_state", { path: "demo.items", index: 0 })
-rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.label, "body", "start")
+featuredItems = [
+  { label: "Starter card", note: "Local array row" },
+  { label: "Second card", note: "Local array row" }
+]
+savedItems = Query("read_state", { path: "demo.savedItems" }, [])
+appendSavedItem = Mutation("append_state", {
+  path: "demo.savedItems",
+  value: { label: $draft, note: "Persisted row from read_state" }
+})
+removeFirstSavedItem = Mutation("remove_state", { path: "demo.savedItems", index: 0 })
+featuredRows = @Each(featuredItems, "item", Group(null, "vertical", [
+  Text(item.label, "body", "start"),
+  Text(item.note, "muted", "start")
+]))
+savedRows = @Each(savedItems, "item", Group(null, "vertical", [
+  Text(item.label, "body", "start"),
+  Text(item.note, "muted", "start")
 ]))
 
 root = AppShell([
-  Screen("main", "Rows", [
-    Group("Data source", "vertical", [
-      Input("draft", "New row", $draft, "Add row"),
-      Group(null, "horizontal", [
-        Button("append-row", "Append row", "default", Action([@Run(appendItem), @Run(items), @Reset($draft)]), $draft == ""),
-        Button("remove-first", "Remove first", "secondary", Action([@Run(removeFirstItem), @Run(items)]), @Count(items) == 0)
-      ])
+  Screen("main", "Collections", [
+    Group("Local array rows", "vertical", [
+      Repeater(featuredRows, "No featured items.")
     ]),
-    Repeater(rows, "No rows yet.")
+    Group("Persisted rows", "vertical", [
+      Input("draft", "New item", $draft, "Add saved item"),
+      Group(null, "horizontal", [
+        Button("append-item", "Append item", "default", Action([@Run(appendSavedItem), @Run(savedItems), @Reset($draft)]), $draft == ""),
+        Button("remove-first", "Remove first", "secondary", Action([@Run(removeFirstSavedItem), @Run(savedItems)]), @Count(savedItems) == 0)
+      ]),
+      Repeater(savedRows, "No saved items yet.")
+    ])
   ])
 ])`,
   },

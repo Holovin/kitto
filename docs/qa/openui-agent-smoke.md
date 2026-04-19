@@ -67,11 +67,15 @@ Expected:
 
 Prompt:
 
-Add a result screen section that lists all selected answers as a collection.
+Create a quiz and show selected answers on the result screen as a list.
 
 Expected:
-- generated source uses `Repeater` or another explicit repeated-row pattern for the collection
-- because this smoke test only answers one question, the collection may contain one row, but it should still be modeled as a collection rather than a hardcoded summary line
+- generated source contains `Repeater(`
+- generated source builds rows with `@Each(`
+- if the result rows read persisted data, they come from `Query("read_state", ...)`; otherwise they come from a local array or runtime-derived collection
+- because this smoke test may end up with only one selected answer, it should still be modeled as a collection rather than a hardcoded summary line
+- no hardcoded selected answer values appear when the list should reflect runtime data
+- no unresolved refs appear
 - no todo-specific or unrelated domain assumptions appear
 - no parser errors appear
 

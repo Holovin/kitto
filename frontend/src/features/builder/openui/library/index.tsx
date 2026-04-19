@@ -18,7 +18,10 @@ export const builderOpenUiLibrary = createLibrary({
     {
       name: 'Containers',
       components: ['AppShell', 'Screen', 'Group', 'Repeater', 'Text'],
-      notes: ['Use Screen for major steps and Group for local layout.'],
+      notes: [
+        'Use Screen for major steps and Group for local layout.',
+        'Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.',
+      ],
     },
     {
       name: 'Inputs',
