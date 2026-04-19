@@ -142,6 +142,7 @@ vite.config.ts.timestamp-*
 
 # Vite SSR build output
 dist-ssr
+frontend/dist-standalone-player/
 
 # Editor directories and files
 .vscode/*

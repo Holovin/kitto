@@ -118,7 +118,7 @@ const toolExamples = [
 itemRows = @Each(items, "item", Group("Item", "horizontal", [
   Text(item.label, "body", "start"),
   Text(item.value, "muted", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("main", "Items", [
@@ -140,7 +140,7 @@ selectedAnswers = [
 answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
   Text(answer.label, "muted", "start"),
   Text(answer.value == "" ? "No response yet." : answer.value, "body", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("question", "Question", [
@@ -162,7 +162,7 @@ saveCard = Mutation("append_state", {
 cardRows = @Each(savedCards, "card", Group(null, "vertical", [
   Text(card.title, "title", "start"),
   Text(card.summary, "muted", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("main", "Saved cards", [
@@ -186,7 +186,7 @@ filterOptions = [
 itemRows = @Each(visibleItems, "item", Group(null, "vertical", [
   Text(item.title, "body", "start"),
   Text(item.completed ? "Completed" : "Active", "muted", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("main", "Filtered items", [
@@ -204,6 +204,9 @@ const additionalRules = [
   'Use only the supported components and tools provided in this prompt.',
   'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
+  'Use Group variant "block" for standalone visual sections.',
+  'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
+  'Do not over-nest block Groups.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',

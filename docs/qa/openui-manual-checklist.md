@@ -74,6 +74,24 @@ Screen:
 Screen(id, title, children, isActive?)
 ```
 
+Group:
+
+```txt
+Group(title, direction, children, variant?)
+```
+
+Variants:
+
+```txt
+block | inline
+```
+
+Default:
+
+```txt
+block
+```
+
 Navigation:
 
 ```txt
@@ -87,7 +105,7 @@ Collections:
 items = Query("read_state", { path: "quiz.answers" }, [])
 rows = @Each(items, "item", Group(null, "vertical", [
   Text(item.label, "body", "start")
-]))
+], "inline"))
 Repeater(rows, "Empty state")
 ```
 
@@ -99,7 +117,7 @@ items = Query("read_state", { path: "app.items" }, [])
 visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
 rows = @Each(visibleItems, "item", Group(null, "vertical", [
   Text(item.title, "body", "start")
-]))
+], "inline"))
 Text("Visible: " + @Count(visibleItems), "muted", "start")
 Repeater(rows, "Empty state")
 ```
@@ -107,6 +125,9 @@ Repeater(rows, "Empty state")
 Do use:
 
 - `Screen(...)` for screen-level sections and `Group(...)` for local layout
+- `Group(..., "block")` for standalone visual sections
+- `Group(..., "inline")` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
+- avoid over-nesting block groups
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
 - `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
 - local `$variables` for ephemeral UI state such as draft inputs, filters, and internal screen flow

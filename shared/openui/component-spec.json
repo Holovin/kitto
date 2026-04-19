@@ -10,8 +10,8 @@
       "description": "Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility."
     },
     "Group": {
-      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[])",
-      "description": "Local layout container for related controls or content. Use vertical for stacked sections and horizontal for inline actions."
+      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[], variant?: \"block\" | \"inline\")",
+      "description": "Local layout container for related controls or content. Use variant \"block\" for standalone sections and variant \"inline\" for lightweight nested groups, repeated rows, or inline controls."
     },
     "Repeater": {
       "signature": "Repeater(children?: any[], emptyText?: string | any)",
@@ -62,6 +62,7 @@
       ],
       "notes": [
         "Use Screen for major steps and Group for local layout.",
+        "Use Group variant \"block\" for standalone visual sections and variant \"inline\" for nested groups, inline controls, and repeated rows.",
         "Use Repeater with rows built by @Each(collection, \"item\", ...). Read persisted collections with Query(\"read_state\", ...) before repeating them."
       ]
     },

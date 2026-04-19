@@ -18,7 +18,7 @@ createTask = Mutation("append_state", {
 taskRows = @Each(visibleTasks, "task", Group(null, "vertical", [
   Text(task.title, "title"),
   Checkbox("completed-" + task.title, "Completed", task.completed)
-]))
+], "inline"))
 filterOptions = [
   { value: "all", label: "All tasks" },
   { value: "active", label: "Active only" },
@@ -68,7 +68,7 @@ selectedAnswers = [
 answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
   Text(answer.label, "muted", "start"),
   Text(answer.value == "" ? "Not answered yet." : answer.value, "body", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("intro", "Welcome", [
@@ -82,28 +82,28 @@ root = AppShell([
     Group(null, "horizontal", [
       Button("next-q1", "Next", "default", Action([@Set($currentScreen, "q2")]), $answer1 == ""),
       Button("back-q1", "Back", "secondary", Action([@Set($currentScreen, "intro")]), false)
-    ])
+    ], "inline")
   ], $currentScreen == "q1"),
   Screen("q2", "Question 2", [
     RadioGroup("answer2", "Which feature made local React state easier?", $answer2, reactOptions),
     Group(null, "horizontal", [
       Button("next-q2", "Next", "default", Action([@Set($currentScreen, "q3")]), $answer2 == ""),
       Button("back-q2", "Back", "secondary", Action([@Set($currentScreen, "q1")]), false)
-    ])
+    ], "inline")
   ], $currentScreen == "q2"),
   Screen("q3", "Question 3", [
     RadioGroup("answer3", "Which operation writes a scalar value into persisted state?", $answer3, stateOptions),
     Group(null, "horizontal", [
       Button("next-q3", "Next", "default", Action([@Set($currentScreen, "agreement")]), $answer3 == ""),
       Button("back-q3", "Back", "secondary", Action([@Set($currentScreen, "q2")]), false)
-    ])
+    ], "inline")
   ], $currentScreen == "q3"),
   Screen("agreement", "Agreement", [
     Checkbox("agreement", "I confirm that I reviewed all answers before submit.", $agreement),
     Group(null, "horizontal", [
       Button("show-result", "Show result", "default", Action([@Set($currentScreen, "result")]), !$agreement),
       Button("back-agreement", "Back", "secondary", Action([@Set($currentScreen, "q3")]), false)
-    ])
+    ], "inline")
   ], $currentScreen == "agreement"),
   Screen("result", "Result", [
     Group("Score", "vertical", [
@@ -129,7 +129,7 @@ createSubmission = Mutation("append_state", {
 rows = @Each(submissions, "submission", Group(null, "vertical", [
   Text(submission.name, "title", "start"),
   Text(submission.email, "muted", "start")
-]))
+], "inline"))
 
 root = AppShell([
   Screen("main", "Signup", [
@@ -140,7 +140,7 @@ root = AppShell([
       Group(null, "horizontal", [
         Button("submit-form", "Submit", "default", Action([@Run(createSubmission), @Run(submissions), @Reset($name, $email, $accepted)]), !$accepted || $name == "" || $email == ""),
         Link("Privacy policy", "https://platform.openai.com/docs", true)
-      ])
+      ], "inline")
     ]),
     Group("Saved submissions", "vertical", [
       Text("Total saved: " + @Count(submissions), "muted", "start"),

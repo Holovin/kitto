@@ -114,6 +114,19 @@ root = AppShell([
     expect(result.issues.length).toBeGreaterThan(0);
   });
 
+  it('rejects invalid Group variants', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Group("Filters", "horizontal", [
+      Text("Pending", "body", "start")
+    ], "card")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues.length).toBeGreaterThan(0);
+  });
+
   it('rejects unsafe source patterns', () => {
     const result = validateOpenUiSource(`${validSource}\nText("<script>alert(1)</script>", "body", "start")`);
 

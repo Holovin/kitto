@@ -48,11 +48,18 @@ Steps:
 - Do not hand-edit `shared/openui/component-spec.json`; it is a committed generated artifact
 - If you change the frontend library or anything that affects the generated component contract, regenerate the spec before finishing
 - The frontend parser and validation also depend on the real library via `builderOpenUiLibrary.toJSONSchema()`, so component changes affect both prompt generation and local validation
+- `validateOpenUiSource()` also performs literal enum-prop checks against the generated component schemas because the parser can preserve invalid literal props in the AST instead of rejecting them on parse alone
 
 ## Supported OpenUI Surface
 
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
+- Group layout guidance:
+  - `Group(title, direction, children, variant?)` supports `block | inline`
+  - default variant is `block`
+  - use `block` for standalone visual sections
+  - use `inline` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
+  - avoid over-nesting block groups
 - Repeater collection guidance:
   - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
   - when the requested list is dynamic, derive rows from local arrays, runtime state, or `Query("read_state", ...)` data instead of hardcoding duplicate rows

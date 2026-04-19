@@ -32,6 +32,21 @@ describe('openui prompts', () => {
     expect(prompt).toContain('@Set($currentScreen');
   });
 
+  it('keeps the committed Group signature and variant guidance aligned', () => {
+    const prompt = buildOpenUiSystemPrompt();
+    const groupSpec = componentSpec.components.Group;
+
+    expect(groupSpec).toBeDefined();
+
+    expect(groupSpec?.signature).toContain('variant?: "block" | "inline"');
+    expect(prompt).toContain('Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline")');
+    expect(prompt).toContain('Use Group variant "block" for standalone visual sections.');
+    expect(prompt).toContain(
+      'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
+    );
+    expect(prompt).toContain('Do not over-nest block Groups.');
+  });
+
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {
     const prompt = buildOpenUiSystemPrompt();
 
@@ -40,6 +55,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.');
     expect(prompt).toContain('savedCards = Query("read_state", { path: "app.savedCards" }, [])');
     expect(prompt).toContain('selectedAnswers = [');
+    expect(prompt).toContain('], "inline"))');
   });
 
   it('guides filtered collection views toward built-in functions instead of invented tools', () => {

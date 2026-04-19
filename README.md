@@ -89,6 +89,7 @@ Notes:
 
 Notes:
 
+- `Group(title, direction, children, variant?)` supports `block` and `inline`. `block` is the default card-like section surface; `inline` is the lightweight nested layout for inline controls, repeated rows, and groups inside an existing block.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.

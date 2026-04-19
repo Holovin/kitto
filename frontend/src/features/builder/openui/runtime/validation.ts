@@ -8,6 +8,17 @@ import {
 } from './validationLimits';
 
 const parser = createParser(builderOpenUiLibrary.toJSONSchema());
+const componentSchemaDefinitions = (builderOpenUiLibrary.toJSONSchema().$defs ?? {}) as Record<
+  string,
+  {
+    properties?: Record<
+      string,
+      {
+        enum?: unknown[];
+      }
+    >;
+  }
+>;
 
 interface OpenUiValidationResult {
   isValid: boolean;
@@ -43,6 +54,67 @@ function extractStringLiteral(toolAst: ToolAst) {
   }
 
   return toolAst.v;
+}
+
+function isElementNode(
+  value: unknown,
+): value is {
+  props: Record<string, unknown>;
+  statementId?: string;
+  type: 'element';
+  typeName: string;
+} {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    value.type === 'element' &&
+    'typeName' in value &&
+    typeof value.typeName === 'string' &&
+    'props' in value &&
+    typeof value.props === 'object' &&
+    value.props !== null
+  );
+}
+
+function validateLiteralEnumProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => validateLiteralEnumProps(entry, inheritedStatementId));
+  }
+
+  if (!isElementNode(value)) {
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).flatMap((entry) => validateLiteralEnumProps(entry, inheritedStatementId));
+    }
+
+    return [];
+  }
+
+  const statementId = value.statementId ?? inheritedStatementId;
+  const componentSchema = componentSchemaDefinitions[value.typeName];
+  const issues: BuilderParseIssue[] = [];
+
+  for (const [propName, propSchema] of Object.entries(componentSchema?.properties ?? {})) {
+    const propValue = value.props[propName];
+
+    if (typeof propValue !== 'string' || !Array.isArray(propSchema.enum) || propSchema.enum.includes(propValue)) {
+      continue;
+    }
+
+    issues.push(
+      createParserIssue({
+        code: 'invalid-prop',
+        message: `${value.typeName}.${propName} must be one of ${propSchema.enum.map((option) => `"${option}"`).join(', ')}.`,
+        statementId,
+      }),
+    );
+  }
+
+  for (const nestedValue of Object.values(value.props)) {
+    issues.push(...validateLiteralEnumProps(nestedValue, statementId));
+  }
+
+  return issues;
 }
 
 function validateQueryTools(result: ParseResult): BuilderParseIssue[] {
@@ -158,6 +230,7 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
 
   const result = parser.parse(trimmedSource);
   issues.push(...mapParserIssues(result));
+  issues.push(...validateLiteralEnumProps(result.root));
 
   if (!result.meta.incomplete) {
     issues.push(

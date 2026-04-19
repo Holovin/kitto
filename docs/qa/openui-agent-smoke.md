@@ -63,7 +63,19 @@ Expected:
 - any previous Preview runtime issue clears once the new committed valid source renders
 - no unresolved refs, parser errors, or broken actions appear
 
-## Scenario 4 — Collection / Repeater / filtering
+## Scenario 4 — Inline group layout
+
+Prompt:
+
+Create a form with name, email, and due date fields in one visual section, with fields arranged in inline groups.
+
+Expected:
+- generated source contains one outer section `Group(...)` using the default block styling or an explicit `"block"` variant
+- generated source uses one or more inner `Group(..., "horizontal", [...], "inline")` rows for the fields or controls
+- the rendered UI shows one section rather than nested card-in-card surfaces
+- no parser errors or unresolved refs appear
+
+## Scenario 5 — Collection / Repeater / filtering
 
 Prompt:
 
@@ -90,7 +102,7 @@ Expected:
 - no todo-specific filter tool names or custom filtering APIs appear
 - no parser errors or unresolved refs appear
 
-## Scenario 5 — JSON import/export
+## Scenario 6 — JSON import/export
 
 Actions:
 1. Click `Export JSON` and save the downloaded `kitto-definition-*.json` file.
@@ -114,7 +126,7 @@ Expected:
 - chat history is not wiped by the failed import
 - undo/redo history is not replaced by the failed import
 
-## Scenario 6 — Standalone HTML export
+## Scenario 7 — Standalone HTML export
 
 Actions:
 1. Generate a quiz app and interact with it so runtime state changes from the initial screen.
@@ -137,7 +149,7 @@ Expected:
 - `Reset local data` clears the standalone storage key and returns the app to the embedded baseline state
 - resetting does not affect the main Kitto builder state in the original tab
 
-## Scenario 7 — Undo/redo
+## Scenario 8 — Undo/redo
 
 Actions:
 1. Generate an app.
@@ -155,7 +167,7 @@ Expected:
 - Definition reflects the restored committed snapshot after each action
 - no stale draft source or rejected-definition state remains after undo/redo
 
-## Scenario 8 — Cancel, abort, and stale-request safety
+## Scenario 9 — Cancel, abort, and stale-request safety
 
 Actions:
 1. Submit a prompt that should generate for at least a few seconds.
@@ -178,7 +190,7 @@ Expected:
 - no late commit from the aborted request appears after returning to `/chat`
 - the aborted request does not overwrite any later committed app state
 
-## Scenario 9 — Preview runtime issue lifecycle
+## Scenario 10 — Preview runtime issue lifecycle
 
 Actions:
 1. Generate or import a committed app that triggers a Preview runtime error.
