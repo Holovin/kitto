@@ -36,6 +36,20 @@ describe('validateOpenUiSource', () => {
     );
   });
 
+  it('rejects incomplete or truncated source', () => {
+    const result = validateOpenUiSource('root = AppShell([');
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'incomplete-source',
+          message: 'The OpenUI source is incomplete or truncated.',
+        }),
+      ]),
+    );
+  });
+
   it('rejects markdown code fences', () => {
     const result = validateOpenUiSource(`\`\`\`\n${validSource}\n\`\`\``);
 

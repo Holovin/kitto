@@ -110,6 +110,19 @@ const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
 const toolExamples = [
+  `$name = "Ada"
+$email = "ada@example.com"
+
+root = AppShell([
+  Screen("main", "Profile form", [
+    Group("Profile", "vertical", [
+      Group("Inline fields", "horizontal", [
+        Input("name", "Name", $name, "Ada"),
+        Input("email", "Email", $email, "ada@example.com")
+      ], "inline")
+    ], "block")
+  ])
+])`,
   `items = [
   { label: "First", value: "first" },
   { label: "Second", value: "second" }
@@ -204,6 +217,10 @@ const additionalRules = [
   'Use only the supported components and tools provided in this prompt.',
   'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
+  'Group signature is `Group(title, direction, children, variant?)`.',
+  'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
+  'If you pass a Group variant, place it in the optional fourth argument.',
+  'Never put `"block"` or `"inline"` in the second Group argument.',
   'Use Group variant "block" for standalone visual sections.',
   'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
   'Do not over-nest block Groups.',

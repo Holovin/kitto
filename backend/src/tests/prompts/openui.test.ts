@@ -45,6 +45,12 @@ describe('openui prompts', () => {
       'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
     );
     expect(prompt).toContain('Do not over-nest block Groups.');
+    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?)`.');
+    expect(prompt).toContain('The second Group argument is direction and must be `"vertical"` or `"horizontal"`.');
+    expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
+    expect(prompt).toContain('Never put `"block"` or `"inline"` in the second Group argument.');
+    expect(prompt).toContain('Group("Profile", "vertical", [');
+    expect(prompt).toContain('], "block")');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {

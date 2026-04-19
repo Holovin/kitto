@@ -230,6 +230,16 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
 
   const result = parser.parse(trimmedSource);
   issues.push(...mapParserIssues(result));
+
+  if (result.meta.incomplete) {
+    issues.push(
+      createParserIssue({
+        code: 'incomplete-source',
+        message: 'The OpenUI source is incomplete or truncated.',
+      }),
+    );
+  }
+
   issues.push(...validateLiteralEnumProps(result.root));
 
   if (!result.meta.incomplete) {

@@ -56,6 +56,7 @@ Steps:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Group layout guidance:
   - `Group(title, direction, children, variant?)` supports `block | inline`
+  - the second `Group` argument is always `direction`, and `variant` belongs in the optional fourth argument
   - default variant is `block`
   - use `block` for standalone visual sections
   - use `inline` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
