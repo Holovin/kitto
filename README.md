@@ -7,7 +7,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 - chat-driven app generation with streaming updates
 - a single automatic repair pass when the first model draft is invalid OpenUI
 - live preview from the last committed valid source, a raw definition panel that can show the incoming draft, and an app-state inspector for reactive and persisted data
-- undo/redo, reset, JSON import/export with validation-before-apply, and local persistence for builder history
+- undo/redo, reset, JSON import/export with validation-before-apply, and local persistence for committed source, live app state, and builder history
 - a `/elements` route for browsing supported OpenUI components, actions, demos, and schemas
 
 ## Workspace layout
@@ -133,6 +133,7 @@ Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use onl
 - Preview stays on the last committed valid app while streaming, validation, and automatic repair run against the incoming draft
 - imported definition files are validated before they replace the current committed preview
 - invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
+- reload restores the last committed source, current reactive state, persisted domain data, and undo/redo history from local persistence
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
 - `Link(...)` and `@OpenUrl(...)` share a safe URL policy: only `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...` links are allowed; blocked or malformed URLs are rendered inert or ignored

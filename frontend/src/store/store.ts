@@ -1,9 +1,10 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { rememberEnhancer, rememberReducer } from 'redux-remember';
 import { apiSlice } from '@api/apiSlice';
-import { builderReducer, normalizeBuilderState } from '@features/builder/store/builderSlice';
-import { builderSessionReducer, normalizeBuilderSessionState } from '@features/builder/store/builderSessionSlice';
-import { domainReducer, normalizeDomainState } from '@features/builder/store/domainSlice';
+import { builderReducer } from '@features/builder/store/builderSlice';
+import { builderSessionReducer } from '@features/builder/store/builderSessionSlice';
+import { domainReducer } from '@features/builder/store/domainSlice';
+import { migrateRememberedState, REMEMBER_KEYS, REMEMBER_PREFIX } from './persistence';
 
 const combinedReducer = combineReducers({
   builder: builderReducer,
@@ -19,18 +20,9 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),
   enhancers: (getDefaultEnhancers) =>
     getDefaultEnhancers().concat(
-      rememberEnhancer(window.localStorage, ['builder'], {
-        migrate: async (state) => {
-          const builder = normalizeBuilderState(state.builder);
-          const latestSnapshot = builder.history.at(-1);
-
-          return {
-            ...state,
-            builder,
-            builderSession: normalizeBuilderSessionState(state.builderSession, latestSnapshot?.runtimeState ?? {}),
-            domain: normalizeDomainState(state.domain, latestSnapshot?.domainData ?? {}),
-          };
-        },
+      rememberEnhancer(window.localStorage, [...REMEMBER_KEYS], {
+        migrate: migrateRememberedState,
+        prefix: REMEMBER_PREFIX,
       }),
     ),
 });

@@ -18,6 +18,7 @@ Supported API:
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
+- Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `write_state`, `merge_state`, `append_state`, and `remove_state`.

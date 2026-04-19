@@ -40,6 +40,14 @@ Expected:
 - no runtime errors appear
 - navigation is handled locally in runtime state rather than by rebuilding the definition
 
+Follow-up:
+1. Reload the page.
+
+Expected:
+- the last committed app still renders after reload
+- the selected radio option and current screen restore from persisted runtime state
+- existing chat history and undo/redo history remain available after reload
+
 ## Scenario 3 — Follow-up edit
 
 Prompt:

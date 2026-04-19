@@ -75,7 +75,7 @@ Steps:
   - `builder`: committed source, streamed draft source, chat messages, undo/redo history, parse issues
   - `builderSession`: current runtime session/form state used by the renderer
   - `domain`: persisted app data mutated by OpenUI tools
-- `builder` is persisted in `localStorage` through `redux-remember`
+- `builder`, `builderSession`, and `domain` are persisted in `localStorage` through `redux-remember`
 - Import/export uses a versioned JSON format; the current exported format is `version: 1`
 - Preview must always render from the last committed valid source; streamed draft source may be shown in Definition during generation, but must not mount in Preview before commit
 - A committed snapshot stores:
