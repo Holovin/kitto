@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { createTestEnv } from './createTestEnv.js';
@@ -81,5 +84,27 @@ describe('createApp', () => {
     expect(await response.json()).toEqual({
       error: 'Route not found.',
     });
+  });
+
+  it('serves index.html for frontend routes when a production build exists', async () => {
+    const frontendDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kitto-openui-dist-'));
+
+    try {
+      fs.writeFileSync(path.join(frontendDistDir, 'index.html'), '<!doctype html><html><body><div id="root">Kitto</div></body></html>');
+
+      const app = createApp(
+        createTestEnv({
+          frontendDistDir,
+        }),
+      );
+
+      const response = await app.request('/chat');
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/html');
+      expect(await response.text()).toContain('<div id="root">Kitto</div>');
+    } finally {
+      fs.rmSync(frontendDistDir, { force: true, recursive: true });
+    }
   });
 });

@@ -39,6 +39,17 @@ describe('LinkComponent', () => {
     expect(element.props['aria-disabled']).toBe('true');
   });
 
+  it('rejects blob: URLs', () => {
+    const element = renderLink({
+      label: 'Unsafe blob link',
+      newTab: true,
+      url: 'blob:https://example.com/123',
+    });
+
+    expect(element.type).toBe('span');
+    expect(element.props['aria-disabled']).toBe('true');
+  });
+
   it('accepts https URLs', () => {
     const element = renderLink({
       label: 'Docs',

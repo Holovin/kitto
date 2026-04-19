@@ -292,7 +292,7 @@ describe('streamBuilderDefinition', () => {
   it('fails the stream on idle timeout and aborts the request signal', async () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
-    let requestSignal: AbortSignal | undefined;
+    let requestSignal: AbortSignal | null | undefined;
 
     vi.stubGlobal(
       'fetch',
@@ -332,7 +332,7 @@ describe('streamBuilderDefinition', () => {
   it('fails the stream on max duration timeout and aborts the request signal', async () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
-    let requestSignal: AbortSignal | undefined;
+    let requestSignal: AbortSignal | null | undefined;
 
     vi.stubGlobal(
       'fetch',

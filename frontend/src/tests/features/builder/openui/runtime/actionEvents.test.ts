@@ -59,4 +59,13 @@ describe('handleOpenUiActionEvent', () => {
     expect(handleOpenUiActionEvent(createOpenUrlEvent('data:text/html,<script>alert(1)</script>'))).toBe(false);
     expect(open).not.toHaveBeenCalled();
   });
+
+  it('rejects blob URLs without throwing', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+
+    expect(() => handleOpenUiActionEvent(createOpenUrlEvent('blob:https://example.com/123'))).not.toThrow();
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('blob:https://example.com/123'))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
 });

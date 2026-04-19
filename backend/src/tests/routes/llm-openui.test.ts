@@ -80,6 +80,26 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid JSON stream bodies before calling the OpenAI service', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: '{"prompt":',
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Request body must be valid JSON.',
+      status: 400,
+    });
+    expect(streamOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('rejects empty prompts before calling the OpenAI service', async () => {
     const { app } = createRouteApp();
 
@@ -102,6 +122,30 @@ describe('createLlmOpenUiRoutes', () => {
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty stream prompts before calling the OpenAI service', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: '',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(streamOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
   it('rejects oversized prompts with a validation error', async () => {

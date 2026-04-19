@@ -119,6 +119,32 @@ describe('builderToolProvider', () => {
     });
   });
 
+  it('reads from a valid state path without exposing the stored reference', async () => {
+    seedDomainData({
+      app: {
+        profile: {
+          name: 'Ada',
+        },
+      },
+    });
+
+    const value = await builderToolProvider.read_state({ path: 'app.profile' });
+
+    expect(value).toEqual({
+      name: 'Ada',
+    });
+
+    (value as { name: string }).name = 'Grace';
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        profile: {
+          name: 'Ada',
+        },
+      },
+    });
+  });
+
   it('merges safe patch fields while stripping dangerous keys', async () => {
     seedDomainData({
       app: {
