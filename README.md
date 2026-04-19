@@ -132,7 +132,13 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - upstream stream cancellation when the browser disconnects
 
+## QA doc maintenance
+
+When you change QA-visible behavior, update the QA docs in the same change if they stop matching. This includes API routes, prompt/component signatures, supported tools, builder controls such as import/export or undo/redo, and manual smoke-test steps or expectations.
+
 ## Additional docs
 
+- [docs/qa/openui-agent-smoke.md](/Users/alex/projects/kitto-openui/docs/qa/openui-agent-smoke.md)
+- [docs/qa/openui-manual-checklist.md](/Users/alex/projects/kitto-openui/docs/qa/openui-manual-checklist.md)
 - [frontend/README.md](/Users/alex/projects/kitto-openui/frontend/README.md)
 - [backend/README.md](/Users/alex/projects/kitto-openui/backend/README.md)

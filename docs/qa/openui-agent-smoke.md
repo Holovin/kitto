@@ -8,6 +8,11 @@
 4. Keep the browser DevTools Console visible to catch parser or runtime errors.
 5. Keep the DevTools Network tab open and filter by `/api/llm` so it is easy to verify when generation requests do and do not happen.
 
+## MCP Automation Notes
+
+- For Chrome DevTools MCP automation, enter prompts in the composer `textarea` with real keyboard typing (`type_text`) after focusing the field. Do not rely on DOM-only value injection or `fill` for this control; React may keep `Send` disabled if the change does not arrive as real typed input.
+- For import smoke tests under MCP automation, the native OS file picker may be unavailable. It is acceptable to verify the same frontend import path by creating a `File`, assigning it to the hidden `input[type="file"]`, and dispatching the input `change` event.
+
 ## Scenario 1 — Basic app generation
 
 Prompt:

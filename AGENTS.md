@@ -18,6 +18,7 @@ Steps:
 ## Repository Rules
 
 - If you update the OpenUI component spec, or change the frontend OpenUI library that defines it, you must run `npm run generate:openui-spec` before finishing.
+- If you change the API contract, OpenUI prompt contract, supported components/tools, builder controls, or any QA-visible runtime behavior, update `docs/qa/openui-agent-smoke.md` and `docs/qa/openui-manual-checklist.md` before finishing whenever their steps, expectations, or contract notes no longer match.
 
 ## Project Context
 
@@ -100,6 +101,10 @@ Steps:
   - `frontend/src/features/builder/openui/runtime/actionCatalog.ts`
   - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider
 - The `/elements` page reads both `builderOpenUiLibrary.toSpec()` and `builderOpenUiLibrary.toJSONSchema()`, so library changes directly affect that explorer
+- QA docs are also a sync point. If UX labels, manual flows, API routes, prompt/component signatures, or expected runtime invariants change, sync:
+  - `docs/qa/openui-agent-smoke.md`
+  - `docs/qa/openui-manual-checklist.md`
+  - `README.md` links or descriptions if they stop matching
 
 ## Runtime And API Notes
 
