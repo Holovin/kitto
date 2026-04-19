@@ -13,18 +13,21 @@ Guardrails:
 
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
+- `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
 
 ## Runtime invariants
 
 - Preview renders committed source only.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
+- Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Definition may show streamed or rejected draft source.
 - Invalid source is never committed to Preview or builder history.
+- Frontend stream idle timeout or max-duration timeout must abort the in-flight request, surface a controlled failure message, and keep the last committed Preview visible.
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
 - Rejected draft source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
-- Intentional aborts, including leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
+- Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.

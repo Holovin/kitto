@@ -98,6 +98,15 @@ describe('builderSlice', () => {
     expect(canceled.committedSource).toBe(initialState.committedSource);
     expect(canceled.streamedSource).toBe(initialState.committedSource);
     expect(canceled.history).toHaveLength(1);
+    expect(canceled.chatMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Start streaming',
+          role: 'user',
+        }),
+      ]),
+    );
+    expect(canceled.chatMessages.some((message) => message.tone === 'error')).toBe(false);
   });
 
   it('commits the completed stream into history and chat', () => {
@@ -255,6 +264,37 @@ describe('builderSlice', () => {
     expect(staleCompletion.currentRequestId).toBe('request-6');
     expect(staleCompletion.isStreaming).toBe(true);
     expect(staleCompletion.committedSource).toBe(createInitialState().committedSource);
+    expect(staleCompletion.history).toHaveLength(1);
+  });
+
+  it('ignores a stale completion after the request was cancelled', () => {
+    const initialState = createInitialState();
+    const started = builderReducer(
+      initialState,
+      builderActions.beginStreaming({
+        prompt: 'Cancel me',
+        requestId: 'request-7',
+      }),
+    );
+    const canceled = builderReducer(
+      started,
+      builderActions.cancelStreaming({
+        requestId: 'request-7',
+      }),
+    );
+    const staleCompletion = builderReducer(
+      canceled,
+      builderActions.completeStreaming({
+        requestId: 'request-7',
+        snapshot: createBuilderSnapshot(validSource, {}, {}),
+        source: validSource,
+      }),
+    );
+
+    expect(staleCompletion.currentRequestId).toBeNull();
+    expect(staleCompletion.isStreaming).toBe(false);
+    expect(staleCompletion.committedSource).toBe(initialState.committedSource);
+    expect(staleCompletion.streamedSource).toBe(initialState.committedSource);
     expect(staleCompletion.history).toHaveLength(1);
   });
 });

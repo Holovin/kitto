@@ -117,10 +117,20 @@ Expected:
 - Definition reflects the restored committed snapshot after each action
 - no stale draft source or rejected-definition state remains after undo/redo
 
-## Scenario 7 — Abort and stale-request safety
+## Scenario 7 — Cancel, abort, and stale-request safety
 
 Actions:
 1. Submit a prompt that should generate for at least a few seconds.
+2. Click `Cancel` while the request is still in progress.
+
+Expected:
+- the `Generating...` or `Updating...` state clears promptly instead of hanging
+- no red cancel or abort error is appended to chat history
+- Preview and Definition still reflect the last committed valid app rather than a partial streamed draft
+- no late commit from the cancelled request appears after waiting a moment
+
+Follow-up:
+1. Submit another prompt that should generate for at least a few seconds.
 2. Before it finishes, navigate to `http://localhost:5555/elements`.
 3. Wait a moment, then return to `http://localhost:5555/chat`.
 

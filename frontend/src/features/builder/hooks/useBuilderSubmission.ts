@@ -1,9 +1,13 @@
 import { nanoid } from '@reduxjs/toolkit';
-import { useEffect, useRef, type FormEvent, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, type FormEvent, type MutableRefObject } from 'react';
 import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
-import { streamBuilderDefinition } from '@features/builder/api/streamGenerate';
-import { getBuilderRequestLimits, validateBuilderLlmRequest } from '@features/builder/config';
+import {
+  BuilderStreamTimeoutError,
+  streamBuilderDefinition,
+  type BuilderStreamTimeoutKind,
+} from '@features/builder/api/streamGenerate';
+import { getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
 import { buildRequestChatHistory } from '@features/builder/hooks/requestChatHistory';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
@@ -245,6 +249,7 @@ function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
 
 interface UseBuilderSubmissionOptions {
   abortControllerRef: MutableRefObject<AbortController | null>;
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onFeedbackChange: (message: string | null) => void;
 }
 
@@ -279,9 +284,11 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
 }
 
-export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: UseBuilderSubmissionOptions) {
+export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
+  const activeMutationAbortRef = useRef<(() => void) | null>(null);
+  const handleCancelRef = useRef<() => void>(() => {});
   const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
   const domainData = useAppSelector(selectDomainData);
@@ -293,12 +300,14 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
     }),
   });
   const requestLimits = getBuilderRequestLimits(configState.data);
-  const [generateApp, generateState] = useGenerateAppMutation();
-  const isSubmitting = isStreaming || generateState.isLoading;
+  const streamTimeouts = getBuilderStreamTimeouts(configState.data);
+  const [generateApp] = useGenerateAppMutation();
+  const isSubmitting = isStreaming;
 
   useEffect(() => {
     return () => {
       activeRequestIdRef.current = null;
+      activeMutationAbortRef.current = null;
     };
   }, []);
 
@@ -312,18 +321,53 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
     }
   }
 
+  function clearRequestHandles(requestId: BuilderRequestId) {
+    if (activeRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    abortControllerRef.current = null;
+    activeMutationAbortRef.current = null;
+  }
+
+  function abortRequestHandles(requestId: BuilderRequestId) {
+    if (activeRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    const abortController = abortControllerRef.current;
+    const abortMutation = activeMutationAbortRef.current;
+
+    abortControllerRef.current = null;
+    activeMutationAbortRef.current = null;
+    abortController?.abort();
+    abortMutation?.();
+  }
+
   function throwIfInactiveRequest(requestId: BuilderRequestId) {
     if (!isActiveRequest(requestId)) {
       throw new BuilderRequestAbortedError();
     }
   }
 
-  function cancelRequest(requestId: BuilderRequestId) {
+  function cancelRequest(requestId: BuilderRequestId, options?: { abort?: boolean }) {
+    if (options?.abort) {
+      abortRequestHandles(requestId);
+    } else {
+      clearRequestHandles(requestId);
+    }
+
     clearActiveRequest(requestId);
     dispatch(builderActions.cancelStreaming({ requestId }));
   }
 
-  function failRequest(requestId: BuilderRequestId, error: unknown) {
+  function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean }) {
+    if (options?.abort) {
+      abortRequestHandles(requestId);
+    } else {
+      clearRequestHandles(requestId);
+    }
+
     clearActiveRequest(requestId);
     dispatch(
       builderActions.failStreaming({
@@ -333,6 +377,31 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
         source: error instanceof OpenUiValidationError ? error.source : undefined,
       }),
     );
+  }
+
+  function handleStreamTimeout(requestId: BuilderRequestId, kind: BuilderStreamTimeoutKind) {
+    if (!isActiveRequest(requestId)) {
+      return;
+    }
+
+    failRequest(requestId, new BuilderStreamTimeoutError(kind), { abort: true });
+  }
+
+  async function runGenerateRequest(requestId: BuilderRequestId, request: BuilderLlmRequest) {
+    const generateRequest = generateApp(request);
+    const abortGenerateRequest = () => generateRequest.abort();
+
+    if (isActiveRequest(requestId)) {
+      activeMutationAbortRef.current = abortGenerateRequest;
+    }
+
+    try {
+      return await generateRequest.unwrap();
+    } finally {
+      if (activeRequestIdRef.current === requestId && activeMutationAbortRef.current === abortGenerateRequest) {
+        activeMutationAbortRef.current = null;
+      }
+    }
   }
 
   async function ensureValidGeneratedSource(initialSource: string, request: BuilderLlmRequest, requestId: BuilderRequestId) {
@@ -387,7 +456,7 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
         hasAnnouncedRepair = true;
       }
 
-      const repairedResponse = await generateApp(repairRequest).unwrap();
+      const repairedResponse = await runGenerateRequest(requestId, repairRequest);
       throwIfInactiveRequest(requestId);
       hasCompletedRepairRequest = true;
       candidateSource = repairedResponse.source;
@@ -435,8 +504,30 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
         snapshot,
       }),
     );
+    clearRequestHandles(requestId);
     clearActiveRequest(requestId);
   }
+
+  handleCancelRef.current = () => {
+    const requestId = activeRequestIdRef.current;
+
+    if (!requestId) {
+      return;
+    }
+
+    onFeedbackChange(null);
+    cancelRequest(requestId, { abort: true });
+  };
+
+  const handleCancel = useCallback(() => {
+    handleCancelRef.current();
+  }, []);
+
+  useEffect(() => {
+    cancelActiveRequestRef.current = () => {
+      handleCancel();
+    };
+  }, [cancelActiveRequestRef, handleCancel]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -460,9 +551,13 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
 
     let receivedChunk = false;
     const requestId = createRequestId();
+    const previousRequestId = activeRequestIdRef.current;
     onFeedbackChange(null);
+    if (previousRequestId) {
+      abortRequestHandles(previousRequestId);
+    }
+
     activeRequestIdRef.current = requestId;
-    abortControllerRef.current?.abort();
     dispatch(builderActions.beginStreaming({ prompt: nextPrompt, requestId }));
 
     const abortController = new AbortController();
@@ -471,16 +566,29 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
     try {
       const streamResult = await streamBuilderDefinition({
         apiBaseUrl: getBackendApiBaseUrl(),
+        idleTimeoutMs: streamTimeouts.streamIdleTimeoutMs,
+        maxDurationMs: streamTimeouts.streamMaxDurationMs,
         request,
         signal: abortController.signal,
         onChunk: (chunk) => {
           receivedChunk = true;
           dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
         },
+        onTimeout: (kind) => {
+          handleStreamTimeout(requestId, kind);
+        },
       });
 
       await commitGeneratedSource(streamResult, request, requestId);
     } catch (error) {
+      if (error instanceof BuilderStreamTimeoutError) {
+        if (isActiveRequest(requestId)) {
+          failRequest(requestId, error);
+        }
+
+        return;
+      }
+
       if (isAbortError(error) || error instanceof BuilderRequestAbortedError || !isActiveRequest(requestId)) {
         cancelRequest(requestId);
         return;
@@ -488,10 +596,18 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
 
       if (!receivedChunk) {
         try {
-          const fallbackResponse = await generateApp(request).unwrap();
+          const fallbackResponse = await runGenerateRequest(requestId, request);
           await commitGeneratedSource(fallbackResponse, request, requestId);
           return;
         } catch (fallbackError) {
+          if (fallbackError instanceof BuilderStreamTimeoutError) {
+            if (isActiveRequest(requestId)) {
+              failRequest(requestId, fallbackError);
+            }
+
+            return;
+          }
+
           if (
             isAbortError(fallbackError) ||
             fallbackError instanceof BuilderRequestAbortedError ||
@@ -508,6 +624,10 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
 
       failRequest(requestId, error);
     } finally {
+      if (isActiveRequest(requestId)) {
+        cancelRequest(requestId);
+      }
+
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
       }
@@ -521,6 +641,7 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
   return {
     draftPrompt,
     handleDraftPromptChange,
+    handleCancel,
     handleSubmit,
     isSubmitting,
     promptMaxChars: requestLimits.promptMaxChars,

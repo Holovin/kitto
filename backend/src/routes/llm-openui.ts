@@ -172,11 +172,17 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
       const { compaction, request } = await parseLlmRequest(context, env);
       const abortController = new AbortController();
       const encoder = new TextEncoder();
-      const handleClientAbort = () => abortController.abort();
       let isClosed = false;
+      let closeController = () => {
+        // Assigned inside the stream start callback once the controller exists.
+      };
+      const handleClientAbort = () => {
+        abortController.abort();
+        closeController();
+      };
       const stream = new ReadableStream({
         start(controller) {
-          const closeController = () => {
+          closeController = () => {
             if (isClosed) {
               return;
             }

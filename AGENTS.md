@@ -105,6 +105,8 @@ Steps:
 - Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
+- Every generation must terminate in exactly one state: committed, failed, or cancelled; the frontend must not stay stuck in a streaming state forever
+- The frontend applies both a max stream duration and an idle timeout before failing the request and preserving the last committed preview
 - Each frontend generation request carries a `requestId`; stale stream chunks, stale fallback responses, and intentional aborts must be ignored and must never commit over a newer request
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API
 - Streaming responses use SSE with `chunk`, `done`, and `error` events
@@ -133,7 +135,7 @@ Steps:
 - Default backend URL: `http://localhost:8787`
 - In development, the frontend talks to `/api/*` and Vite proxies requests to the backend
 - The supported backend API lives under `/api/*` only
-- Public runtime limits are exposed through `GET /api/config`
+- Public runtime limits and stream timeout policy are exposed through `GET /api/config`
 - Health/model status is exposed through `GET /api/health`
 - The backend rejects oversized raw request bodies before JSON parsing
 - The raw request hard limit is derived from `LLM_REQUEST_MAX_BYTES * 4`

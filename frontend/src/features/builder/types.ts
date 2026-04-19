@@ -67,6 +67,10 @@ export interface BuilderConfigResponse {
     promptMaxChars: number;
     requestMaxBytes: number;
   };
+  timeouts: {
+    streamIdleTimeoutMs: number;
+    streamMaxDurationMs: number;
+  };
 }
 
 export interface HealthResponse {

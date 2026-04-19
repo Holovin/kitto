@@ -41,6 +41,10 @@ describe('createApp', () => {
         promptMaxChars: 321,
         requestMaxBytes: 654,
       },
+      timeouts: {
+        streamIdleTimeoutMs: 45000,
+        streamMaxDurationMs: 120000,
+      },
     });
   });
 

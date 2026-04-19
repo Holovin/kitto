@@ -1,6 +1,7 @@
 import { APIUserAbortError } from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app.js';
+import { UpstreamFailureError } from '../../errors/publicError.js';
 import { createTestEnv } from '../createTestEnv.js';
 
 vi.mock(import('../../services/openai.js'), () => ({
@@ -370,5 +371,61 @@ describe('createLlmOpenUiRoutes', () => {
 
     expect(response.status).toBe(200);
     expect(events).toEqual([{ event: 'chunk', data: 'root = ' }]);
+  });
+
+  it('emits an error SSE event when the backend stream hits the output limit', async () => {
+    const { app } = createRouteApp();
+    streamOpenUiSourceMock.mockRejectedValue(
+      new UpstreamFailureError('Streamed model output exceeded the backend limit of 100000 bytes.'),
+    );
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'overflow the stream',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      {
+        event: 'error',
+        data: '{"code":"upstream_error","error":"The model service could not complete the request.","status":502}',
+      },
+    ]);
+  });
+
+  it('emits an error SSE event when the backend stream times out', async () => {
+    const { app } = createRouteApp();
+    const timeoutError = new Error('Timed out while waiting for the model.');
+    timeoutError.name = 'TimeoutError';
+    streamOpenUiSourceMock.mockRejectedValue(timeoutError);
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'timeout the stream',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      {
+        event: 'error',
+        data: '{"code":"timeout_error","error":"The model request timed out.","status":504}',
+      },
+    ]);
   });
 });

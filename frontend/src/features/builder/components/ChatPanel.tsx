@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type MutableRefObject } from 'react';
-import { Download, FileUp, Redo2, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { Download, FileUp, Redo2, RotateCcw, Send, Square, Undo2 } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
@@ -10,8 +10,14 @@ import { selectChatMessages, selectCommittedSource } from '@features/builder/sto
 import type { BuilderChatMessage } from '@features/builder/types';
 import { useAppSelector } from '@store/hooks';
 
-interface ChatControlProps {
+interface ChatToolbarProps {
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
+  onFeedbackChange: (message: string | null) => void;
+}
+
+interface ChatComposerProps {
   abortControllerRef: MutableRefObject<AbortController | null>;
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onFeedbackChange: (message: string | null) => void;
 }
 
@@ -31,7 +37,7 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
   return 'border-slate-200 bg-white text-slate-700';
 }
 
-function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps) {
+function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarProps) {
   const {
     canExport,
     canRedo,
@@ -44,7 +50,7 @@ function ChatToolbar({ abortControllerRef, onFeedbackChange }: ChatControlProps)
     handleResetToEmpty,
     handleUndo,
   } = useBuilderHistoryControls({
-    abortControllerRef,
+    cancelActiveRequestRef,
     onFeedbackChange,
   });
   const toolbarButtonClassName =
@@ -158,9 +164,10 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
   );
 }
 
-function ChatComposer({ abortControllerRef, onFeedbackChange }: ChatControlProps) {
-  const { draftPrompt, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars } = useBuilderSubmission({
+function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: ChatComposerProps) {
+  const { draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars } = useBuilderSubmission({
     abortControllerRef,
+    cancelActiveRequestRef,
     onFeedbackChange,
   });
   const committedSource = useAppSelector(selectCommittedSource);
@@ -183,10 +190,18 @@ function ChatComposer({ abortControllerRef, onFeedbackChange }: ChatControlProps
       />
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-xs text-slate-500">Press Cmd/Ctrl+Enter to send.</p>
-        <Button disabled={!draftPrompt.trim() || isSubmitting} type="submit">
-          <Send className="h-4 w-4" />
-          {submitButtonLabel}
-        </Button>
+        <div className="flex items-center gap-2">
+          {isSubmitting ? (
+            <Button type="button" variant="ghost" onClick={handleCancel}>
+              <Square className="h-4 w-4" />
+              Cancel
+            </Button>
+          ) : null}
+          <Button disabled={!draftPrompt.trim() || isSubmitting} type="submit">
+            <Send className="h-4 w-4" />
+            {submitButtonLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );
@@ -194,9 +209,10 @@ function ChatComposer({ abortControllerRef, onFeedbackChange }: ChatControlProps
 
 export function ChatPanel() {
   const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelActiveRequestRef = useRef<(() => void) | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const abortCurrentRequest = useEffectEvent(() => {
-    abortControllerRef.current?.abort();
+    cancelActiveRequestRef.current?.();
   });
 
   useEffect(() => {
@@ -209,12 +225,19 @@ export function ChatPanel() {
     <Card className="flex h-full min-h-0 flex-col border-white/70 bg-white/92">
       <CardHeader className="flex flex-wrap items-center gap-3 border-b border-slate-200/70 pb-4">
         <CardTitle className="shrink-0 text-2xl">Chat</CardTitle>
-        <ChatToolbar abortControllerRef={abortControllerRef} onFeedbackChange={setFeedback} />
+        <ChatToolbar
+          cancelActiveRequestRef={cancelActiveRequestRef}
+          onFeedbackChange={setFeedback}
+        />
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
         <ChatHistoryFeed feedback={feedback} />
-        <ChatComposer abortControllerRef={abortControllerRef} onFeedbackChange={setFeedback} />
+        <ChatComposer
+          abortControllerRef={abortControllerRef}
+          cancelActiveRequestRef={cancelActiveRequestRef}
+          onFeedbackChange={setFeedback}
+        />
       </CardContent>
     </Card>
   );

@@ -14,7 +14,7 @@ import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { resetAppState } from '@store/errorRecovery';
 
 interface UseBuilderHistoryControlsOptions {
-  abortControllerRef: MutableRefObject<AbortController | null>;
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onFeedbackChange: (message: string | null) => void;
 }
 
@@ -31,7 +31,7 @@ function getFeedbackMessage(error: unknown) {
 }
 
 export function useBuilderHistoryControls({
-  abortControllerRef,
+  cancelActiveRequestRef,
   onFeedbackChange,
 }: UseBuilderHistoryControlsOptions) {
   const dispatch = useAppDispatch();
@@ -136,8 +136,7 @@ export function useBuilderHistoryControls({
       return;
     }
 
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
+    cancelActiveRequestRef.current?.();
     onFeedbackChange(null);
     resetAppState();
     onFeedbackChange('Cleared the local app state and reset the builder.');

@@ -17,6 +17,10 @@ const DEFAULT_BUILDER_REQUEST_LIMITS = {
   chatHistoryMaxItems: 40,
   requestMaxBytes: 300_000,
 };
+const DEFAULT_BUILDER_STREAM_TIMEOUTS = {
+  streamIdleTimeoutMs: 45_000,
+  streamMaxDurationMs: 120_000,
+};
 
 interface BuilderRequestLimits {
   chatHistoryMaxItems: number;
@@ -24,11 +28,29 @@ interface BuilderRequestLimits {
   requestMaxBytes: number;
 }
 
+interface BuilderStreamTimeouts {
+  streamIdleTimeoutMs: number;
+  streamMaxDurationMs: number;
+}
+
 export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits {
   return {
     promptMaxChars: parsePositiveInteger(config?.limits.promptMaxChars, DEFAULT_BUILDER_REQUEST_LIMITS.promptMaxChars),
     chatHistoryMaxItems: parsePositiveInteger(config?.limits.chatHistoryMaxItems, DEFAULT_BUILDER_REQUEST_LIMITS.chatHistoryMaxItems),
     requestMaxBytes: parsePositiveInteger(config?.limits.requestMaxBytes, DEFAULT_BUILDER_REQUEST_LIMITS.requestMaxBytes),
+  };
+}
+
+export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): BuilderStreamTimeouts {
+  return {
+    streamIdleTimeoutMs: parsePositiveInteger(
+      config?.timeouts.streamIdleTimeoutMs,
+      DEFAULT_BUILDER_STREAM_TIMEOUTS.streamIdleTimeoutMs,
+    ),
+    streamMaxDurationMs: parsePositiveInteger(
+      config?.timeouts.streamMaxDurationMs,
+      DEFAULT_BUILDER_STREAM_TIMEOUTS.streamMaxDurationMs,
+    ),
   };
 }
 

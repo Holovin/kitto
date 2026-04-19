@@ -5,6 +5,7 @@ export const DEFAULT_LLM_OUTPUT_MAX_BYTES = 100_000;
 export const DEFAULT_LLM_RATE_LIMIT_MAX_REQUESTS = 60;
 export const DEFAULT_LLM_RATE_LIMIT_WINDOW_MS = 60_000;
 export const DEFAULT_OPENAI_REQUEST_TIMEOUT_MS = 120_000;
+export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 45_000;
 const RAW_REQUEST_MAX_BYTES_MULTIPLIER = 4;
 const textEncoder = new TextEncoder();
 
@@ -12,6 +13,7 @@ interface RuntimeConfigSource {
   LLM_CHAT_HISTORY_MAX_ITEMS: number;
   LLM_PROMPT_MAX_CHARS: number;
   LLM_REQUEST_MAX_BYTES: number;
+  OPENAI_REQUEST_TIMEOUT_MS: number;
 }
 
 interface RawRequestLimitSource {
@@ -36,6 +38,10 @@ export function getPublicRuntimeConfig(env: RuntimeConfigSource) {
       chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
       promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
       requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
+    },
+    timeouts: {
+      streamIdleTimeoutMs: DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+      streamMaxDurationMs: env.OPENAI_REQUEST_TIMEOUT_MS,
     },
   };
 }

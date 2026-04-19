@@ -103,7 +103,7 @@ Frontend env is optional.
 The supported API lives under `/api/*` only.
 
 - `GET /api/health` - backend status, configured model, timestamp, and OpenAI key presence
-- `GET /api/config` - frontend-safe request limits loaded at bootstrap
+- `GET /api/config` - frontend-safe request limits and stream timeout policy loaded at bootstrap
 - `POST /api/llm/generate` - non-streaming OpenUI generation
 - `POST /api/llm/generate/stream` - SSE stream with `chunk`, `done`, and `error` events
 
@@ -145,6 +145,9 @@ Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use onl
 - reload restores the last committed source, current reactive state, persisted domain data, and undo/redo history from local persistence
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - a streaming response counts as successful only after a valid terminal `done` event; truncated or aborted streams never commit partial drafts
+- frontend streaming enforces a max duration and an idle timeout; timed-out streams fail with a controlled error and keep the last committed preview visible
+- every generation now terminates in exactly one state: committed, failed, or cancelled; the builder must not remain stuck in `Generating...` or `Updating...`
+- the chat composer exposes an explicit `Cancel` action while a generation is in flight; intentional cancel clears the active request without appending a red chat error
 - request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
 - `Link(...)` and `@OpenUrl(...)` share a safe URL policy: only `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...` links are allowed; blocked or malformed URLs are rendered inert or ignored
 - upstream stream cancellation when the browser disconnects

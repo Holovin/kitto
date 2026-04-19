@@ -154,28 +154,52 @@ export async function streamOpenUiSource(
   );
   let streamedText = '';
   let streamedTextBytes = 0;
-
-  for await (const event of stream) {
-    throwIfAborted(signal, stream);
-
-    if (event.type === 'response.output_text.delta' && event.delta) {
-      throwIfAborted(signal, stream);
-      streamedTextBytes += getByteLength(event.delta);
-      if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
-        stream.abort();
-        throw new UpstreamFailureError(
-          `Streamed model output exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
-        );
-      }
-
-      streamedText += event.delta;
-      await onTextDelta(event.delta);
+  let hasAbortedStream = false;
+  const abortStream = () => {
+    if (hasAbortedStream) {
+      return;
     }
+
+    hasAbortedStream = true;
+    stream.abort();
+  };
+  const handleAbort = () => {
+    abortStream();
+  };
+
+  if (signal?.aborted) {
+    handleAbort();
+    throw new APIUserAbortError();
   }
 
-  throwIfAborted(signal, stream);
-  const finalResponse = await stream.finalResponse();
-  const source = normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
-  assertModelOutputWithinLimit(source, env);
-  return source;
+  signal?.addEventListener('abort', handleAbort, { once: true });
+
+  try {
+    for await (const event of stream) {
+      throwIfAborted(signal, { abort: abortStream });
+
+      if (event.type === 'response.output_text.delta' && event.delta) {
+        throwIfAborted(signal, { abort: abortStream });
+        streamedTextBytes += getByteLength(event.delta);
+        if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
+          abortStream();
+          throw new UpstreamFailureError(
+            `Streamed model output exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+          );
+        }
+
+        streamedText += event.delta;
+        await onTextDelta(event.delta);
+      }
+    }
+
+    throwIfAborted(signal, { abort: abortStream });
+    const finalResponse = await stream.finalResponse();
+    throwIfAborted(signal, { abort: abortStream });
+    const source = normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
+    assertModelOutputWithinLimit(source, env);
+    return source;
+  } finally {
+    signal?.removeEventListener('abort', handleAbort);
+  }
 }

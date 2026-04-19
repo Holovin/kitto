@@ -39,10 +39,40 @@ function createAbortableTextStream(chunk: string, signal: AbortSignal) {
   });
 }
 
+function createPendingAbortableStream(signal: AbortSignal) {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const abortStream = () => {
+        signal.removeEventListener('abort', abortStream);
+        controller.error(new DOMException('This operation was aborted', 'AbortError'));
+      };
+
+      if (signal.aborted) {
+        abortStream();
+        return;
+      }
+
+      signal.addEventListener('abort', abortStream, { once: true });
+    },
+  });
+}
+
+function createStreamRequestOptions(overrides: Partial<Parameters<typeof streamBuilderDefinition>[0]> = {}) {
+  return {
+    apiBaseUrl: 'http://localhost:8787/api',
+    idleTimeoutMs: 45_000,
+    maxDurationMs: 120_000,
+    onChunk: vi.fn(),
+    request,
+    ...overrides,
+  };
+}
+
 describe('streamBuilderDefinition', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('streams chunk events across read boundaries and returns the final source', async () => {
@@ -65,11 +95,7 @@ describe('streamBuilderDefinition', () => {
     vi.stubGlobal('fetch', fetchMock);
     const onChunk = vi.fn();
 
-    const result = await streamBuilderDefinition({
-      apiBaseUrl: 'http://localhost:8787/api',
-      onChunk,
-      request,
-    });
+    const result = await streamBuilderDefinition(createStreamRequestOptions({ onChunk }));
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/api/llm/generate/stream', expect.any(Object));
     expect(onChunk).toHaveBeenNthCalledWith(1, 'root = AppShell([])');
@@ -99,9 +125,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk: vi.fn(),
-        request,
+        ...createStreamRequestOptions(),
       }),
     ).rejects.toMatchObject({
       code: 'upstream_error',
@@ -124,9 +148,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk: vi.fn(),
-        request,
+        ...createStreamRequestOptions(),
       }),
     ).rejects.toMatchObject({
       code: 'validation_error',
@@ -150,9 +172,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk: vi.fn(),
-        request,
+        ...createStreamRequestOptions(),
       }),
     ).rejects.toThrow('Received a malformed "done" event from the backend stream.');
   });
@@ -179,9 +199,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk: vi.fn(),
-        request,
+        ...createStreamRequestOptions(),
       }),
     ).resolves.toEqual({
       source: 'root = AppShell([])',
@@ -211,9 +229,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk,
-        request,
+        ...createStreamRequestOptions({ onChunk }),
       }),
     ).resolves.toEqual({
       source: '  Text("hero", "Leading spaces matter")',
@@ -237,9 +253,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk: vi.fn(),
-        request,
+        ...createStreamRequestOptions(),
       }),
     ).rejects.toThrow('Stream ended before done event');
   });
@@ -265,13 +279,93 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition({
-        apiBaseUrl: 'http://localhost:8787/api',
-        onChunk,
-        request,
-        signal: abortController.signal,
+        ...createStreamRequestOptions({
+          onChunk,
+          signal: abortController.signal,
+        }),
       }),
     ).rejects.toMatchObject({
       name: 'AbortError',
     });
+  });
+
+  it('fails the stream on idle timeout and aborts the request signal', async () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    let requestSignal: AbortSignal | undefined;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        requestSignal = init?.signal;
+
+        return Promise.resolve(
+          new Response(createPendingAbortableStream(init?.signal as AbortSignal), {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          }),
+        );
+      }),
+    );
+
+    const streamPromise = streamBuilderDefinition(
+      createStreamRequestOptions({
+        idleTimeoutMs: 30_000,
+        maxDurationMs: 120_000,
+        onTimeout,
+      }),
+    );
+    const rejection = expect(streamPromise).rejects.toMatchObject({
+      kind: 'idle',
+      name: 'BuilderStreamTimeoutError',
+    });
+
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await rejection;
+    expect(onTimeout).toHaveBeenCalledWith('idle');
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+  it('fails the stream on max duration timeout and aborts the request signal', async () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    let requestSignal: AbortSignal | undefined;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        requestSignal = init?.signal;
+
+        return Promise.resolve(
+          new Response(createPendingAbortableStream(init?.signal as AbortSignal), {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          }),
+        );
+      }),
+    );
+
+    const streamPromise = streamBuilderDefinition(
+      createStreamRequestOptions({
+        idleTimeoutMs: 45_000,
+        maxDurationMs: 15_000,
+        onTimeout,
+      }),
+    );
+    const rejection = expect(streamPromise).rejects.toMatchObject({
+      kind: 'max-duration',
+      name: 'BuilderStreamTimeoutError',
+    });
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await rejection;
+    expect(onTimeout).toHaveBeenCalledWith('max-duration');
+    expect(requestSignal?.aborted).toBe(true);
   });
 });
