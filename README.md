@@ -129,6 +129,7 @@ Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use onl
 - prompt, chat-history, and request-size validation before the OpenAI call
 - raw `/api/llm/*` bodies above `LLM_REQUEST_MAX_BYTES * 4` are rejected with JSON `413` before the backend buffers them fully in memory
 - request compaction when chat history exceeds the configured item or byte limits
+- only `user` messages and `assistant` generation summaries are forwarded in `chatHistory`; operational `system` notices stay visible in the UI but are excluded from model context
 - backend model output above `LLM_OUTPUT_MAX_BYTES` is rejected with a controlled upstream error before it is returned or finalized
 - in-memory rate limiting on LLM routes
 - OpenAI request timeouts

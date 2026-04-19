@@ -4,6 +4,7 @@ import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { streamBuilderDefinition } from '@features/builder/api/streamGenerate';
 import { getBuilderRequestLimits, validateBuilderLlmRequest } from '@features/builder/config';
+import { buildRequestChatHistory } from '@features/builder/hooks/requestChatHistory';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
@@ -16,7 +17,6 @@ import {
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import type {
-  BuilderChatMessage,
   BuilderLlmRequest,
   BuilderLlmRequestCompaction,
   BuilderLlmResponse,
@@ -222,13 +222,6 @@ function createValidationFailureMessage(issues: BuilderParseIssue[]) {
     MAX_AUTO_REPAIR_ATTEMPTS === 1 ? '1 automatic repair attempt' : `${MAX_AUTO_REPAIR_ATTEMPTS} automatic repair attempts`;
 
   return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'}`;
-}
-
-function buildRequestChatHistory(messages: BuilderChatMessage[], maxItems: number) {
-  return messages
-    .filter((message) => !(message.role === 'system' && message.tone === 'info'))
-    .slice(-maxItems)
-    .map(({ content, role }) => ({ content, role }));
 }
 
 function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {

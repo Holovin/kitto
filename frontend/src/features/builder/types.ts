@@ -12,6 +12,13 @@ export interface BuilderChatMessage {
   tone?: BuilderMessageTone;
 }
 
+export type BuilderLlmChatMessageRole = Exclude<BuilderChatMessage['role'], 'system'>;
+
+export interface BuilderLlmChatMessage {
+  content: string;
+  role: BuilderLlmChatMessageRole;
+}
+
 export interface BuilderSnapshot {
   source: string;
   runtimeState: Record<string, unknown>;
@@ -39,7 +46,7 @@ export interface BuilderParseIssue {
 export interface BuilderLlmRequest {
   prompt: string;
   currentSource: string;
-  chatHistory: Array<Pick<BuilderChatMessage, 'content' | 'role'>>;
+  chatHistory: BuilderLlmChatMessage[];
 }
 
 export interface BuilderLlmRequestCompaction {
