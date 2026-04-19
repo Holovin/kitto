@@ -12,6 +12,7 @@ Supported API:
 ## Runtime invariants
 
 - Preview renders committed source only.
+- While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Definition may show streamed or rejected draft source.
 - Invalid source is never committed to Preview or builder history.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.

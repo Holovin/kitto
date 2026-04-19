@@ -50,6 +50,7 @@ export function PreviewTabs() {
   const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const combinedIssues = isPreviewEmptyCanvas || isShowingRejectedDefinition ? parseIssues : [...parseIssues, ...runtimeIssues];
+  const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
 
   useEffect(() => {
     if (!isEmptyCanvas || activeTab === 'preview') {
@@ -98,41 +99,56 @@ export function PreviewTabs() {
       <TabsContent value="preview" className="mt-0 flex-1 min-h-0">
         <Card className="h-full min-h-0 overflow-hidden border-0 bg-white/92">
           <CardContent className="h-full min-h-0 p-6">
-            {isPreviewEmptyCanvas ? (
-              <div className="h-full min-h-0 overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-slate-50/70 p-4 sm:p-6">
-                <PreviewEmptyState />
-              </div>
-            ) : (
-              <div className="h-full min-h-0 overflow-y-auto p-4 sm:p-5">
-                <Renderer
-                  key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
-                  initialState={runtimeSessionState}
-                  isStreaming={isStreaming}
-                  library={builderOpenUiLibrary}
-                  onAction={handleOpenUiActionEvent}
-                  onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                  onParseResult={(result) => {
-                    if (isShowingRejectedDefinition) {
-                      return;
-                    }
+            <div className="relative h-full min-h-0" aria-busy={isStreaming}>
+              {isPreviewEmptyCanvas ? (
+                <div className="h-full min-h-0 overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-slate-50/70 p-4 sm:p-6">
+                  <PreviewEmptyState />
+                </div>
+              ) : (
+                <div className="h-full min-h-0 overflow-y-auto p-4 sm:p-5">
+                  <Renderer
+                    key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
+                    initialState={runtimeSessionState}
+                    isStreaming={isStreaming}
+                    library={builderOpenUiLibrary}
+                    onAction={handleOpenUiActionEvent}
+                    onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
+                    onParseResult={(result) => {
+                      if (isShowingRejectedDefinition) {
+                        return;
+                      }
 
-                    dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
-                  }}
-                  onStateUpdate={(state) => {
-                    const nextState = state as Record<string, unknown>;
-                    dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
-                  }}
-                  queryLoader={
-                    <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Loading query...
-                    </div>
-                  }
-                  response={deferredPreviewSource}
-                  toolProvider={builderToolProvider}
-                />
-              </div>
-            )}
+                      dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
+                    }}
+                    onStateUpdate={(state) => {
+                      const nextState = state as Record<string, unknown>;
+                      dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
+                    }}
+                    queryLoader={
+                      <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Loading query...
+                      </div>
+                    }
+                    response={deferredPreviewSource}
+                    toolProvider={builderToolProvider}
+                  />
+                </div>
+              )}
+
+              {isStreaming ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[1.75rem] bg-white/60 backdrop-blur-[1px]">
+                  <div
+                    aria-live="polite"
+                    className="flex items-center gap-3 rounded-full border border-slate-200/80 bg-white/90 px-4 py-3 text-slate-900 shadow-lg"
+                    role="status"
+                  >
+                    <LoaderCircle className="h-7 w-7 animate-spin" />
+                    <span className="text-sm font-medium">{previewOverlayLabel}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       </TabsContent>

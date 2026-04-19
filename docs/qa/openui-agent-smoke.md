@@ -20,6 +20,7 @@ Prompt:
 Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.
 
 Expected:
+- while generation is in progress, the Preview panel shows a semi-transparent overlay with a spinner and the label `Generating...`
 - while generation streams, Preview stays on the last committed app; if the canvas was empty, it should stay on the empty state until commit
 - after commit, an intro screen is visible and interactive
 - no parser or runtime errors appear in the app UI or Console
@@ -47,6 +48,7 @@ Add a required checkbox confirmation before the result screen.
 
 Expected:
 - the existing intro -> question -> result flow is preserved rather than regenerated into a different app shape
+- while the follow-up request runs, the Preview overlay label changes to `Updating...`
 - a required checkbox appears before the user can reach the result
 - navigation still works end-to-end, including restart
 - no unresolved refs, parser errors, or broken actions appear

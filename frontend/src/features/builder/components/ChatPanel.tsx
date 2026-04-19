@@ -6,7 +6,7 @@ import { Textarea } from '@components/ui/textarea';
 import { useBackendConnectionState } from '@features/builder/hooks/useBuilderBootstrap';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
-import { selectChatMessages } from '@features/builder/store/selectors';
+import { selectChatMessages, selectCommittedSource } from '@features/builder/store/selectors';
 import type { BuilderChatMessage } from '@features/builder/types';
 import { useAppSelector } from '@store/hooks';
 
@@ -163,6 +163,8 @@ function ChatComposer({ abortControllerRef, onFeedbackChange }: ChatControlProps
     abortControllerRef,
     onFeedbackChange,
   });
+  const committedSource = useAppSelector(selectCommittedSource);
+  const submitButtonLabel = isSubmitting ? (!committedSource.trim() ? 'Generating...' : 'Updating...') : 'Send';
 
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
@@ -183,7 +185,7 @@ function ChatComposer({ abortControllerRef, onFeedbackChange }: ChatControlProps
         <p className="text-xs text-slate-500">Press Cmd/Ctrl+Enter to send.</p>
         <Button disabled={!draftPrompt.trim() || isSubmitting} type="submit">
           <Send className="h-4 w-4" />
-          {isSubmitting ? 'Generating...' : 'Send'}
+          {submitButtonLabel}
         </Button>
       </div>
     </form>
