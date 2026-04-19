@@ -63,7 +63,7 @@ Expected:
 - any previous Preview runtime issue clears once the new committed valid source renders
 - no unresolved refs, parser errors, or broken actions appear
 
-## Scenario 4 — Collection / Repeater
+## Scenario 4 — Collection / Repeater / filtering
 
 Prompt:
 
@@ -79,12 +79,23 @@ Expected:
 - no todo-specific or unrelated domain assumptions appear
 - no parser errors appear
 
-## Scenario 5 — Import/export
+Follow-up prompt:
+
+Add a filter control so the app can show all items, active items, and completed items.
+
+Expected:
+- generated source uses built-in collection helpers such as `@Filter(` and `@Count(` rather than inventing a new tool
+- the filtered view is derived from one source collection instead of duplicating separate hardcoded lists
+- filtered rows still render through `@Each(` plus `Repeater(`
+- no todo-specific filter tool names or custom filtering APIs appear
+- no parser errors or unresolved refs appear
+
+## Scenario 5 — JSON import/export
 
 Actions:
-1. Click `Export` and save the downloaded `kitto-definition-*.json` file.
+1. Click `Export JSON` and save the downloaded `kitto-definition-*.json` file.
 2. Click `Reset`.
-3. Click `Import` and select the exported definition.
+3. Click `Import JSON` and select the exported definition.
 
 Expected:
 - the imported file validates before it is applied
@@ -103,7 +114,30 @@ Expected:
 - chat history is not wiped by the failed import
 - undo/redo history is not replaced by the failed import
 
-## Scenario 6 — Undo/redo
+## Scenario 6 — Standalone HTML export
+
+Actions:
+1. Generate a quiz app and interact with it so runtime state changes from the initial screen.
+2. Open the file menu and click `Download standalone HTML`.
+3. Open the downloaded `.html` file directly from disk.
+
+Expected:
+- the standalone file shows only the generated app UI plus the small reset control
+- no builder shell, chat panel, backend status, or API key UI appears
+- the app starts from the committed snapshot baseline state rather than the live clicked builder state from step 1
+- the standalone file makes no `/api/llm/*` or other `/api/*` requests
+
+Follow-up:
+1. Click through the standalone app so its runtime/domain state changes.
+2. Reload the standalone file.
+3. Click `Reset local data`.
+
+Expected:
+- reloading restores the standalone app’s own saved runtime/domain state from localStorage
+- `Reset local data` clears the standalone storage key and returns the app to the embedded baseline state
+- resetting does not affect the main Kitto builder state in the original tab
+
+## Scenario 7 — Undo/redo
 
 Actions:
 1. Generate an app.
@@ -117,7 +151,7 @@ Expected:
 - Definition reflects the restored committed snapshot after each action
 - no stale draft source or rejected-definition state remains after undo/redo
 
-## Scenario 7 — Cancel, abort, and stale-request safety
+## Scenario 8 — Cancel, abort, and stale-request safety
 
 Actions:
 1. Submit a prompt that should generate for at least a few seconds.
@@ -140,7 +174,7 @@ Expected:
 - no late commit from the aborted request appears after returning to `/chat`
 - the aborted request does not overwrite any later committed app state
 
-## Scenario 8 — Preview runtime issue lifecycle
+## Scenario 9 — Preview runtime issue lifecycle
 
 Actions:
 1. Generate or import a committed app that triggers a Preview runtime error.

@@ -31,6 +31,10 @@ Guardrails:
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
+- Standalone HTML export always uses the committed source and the committed snapshot baseline runtime/domain state, not the builder’s current live clicked state.
+- Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.
+- Standalone HTML files persist their own runtime/domain state in localStorage and can reset back to the embedded baseline state.
+- When a standalone HTML file is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` must be treated as invalid/inert instead of attempting local filesystem navigation.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `write_state`, `merge_state`, `append_state`, and `remove_state`.
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
@@ -39,7 +43,7 @@ Guardrails:
 - `write_state` and `append_state` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
 - Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
 - `@OpenUrl` is handled through the OpenUI built-in action event bridge, not through persisted tools.
-- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash links `#...`.
+- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash links `#...`; when running from `file://` standalone export, app-relative and hash/self links must become inert.
 - `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
 - `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Screen navigation uses local state such as `$currentScreen` with `@Set(...)`.
@@ -82,10 +86,24 @@ rows = @Each(items, "item", Group(null, "vertical", [
 Repeater(rows, "Empty state")
 ```
 
+Derived filtering:
+
+```txt
+$filter = "all"
+items = Query("read_state", { path: "app.items" }, [])
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
+rows = @Each(visibleItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start")
+]))
+Text("Visible: " + @Count(visibleItems), "muted", "start")
+Repeater(rows, "Empty state")
+```
+
 Do use:
 
 - `Screen(...)` for screen-level sections and `Group(...)` for local layout
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
+- `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
 - local `$variables` for ephemeral UI state such as draft inputs, filters, and internal screen flow
 - local arrays for runtime-only collections such as selected answers, and `Query("read_state", ...)` for persisted collections
 - `Query("read_state", ...)` with a sensible default when reading persisted data
@@ -98,6 +116,7 @@ Do not use:
 - markdown code fences around generated OpenUI source
 - `Screen(..., null, ...)` for the required title argument
 - persisted tools for internal screen navigation
+- invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
 - unresolved `@Run(ref)` calls or any other undefined identifiers
 
@@ -110,12 +129,14 @@ Generated app behaviors that should stay supported:
 - buttons with `Action([...])`
 - collection rendering via `Repeater`
 - dynamic collection rows derived from state, query data, or local arrays instead of hardcoded duplicate content
+- derived collection filtering and counts via `@Filter(...)` and `@Count(...)`
 - local state via `$variables`
 - conditional rendering and/or multi-screen switching
 
 Builder controls that should stay working alongside generated apps:
 
 - import/export
+- standalone HTML export
 - invalid import should show Definition validation issues without replacing the current preview or wiping chat, undo/redo history, runtime state, or persisted data
 - undo/redo
 - reset

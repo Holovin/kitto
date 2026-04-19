@@ -34,6 +34,24 @@ describe('handleOpenUiActionEvent', () => {
     expect(open).toHaveBeenCalledWith('/chat', '_blank', 'noopener,noreferrer');
   });
 
+  it('rejects relative app URLs when running from file protocol', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+    vi.stubGlobal('location', { protocol: 'file:' });
+
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('/chat'))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('rejects hash URLs when running from file protocol', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+    vi.stubGlobal('location', { protocol: 'file:' });
+
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('#details'))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it('opens safe https URLs', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });

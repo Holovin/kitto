@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:standalone-player": "vite build --config vite.standalone.config.ts",
+    "build:standalone-player:watch": "vite build --watch --config vite.standalone.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

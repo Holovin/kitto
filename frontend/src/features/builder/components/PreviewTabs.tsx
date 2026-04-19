@@ -103,7 +103,9 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const {
     canExport,
+    canDownloadStandalone,
     fileInputRef,
+    handleDownloadStandalone,
     handleExport,
     handleImport,
   } = useBuilderHistoryControls({
@@ -148,18 +150,26 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
 
   useEffect(() => {
     if (!isStreaming) {
-      setElapsedStreamingSeconds(0);
-      return;
+      const resetTimeoutId = window.setTimeout(() => {
+        setElapsedStreamingSeconds(0);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(resetTimeoutId);
+      };
     }
 
     const startedAt = Date.now();
-    setElapsedStreamingSeconds(0);
+    const resetTimeoutId = window.setTimeout(() => {
+      setElapsedStreamingSeconds(0);
+    }, 0);
 
     const intervalId = window.setInterval(() => {
       setElapsedStreamingSeconds(Math.floor((Date.now() - startedAt) / 1_000));
     }, 1_000);
 
     return () => {
+      window.clearTimeout(resetTimeoutId);
       window.clearInterval(intervalId);
     };
   }, [isStreaming]);
@@ -238,7 +248,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
           </Button>
           {isFileMenuOpen ? (
             <div
-              className="absolute right-0 top-full z-20 mt-2 min-w-40 rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg"
+              className="absolute right-0 top-full z-20 mt-2 min-w-56 rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg"
               role="menu"
             >
               <button
@@ -251,7 +261,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
                 }}
               >
                 <Download className="h-4 w-4" />
-                Export
+                Export JSON
               </button>
               <button
                 className={fileMenuItemClassName}
@@ -262,7 +272,19 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
                 }}
               >
                 <FileUp className="h-4 w-4" />
-                Import
+                Import JSON
+              </button>
+              <button
+                className={fileMenuItemClassName}
+                disabled={!canDownloadStandalone}
+                type="button"
+                onClick={() => {
+                  handleDownloadStandalone();
+                  setIsFileMenuOpen(false);
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Download standalone HTML
               </button>
             </div>
           ) : null}

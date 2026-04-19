@@ -4,6 +4,9 @@ import { builderSessionActions } from '@features/builder/store/builderSessionSli
 import { domainActions } from '@features/builder/store/domainSlice';
 import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { createStandaloneHtml } from '@features/builder/standalone/createStandaloneHtml';
+import { createStandalonePayload } from '@features/builder/standalone/createStandalonePayload';
+import { downloadStandaloneHtml } from '@features/builder/standalone/downloadStandaloneHtml';
 import {
   selectCommittedSource,
   selectHistory,
@@ -20,6 +23,10 @@ interface UseBuilderHistoryControlsOptions {
 
 function createDownloadFileName() {
   return `kitto-definition-${new Date().toISOString().replaceAll(':', '-')}.json`;
+}
+
+function createStandaloneDownloadFileName() {
+  return `kitto-app-${new Date().toISOString().slice(0, 10)}.html`;
 }
 
 function getFeedbackMessage(error: unknown) {
@@ -60,6 +67,34 @@ export function useBuilderHistoryControls({
     linkElement.click();
     URL.revokeObjectURL(downloadUrl);
     onFeedbackChange('Definition exported.');
+  }
+
+  function handleDownloadStandalone() {
+    if (!committedSource.trim()) {
+      return;
+    }
+
+    const sourceValidation = validateOpenUiSource(committedSource);
+
+    if (!sourceValidation.isValid) {
+      dispatch(builderActions.setActiveTab('definition'));
+      dispatch(builderActions.setParseIssues(sourceValidation.issues));
+      onFeedbackChange('Standalone export failed: the committed OpenUI definition is invalid. Review the Definition tab.');
+      return;
+    }
+
+    try {
+      const payload = createStandalonePayload({
+        committedSource,
+        history,
+      });
+      const standaloneHtml = createStandaloneHtml(payload);
+
+      downloadStandaloneHtml(standaloneHtml, createStandaloneDownloadFileName());
+      onFeedbackChange('Standalone HTML downloaded.');
+    } catch (error) {
+      onFeedbackChange(`Standalone export failed: ${getFeedbackMessage(error)}`);
+    }
   }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
@@ -144,10 +179,12 @@ export function useBuilderHistoryControls({
 
   return {
     canExport: !isEmptyCanvas,
+    canDownloadStandalone: committedSource.trim().length > 0,
     canRedo: Boolean(redoSnapshot) && !isStreaming,
     canReset: !isStreaming && !isEmptyCanvas,
     canUndo: Boolean(previousSnapshot) && !isStreaming,
     fileInputRef,
+    handleDownloadStandalone,
     handleExport,
     handleImport,
     handleRedo,

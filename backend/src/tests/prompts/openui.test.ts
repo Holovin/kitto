@@ -42,6 +42,16 @@ describe('openui prompts', () => {
     expect(prompt).toContain('selectedAnswers = [');
   });
 
+  it('guides filtered collection views toward built-in functions instead of invented tools', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.');
+    expect(prompt).toContain('Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.');
+    expect(prompt).toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(prompt).toContain('visibleCount = @Count(visibleItems)');
+    expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');
+  });
+
   it('keeps the generated system prompt aligned with the committed component spec', () => {
     const prompt = buildOpenUiSystemPrompt();
 

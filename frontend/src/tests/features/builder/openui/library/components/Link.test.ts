@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { isValidElement } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LinkComponent } from '@features/builder/openui/library/components/Link';
 
 function renderLink(props: { label: string; newTab: boolean; url: string }) {
@@ -16,6 +16,11 @@ function renderLink(props: { label: string; newTab: boolean; url: string }) {
 }
 
 describe('LinkComponent', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it('rejects javascript: URLs', () => {
     const element = renderLink({
       label: 'Unsafe link',
@@ -73,5 +78,33 @@ describe('LinkComponent', () => {
     expect(element.type).toBe('a');
     expect(element.props.href).toBe('/chat');
     expect(element.props.target).toBeUndefined();
+  });
+
+  it('renders relative app paths as inert text when opened from file protocol', () => {
+    vi.stubGlobal('location', { protocol: 'file:' });
+
+    const element = renderLink({
+      label: 'Chat',
+      newTab: false,
+      url: '/chat',
+    });
+
+    expect(element.type).toBe('span');
+    expect(element.props['aria-disabled']).toBe('true');
+    expect(element.props.children).toBe('Chat');
+  });
+
+  it('renders hash links as inert text when opened from file protocol', () => {
+    vi.stubGlobal('location', { protocol: 'file:' });
+
+    const element = renderLink({
+      label: 'Details',
+      newTab: true,
+      url: '#details',
+    });
+
+    expect(element.type).toBe('span');
+    expect(element.props['aria-disabled']).toBe('true');
+    expect(element.props.children).toBe('Details');
   });
 });

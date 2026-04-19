@@ -173,6 +173,28 @@ root = AppShell([
     Repeater(cardRows, "No saved cards yet.")
   ])
 ])`,
+  `$filter = "all"
+
+items = Query("read_state", { path: "app.items" }, [])
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
+visibleCount = @Count(visibleItems)
+filterOptions = [
+  { label: "All items", value: "all" },
+  { label: "Active items", value: "active" },
+  { label: "Completed items", value: "completed" }
+]
+itemRows = @Each(visibleItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Completed" : "Active", "muted", "start")
+]))
+
+root = AppShell([
+  Screen("main", "Filtered items", [
+    Select("filter", "Filter", $filter, filterOptions),
+    Text("Visible items: " + visibleCount, "muted", "start"),
+    Repeater(itemRows, "No matching items.")
+  ])
+])`,
 ];
 
 const additionalRules = [
@@ -186,8 +208,12 @@ const additionalRules = [
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
   'If collection data is persisted browser data, read it through Query("read_state", { path: "..." }, defaultValue) before passing it to @Each(...).',
+  'Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.',
+  'When the user asks for all, active, completed, or similar filtered views of one collection, keep one source collection and derive the visible collection with `@Filter(...)` instead of inventing a new tool.',
+  'Expressions are allowed inside the source argument to `@Each(...)`, so you may pass either a named derived collection or an inline filtered expression.',
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
   'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
+  'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
   'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
   'Screen signature is `Screen(id, title, children, isActive?)`.',

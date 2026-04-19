@@ -58,6 +58,51 @@ describe('validateOpenUiSource', () => {
     });
   });
 
+  it('accepts filtered collections, counts, and @Each templates over derived rows', () => {
+    const result = validateOpenUiSource(`items = [
+  { title: "Write tests", completed: true },
+  { title: "Ship changes", completed: false }
+]
+filteredItems = @Filter(items, "completed", "==", true)
+filteredCount = @Count(filteredItems)
+rows = @Each(filteredItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start")
+]))
+root = AppShell([
+  Screen("main", "Main", [
+    Text("Completed: " + filteredCount, "body", "start"),
+    Repeater(rows, "No completed items.")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it('accepts expressions directly inside the @Each source argument', () => {
+    const result = validateOpenUiSource(`$filter = "completed"
+items = [
+  { title: "Write tests", completed: true },
+  { title: "Ship changes", completed: false }
+]
+rows = @Each($filter == "completed" ? @Filter(items, "completed", "==", true) : items, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start")
+]))
+root = AppShell([
+  Screen("main", "Main", [
+    Text("Visible: " + @Count(@Filter(items, "completed", "==", true)), "body", "start"),
+    Repeater(rows, "Nothing to show.")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
   it('rejects unknown components inside an otherwise valid document', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [

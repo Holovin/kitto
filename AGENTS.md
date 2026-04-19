@@ -18,6 +18,7 @@ Steps:
 ## Repository Rules
 
 - If you update the OpenUI component spec, or change the frontend OpenUI library that defines it, you must run `npm run generate:openui-spec` before finishing.
+- If you change the standalone player entry, standalone runtime, or exported standalone asset embedding flow, you must run `npm run build:standalone-player` before finishing.
 - If you change the API contract, OpenUI prompt contract, supported components/tools, builder controls, or any QA-visible runtime behavior, update `docs/qa/openui-agent-smoke.md` and `docs/qa/openui-manual-checklist.md` before finishing whenever their steps, expectations, or contract notes no longer match.
 - Tests must live under `frontend/src/tests/**` or `backend/src/tests/**`. Mirror the source structure inside those folders and do not colocate test files next to production modules.
 - Frontend tests are type-checked by the reviewer build path via `tsc -b`. Keep test fixtures fully type-safe, and explicitly type empty arrays in fixtures when needed to avoid accidental `never[]` inference.
@@ -32,9 +33,10 @@ Steps:
   - `backend/`: Hono API, OpenAI integration, prompt building, rate limiting, and static hosting for `frontend/dist`
 - The root scripts are the main entry points:
   - `npm run generate:openui-spec`: regenerates the committed OpenUI component spec artifact from the frontend library
-  - `npm run dev`: starts frontend and backend together
+  - `npm run build:standalone-player`: rebuilds the standalone player bundle and regenerates the embedded asset module used for standalone HTML export
+  - `npm run dev`: starts frontend and backend together and also runs the standalone player watcher so exported HTML assets stay fresh during development
   - `npm run lint`: frontend ESLint + backend TypeScript checks
-  - `npm run build`: regenerates the OpenUI component spec, then builds frontend and backend
+  - `npm run build`: regenerates the OpenUI component spec, rebuilds the standalone player assets, then builds frontend and backend
   - `npm run start`: starts the compiled backend
 
 ## OpenUI Source Of Truth
@@ -59,6 +61,7 @@ Steps:
 - Built-in action events exposed by the runtime:
   - `@OpenUrl(...)` uses the OpenUI action event bridge, not the persisted tool provider
   - `Link(...)` and `@OpenUrl(...)` share the same safe URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...`
+  - when the standalone export is opened from `file://`, root-relative `/...` links and hash/self `#...` links are intentionally rejected because there is no hosted app router or stable origin behind the standalone file
 - Persisted tool contract:
   - paths must be non-empty dot-paths no deeper than 10 segments
   - path segments may use only letters, numbers, `_`, or `-`
@@ -121,9 +124,17 @@ Steps:
   - any component-specific documentation or examples in `/elements`
 - Tool changes are also duplicated in multiple places. If you add, remove, or change a tool name, args, or semantics, sync:
   - `backend/src/prompts/openui.ts` tool specs/examples/rules
+  - `frontend/src/features/builder/openui/runtime/createDomainToolProvider.ts`
   - `frontend/src/features/builder/openui/runtime/toolProvider.ts`
   - `frontend/src/features/builder/openui/runtime/actionCatalog.ts`
   - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider
+- Standalone export/player changes have their own sync points. If you change the standalone player runtime, HTML embedding, or standalone storage behavior, sync:
+  - `frontend/src/standalone/player.tsx`
+  - `frontend/src/standalone/StandaloneApp.tsx`
+  - `frontend/src/features/builder/standalone/createStandaloneHtml.ts`
+  - `frontend/src/features/builder/standalone/playerAssets.generated.ts`
+  - `frontend/vite.standalone.config.ts`
+  - `scripts/embed-standalone-player-assets.mjs`
 - The `/elements` page reads both `builderOpenUiLibrary.toSpec()` and `builderOpenUiLibrary.toJSONSchema()`, so library changes directly affect that explorer
 - QA docs are also a sync point. If UX labels, manual flows, API routes, prompt/component signatures, or expected runtime invariants change, sync:
   - `docs/qa/openui-agent-smoke.md`
@@ -154,6 +165,6 @@ Steps:
   - additional project rules
   - the user prompt builder
 - If you change `builderOpenUiLibrary`, check both the main builder preview and the `/elements` explorer
-- If you change tool behavior or domain-path semantics, verify both the main preview runtime and the `/elements` sandbox
+- If you change tool behavior or domain-path semantics, verify the main preview runtime, the `/elements` sandbox, and standalone HTML export
 - The frontend dev proxy falls back to `backend/.env` `PORT` when `VITE_DEV_API_TARGET` is not set
 - `README.md` is the human-oriented overview; this file should stay short and operational for agents

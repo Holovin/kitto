@@ -6,7 +6,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 
 - Generate small browser apps from chat prompts and follow-up edits.
 - Stream draft OpenUI into the Definition panel while keeping Preview on the last committed valid app.
-- Support undo/redo, reset, versioned JSON import/export, and persisted runtime/domain state.
+- Support undo/redo, reset, versioned JSON import/export, standalone HTML export, and persisted runtime/domain state.
 - Include an `/elements` route for inspecting the supported OpenUI component and tool surface.
 
 ## 2. Quick start
@@ -29,10 +29,11 @@ npm run start
 
 Notes:
 
-- `npm run dev` starts the frontend and backend together.
+- `npm run dev` starts the frontend and backend together and also watches/rebuilds the standalone player asset bundle used by `Download standalone HTML`.
 - In development, the builder is available at [http://localhost:5555](http://localhost:5555) and the backend runs at `http://localhost:8787`.
 - In development, the frontend talks to `/api/*` and Vite proxies those requests to the backend.
 - `npm run start` launches the compiled backend after `npm run build` and serves the built frontend when `frontend/dist` exists.
+- `npm run build` also rebuilds the standalone player assets embedded into exported `.html` files.
 - If you want to override the API base URL or dev proxy target, copy `frontend/.env.example` to `frontend/.env`.
 
 ## 3. Architecture note
@@ -53,7 +54,16 @@ Notes:
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 
-## 5. Trade-offs / scope
+## 5. Standalone HTML export
+
+- `Download standalone HTML` creates one self-contained `.html` file from the current committed OpenUI app.
+- The file embeds a minimal OpenUI player runtime, the committed source, and the committed snapshot baseline runtime/domain state.
+- The exported app opens without the Kitto builder shell, backend, OpenAI configuration, or `/api/*` requests.
+- Standalone apps persist their own runtime and domain data in localStorage under a per-app storage key and can reset back to the embedded baseline state.
+- When a standalone export is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` are intentionally treated as invalid and rendered inert because there is no builder router or stable hosted origin behind the file.
+- The export does not include chat history, undo/redo history, rejected drafts, or React source code.
+
+## 6. Trade-offs / scope
 
 - There is no arbitrary JavaScript or general code mode; generated output is constrained to the supported OpenUI surface.
 - The project does not generate npm packages, full codebases, or general-purpose app scaffolding.
@@ -61,11 +71,12 @@ Notes:
 - Rate limiting is in-memory and demo-grade rather than distributed production infrastructure.
 - Generated apps are browser-first and do not require a generated backend.
 
-## 6. Supported surface
+## 7. Supported surface
 
 ### Main routes
 
 - `/` and `/chat` for the chat builder, Definition, Preview, import/export, undo/redo, reset, and app-state inspection
+- `/` and `/chat` also expose standalone HTML export for the current committed app
 - `/elements` for browsing the supported OpenUI components, actions, demos, and schemas
 
 ### Supported OpenUI components
@@ -82,8 +93,9 @@ Notes:
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
 - Import/export uses a versioned JSON format and validates before apply; invalid imports stay in Definition and do not replace the current committed preview.
+- Standalone HTML export always uses the latest committed source and the committed snapshot baseline state, not the current live clicked state.
 
-## 7. API surface
+## 8. API surface
 
 The supported backend API lives under `/api/*` only.
 
@@ -92,7 +104,7 @@ The supported backend API lives under `/api/*` only.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
 - `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events.
 
-## 8. Additional docs
+## 9. Additional docs
 
 - [docs/qa/openui-agent-smoke.md](docs/qa/openui-agent-smoke.md)
 - [docs/qa/openui-manual-checklist.md](docs/qa/openui-manual-checklist.md)

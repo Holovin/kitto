@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -7,17 +7,10 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
+import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import {
-  getRequiredToolIndex,
-  getRequiredToolPatch,
-  getRequiredToolPath,
-  getRequiredToolValue,
-  wrapToolError,
-} from '@features/builder/openui/runtime/toolArguments';
-import { appendPathValue, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
 import type { BuilderParseIssue } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
 
@@ -53,14 +46,6 @@ function cloneRecord(value?: Record<string, unknown>) {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
-}
-
-async function runSandboxTool<T>(toolName: string, callback: () => T | Promise<T>) {
-  try {
-    return await callback();
-  } catch (error) {
-    throw wrapToolError(toolName, error);
-  }
 }
 
 function getComponentSchema(componentName: string): ComponentSchema {
@@ -234,93 +219,14 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const [resetVersion, setResetVersion] = useState(0);
   const stateDeclarationDefaultsRef = useRef<Record<string, unknown>>({});
   const hasHydratedInitialRuntimeStateRef = useRef(false);
-  const domainDataRef = useRef(domainData);
   const runtimeIssueScope = `${componentName}:${source}:${resetVersion}`;
   const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
-
-  useEffect(() => {
-    domainDataRef.current = domainData;
-  }, [domainData]);
-
-  const toolProvider = useMemo(
-    () => ({
-      read_state: async (args: Record<string, unknown>) => {
-        return runSandboxTool('read_state', () => {
-          const path = getRequiredToolPath('read_state', args.path);
-          return structuredClone(readPath(domainDataRef.current, path) ?? null);
-        });
-      },
-      write_state: async (args: Record<string, unknown>) => {
-        return runSandboxTool('write_state', () => {
-          const path = getRequiredToolPath('write_state', args.path);
-          const value = getRequiredToolValue('write_state', args.value);
-          let nextValue: unknown = null;
-
-          setDomainData((previousState) => {
-            const nextState = cloneRecord(previousState);
-            const writtenState = writePathValue(nextState, path, value) as Record<string, unknown>;
-            nextValue = structuredClone(readPath(writtenState, path) ?? null);
-            domainDataRef.current = writtenState;
-            return writtenState;
-          });
-
-          return nextValue;
-        });
-      },
-      merge_state: async (args: Record<string, unknown>) => {
-        return runSandboxTool('merge_state', () => {
-          const path = getRequiredToolPath('merge_state', args.path);
-          const patch = getRequiredToolPatch('merge_state', args.patch ?? args.value);
-          let nextValue: unknown = null;
-
-          setDomainData((previousState) => {
-            const nextState = cloneRecord(previousState);
-            const mergedState = mergePathValue(nextState, path, patch);
-            nextValue = structuredClone(readPath(mergedState, path) ?? null);
-            domainDataRef.current = mergedState;
-            return mergedState;
-          });
-
-          return nextValue;
-        });
-      },
-      append_state: async (args: Record<string, unknown>) => {
-        return runSandboxTool('append_state', () => {
-          const path = getRequiredToolPath('append_state', args.path);
-          const value = getRequiredToolValue('append_state', args.value);
-          let nextValue: unknown = null;
-
-          setDomainData((previousState) => {
-            const nextState = cloneRecord(previousState);
-            const appendedState = appendPathValue(nextState, path, value);
-            nextValue = structuredClone(readPath(appendedState, path) ?? null);
-            domainDataRef.current = appendedState;
-            return appendedState;
-          });
-
-          return nextValue;
-        });
-      },
-      remove_state: async (args: Record<string, unknown>) => {
-        return runSandboxTool('remove_state', () => {
-          const path = getRequiredToolPath('remove_state', args.path);
-          const index = getRequiredToolIndex('remove_state', args.index);
-          let nextValue: unknown = null;
-
-          setDomainData((previousState) => {
-            const nextState = cloneRecord(previousState);
-            const trimmedState = removePathValue(nextState, path, index);
-            nextValue = structuredClone(readPath(trimmedState, path) ?? null);
-            domainDataRef.current = trimmedState;
-            return trimmedState;
-          });
-
-          return nextValue;
-        });
-      },
-    }),
-    [],
-  );
+  const toolProvider = createDomainToolProvider({
+    readDomainData: () => domainData,
+    replaceDomainData: (nextData) => {
+      setDomainData(nextData);
+    },
+  });
 
   const allIssues = [...parseIssues, ...runtimeIssues];
 
@@ -329,7 +235,6 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
     hasHydratedInitialRuntimeStateRef.current = false;
     setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
     setDomainData(cloneRecord(initialDomainDataSnapshot));
-    domainDataRef.current = cloneRecord(initialDomainDataSnapshot);
     setResetVersion((currentValue) => currentValue + 1);
   }
 
