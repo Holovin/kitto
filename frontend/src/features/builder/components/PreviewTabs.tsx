@@ -84,7 +84,7 @@ export function PreviewTabs() {
       className="flex h-full min-h-0 flex-col gap-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview, definition, and state</CardTitle>
+        <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview</CardTitle>
         <TabsList>
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="definition" disabled={isEmptyCanvas}>
