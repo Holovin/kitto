@@ -2,6 +2,7 @@ import { nanoid } from '@reduxjs/toolkit';
 import { useCallback, useEffect, useRef, type FormEvent, type MutableRefObject } from 'react';
 import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
+import { unwrapAbortableRequestWithTimeout } from '@features/builder/api/requestTimeout';
 import {
   BuilderStreamTimeoutError,
   streamBuilderDefinition,
@@ -396,7 +397,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     }
 
     try {
-      return await generateRequest.unwrap();
+      return await unwrapAbortableRequestWithTimeout(generateRequest, streamTimeouts.streamMaxDurationMs);
     } finally {
       if (activeRequestIdRef.current === requestId && activeMutationAbortRef.current === abortGenerateRequest) {
         activeMutationAbortRef.current = null;

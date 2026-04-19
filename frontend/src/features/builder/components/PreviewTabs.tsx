@@ -2,12 +2,14 @@ import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { useConfigQuery } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
+import { getBuilderStreamTimeouts } from '@features/builder/config';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
@@ -51,6 +53,11 @@ function formatJson(value: unknown) {
 
 export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
+  const configState = useConfigQuery(undefined, {
+    selectFromResult: ({ data }) => ({
+      data,
+    }),
+  });
   const activeTab = useAppSelector(selectActiveTab);
   const definitionSource = useAppSelector(selectDefinitionSource);
   const domainData = useAppSelector(selectDomainData);
@@ -65,6 +72,8 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     scope: '',
   });
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
+  const [elapsedStreamingSeconds, setElapsedStreamingSeconds] = useState(0);
+  const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
@@ -80,6 +89,11 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     runtimeIssues,
   });
   const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
+  const streamMaxDurationSeconds = Math.max(1, Math.ceil(streamTimeouts.streamMaxDurationMs / 1_000));
+  const previewOverlayTimerLabel =
+    elapsedStreamingSeconds >= 20
+      ? `${elapsedStreamingSeconds} / ${streamMaxDurationSeconds}s`
+      : `${elapsedStreamingSeconds}s elapsed`;
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
     previewSource: string;
@@ -131,6 +145,24 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
       dispatch(builderActions.setParseIssues([]));
     }
   }, [dispatch, isShowingRejectedDefinition, previewSource]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      setElapsedStreamingSeconds(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    setElapsedStreamingSeconds(0);
+
+    const intervalId = window.setInterval(() => {
+      setElapsedStreamingSeconds(Math.floor((Date.now() - startedAt) / 1_000));
+    }, 1_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isStreaming]);
 
   useEffect(() => {
     if (!isFileMenuOpen) {
@@ -315,7 +347,10 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
                     role="status"
                   >
                     <LoaderCircle className="h-7 w-7 animate-spin" />
-                    <span className="text-sm font-medium">{previewOverlayLabel}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{previewOverlayLabel}</span>
+                      <span className="text-xs text-slate-500">{previewOverlayTimerLabel}</span>
+                    </div>
                   </div>
                 </div>
               ) : null}
