@@ -1,4 +1,5 @@
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
+export type BuilderRequestId = string;
 export type BuilderTabId = 'preview' | 'definition' | 'app-state';
 type BuilderMessageRole = 'assistant' | 'system' | 'user';
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';

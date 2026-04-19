@@ -14,6 +14,8 @@ Supported API:
 - Preview renders committed source only.
 - Definition may show streamed or rejected draft source.
 - Invalid source is never committed to Preview or builder history.
+- Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
+- Intentional aborts, including leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.

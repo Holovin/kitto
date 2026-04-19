@@ -130,6 +130,7 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - imported definition files are validated before they replace the current committed preview
 - invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
+- request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
 - upstream stream cancellation when the browser disconnects
 
 ## QA doc maintenance

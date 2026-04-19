@@ -2,7 +2,7 @@ import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@redu
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
-import type { BuilderChatMessage, BuilderParseIssue, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
+import type { BuilderChatMessage, BuilderParseIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 
 const MAX_HISTORY_ITEMS = 25;
@@ -152,6 +152,7 @@ interface BuilderState {
   activeTab: BuilderTabId;
   chatMessages: BuilderChatMessage[];
   committedSource: string;
+  currentRequestId: BuilderRequestId | null;
   draftPrompt: string;
   hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
@@ -175,6 +176,7 @@ const initialState: BuilderState = {
   activeTab: 'preview',
   chatMessages: createInitialChatMessages(),
   committedSource: DEFAULT_OPENUI_SOURCE,
+  currentRequestId: null,
   draftPrompt: '',
   hasRejectedDefinition: false,
   history: [initialSnapshot],
@@ -217,6 +219,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
           : 'preview',
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
+    currentRequestId: null,
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
     hasRejectedDefinition: Boolean(rejectedSource),
     history,
@@ -233,6 +236,7 @@ export const builderSlice = createSlice({
   initialState,
   reducers: {
     resetTransientState(state) {
+      state.currentRequestId = null;
       state.isStreaming = false;
       state.streamError = null;
       state.hasRejectedDefinition = isRejectedDefinitionState(state);
@@ -246,7 +250,8 @@ export const builderSlice = createSlice({
     setActiveTab(state, action: PayloadAction<BuilderTabId>) {
       state.activeTab = action.payload;
     },
-    beginStreaming(state, action: PayloadAction<{ prompt: string }>) {
+    beginStreaming(state, action: PayloadAction<{ prompt: string; requestId: BuilderRequestId }>) {
+      state.currentRequestId = action.payload.requestId;
       state.isStreaming = true;
       state.draftPrompt = '';
       state.hasRejectedDefinition = false;
@@ -255,17 +260,27 @@ export const builderSlice = createSlice({
       state.parseIssues = [];
       pushMessage(state.chatMessages, createMessage('user', action.payload.prompt));
     },
-    appendStreamChunk(state, action: PayloadAction<string>) {
-      state.streamedSource += action.payload;
+    appendStreamChunk(state, action: PayloadAction<{ chunk: string; requestId: BuilderRequestId }>) {
+      if (action.payload.requestId !== state.currentRequestId) {
+        return;
+      }
+
+      state.streamedSource += action.payload.chunk;
     },
     completeStreaming(
       state,
       action: PayloadAction<{
         note?: string;
+        requestId: BuilderRequestId;
         snapshot: BuilderSnapshot;
         source: string;
       }>,
     ) {
+      if (action.payload.requestId !== state.currentRequestId) {
+        return;
+      }
+
+      state.currentRequestId = null;
       state.isStreaming = false;
       state.streamError = null;
       state.hasRejectedDefinition = false;
@@ -283,9 +298,15 @@ export const builderSlice = createSlice({
       action: PayloadAction<{
         issues?: BuilderParseIssue[];
         message: string;
+        requestId: BuilderRequestId;
         source?: string;
       }>,
     ) {
+      if (action.payload.requestId !== state.currentRequestId) {
+        return;
+      }
+
+      state.currentRequestId = null;
       state.isStreaming = false;
       state.hasRejectedDefinition = Boolean(action.payload.source && (action.payload.issues?.length ?? 0) > 0);
       state.streamError = action.payload.message;
@@ -296,6 +317,18 @@ export const builderSlice = createSlice({
       }
       pushMessage(state.chatMessages, createMessage('system', action.payload.message, 'error'));
     },
+    cancelStreaming(state, action: PayloadAction<{ requestId: BuilderRequestId }>) {
+      if (action.payload.requestId !== state.currentRequestId) {
+        return;
+      }
+
+      state.currentRequestId = null;
+      state.isStreaming = false;
+      state.hasRejectedDefinition = false;
+      state.streamError = null;
+      state.streamedSource = state.committedSource;
+      state.parseIssues = [];
+    },
     rejectDefinition(
       state,
       action: PayloadAction<{
@@ -305,6 +338,7 @@ export const builderSlice = createSlice({
       }>,
     ) {
       state.activeTab = 'definition';
+      state.currentRequestId = null;
       state.isStreaming = false;
       state.hasRejectedDefinition = true;
       state.streamError = action.payload.message ?? null;
@@ -332,6 +366,7 @@ export const builderSlice = createSlice({
         return;
       }
 
+      state.currentRequestId = null;
       state.streamError = null;
       state.isStreaming = false;
       state.hasRejectedDefinition = false;
@@ -352,6 +387,7 @@ export const builderSlice = createSlice({
 
       state.redoHistory = trimHistory([...state.redoHistory, cloneForState(currentSnapshot)]);
       state.committedSource = previousSnapshot.source;
+      state.currentRequestId = null;
       state.hasRejectedDefinition = false;
       state.streamedSource = previousSnapshot.source;
       state.parseIssues = [];
@@ -369,6 +405,7 @@ export const builderSlice = createSlice({
       state.redoHistory = state.redoHistory.slice(0, -1);
       state.history = trimHistory([...state.history, cloneForState(redoSnapshot)]);
       state.committedSource = redoSnapshot.source;
+      state.currentRequestId = null;
       state.hasRejectedDefinition = false;
       state.streamedSource = redoSnapshot.source;
       state.parseIssues = [];
@@ -387,6 +424,7 @@ export const builderSlice = createSlice({
     ) {
       state.committedSource = action.payload.source;
       state.streamedSource = action.payload.source;
+      state.currentRequestId = null;
       state.draftPrompt = '';
       state.chatMessages = createInitialChatMessages();
       state.hasRejectedDefinition = false;
@@ -409,6 +447,7 @@ export const builderSlice = createSlice({
     ) {
       state.activeTab = 'preview';
       state.committedSource = action.payload.snapshot.source;
+      state.currentRequestId = null;
       state.hasRejectedDefinition = false;
       state.streamedSource = action.payload.snapshot.source;
       state.draftPrompt = '';
@@ -426,6 +465,7 @@ export const builderSlice = createSlice({
       state.activeTab = 'preview';
       state.chatMessages = createInitialChatMessages();
       state.committedSource = DEFAULT_OPENUI_SOURCE;
+      state.currentRequestId = null;
       state.draftPrompt = '';
       state.hasRejectedDefinition = false;
       state.streamedSource = DEFAULT_OPENUI_SOURCE;

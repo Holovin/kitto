@@ -100,3 +100,16 @@ Expected:
 - redo restores the later committed source
 - Definition reflects the restored committed snapshot after each action
 - no stale draft source or rejected-definition state remains after undo/redo
+
+## Scenario 7 — Abort and stale-request safety
+
+Actions:
+1. Submit a prompt that should generate for at least a few seconds.
+2. Before it finishes, navigate to `http://localhost:5555/elements`.
+3. Wait a moment, then return to `http://localhost:5555/chat`.
+
+Expected:
+- no red abort error is appended to chat history
+- Preview and Definition still reflect the last committed valid app rather than a partial streamed draft
+- no late commit from the aborted request appears after returning to `/chat`
+- the aborted request does not overwrite any later committed app state
