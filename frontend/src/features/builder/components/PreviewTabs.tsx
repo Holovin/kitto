@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { LoaderCircle, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -10,7 +10,13 @@ import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyStat
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
-import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
+import {
+  combinePreviewIssues,
+  createRendererCrashIssue,
+  mapOpenUiErrorsToIssues,
+  mapParseResultToIssues,
+  shouldResetRuntimeIssues,
+} from '@features/builder/openui/runtime/issues';
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
@@ -52,8 +58,17 @@ export function PreviewTabs() {
   const isPreviewEmptyCanvas = !previewSource.trim();
   const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
-  const combinedIssues = isPreviewEmptyCanvas || isShowingRejectedDefinition ? parseIssues : [...parseIssues, ...runtimeIssues];
+  const combinedIssues = combinePreviewIssues({
+    isPreviewEmptyCanvas,
+    isShowingRejectedDefinition,
+    parseIssues,
+    runtimeIssues,
+  });
   const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
+  const previousPreviewRef = useRef<{
+    isShowingRejectedDefinition: boolean;
+    previewSource: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!isEmptyCanvas || activeTab === 'preview') {
@@ -64,6 +79,23 @@ export function PreviewTabs() {
   }, [activeTab, dispatch, isEmptyCanvas]);
 
   useEffect(() => {
+    const previousPreview = previousPreviewRef.current;
+    previousPreviewRef.current = {
+      isShowingRejectedDefinition,
+      previewSource,
+    };
+
+    if (
+      !shouldResetRuntimeIssues({
+        nextPreviewSource: previewSource,
+        nextRejectedDefinition: isShowingRejectedDefinition,
+        previousPreviewSource: previousPreview?.previewSource ?? null,
+        previousRejectedDefinition: previousPreview?.isShowingRejectedDefinition ?? null,
+      })
+    ) {
+      return;
+    }
+
     if (!isShowingRejectedDefinition) {
       dispatch(builderActions.setParseIssues([]));
     }

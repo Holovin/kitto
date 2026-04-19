@@ -17,6 +17,10 @@ const componentSpec = JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as 
 const supportedToolNames = ['read_state', 'write_state', 'merge_state', 'append_state', 'remove_state'];
 
 describe('openui prompts', () => {
+  it('keeps the generated component spec artifact committed in the repository', () => {
+    expect(fs.existsSync(componentSpecPath)).toBe(true);
+  });
+
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
     const prompt = buildOpenUiSystemPrompt();
 
@@ -46,6 +50,7 @@ describe('openui prompts', () => {
 
     expect(prompt).toContain('Use ONLY the tools listed above');
     expect(prompt).toContain('Do NOT invent or guess tool names');
+    expect(prompt).not.toContain('navigate_screen');
   });
 
   it('keeps the generated component spec aligned with the supported component list', () => {

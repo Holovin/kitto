@@ -43,6 +43,36 @@ export function mapOpenUiErrorsToIssues(errors: OpenUIError[]): BuilderParseIssu
   }));
 }
 
+export function combinePreviewIssues(args: {
+  isPreviewEmptyCanvas: boolean;
+  isShowingRejectedDefinition: boolean;
+  parseIssues: BuilderParseIssue[];
+  runtimeIssues: BuilderParseIssue[];
+}) {
+  const { isPreviewEmptyCanvas, isShowingRejectedDefinition, parseIssues, runtimeIssues } = args;
+
+  if (isPreviewEmptyCanvas || isShowingRejectedDefinition) {
+    return parseIssues;
+  }
+
+  return [...parseIssues, ...runtimeIssues];
+}
+
+export function shouldResetRuntimeIssues(args: {
+  nextPreviewSource: string;
+  nextRejectedDefinition: boolean;
+  previousPreviewSource: string | null;
+  previousRejectedDefinition: boolean | null;
+}) {
+  const { nextPreviewSource, nextRejectedDefinition, previousPreviewSource, previousRejectedDefinition } = args;
+
+  return (
+    previousPreviewSource === null ||
+    previousPreviewSource !== nextPreviewSource ||
+    previousRejectedDefinition !== nextRejectedDefinition
+  );
+}
+
 export function createRendererCrashIssue(error: unknown, code: string, summary: string): BuilderParseIssue {
   return {
     code,

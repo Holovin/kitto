@@ -34,12 +34,29 @@ describe('handleOpenUiActionEvent', () => {
     expect(open).toHaveBeenCalledWith('/chat', '_blank', 'noopener,noreferrer');
   });
 
+  it('opens safe https URLs', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('https://example.com/docs'))).toBe(true);
+    expect(open).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer');
+  });
+
   it('does not throw on invalid URLs', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });
 
     expect(() => handleOpenUiActionEvent(createOpenUrlEvent('http://exa mple.com'))).not.toThrow();
     expect(handleOpenUiActionEvent(createOpenUrlEvent('http://exa mple.com'))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsafe data URLs without throwing', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+
+    expect(() => handleOpenUiActionEvent(createOpenUrlEvent('data:text/html,<script>alert(1)</script>'))).not.toThrow();
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('data:text/html,<script>alert(1)</script>'))).toBe(false);
     expect(open).not.toHaveBeenCalled();
   });
 });

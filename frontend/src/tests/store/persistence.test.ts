@@ -19,7 +19,7 @@ function createPersistedBuilder(snapshot: ReturnType<typeof createBuilderSnapsho
 }
 
 describe('store persistence', () => {
-  it('persists live runtime state across restore', async () => {
+  it('restores runtimeSessionState across a simulated reload migration', async () => {
     const snapshot = createBuilderSnapshot(
       validSource,
       { currentScreen: 'main' },
@@ -41,7 +41,7 @@ describe('store persistence', () => {
     expect(migrated.domain.data).toEqual(snapshot.domainData);
   });
 
-  it('persists live domain data across restore', async () => {
+  it('restores domain.data across a simulated reload migration', async () => {
     const snapshot = createBuilderSnapshot(
       validSource,
       { currentScreen: 'main' },
@@ -63,7 +63,7 @@ describe('store persistence', () => {
     expect(migrated.domain.data).toEqual(liveDomainData);
   });
 
-  it('falls back to the latest snapshot when persisted live slices are corrupted', async () => {
+  it('falls back to the latest snapshot when remembered builderSession/domain slices are corrupted', async () => {
     const snapshot = createBuilderSnapshot(
       validSource,
       { currentScreen: 'main', selectedPlan: 'basic' },

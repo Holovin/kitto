@@ -10,6 +10,14 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
+export function pruneExpiredRateLimitEntries(entries: Map<string, RateLimitEntry>, now: number) {
+  for (const [key, entry] of entries) {
+    if (entry.resetAt <= now) {
+      entries.delete(key);
+    }
+  }
+}
+
 function getRateLimitKey(context: Context) {
   const forwardedFor = context.req.header('x-forwarded-for');
   const realIp = context.req.header('x-real-ip');
@@ -26,6 +34,7 @@ export function createInMemoryRateLimitMiddleware({ maxRequests, windowMs }: Rat
 
   return async function rateLimitMiddleware(context: Context, next: Next) {
     const now = Date.now();
+    pruneExpiredRateLimitEntries(entries, now);
     const key = getRateLimitKey(context);
     const existingEntry = entries.get(key);
 

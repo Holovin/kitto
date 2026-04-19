@@ -10,6 +10,10 @@ describe('path utilities', () => {
     expect(() => readPath({}, 'app.constructor.value')).toThrow('constructor');
   });
 
+  it('rejects paths that contain prototype segments', () => {
+    expect(() => readPath({}, 'app.prototype.value')).toThrow('prototype');
+  });
+
   it('rejects empty write paths', () => {
     expect(() => writePathValue({}, '   ', 'Ada')).toThrow('non-empty dot-path');
   });

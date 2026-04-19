@@ -70,6 +70,36 @@ describe('builderSlice', () => {
     expect(appendedChunk.streamedSource).toBe(validSource);
   });
 
+  it('cancels an aborted stream without committing the partial draft', () => {
+    const initialState = createInitialState();
+    const started = builderReducer(
+      initialState,
+      builderActions.beginStreaming({
+        prompt: 'Start streaming',
+        requestId: 'request-abort',
+      }),
+    );
+    const withChunk = builderReducer(
+      started,
+      builderActions.appendStreamChunk({
+        chunk: 'partial draft',
+        requestId: 'request-abort',
+      }),
+    );
+    const canceled = builderReducer(
+      withChunk,
+      builderActions.cancelStreaming({
+        requestId: 'request-abort',
+      }),
+    );
+
+    expect(canceled.currentRequestId).toBeNull();
+    expect(canceled.isStreaming).toBe(false);
+    expect(canceled.committedSource).toBe(initialState.committedSource);
+    expect(canceled.streamedSource).toBe(initialState.committedSource);
+    expect(canceled.history).toHaveLength(1);
+  });
+
   it('commits the completed stream into history and chat', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-19T10:00:00.000Z'));

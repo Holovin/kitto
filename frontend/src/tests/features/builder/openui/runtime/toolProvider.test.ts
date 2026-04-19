@@ -48,6 +48,13 @@ describe('builderToolProvider', () => {
     expect(mockState.domain.data).toEqual({});
   });
 
+  it('rejects merge_state when path is empty', async () => {
+    await expect(builderToolProvider.merge_state({ path: '   ', patch: { name: 'Ada' } })).rejects.toThrow(
+      'merge_state: State path must be a non-empty dot-path.',
+    );
+    expect(mockState.domain.data).toEqual({});
+  });
+
   it('rejects remove_state without an explicit index', async () => {
     seedDomainData({
       app: {
@@ -82,6 +89,63 @@ describe('builderToolProvider', () => {
         },
       },
     });
+  });
+
+  it('rejects remove_state with a negative index', async () => {
+    seedDomainData({
+      app: {
+        tasks: ['first', 'second'],
+      },
+    });
+
+    await expect(builderToolProvider.remove_state({ path: 'app.tasks', index: -1 })).rejects.toThrow(
+      'remove_state: index must be a non-negative integer.',
+    );
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: ['first', 'second'],
+      },
+    });
+  });
+
+  it('writes to a valid state path', async () => {
+    await expect(builderToolProvider.write_state({ path: 'app.profile.name', value: 'Ada' })).resolves.toBe('Ada');
+    expect(mockState.domain.data).toEqual({
+      app: {
+        profile: {
+          name: 'Ada',
+        },
+      },
+    });
+  });
+
+  it('merges safe patch fields while stripping dangerous keys', async () => {
+    seedDomainData({
+      app: {
+        profile: {
+          name: 'Ada',
+          role: 'engineer',
+        },
+      },
+    });
+    const patch = JSON.parse('{"name":"Grace","__proto__":{"polluted":true},"prototype":{"danger":true},"constructor":{"danger":true}}') as Record<
+      string,
+      unknown
+    >;
+
+    await expect(builderToolProvider.merge_state({ path: 'app.profile', patch })).resolves.toEqual({
+      name: 'Grace',
+      role: 'engineer',
+    });
+    expect(mockState.domain.data).toEqual({
+      app: {
+        profile: {
+          name: 'Grace',
+          role: 'engineer',
+        },
+      },
+    });
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
   });
 
   it('removes only the requested item for a valid remove_state call', async () => {
