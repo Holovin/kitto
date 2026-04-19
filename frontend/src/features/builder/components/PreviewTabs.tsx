@@ -13,6 +13,7 @@ import { builderToolProvider } from '@features/builder/openui/runtime/toolProvid
 import {
   selectActiveTab,
   selectCommittedSource,
+  selectDomainData,
   selectHistory,
   selectIsStreaming,
   selectParseIssues,
@@ -25,10 +26,15 @@ import { domainActions } from '@features/builder/store/domainSlice';
 import type { BuilderParseIssue, BuilderTabId } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
+function formatJson(value: unknown) {
+  return JSON.stringify(value, null, 2);
+}
+
 export function PreviewTabs() {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
   const committedSource = useAppSelector(selectCommittedSource);
+  const domainData = useAppSelector(selectDomainData);
   const history = useAppSelector(selectHistory);
   const isStreaming = useAppSelector(selectIsStreaming);
   const parseIssues = useAppSelector(selectParseIssues);
@@ -60,23 +66,12 @@ export function PreviewTabs() {
       className="flex h-full min-h-0 flex-col gap-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview and definition</CardTitle>
-        <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-          <Button
-            className="h-7 rounded-lg border border-slate-200 px-2 text-xs shadow-none"
-            disabled={!currentSnapshot || isEmptyCanvas || isStreaming}
-            size="sm"
-            variant="ghost"
-            onClick={handleResetAppState}
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset app state
-          </Button>
-          <TabsList>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="definition">Definition</TabsTrigger>
-          </TabsList>
-        </div>
+        <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview, definition, and state</CardTitle>
+        <TabsList>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="definition">Definition</TabsTrigger>
+          <TabsTrigger value="app-state">App State</TabsTrigger>
+        </TabsList>
       </div>
 
       <TabsContent value="preview" className="mt-0 flex-1 min-h-0">
@@ -117,6 +112,41 @@ export function PreviewTabs() {
 
       <TabsContent value="definition" className="mt-0 flex-1 min-h-0">
         <DefinitionPanel issues={combinedIssues} source={source} />
+      </TabsContent>
+
+      <TabsContent value="app-state" className="mt-0 flex-1 min-h-0">
+        <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
+          <CardContent className="flex h-full min-h-0 flex-col gap-4 p-6">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Button
+                className="h-8 rounded-lg border border-slate-200 px-3 text-xs shadow-none"
+                disabled={!currentSnapshot || isEmptyCanvas || isStreaming}
+                size="sm"
+                variant="secondary"
+                onClick={handleResetAppState}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset app state
+              </Button>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              <div className="flex min-w-0 flex-col gap-3">
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Reactive state</p>
+                <pre className="max-h-[22rem] w-full max-w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                  <code>{formatJson(runtimeSessionState)}</code>
+                </pre>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-3">
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Persisted data</p>
+                <pre className="max-h-[22rem] w-full max-w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                  <code>{formatJson(domainData)}</code>
+                </pre>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   );

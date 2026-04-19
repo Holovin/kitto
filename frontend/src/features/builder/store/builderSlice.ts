@@ -151,7 +151,10 @@ export function normalizeBuilderState(value: unknown): BuilderState {
   const committedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
 
   return {
-    activeTab: value.activeTab === 'definition' ? 'definition' : 'preview',
+    activeTab:
+      value.activeTab === 'definition' || value.activeTab === 'app-state'
+        ? value.activeTab
+        : 'preview',
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',

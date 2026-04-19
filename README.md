@@ -6,7 +6,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 
 - chat-driven app generation with streaming updates
 - automatic repair when the first model draft is invalid OpenUI
-- live preview plus a raw definition panel with parse/runtime issues
+- live preview, a raw definition panel, and an app-state inspector for reactive and persisted data
 - undo/redo, reset, JSON import/export, and local persistence for builder history
 - a `/elements` route for browsing supported OpenUI components, actions, demos, and schemas
 
@@ -108,7 +108,7 @@ Legacy root-level routes such as `/health`, `/config`, and `/llm/*` intentionall
 
 ### Main routes
 
-- `/` and `/chat` - chat builder, preview, definition panel, import/export, undo/redo, reset, and auto-repair flow
+- `/` and `/chat` - chat builder, preview, definition panel, app-state inspector, import/export, undo/redo, reset, and auto-repair flow
 - `/elements` - schema explorer for the supported OpenUI surface
 
 ### Supported OpenUI components
