@@ -35,7 +35,6 @@ const REPAIR_CRITICAL_RULES = [
   'Every @Run(ref) must reference a defined Query or Mutation.',
   'Screen signature is Screen(id, title, children, isActive?).',
   'Use $currentScreen + @Set for screen navigation.',
-  'Do not use navigate_screen.',
   'Button signature is Button(id, label, variant, action?, disabled?).',
 ] as const;
 

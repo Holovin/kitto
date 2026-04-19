@@ -61,6 +61,9 @@ By default:
 
 - `npm run dev` - runs frontend and backend together
 - `npm run lint` - runs frontend ESLint and backend TypeScript checks
+- `npm run test` - runs frontend and backend unit tests without calling the real OpenAI service
+- `npm run test:frontend` - runs frontend Vitest coverage for validation, reducers, import/export helpers, and stream parsing
+- `npm run test:backend` - runs backend Vitest coverage for `/api/*` contracts, request validation, and prompt drift guards
 - `npm run build` - builds the frontend bundle and the backend server
 - `npm run start` - starts the compiled backend
 

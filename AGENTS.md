@@ -19,6 +19,8 @@ Steps:
 
 - If you update the OpenUI component spec, or change the frontend OpenUI library that defines it, you must run `npm run generate:openui-spec` before finishing.
 - If you change the API contract, OpenUI prompt contract, supported components/tools, builder controls, or any QA-visible runtime behavior, update `docs/qa/openui-agent-smoke.md` and `docs/qa/openui-manual-checklist.md` before finishing whenever their steps, expectations, or contract notes no longer match.
+- Tests must live under `frontend/src/tests/**` or `backend/src/tests/**`. Mirror the source structure inside those folders and do not colocate test files next to production modules.
+- After code changes, run the relevant existing tests for the touched feature area before finishing. If the change is substantial and that area has no meaningful tests yet, add targeted tests for it. Do not add tests for every tiny refactor or trivial copy change.
 - Documentation must not contain absolute local filesystem paths, local file URLs, usernames, home-directory references, tokens, API keys, secrets, or other personal or machine-specific data. Use plain text or project-relative paths only.
 
 ## Project Context

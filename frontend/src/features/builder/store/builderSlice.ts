@@ -43,7 +43,7 @@ function createInitialChatMessages(): BuilderChatMessage[] {
   return [];
 }
 
-function isLegacyWelcomeMessage(message: Record<string, unknown>) {
+function isDismissedWelcomeMessage(message: Record<string, unknown>) {
   return (
     message.id === 'builder-welcome' &&
     message.role === 'assistant' &&
@@ -65,7 +65,7 @@ function normalizeChatMessages(value: unknown) {
       return [];
     }
 
-    if (isLegacyWelcomeMessage(message)) {
+    if (isDismissedWelcomeMessage(message)) {
       return [];
     }
 

@@ -73,7 +73,6 @@ Do not use:
 
 - markdown code fences around generated OpenUI source
 - `Screen(..., null, ...)` for the required title argument
-- `Mutation("navigate_screen", ...)`
 - persisted tools for internal screen navigation
 - unresolved `@Run(ref)` calls or any other undefined identifiers
 

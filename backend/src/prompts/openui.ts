@@ -146,7 +146,6 @@ const additionalRules = [
   'Button signature is `Button(id, label, variant, action?, disabled?)`.',
   'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
   'Use `$currentScreen` + `@Set(...)` for screen navigation.',
-  'Do not use `navigate_screen`.',
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
   'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
   'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
