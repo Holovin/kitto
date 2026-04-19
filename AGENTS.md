@@ -138,8 +138,10 @@ Steps:
   - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider
 - Standalone export/player changes have their own sync points. If you change the standalone player runtime, HTML embedding, or standalone storage behavior, sync:
   - `frontend/src/standalone/player.tsx`
+  - `frontend/src/standalone/bootstrap.tsx`
   - `frontend/src/standalone/StandaloneApp.tsx`
   - `frontend/src/features/builder/standalone/createStandaloneHtml.ts`
+  - `frontend/src/features/builder/standalone/constants.ts`
   - `frontend/src/features/builder/standalone/playerAssets.generated.ts`
   - `frontend/vite.standalone.config.ts`
   - `scripts/embed-standalone-player-assets.ts`

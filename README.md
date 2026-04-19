@@ -58,10 +58,11 @@ Notes:
 
 - `Download standalone HTML` creates one self-contained `.html` file from the current committed OpenUI app.
 - The file embeds a minimal OpenUI player runtime, the committed source, and the committed snapshot baseline runtime/domain state.
+- The generated HTML stores its embedded app payload in an inert `<script type="application/json">` block before the inline player bundle; it does not rely on a `window` payload global.
 - The exported app opens without the Kitto builder shell, backend, OpenAI configuration, or `/api/*` requests.
 - Standalone apps persist their own runtime and domain data in localStorage under a per-app storage key and can reset back to the embedded baseline state.
 - When a standalone export is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` are intentionally treated as invalid and rendered inert because there is no builder router or stable hosted origin behind the file.
-- The export does not include chat history, undo/redo history, rejected drafts, or React source code.
+- The export includes only the standalone app definition payload and does not include chat history, undo/redo or builder version history, rejected drafts, or React source code.
 
 ## 6. Trade-offs / scope
 
