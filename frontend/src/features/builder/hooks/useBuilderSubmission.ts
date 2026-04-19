@@ -24,7 +24,17 @@ import type {
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
-const MAX_AUTO_REPAIR_ATTEMPTS = 2;
+const MAX_AUTO_REPAIR_ATTEMPTS = 1;
+const REPAIR_CRITICAL_RULES = [
+  'Return only raw OpenUI Lang.',
+  'Return the full updated program.',
+  'Use only supported components and tools.',
+  'Every @Run(ref) must reference a defined Query or Mutation.',
+  'Screen signature is Screen(id, title, children, isActive?).',
+  'Use $currentScreen + @Set for screen navigation.',
+  'Do not use navigate_screen.',
+  'Button signature is Button(id, label, variant, action?, disabled?).',
+] as const;
 
 function formatValidationIssue(issue: BuilderParseIssue) {
   return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
@@ -42,44 +52,174 @@ function truncateText(value: string, maxChars: number) {
   return `${value.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
 }
 
-function buildRepairPrompt(userPrompt: string, issues: BuilderParseIssue[], attemptNumber: number, promptMaxChars: number) {
-  const maxUserPromptChars = Math.max(256, Math.floor(promptMaxChars * 0.35));
-  const sections = [
-    `The previous OpenUI draft is invalid. Repair attempt ${attemptNumber}.`,
-    `Original user request:\n${truncateText(userPrompt, maxUserPromptChars)}`,
-    'Fix every validation issue below and return a complete corrected program.',
-  ];
-  const constraintSection = [
-    'Important constraints:',
-    '- Do not leave unresolved references.',
-    '- Every @Run(statementId) must reference a defined Query or Mutation statement.',
-    '- If a Mutation changes data that is rendered through a Query, call @Run(theQueryStatement) after the mutation so the preview refreshes immediately.',
-    '- Preserve the intended UI and behavior unless a broken part must be rewritten to become valid.',
-    '- Return only raw OpenUI Lang source.',
-  ].join('\n');
-  const selectedIssueLines: string[] = [];
+function buildRepairSection(title: string, content: string) {
+  return `${title}:\n${content}`;
+}
 
-  for (const issue of issues) {
-    const nextIssueLines = [...selectedIssueLines, `- ${formatValidationIssue(issue)}`];
-    const candidatePrompt = [...sections, nextIssueLines.join('\n'), constraintSection].filter(Boolean).join('\n\n');
+function buildRepairSourceSectionContent(value: string, maxChars: number, fallback: string) {
+  if (maxChars <= 0) {
+    return fallback;
+  }
 
-    if (candidatePrompt.length > promptMaxChars) {
+  return value.trim() ? truncateText(value, maxChars) : fallback;
+}
+
+function allocateRepairSectionBudgets(totalChars: number) {
+  const sectionKeys = ['userPrompt', 'committedSource', 'invalidSource', 'issues'] as const;
+  const minimumBudgets = {
+    userPrompt: 120,
+    committedSource: 180,
+    invalidSource: 300,
+    issues: 200,
+  } as const;
+  const weights = {
+    userPrompt: 1,
+    committedSource: 1.2,
+    invalidSource: 2.8,
+    issues: 1.6,
+  } as const;
+  const budgets = {
+    userPrompt: 0,
+    committedSource: 0,
+    invalidSource: 0,
+    issues: 0,
+  };
+
+  if (totalChars <= 0) {
+    return budgets;
+  }
+
+  const minimumTotal = sectionKeys.reduce((sum, key) => sum + minimumBudgets[key], 0);
+  const totalWeight = sectionKeys.reduce((sum, key) => sum + weights[key], 0);
+
+  if (totalChars <= minimumTotal) {
+    let allocated = 0;
+
+    for (const key of sectionKeys) {
+      const nextBudget = Math.floor((totalChars * weights[key]) / totalWeight);
+      budgets[key] = nextBudget;
+      allocated += nextBudget;
+    }
+
+    let remainder = totalChars - allocated;
+
+    for (const key of ['invalidSource', 'issues', 'committedSource', 'userPrompt'] as const) {
+      if (remainder <= 0) {
+        break;
+      }
+
+      budgets[key] += 1;
+      remainder -= 1;
+    }
+
+    return budgets;
+  }
+
+  let allocated = minimumTotal;
+
+  for (const key of sectionKeys) {
+    budgets[key] = minimumBudgets[key];
+  }
+
+  const remainingChars = totalChars - minimumTotal;
+
+  for (const key of sectionKeys) {
+    const extraBudget = Math.floor((remainingChars * weights[key]) / totalWeight);
+    budgets[key] += extraBudget;
+    allocated += extraBudget;
+  }
+
+  let remainder = totalChars - allocated;
+
+  for (const key of ['invalidSource', 'issues', 'committedSource', 'userPrompt'] as const) {
+    if (remainder <= 0) {
       break;
     }
 
-    selectedIssueLines.push(`- ${formatValidationIssue(issue)}`);
+    budgets[key] += 1;
+    remainder -= 1;
+  }
+
+  return budgets;
+}
+
+function buildRepairIssueSection(issues: BuilderParseIssue[], maxChars: number) {
+  if (maxChars <= 0) {
+    return '- Validation issues were detected, but they could not be enumerated in full.';
+  }
+
+  const selectedIssueLines: string[] = [];
+
+  for (const issue of issues) {
+    const nextLine = `- ${formatValidationIssue(issue)}`;
+    const candidateSection = [...selectedIssueLines, nextLine].join('\n');
+
+    if (candidateSection.length > maxChars) {
+      break;
+    }
+
+    selectedIssueLines.push(nextLine);
   }
 
   if (!selectedIssueLines.length && issues[0]) {
-    selectedIssueLines.push(`- ${truncateText(formatValidationIssue(issues[0]), 240)}`);
+    selectedIssueLines.push(`- ${truncateText(formatValidationIssue(issues[0]), Math.max(1, maxChars - 2))}`);
   }
 
-  return truncateText([...sections, selectedIssueLines.join('\n'), constraintSection].filter(Boolean).join('\n\n'), promptMaxChars);
+  return selectedIssueLines.length ? selectedIssueLines.join('\n') : '- Validation issues were detected, but they could not be enumerated in full.';
+}
+
+function buildRepairPrompt(args: {
+  userPrompt: string;
+  committedSource: string;
+  invalidSource: string;
+  issues: BuilderParseIssue[];
+  attemptNumber: number;
+  promptMaxChars: number;
+}) {
+  const { attemptNumber, committedSource, invalidSource, issues, promptMaxChars, userPrompt } = args;
+  const introSection = [
+    `The previous OpenUI draft is invalid. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`,
+    'Use the current committed valid OpenUI source as the baseline for this request.',
+    'Carry forward the intended changes from the invalid model draft only when they can be expressed as valid OpenUI.',
+    'Fix every validation issue below and return a complete corrected program.',
+  ].join('\n');
+  const rulesSection = REPAIR_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
+  const sectionHeaders = [
+    'Original user request:',
+    'Current committed valid OpenUI source:',
+    'Invalid model draft:',
+    'Validation issues:',
+    'Current critical syntax rules:',
+  ];
+  const fixedChars =
+    introSection.length +
+    rulesSection.length +
+    sectionHeaders.reduce((sum, header) => sum + header.length + 1, 0) +
+    10;
+  const budgets = allocateRepairSectionBudgets(promptMaxChars - fixedChars);
+
+  return truncateText(
+    [
+      introSection,
+      buildRepairSection('Original user request', buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)')),
+      buildRepairSection(
+        'Current committed valid OpenUI source',
+        buildRepairSourceSectionContent(committedSource, budgets.committedSource, '(blank canvas, no committed OpenUI source yet)'),
+      ),
+      buildRepairSection('Invalid model draft', buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, '(the invalid draft was empty)')),
+      buildRepairSection('Validation issues', buildRepairIssueSection(issues, budgets.issues)),
+      buildRepairSection('Current critical syntax rules', rulesSection),
+    ].join('\n\n'),
+    promptMaxChars,
+  );
 }
 
 function createValidationFailureMessage(issues: BuilderParseIssue[]) {
   const summary = issues.slice(0, 3).map(formatValidationIssue).join(' | ');
-  return `The model kept returning invalid OpenUI after automatic repair. ${summary || 'Please try again.'}`;
+  const repairAttemptLabel =
+    MAX_AUTO_REPAIR_ATTEMPTS === 1 ? '1 automatic repair attempt' : `${MAX_AUTO_REPAIR_ATTEMPTS} automatic repair attempts`;
+
+  return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'}`;
 }
 
 function buildRequestChatHistory(messages: BuilderChatMessage[], maxItems: number) {
@@ -145,26 +285,16 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
     let candidateSource = initialSource;
     let attempt = 0;
     let hasAnnouncedRepair = false;
+    let hasCompletedRepairRequest = false;
 
     while (attempt <= MAX_AUTO_REPAIR_ATTEMPTS) {
       const validation = validateOpenUiSource(candidateSource);
 
       if (validation.isValid) {
         return {
-          note: hasAnnouncedRepair ? 'The first draft had parser issues, so it was repaired automatically before commit.' : undefined,
+          note: hasCompletedRepairRequest ? 'The first draft had parser issues, so it was repaired automatically before commit.' : undefined,
           source: candidateSource,
         };
-      }
-
-      if (!hasAnnouncedRepair) {
-        dispatch(
-          builderActions.appendChatMessage({
-            role: 'system',
-            tone: 'info',
-            content: 'The model returned an invalid draft. Sending it back for automatic repair now.',
-          }),
-        );
-        hasAnnouncedRepair = true;
       }
 
       attempt += 1;
@@ -174,8 +304,15 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
       }
 
       const repairRequest: BuilderLlmRequest = {
-        prompt: buildRepairPrompt(request.prompt, validation.issues, attempt, requestLimits.promptMaxChars),
-        currentSource: candidateSource,
+        prompt: buildRepairPrompt({
+          userPrompt: request.prompt,
+          committedSource: request.currentSource,
+          invalidSource: candidateSource,
+          issues: validation.issues,
+          attemptNumber: attempt,
+          promptMaxChars: requestLimits.promptMaxChars,
+        }),
+        currentSource: request.currentSource,
         chatHistory: request.chatHistory,
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
@@ -184,7 +321,19 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
         throw new Error(repairRequestValidationError);
       }
 
+      if (!hasAnnouncedRepair) {
+        dispatch(
+          builderActions.appendChatMessage({
+            role: 'system',
+            tone: 'info',
+            content: 'The model returned an invalid draft. Sending one automatic repair request now.',
+          }),
+        );
+        hasAnnouncedRepair = true;
+      }
+
       const repairedResponse = await generateApp(repairRequest).unwrap();
+      hasCompletedRepairRequest = true;
       candidateSource = repairedResponse.source;
     }
 
