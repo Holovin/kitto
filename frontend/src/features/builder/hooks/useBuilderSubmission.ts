@@ -113,6 +113,18 @@ interface UseBuilderSubmissionOptions {
   onFeedbackChange: (message: string | null) => void;
 }
 
+class OpenUiValidationError extends Error {
+  issues: BuilderParseIssue[];
+  source: string;
+
+  constructor(message: string, source: string, issues: BuilderParseIssue[]) {
+    super(message);
+    this.name = 'OpenUiValidationError';
+    this.source = source;
+    this.issues = issues;
+  }
+}
+
 export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const chatMessages = useAppSelector(selectChatMessages);
@@ -158,7 +170,7 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
       attempt += 1;
 
       if (attempt > MAX_AUTO_REPAIR_ATTEMPTS) {
-        throw new Error(createValidationFailureMessage(validation.issues));
+        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues), candidateSource, validation.issues);
       }
 
       const repairRequest: BuilderLlmRequest = {
@@ -263,7 +275,9 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
         } catch (fallbackError) {
           dispatch(
             builderActions.failStreaming({
+              issues: fallbackError instanceof OpenUiValidationError ? fallbackError.issues : undefined,
               message: getBuilderRequestErrorMessage(fallbackError),
+              source: fallbackError instanceof OpenUiValidationError ? fallbackError.source : undefined,
             }),
           );
           return;
@@ -272,7 +286,9 @@ export function useBuilderSubmission({ abortControllerRef, onFeedbackChange }: U
 
       dispatch(
         builderActions.failStreaming({
+          issues: error instanceof OpenUiValidationError ? error.issues : undefined,
           message: getBuilderRequestErrorMessage(error),
+          source: error instanceof OpenUiValidationError ? error.source : undefined,
         }),
       );
     } finally {

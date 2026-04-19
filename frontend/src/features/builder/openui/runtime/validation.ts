@@ -3,8 +3,7 @@ import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import type { BuilderParseIssue } from '@features/builder/types';
 import {
   ALLOWED_TOOLS,
-  OPENUI_VALIDATION_SOURCE_CHAR_LIMIT,
-  OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT,
+  OPENUI_SOURCE_LIMITS,
   UNSAFE_SOURCE_PATTERNS,
 } from './validationLimits';
 
@@ -135,11 +134,11 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
 
   const issues: BuilderParseIssue[] = [];
 
-  if (trimmedSource.length > OPENUI_VALIDATION_SOURCE_CHAR_LIMIT) {
+  if (trimmedSource.length > OPENUI_SOURCE_LIMITS.maxSourceChars) {
     issues.push(
       createParserIssue({
         code: 'source-too-large',
-        message: `OpenUI source exceeds the ${OPENUI_VALIDATION_SOURCE_CHAR_LIMIT.toLocaleString()} character limit.`,
+        message: `OpenUI source is too large. Max ${OPENUI_SOURCE_LIMITS.maxSourceChars} characters.`,
       }),
     );
   }
@@ -181,11 +180,11 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
     );
   }
 
-  if (result.meta.statementCount > OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT) {
+  if (result.meta.statementCount > OPENUI_SOURCE_LIMITS.maxStatements) {
     issues.push(
       createParserIssue({
         code: 'too-many-statements',
-        message: `OpenUI source exceeds the ${OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT} statement limit.`,
+        message: `OpenUI source has too many statements. Max ${OPENUI_SOURCE_LIMITS.maxStatements}.`,
       }),
     );
   }

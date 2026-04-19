@@ -1,6 +1,7 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
+import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import type { BuilderChatMessage, BuilderParseIssue, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 
@@ -80,12 +81,18 @@ function normalizeChatMessages(value: unknown) {
 
 function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
   if (!Array.isArray(value)) {
-    return fallback;
+    return {
+      rejectedSource: null,
+      snapshots: fallback,
+    };
   }
 
-  const normalizedSnapshots = value.flatMap((snapshot) => {
+  let rejectedSource: { issues: BuilderParseIssue[]; source: string } | null = null;
+  const normalizedSnapshots: BuilderSnapshot[] = [];
+
+  for (const snapshot of value) {
     if (!isRecord(snapshot)) {
-      return [];
+      continue;
     }
 
     if (
@@ -94,23 +101,36 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
       !isRecord(snapshot.initialRuntimeState) ||
       !isRecord(snapshot.initialDomainData)
     ) {
-      return [];
+      continue;
     }
 
-    return [
-      createBuilderSnapshot(
-        typeof snapshot.source === 'string' ? snapshot.source : DEFAULT_OPENUI_SOURCE,
-        snapshot.runtimeState,
-        snapshot.domainData,
-        {
-          initialRuntimeState: snapshot.initialRuntimeState,
-          initialDomainData: snapshot.initialDomainData,
-        },
-      ),
-    ];
-  });
+    const normalizedSnapshot = createBuilderSnapshot(
+      typeof snapshot.source === 'string' ? snapshot.source : DEFAULT_OPENUI_SOURCE,
+      snapshot.runtimeState,
+      snapshot.domainData,
+      {
+        initialRuntimeState: snapshot.initialRuntimeState,
+        initialDomainData: snapshot.initialDomainData,
+      },
+    );
+    const validation = validateOpenUiSource(normalizedSnapshot.source);
 
-  return normalizedSnapshots.length > 0 ? trimHistory(normalizedSnapshots) : fallback;
+    if (!validation.isValid) {
+      rejectedSource = {
+        issues: validation.issues,
+        source: normalizedSnapshot.source,
+      };
+      continue;
+    }
+
+    rejectedSource = null;
+    normalizedSnapshots.push(normalizedSnapshot);
+  }
+
+  return {
+    rejectedSource,
+    snapshots: normalizedSnapshots.length > 0 ? trimHistory(normalizedSnapshots) : fallback,
+  };
 }
 
 interface BuilderState {
@@ -147,24 +167,40 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     return structuredClone(initialState);
   }
 
-  const history = normalizeSnapshots(value.history, [initialSnapshot]);
+  const normalizedHistory = normalizeSnapshots(value.history, [initialSnapshot]);
+  const history = normalizedHistory.snapshots;
   const latestSnapshot = history.at(-1) ?? initialSnapshot;
-  const committedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
+  const persistedCommittedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
+  const committedSourceValidation = validateOpenUiSource(persistedCommittedSource);
+  const rejectedSource = !committedSourceValidation.isValid
+    ? {
+        issues: committedSourceValidation.issues,
+        source: persistedCommittedSource,
+      }
+    : normalizedHistory.rejectedSource;
+  const committedSource = latestSnapshot.source;
+  const streamedSource = rejectedSource
+    ? rejectedSource.source
+    : typeof value.streamedSource === 'string'
+      ? value.streamedSource
+      : committedSource;
 
   return {
     activeTab:
-      value.activeTab === 'definition' || value.activeTab === 'app-state'
-        ? value.activeTab
-        : 'preview',
+      rejectedSource
+        ? 'definition'
+        : value.activeTab === 'definition' || value.activeTab === 'app-state'
+          ? value.activeTab
+          : 'preview',
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
     history,
     isStreaming: false,
-    parseIssues: Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
-    redoHistory: normalizeSnapshots(value.redoHistory, []),
+    parseIssues: rejectedSource ? rejectedSource.issues : Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
+    redoHistory: normalizeSnapshots(value.redoHistory, []).snapshots,
     streamError: typeof value.streamError === 'string' ? value.streamError : null,
-    streamedSource: typeof value.streamedSource === 'string' ? value.streamedSource : committedSource,
+    streamedSource,
   };
 }
 
@@ -173,9 +209,12 @@ export const builderSlice = createSlice({
   initialState,
   reducers: {
     resetTransientState(state) {
+      const hasRejectedDefinition = state.parseIssues.length > 0 && state.streamedSource !== state.committedSource;
       state.isStreaming = false;
       state.streamError = null;
-      state.streamedSource = state.committedSource;
+      if (!hasRejectedDefinition) {
+        state.streamedSource = state.committedSource;
+      }
     },
     setDraftPrompt(state, action: PayloadAction<string>) {
       state.draftPrompt = action.payload;
@@ -213,10 +252,21 @@ export const builderSlice = createSlice({
         createMessage('assistant', action.payload.note ?? 'Updated the app definition from the latest chat instruction.', 'success'),
       );
     },
-    failStreaming(state, action: PayloadAction<{ message: string }>) {
+    failStreaming(
+      state,
+      action: PayloadAction<{
+        issues?: BuilderParseIssue[];
+        message: string;
+        source?: string;
+      }>,
+    ) {
       state.isStreaming = false;
       state.streamError = action.payload.message;
-      state.streamedSource = state.committedSource;
+      state.streamedSource = action.payload.source ?? state.committedSource;
+      state.parseIssues = action.payload.issues ?? [];
+      if (action.payload.source && action.payload.source !== state.committedSource && (action.payload.issues?.length ?? 0) > 0) {
+        state.activeTab = 'definition';
+      }
       pushMessage(state.chatMessages, createMessage('system', action.payload.message, 'error'));
     },
     setParseIssues(state, action: PayloadAction<BuilderParseIssue[]>) {

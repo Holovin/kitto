@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { BuilderDefinitionExport, BuilderSnapshot } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from '@features/builder/store/defaults';
+import { validateOpenUiSource } from './validation';
 
 const looseRecordSchema = z.record(z.string(), z.unknown());
 
@@ -20,6 +21,25 @@ const builderDefinitionSchema = z.object({
   domainData: looseRecordSchema,
   history: z.array(builderSnapshotSchema).default([]),
 });
+
+function formatValidationIssueMessage(code: string, message: string, statementId?: string) {
+  return `${code}${statementId ? ` in ${statementId}` : ''}: ${message}`;
+}
+
+function assertValidDefinitionSource(source: string, label: string) {
+  const validation = validateOpenUiSource(source);
+
+  if (validation.isValid) {
+    return;
+  }
+
+  const summary = validation.issues
+    .slice(0, 3)
+    .map((issue) => formatValidationIssueMessage(issue.code, issue.message, issue.statementId))
+    .join(' | ');
+
+  throw new Error(`${label} is invalid. ${summary || 'Please check the file contents.'}`);
+}
 
 export function createBuilderSnapshot(
   source: string,
@@ -78,6 +98,12 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
 
 export function parseImportedDefinition(rawValue: string) {
   const parsedValue = builderDefinitionSchema.parse(JSON.parse(rawValue));
+  assertValidDefinitionSource(parsedValue.source, 'Imported definition source');
+
+  parsedValue.history.forEach((snapshot, index) => {
+    assertValidDefinitionSource(snapshot.source, `Imported history snapshot ${index + 1}`);
+  });
+
   const normalizedHistory =
     parsedValue.history.length > 0
       ? parsedValue.history.map((snapshot) => {

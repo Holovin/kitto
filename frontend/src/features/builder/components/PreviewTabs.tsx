@@ -14,6 +14,7 @@ import {
   selectActiveTab,
   selectDefinitionSource,
   selectDomainData,
+  selectHasRejectedDefinition,
   selectHistory,
   selectIsStreaming,
   selectParseIssues,
@@ -36,6 +37,7 @@ export function PreviewTabs() {
   const definitionSource = useAppSelector(selectDefinitionSource);
   const domainData = useAppSelector(selectDomainData);
   const history = useAppSelector(selectHistory);
+  const isShowingRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const isStreaming = useAppSelector(selectIsStreaming);
   const parseIssues = useAppSelector(selectParseIssues);
   const previewSource = useAppSelector(selectPreviewSource);
@@ -45,7 +47,7 @@ export function PreviewTabs() {
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewEmptyCanvas = !previewSource.trim();
-  const combinedIssues = isPreviewEmptyCanvas ? parseIssues : [...parseIssues, ...runtimeIssues];
+  const combinedIssues = isPreviewEmptyCanvas || isShowingRejectedDefinition ? parseIssues : [...parseIssues, ...runtimeIssues];
 
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
@@ -89,7 +91,13 @@ export function PreviewTabs() {
                   library={builderOpenUiLibrary}
                   onAction={handleOpenUiActionEvent}
                   onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
-                  onParseResult={(result) => dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)))}
+                  onParseResult={(result) => {
+                    if (isShowingRejectedDefinition) {
+                      return;
+                    }
+
+                    dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
+                  }}
                   onStateUpdate={(state) => {
                     const nextState = state as Record<string, unknown>;
                     dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));

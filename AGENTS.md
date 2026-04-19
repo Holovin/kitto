@@ -79,6 +79,7 @@ Steps:
 - The frontend prefers streaming via `POST /api/llm/generate/stream`
 - If streaming fails before the first chunk, the frontend falls back to `POST /api/llm/generate`
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
+- The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected drafts stay in Definition while Preview keeps the last committed source
 - If the generated source is invalid, the frontend performs up to 2 automatic repair attempts by sending a repair prompt back to the backend
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API

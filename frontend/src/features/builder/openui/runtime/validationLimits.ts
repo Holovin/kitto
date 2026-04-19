@@ -1,5 +1,10 @@
-export const OPENUI_VALIDATION_SOURCE_CHAR_LIMIT = 16_000;
-export const OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT = 200;
+export const OPENUI_SOURCE_LIMITS = {
+  maxSourceChars: 50_000,
+  maxStatements: 300,
+} as const;
+
+export const OPENUI_VALIDATION_SOURCE_CHAR_LIMIT = OPENUI_SOURCE_LIMITS.maxSourceChars;
+export const OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT = OPENUI_SOURCE_LIMITS.maxStatements;
 
 export const ALLOWED_TOOLS = new Set([
   'read_state',
