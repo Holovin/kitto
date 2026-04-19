@@ -6,7 +6,7 @@ export function mapParseResultToIssues(result: ParseResult | null): BuilderParse
     return [];
   }
 
-  const validationIssues = result.meta.errors.map((error) => ({
+  const validationIssues: BuilderParseIssue[] = result.meta.errors.map((error) => ({
     code: error.code,
     message: error.message,
     statementId: error.statementId,
@@ -15,7 +15,7 @@ export function mapParseResultToIssues(result: ParseResult | null): BuilderParse
 
   const unresolvedIssues =
     !result.meta.incomplete && result.meta.unresolved.length > 0
-      ? result.meta.unresolved.map((statementId) => ({
+      ? result.meta.unresolved.map<BuilderParseIssue>((statementId) => ({
           code: 'unresolved-reference',
           message: 'This statement was referenced but never defined in the final source.',
           statementId,

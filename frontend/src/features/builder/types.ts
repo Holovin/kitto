@@ -32,7 +32,7 @@ export interface BuilderParseIssue {
   code: string;
   message: string;
   statementId?: string;
-  source?: string;
+  source?: 'mutation' | 'parser' | 'query' | 'runtime';
 }
 
 export interface BuilderLlmRequest {
