@@ -130,6 +130,7 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - a single automatic repair retry that includes the original request, committed valid source, invalid draft, validation issues, and critical syntax rules
 - Preview stays on the last committed valid app while streaming, validation, and automatic repair run against the incoming draft
 - imported definition files are validated before they replace the current committed preview
+- invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - upstream stream cancellation when the browser disconnects
 

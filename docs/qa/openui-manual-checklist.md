@@ -25,6 +25,7 @@ Expected not-found payload:
 - Preview renders committed source only.
 - Definition may show streamed or rejected draft source.
 - Invalid source is never committed to Preview or builder history.
+- Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `write_state`, `merge_state`, `append_state`, and `remove_state`.
@@ -98,7 +99,7 @@ Generated app behaviors that should stay supported:
 Builder controls that should stay working alongside generated apps:
 
 - import/export
-- invalid import should show Definition validation issues without replacing the current preview or wiping chat history
+- invalid import should show Definition validation issues without replacing the current preview or wiping chat, undo/redo history, runtime state, or persisted data
 - undo/redo
 - reset
 

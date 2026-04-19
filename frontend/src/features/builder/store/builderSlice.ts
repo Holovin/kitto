@@ -163,6 +163,12 @@ interface BuilderState {
   streamedSource: string;
 }
 
+function isRejectedDefinitionState(
+  state: Pick<BuilderState, 'committedSource' | 'isStreaming' | 'parseIssues' | 'streamedSource'>,
+) {
+  return !state.isStreaming && state.streamedSource !== state.committedSource && state.parseIssues.length > 0;
+}
+
 const initialSnapshot = createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT_DOMAIN_DATA);
 
 const initialState: BuilderState = {
@@ -229,6 +235,7 @@ export const builderSlice = createSlice({
     resetTransientState(state) {
       state.isStreaming = false;
       state.streamError = null;
+      state.hasRejectedDefinition = isRejectedDefinitionState(state);
       if (!state.hasRejectedDefinition) {
         state.streamedSource = state.committedSource;
       }
@@ -293,21 +300,20 @@ export const builderSlice = createSlice({
       state,
       action: PayloadAction<{
         issues: BuilderParseIssue[];
+        message?: string;
         source: string;
       }>,
     ) {
       state.activeTab = 'definition';
       state.isStreaming = false;
       state.hasRejectedDefinition = true;
-      state.streamError = null;
+      state.streamError = action.payload.message ?? null;
       state.streamedSource = action.payload.source;
       state.parseIssues = action.payload.issues;
     },
     setParseIssues(state, action: PayloadAction<BuilderParseIssue[]>) {
       state.parseIssues = action.payload;
-      if (action.payload.length === 0) {
-        state.hasRejectedDefinition = false;
-      }
+      state.hasRejectedDefinition = isRejectedDefinitionState(state);
     },
     appendChatMessage(
       state,

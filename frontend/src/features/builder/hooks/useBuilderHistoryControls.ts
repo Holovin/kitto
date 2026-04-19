@@ -77,6 +77,7 @@ export function useBuilderHistoryControls({
       if (!sourceValidation.isValid) {
         dispatch(
           builderActions.rejectDefinition({
+            message: 'Imported definition is invalid.',
             source: importedDefinition.source,
             issues: sourceValidation.issues,
           }),
@@ -85,9 +86,10 @@ export function useBuilderHistoryControls({
         return;
       }
 
+      const validHistory = importedDefinition.history.filter((snapshot) => validateOpenUiSource(snapshot.source).isValid);
       const importedHistory =
-        importedDefinition.history.length > 0
-          ? importedDefinition.history
+        validHistory.length > 0
+          ? validHistory
           : [createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData)];
 
       resetAppState();

@@ -65,6 +65,13 @@ function sanitizeDefinitionHistory(history: BuilderSnapshot[]) {
   return history.filter((snapshot) => isValidDefinitionSource(snapshot.source));
 }
 
+function normalizeSnapshot(snapshot: BuilderSnapshot) {
+  return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
+    initialRuntimeState: snapshot.initialRuntimeState,
+    initialDomainData: snapshot.initialDomainData,
+  });
+}
+
 export function createBuilderSnapshot(
   source: string,
   runtimeState: Record<string, unknown>,
@@ -125,15 +132,13 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
 
 export function parseImportedDefinition(rawValue: string) {
   const parsedValue = parseBuilderDefinitionExport(rawValue);
-  const sanitizedHistory = sanitizeDefinitionHistory(parsedValue.history);
+  const normalizedHistory =
+    parsedValue.history.length > 0
+      ? parsedValue.history.map((snapshot) => normalizeSnapshot(snapshot))
+      : [createBuilderSnapshot(parsedValue.source, parsedValue.runtimeState, parsedValue.domainData)];
 
   return {
     ...parsedValue,
-    history: sanitizedHistory.map((snapshot) => {
-      return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
-        initialRuntimeState: snapshot.initialRuntimeState,
-        initialDomainData: snapshot.initialDomainData,
-      });
-    }),
+    history: normalizedHistory,
   };
 }

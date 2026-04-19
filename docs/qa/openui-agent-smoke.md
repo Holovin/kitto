@@ -83,7 +83,9 @@ Expected:
 - an import error appears
 - Definition shows the rejected imported source and validation issues
 - Preview stays on the last committed valid app
+- runtime state and persisted data stay on the last committed snapshot
 - chat history is not wiped by the failed import
+- undo/redo history is not replaced by the failed import
 
 ## Scenario 6 — Undo/redo
 
