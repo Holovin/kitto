@@ -12,7 +12,7 @@ interface ComponentSpec {
   >;
 }
 
-const componentSpecPath = new URL('../../../../shared/openui/component-spec.json', import.meta.url);
+const componentSpecPath = new URL('../../../../shared/openui-component-spec.json', import.meta.url);
 const componentSpec = JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as ComponentSpec;
 const supportedToolNames = ['read_state', 'write_state', 'merge_state', 'append_state', 'remove_state'];
 

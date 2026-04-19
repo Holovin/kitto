@@ -6,9 +6,9 @@
     "backend"
   ],
   "scripts": {
-    "generate:openui-spec": "node scripts/generate-openui-spec.mjs",
-    "build:standalone-player": "npm run build:standalone-player --workspace frontend && node scripts/embed-standalone-player-assets.mjs",
-    "dev:standalone-player": "concurrently -k -n standalone-build,standalone-embed -c blue,blue \"npm run build:standalone-player:watch --workspace frontend\" \"node scripts/embed-standalone-player-assets.mjs --watch\"",
+    "generate:openui-spec": "node --import tsx scripts/generate-openui-spec.ts",
+    "build:standalone-player": "npm run build:standalone-player --workspace frontend && node --import tsx scripts/embed-standalone-player-assets.ts",
+    "dev:standalone-player": "concurrently -k -n standalone-build,standalone-embed -c blue,blue \"npm run build:standalone-player:watch --workspace frontend\" \"node --import tsx scripts/embed-standalone-player-assets.ts --watch\"",
     "dev": "npm run generate:openui-spec && concurrently -n frontend,backend,standalone -c cyan,magenta,blue \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\" \"npm run dev:standalone-player\"",
     "build": "npm run generate:openui-spec && npm run build:standalone-player && npm run build --workspaces",
     "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
@@ -18,6 +18,7 @@
     "start": "npm run start --workspace backend"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0"
   }
 }

@@ -41,7 +41,7 @@ Notes:
 - `frontend/` is a React 19 + Vite 8 builder UI for chat, Definition, Preview, `/elements`, and state inspection.
 - State is managed with Redux Toolkit and persisted with `redux-remember`.
 - The OpenUI runtime renders a constrained component/action/tool surface in the browser.
-- The frontend OpenUI library is the source of truth, and `shared/openui/component-spec.json` is a generated artifact consumed by the backend prompt.
+- The frontend OpenUI library is the source of truth, and `shared/openui-component-spec.json` is a generated artifact consumed by the backend prompt.
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
 - Generation follows a validation, single-repair, and commit pipeline.
 - Preview renders committed source only.

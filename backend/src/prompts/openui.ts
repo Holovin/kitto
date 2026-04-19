@@ -104,7 +104,7 @@ const toolSpecifications: ToolSpec[] = [
 ];
 
 const promptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const componentSpecPath = path.resolve(promptDirectory, '../../../shared/openui/component-spec.json');
+const componentSpecPath = path.resolve(promptDirectory, '../../../shared/openui-component-spec.json');
 
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';

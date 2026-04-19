@@ -42,10 +42,10 @@ Steps:
 ## OpenUI Source Of Truth
 
 - The frontend OpenUI library is the source of truth: `frontend/src/features/builder/openui/library/index.tsx`
-- The generated component spec artifact lives at `shared/openui/component-spec.json`
+- The generated component spec artifact lives at `shared/openui-component-spec.json`
 - The backend prompt consumes that generated spec in `backend/src/prompts/openui.ts`
 - Do not manually duplicate or hand-edit component signatures in the backend prompt
-- Do not hand-edit `shared/openui/component-spec.json`; it is a committed generated artifact
+- Do not hand-edit `shared/openui-component-spec.json`; it is a committed generated artifact
 - If you change the frontend library or anything that affects the generated component contract, regenerate the spec before finishing
 - The frontend parser and validation also depend on the real library via `builderOpenUiLibrary.toJSONSchema()`, so component changes affect both prompt generation and local validation
 - `validateOpenUiSource()` also performs literal enum-prop checks against the generated component schemas because the parser can preserve invalid literal props in the AST instead of rejecting them on parse alone
@@ -141,7 +141,7 @@ Steps:
   - `frontend/src/features/builder/standalone/createStandaloneHtml.ts`
   - `frontend/src/features/builder/standalone/playerAssets.generated.ts`
   - `frontend/vite.standalone.config.ts`
-  - `scripts/embed-standalone-player-assets.mjs`
+  - `scripts/embed-standalone-player-assets.ts`
 - The `/elements` page reads both `builderOpenUiLibrary.toSpec()` and `builderOpenUiLibrary.toJSONSchema()`, so library changes directly affect that explorer
 - QA docs are also a sync point. If UX labels, manual flows, API routes, prompt/component signatures, or expected runtime invariants change, sync:
   - `docs/qa/openui-agent-smoke.md`
