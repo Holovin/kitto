@@ -6,7 +6,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 
 - chat-driven app generation with streaming updates
 - automatic repair when the first model draft is invalid OpenUI
-- live preview, a raw definition panel, and an app-state inspector for reactive and persisted data
+- live preview from the last committed valid source, a raw definition panel that can show the incoming draft, and an app-state inspector for reactive and persisted data
 - undo/redo, reset, JSON import/export, and local persistence for builder history
 - a `/elements` route for browsing supported OpenUI components, actions, demos, and schemas
 
@@ -127,6 +127,7 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - request compaction when chat history exceeds the configured item or byte limits
 - in-memory rate limiting on LLM routes
 - OpenAI request timeouts
+- Preview stays on the last committed valid app while streaming, validation, and automatic repair run against the incoming draft
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - upstream stream cancellation when the browser disconnects
 

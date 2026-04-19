@@ -123,6 +123,7 @@ interface BuilderState {
   parseIssues: BuilderParseIssue[];
   redoHistory: BuilderSnapshot[];
   streamError: string | null;
+  // Draft source accumulated during generation; Preview continues to use committedSource until completeStreaming.
   streamedSource: string;
 }
 

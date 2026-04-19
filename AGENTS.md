@@ -60,11 +60,12 @@ Steps:
 ## State Model
 
 - Redux state is split intentionally:
-  - `builder`: committed source, streamed source, chat messages, undo/redo history, parse issues
+  - `builder`: committed source, streamed draft source, chat messages, undo/redo history, parse issues
   - `builderSession`: current runtime session/form state used by the renderer
   - `domain`: persisted app data mutated by OpenUI tools
 - `builder` is persisted in `localStorage` through `redux-remember`
 - Import/export uses a versioned JSON format; the current exported format is `version: 1`
+- Preview must always render from the last committed valid source; streamed draft source may be shown in Definition during generation, but must not mount in Preview before commit
 - A committed snapshot stores:
   - `source`
   - `runtimeState`
@@ -79,6 +80,7 @@ Steps:
 - If streaming fails before the first chunk, the frontend falls back to `POST /api/llm/generate`
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
 - If the generated source is invalid, the frontend performs up to 2 automatic repair attempts by sending a repair prompt back to the backend
+- Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API
 - Streaming responses use SSE with `chunk`, `done`, and `error` events
 

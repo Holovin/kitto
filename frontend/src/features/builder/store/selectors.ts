@@ -11,3 +11,6 @@ export const selectParseIssues = (state: RootState) => state.builder.parseIssues
 export const selectRedoHistory = (state: RootState) => state.builder.redoHistory;
 export const selectRuntimeSessionState = (state: RootState) => state.builderSession.runtimeSessionState;
 export const selectStreamedSource = (state: RootState) => state.builder.streamedSource;
+export const selectPreviewSource = (state: RootState) => state.builder.committedSource;
+export const selectDefinitionSource = (state: RootState) =>
+  state.builder.isStreaming ? state.builder.streamedSource : state.builder.committedSource;

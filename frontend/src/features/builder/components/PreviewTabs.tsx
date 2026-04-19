@@ -12,13 +12,13 @@ import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/build
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
-  selectCommittedSource,
+  selectDefinitionSource,
   selectDomainData,
   selectHistory,
   selectIsStreaming,
   selectParseIssues,
+  selectPreviewSource,
   selectRuntimeSessionState,
-  selectStreamedSource,
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
@@ -33,20 +33,19 @@ function formatJson(value: unknown) {
 export function PreviewTabs() {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
-  const committedSource = useAppSelector(selectCommittedSource);
+  const definitionSource = useAppSelector(selectDefinitionSource);
   const domainData = useAppSelector(selectDomainData);
   const history = useAppSelector(selectHistory);
   const isStreaming = useAppSelector(selectIsStreaming);
   const parseIssues = useAppSelector(selectParseIssues);
+  const previewSource = useAppSelector(selectPreviewSource);
   const runtimeSessionState = useAppSelector(selectRuntimeSessionState);
-  const streamedSource = useAppSelector(selectStreamedSource);
   const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
-  const source = isStreaming ? streamedSource : committedSource;
-  const deferredSource = useDeferredValue(source);
+  const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
-  const isEmptyCanvas = !source.trim();
-  const combinedIssues = isEmptyCanvas ? parseIssues : [...parseIssues, ...runtimeIssues];
+  const isPreviewEmptyCanvas = !previewSource.trim();
+  const combinedIssues = isPreviewEmptyCanvas ? parseIssues : [...parseIssues, ...runtimeIssues];
 
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
@@ -77,7 +76,7 @@ export function PreviewTabs() {
       <TabsContent value="preview" className="mt-0 flex-1 min-h-0">
         <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
           <CardContent className="h-full min-h-0 p-6">
-            {isEmptyCanvas && !isStreaming ? (
+            {isPreviewEmptyCanvas ? (
               <div className="h-full min-h-0 overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-slate-50/70 p-4 sm:p-6">
                 <PreviewEmptyState />
               </div>
@@ -101,7 +100,7 @@ export function PreviewTabs() {
                       Loading query...
                     </div>
                   }
-                  response={deferredSource}
+                  response={deferredPreviewSource}
                   toolProvider={builderToolProvider}
                 />
               </div>
@@ -111,7 +110,7 @@ export function PreviewTabs() {
       </TabsContent>
 
       <TabsContent value="definition" className="mt-0 flex-1 min-h-0">
-        <DefinitionPanel issues={combinedIssues} source={source} />
+        <DefinitionPanel issues={combinedIssues} source={definitionSource} />
       </TabsContent>
 
       <TabsContent value="app-state" className="mt-0 flex-1 min-h-0">
@@ -120,7 +119,7 @@ export function PreviewTabs() {
             <div className="flex flex-wrap items-center justify-end gap-3">
               <Button
                 className="h-8 rounded-lg border border-slate-200 px-3 text-xs shadow-none"
-                disabled={!currentSnapshot || isEmptyCanvas || isStreaming}
+                disabled={!currentSnapshot || isPreviewEmptyCanvas || isStreaming}
                 size="sm"
                 variant="secondary"
                 onClick={handleResetAppState}
