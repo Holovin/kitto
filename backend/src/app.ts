@@ -23,8 +23,18 @@ function isApiRoute(pathname: string) {
   return pathname === '/api' || pathname.startsWith('/api/');
 }
 
-function isStaticAssetRoute(pathname: string) {
-  return pathname.startsWith('/assets/') || pathname === '/favicon.svg' || pathname === '/icons.svg';
+function normalizeRoutePath(pathname: string) {
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    return pathname.slice(0, -1);
+  }
+
+  return pathname;
+}
+
+function isFrontendRoute(pathname: string) {
+  const normalizedPath = normalizeRoutePath(pathname);
+
+  return normalizedPath === '/' || normalizedPath === '/chat' || normalizedPath === '/elements';
 }
 
 export function createApp(env: AppEnv) {
@@ -43,10 +53,6 @@ export function createApp(env: AppEnv) {
   app.route('/api', configRoutes);
   app.route('/api', healthRoutes);
   app.route('/api', llmRoutes);
-  app.all('/config', jsonRouteNotFound);
-  app.all('/health', jsonRouteNotFound);
-  app.all('/llm', jsonRouteNotFound);
-  app.all('/llm/*', jsonRouteNotFound);
 
   const frontendDistDir = env.frontendDistDir;
   const frontendRoot = path.relative(process.cwd(), frontendDistDir);
@@ -58,7 +64,7 @@ export function createApp(env: AppEnv) {
     app.use('/icons.svg', serveStatic({ root: frontendRoot }));
 
     app.get('*', async (context, next) => {
-      if (isApiRoute(context.req.path) || isStaticAssetRoute(context.req.path)) {
+      if (isApiRoute(context.req.path) || !isFrontendRoute(context.req.path)) {
         await next();
         return;
       }

@@ -9,17 +9,6 @@ Supported API:
 - `POST /api/llm/generate`
 - `POST /api/llm/generate/stream`
 
-Legacy root API paths should return JSON `404`:
-
-- `/health`
-- `/config`
-- `/llm`
-- `/llm/*`
-
-Expected not-found payload:
-
-- JSON body contains `error: "Route not found."`
-
 ## Runtime invariants
 
 - Preview renders committed source only.

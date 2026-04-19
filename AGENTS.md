@@ -113,7 +113,6 @@ Steps:
 - Default backend URL: `http://localhost:8787`
 - In development, the frontend talks to `/api/*` and Vite proxies requests to the backend
 - The supported backend API lives under `/api/*` only
-- Legacy root-level routes such as `/health`, `/config`, and `/llm/*` are intentionally not supported
 - Public runtime limits are exposed through `GET /api/config`
 - Health/model status is exposed through `GET /api/health`
 - The backend rejects oversized raw request bodies before JSON parsing

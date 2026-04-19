@@ -92,9 +92,8 @@ Accepts the same request shape and streams Server-Sent Events:
 - rate-limits LLM endpoints with in-memory middleware
 - cancels the upstream OpenAI request when the client disconnects
 - returns public validation, timeout, upstream, and internal error payloads
-- serves `frontend/dist/index.html` as an SPA fallback for non-API routes when the frontend build exists
+- serves `frontend/dist/index.html` for the frontend entry routes when the frontend build exists
 
 ## Notes
 
-- `/health`, `/config`, and `/llm/*` at the root level intentionally return `404`
 - rate limiting is process-local and meant for local development, not distributed deployment

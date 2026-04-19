@@ -68,7 +68,7 @@ By default:
 
 In development, the frontend talks to `/api/*` and Vite proxies that traffic to the backend target from `VITE_DEV_API_TARGET`. If that variable is not set, the Vite config falls back to `http://localhost:<PORT>` using `backend/.env`.
 
-After `npm run build`, `npm run start` launches the compiled backend on `PORT` and serves `frontend/dist` when that folder exists. That means the built app can run as a single server process. If `frontend/dist` is missing, the backend still serves the API only.
+After `npm run build`, `npm run start` launches the compiled backend on `PORT` and serves the built frontend routes from `frontend/dist` when that folder exists. That means the built app can run as a single server process. If `frontend/dist` is missing, the backend still serves the API only.
 
 ## Environment
 
@@ -101,8 +101,6 @@ The supported API lives under `/api/*` only.
 - `GET /api/config` - frontend-safe request limits loaded at bootstrap
 - `POST /api/llm/generate` - non-streaming OpenUI generation
 - `POST /api/llm/generate/stream` - SSE stream with `chunk`, `done`, and `error` events
-
-Legacy root-level routes such as `/health`, `/config`, and `/llm/*` intentionally return `404`.
 
 ## Builder capabilities
 
