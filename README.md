@@ -1,163 +1,98 @@
 # Kitto OpenUI
 
-Kitto OpenUI is a local-first playground for generating small browser apps from chat prompts. The workspace combines a React/Vite builder, an OpenUI preview runtime, and a Hono backend that calls the OpenAI Responses API and streams generated source back to the browser.
+Kitto OpenUI is a local-first playground for generating small browser apps from chat prompts. It combines a React/Vite builder, a constrained OpenUI runtime, and a Hono backend that calls the OpenAI Responses API to generate or update OpenUI source.
 
-## What the project does today
+## 1. Overview
 
-- chat-driven app generation with streaming updates
-- a single automatic repair pass when the first model draft is invalid OpenUI
-- live preview from the last committed valid source, a raw definition panel that can show the incoming draft, and an app-state inspector for reactive and persisted data
-- undo/redo, reset, JSON import/export with validation-before-apply, and local persistence for committed source, live app state, and builder history
-- a `/elements` route for browsing supported OpenUI components, actions, demos, and schemas
+- Generate small browser apps from chat prompts and follow-up edits.
+- Stream draft OpenUI into the Definition panel while keeping Preview on the last committed valid app.
+- Support undo/redo, reset, versioned JSON import/export, and persisted runtime/domain state.
+- Include an `/elements` route for inspecting the supported OpenUI component and tool surface.
 
-## Workspace layout
+## 2. Quick start
 
-- `frontend/` - React 19 + Vite 8 builder UI and OpenUI runtime
-- `backend/` - Hono API, OpenAI integration, rate limiting, and static hosting for `frontend/dist`
-
-## Requirements
+Requirements:
 
 - Node.js 22+
 - npm 10+
 - `OPENAI_API_KEY`
 
-## Quick start
+```bash
+npm install
+cp backend/.env.example backend/.env
+# set OPENAI_API_KEY in backend/.env
+npm run dev
+npm run test
+npm run build
+npm run start
+```
 
-1. Install workspace dependencies:
+Notes:
 
-   ```bash
-   npm install
-   ```
+- `npm run dev` starts the frontend and backend together.
+- In development, the builder is available at [http://localhost:5555](http://localhost:5555) and the backend runs at `http://localhost:8787`.
+- In development, the frontend talks to `/api/*` and Vite proxies those requests to the backend.
+- `npm run start` launches the compiled backend after `npm run build` and serves the built frontend when `frontend/dist` exists.
+- If you want to override the API base URL or dev proxy target, copy `frontend/.env.example` to `frontend/.env`.
 
-2. Create the backend env file:
+## 3. Architecture note
 
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
+- `frontend/` is a React 19 + Vite 8 builder UI for chat, Definition, Preview, `/elements`, and state inspection.
+- State is managed with Redux Toolkit and persisted with `redux-remember`.
+- The OpenUI runtime renders a constrained component/action/tool surface in the browser.
+- The frontend OpenUI library is the source of truth, and `shared/openui/component-spec.json` is a generated artifact consumed by the backend prompt.
+- `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
+- Generation follows a validation, single-repair, and commit pipeline.
+- Preview renders committed source only.
 
-3. Set `OPENAI_API_KEY` in `backend/.env`.
+## 4. AI usage note
 
-4. Optionally create a frontend env file if you want to override the API base URL or dev proxy target:
+- The LLM is used only to generate or update OpenUI source from chat requests.
+- Internal preview interactions such as screen changes, form edits, and button clicks run locally; only chat submissions hit `/api/llm/*`.
+- Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
+- The frontend validates generated drafts locally and triggers at most one repair pass before commit.
+- `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 
-   ```bash
-   cp frontend/.env.example frontend/.env
-   ```
+## 5. Trade-offs / scope
 
-5. Start both apps:
+- There is no arbitrary JavaScript or general code mode; generated output is constrained to the supported OpenUI surface.
+- The project does not generate npm packages, full codebases, or general-purpose app scaffolding.
+- The supported OpenUI component and tool surface is intentionally small.
+- Rate limiting is in-memory and demo-grade rather than distributed production infrastructure.
+- Generated apps are browser-first and do not require a generated backend.
 
-   ```bash
-   npm run dev
-   ```
-
-6. Open the builder at [http://localhost:5555](http://localhost:5555).
-
-By default:
-
-- the frontend runs on `http://localhost:5555`
-- the backend runs on `http://localhost:8787`
-- Vite proxies `/api/*` from the frontend to the backend
-
-## Root scripts
-
-- `npm run dev` - runs frontend and backend together
-- `npm run lint` - runs frontend ESLint and backend TypeScript checks
-- `npm run test` - runs frontend and backend unit tests without calling the real OpenAI service
-- `npm run test:frontend` - runs frontend Vitest coverage for validation, reducers, import/export helpers, and stream parsing
-- `npm run test:backend` - runs backend Vitest coverage for `/api/*` contracts, request validation, and prompt drift guards
-- `npm run generate:openui-spec` - regenerates the OpenUI component spec from the frontend library source of truth
-- `npm run build` - regenerates the OpenUI component spec, then builds the frontend bundle and the backend server
-- `npm run start` - starts the compiled backend
-
-## Development and production flow
-
-In development, the frontend talks to `/api/*` and Vite proxies that traffic to the backend target from `VITE_DEV_API_TARGET`. If that variable is not set, the Vite config falls back to `http://localhost:<PORT>` using `backend/.env`.
-
-After `npm run build`, `npm run start` launches the compiled backend on `PORT` and serves the built frontend routes from `frontend/dist` when that folder exists. That means the built app can run as a single server process. If `frontend/dist` is missing, the backend still serves the API only.
-
-## Environment
-
-### Frontend
-
-Frontend env is optional.
-
-- `VITE_API_BASE_URL` - backend base URL used by the browser, default `/api`
-- `VITE_DEV_API_TARGET` - dev proxy target used by Vite, default `http://localhost:8787`
-
-### Backend
-
-- `OPENAI_API_KEY` - required API key for generation
-- `OPENAI_MODEL` - Responses API model, default `gpt-5.4-mini`
-- `OPENAI_REQUEST_TIMEOUT_MS` - upstream OpenAI timeout, default `120000`
-- `FRONTEND_ORIGIN` - allowed browser origin for CORS, default `http://localhost:5555`
-- `PORT` - backend port, default `8787`
-- `LOG_LEVEL` - one of `debug`, `info`, `warn`, `error`, `silent`
-- `LLM_PROMPT_MAX_CHARS` - prompt length limit, default `4096`
-- `LLM_CHAT_HISTORY_MAX_ITEMS` - chat window sent to the backend, default `40`
-- `LLM_REQUEST_MAX_BYTES` - safe compacted request size, default `300000`
-- `LLM_OUTPUT_MAX_BYTES` - backend-generated source byte limit, default `100000`
-- `LLM_RATE_LIMIT_MAX_REQUESTS` - in-memory request cap per window, default `60`
-- `LLM_RATE_LIMIT_WINDOW_MS` - rate-limit window, default `60000`
-
-## API surface
-
-The supported API lives under `/api/*` only.
-
-- `GET /api/health` - backend status, configured model, timestamp, and OpenAI key presence
-- `GET /api/config` - frontend-safe request limits and stream timeout policy loaded at bootstrap
-- `POST /api/llm/generate` - non-streaming OpenUI generation
-- `POST /api/llm/generate/stream` - SSE stream with `chunk`, `done`, and `error` events
-
-## Builder capabilities
+## 6. Supported surface
 
 ### Main routes
 
-- `/` and `/chat` - chat builder, preview, definition panel, app-state inspector, import/export, undo/redo, reset, and auto-repair flow
-- `/elements` - schema explorer for the supported OpenUI surface
+- `/` and `/chat` for the chat builder, Definition, Preview, import/export, undo/redo, reset, and app-state inspection
+- `/elements` for browsing the supported OpenUI components, actions, demos, and schemas
 
 ### Supported OpenUI components
 
 `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 
-`Repeater` is the collection primitive: build row nodes with `@Each(...)`, and when the list is persisted, load it through `Query("read_state", ...)` instead of hardcoding repeated rows.
-
 ### Persisted tools exposed through `Query(...)` and `Mutation(...)`
 
 `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 
-Built-in OpenUI action events are separate from persisted tools. `@OpenUrl(...)` is handled through the OpenUI action-event bridge and shares the same safe URL policy as `Link(...)`.
+Notes:
 
-Internal screen changes should use local OpenUI state such as `$currentScreen` with `@Set(...)` instead of persisted tools.
-Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use only letters, numbers, `_`, or `-`, and must never include `__proto__`, `prototype`, or `constructor`. `remove_state` also requires an explicit non-negative integer `index`.
+- Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
+- `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
+- Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
+- Import/export uses a versioned JSON format and validates before apply; invalid imports stay in Definition and do not replace the current committed preview.
 
-## Runtime safeguards
+## 7. API surface
 
-- prompt, chat-history, and request-size validation before the OpenAI call
-- raw `/api/llm/*` bodies above `LLM_REQUEST_MAX_BYTES * 4` are rejected with JSON `413` before the backend buffers them fully in memory
-- request compaction when chat history exceeds the configured item or byte limits
-- only `user` messages and `assistant` generation summaries are forwarded in `chatHistory`; operational `system` notices stay visible in the UI but are excluded from model context
-- backend prompt assembly wraps current source and recent chat in explicit data blocks and instructs the model to treat them as data, not task instructions
-- backend model output above `LLM_OUTPUT_MAX_BYTES` is rejected with a controlled upstream error before it is returned or finalized
-- in-memory rate limiting on LLM routes
-- OpenAI request timeouts
-- a single automatic repair retry that includes the original request, committed valid source, invalid draft, validation issues, and critical syntax rules
-- Preview stays on the last committed valid app while streaming, validation, and automatic repair run against the incoming draft
-- imported definition files are validated before they replace the current committed preview
-- invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
-- reload restores the last committed source, current reactive state, persisted domain data, and undo/redo history from local persistence
-- automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
-- a streaming response counts as successful only after a valid terminal `done` event; truncated or aborted streams never commit partial drafts
-- frontend streaming enforces a max duration and an idle timeout; timed-out streams fail with a controlled error and keep the last committed preview visible
-- every generation now terminates in exactly one state: committed, failed, or cancelled; the builder must not remain stuck in `Generating...` or `Updating...`
-- the chat composer exposes an explicit `Cancel` action while a generation is in flight; intentional cancel clears the active request without appending a red chat error
-- request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
-- `Link(...)` and `@OpenUrl(...)` share a safe URL policy: only `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...` links are allowed; blocked or malformed URLs are rendered inert or ignored
-- upstream stream cancellation when the browser disconnects
+The supported backend API lives under `/api/*` only.
 
-## QA doc maintenance
+- `GET /api/health` returns backend status, configured model, timestamp, and OpenAI key presence.
+- `GET /api/config` returns frontend-safe request limits and stream timeout policy.
+- `POST /api/llm/generate` performs non-streaming OpenUI generation.
+- `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events.
 
-When you change QA-visible behavior, update the QA docs in the same change if they stop matching. This includes API routes, prompt/component signatures, supported tools, builder controls such as import/export or undo/redo, and manual smoke-test steps or expectations.
-
-## Additional docs
+## 8. Additional docs
 
 - [docs/qa/openui-agent-smoke.md](docs/qa/openui-agent-smoke.md)
 - [docs/qa/openui-manual-checklist.md](docs/qa/openui-manual-checklist.md)
