@@ -16,7 +16,7 @@ function createInitialState() {
 
 describe('builderSlice', () => {
   it('normalizes rejected committed source back to the latest valid snapshot', () => {
-    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] } });
+    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
 
     const state = normalizeBuilderState({
       activeTab: 'preview',
@@ -81,7 +81,7 @@ describe('builderSlice', () => {
         requestId: 'request-2',
       }),
     );
-    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] } });
+    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
     const completed = builderReducer(
       started,
       builderActions.completeStreaming({

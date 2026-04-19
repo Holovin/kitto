@@ -38,6 +38,7 @@ This package contains the Kitto builder UI. It lets you prompt the backend for O
 `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 
 Use local OpenUI state such as `$currentScreen` plus `@Set(...)` for internal screen changes.
+Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use only letters, numbers, `_`, or `-`, and must never include `__proto__`, `prototype`, or `constructor`. `remove_state` also requires an explicit non-negative integer `index`.
 
 ## Scripts
 

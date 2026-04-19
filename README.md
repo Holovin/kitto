@@ -121,6 +121,7 @@ The supported API lives under `/api/*` only.
 `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 
 Internal screen changes should use local OpenUI state such as `$currentScreen` with `@Set(...)` instead of persisted tools.
+Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use only letters, numbers, `_`, or `-`, and must never include `__proto__`, `prototype`, or `constructor`. `remove_state` also requires an explicit non-negative integer `index`.
 
 ## Runtime safeguards
 
@@ -134,6 +135,7 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
+- `Link(...)` and `@OpenUrl(...)` share a safe URL policy: only `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...` links are allowed; blocked or malformed URLs are rendered inert or ignored
 - upstream stream cancellation when the browser disconnects
 
 ## QA doc maintenance

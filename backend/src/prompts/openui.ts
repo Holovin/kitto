@@ -6,11 +6,15 @@ import { generatePrompt, type PromptSpec, type ToolSpec } from '@openuidev/lang-
 const toolSpecifications: ToolSpec[] = [
   {
     name: 'read_state',
-    description: 'Read a value from the persisted browser data tree at the given dot-path.',
+    description: 'Read a value from the persisted browser data tree at a non-empty dot-path.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Dot-path such as app.tasks, app.profile, or app.settings.theme.' },
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path such as app.tasks or app.profile.name. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
       },
       required: ['path'],
     },
@@ -23,11 +27,15 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'write_state',
-    description: 'Replace the persisted value at a dot-path.',
+    description: 'Replace the persisted value at a non-empty dot-path.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string' },
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
         value: { description: 'Any JSON-compatible value.' },
       },
       required: ['path', 'value'],
@@ -38,11 +46,15 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'merge_state',
-    description: 'Shallow-merge an object patch into the persisted value at a dot-path.',
+    description: 'Shallow-merge a plain-object patch into the persisted value at a non-empty dot-path.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string' },
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
         patch: { type: 'object', additionalProperties: true },
       },
       required: ['path', 'patch'],
@@ -53,11 +65,15 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'append_state',
-    description: 'Append a value to an array stored at a dot-path.',
+    description: 'Append a value to an array stored at a non-empty dot-path.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string' },
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
         value: { description: 'The JSON-compatible value to append.' },
       },
       required: ['path', 'value'],
@@ -68,12 +84,16 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'remove_state',
-    description: 'Remove an array item by index from the persisted value at a dot-path.',
+    description: 'Remove an array item by non-negative index from the persisted value at a non-empty dot-path.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string' },
-        index: { type: 'number' },
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        index: { type: 'number', minimum: 0 },
       },
       required: ['path', 'index'],
     },
@@ -150,6 +170,11 @@ const additionalRules = [
   'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
   'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
   'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
+  'Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.',
+  'Each persisted path segment may only use letters, numbers, `_`, or `-`. Numeric segments are array indexes only.',
+  'Never use path segments named `__proto__`, `prototype`, or `constructor`.',
+  'write_state and append_state values must stay JSON-compatible, and merge_state patches must be plain objects.',
+  'remove_state requires an explicit non-negative integer index and only works on existing arrays.',
   'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
   'Every `@Run(ref)` must reference a defined Query or Mutation statement.',
   'Every Button must start with a stable id string so button state and actions stay deterministic.',

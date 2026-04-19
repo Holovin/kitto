@@ -1,56 +1,81 @@
 import { domainActions } from '@features/builder/store/domainSlice';
 import { readPath } from '@features/builder/store/path';
 import { store } from '@store/store';
-import { getToolPathValue, getToolRecordValue } from './toolArguments';
+import { getRequiredToolIndex, getRequiredToolPatch, getRequiredToolPath, getRequiredToolValue, wrapToolError } from './toolArguments';
+
+async function runTool<T>(toolName: string, callback: () => T | Promise<T>) {
+  try {
+    return await callback();
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
+}
 
 function createBuilderToolProvider() {
   return {
     read_state: async (args: Record<string, unknown>) => {
-      const path = getToolPathValue(args.path);
-      const value = readPath(store.getState().domain.data, path);
+      return runTool('read_state', () => {
+        const path = getRequiredToolPath('read_state', args.path);
+        const value = readPath(store.getState().domain.data, path);
 
-      return structuredClone(value ?? null);
+        return structuredClone(value ?? null);
+      });
     },
     write_state: async (args: Record<string, unknown>) => {
-      const path = getToolPathValue(args.path);
-      store.dispatch(
-        domainActions.writeState({
-          path,
-          value: args.value,
-        }),
-      );
-      return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      return runTool('write_state', () => {
+        const path = getRequiredToolPath('write_state', args.path);
+        const value = getRequiredToolValue('write_state', args.value);
+
+        store.dispatch(
+          domainActions.writeState({
+            path,
+            value,
+          }),
+        );
+        return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      });
     },
     merge_state: async (args: Record<string, unknown>) => {
-      const path = getToolPathValue(args.path);
-      const patch = getToolRecordValue(args.patch ?? args.value);
-      store.dispatch(
-        domainActions.mergeState({
-          path,
-          patch,
-        }),
-      );
-      return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      return runTool('merge_state', () => {
+        const path = getRequiredToolPath('merge_state', args.path);
+        const patch = getRequiredToolPatch('merge_state', args.patch ?? args.value);
+
+        store.dispatch(
+          domainActions.mergeState({
+            path,
+            patch,
+          }),
+        );
+        return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      });
     },
     append_state: async (args: Record<string, unknown>) => {
-      const path = getToolPathValue(args.path);
-      store.dispatch(
-        domainActions.appendState({
-          path,
-          value: args.value,
-        }),
-      );
-      return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      return runTool('append_state', () => {
+        const path = getRequiredToolPath('append_state', args.path);
+        const value = getRequiredToolValue('append_state', args.value);
+
+        store.dispatch(
+          domainActions.appendState({
+            path,
+            value,
+          }),
+        );
+        return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      });
     },
     remove_state: async (args: Record<string, unknown>) => {
-      const path = getToolPathValue(args.path);
-      store.dispatch(
-        domainActions.removeState({
-          path,
-          index: typeof args.index === 'number' ? args.index : 0,
-        }),
-      );
-      return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      return runTool('remove_state', () => {
+        const path = getRequiredToolPath('remove_state', args.path);
+        const index = getRequiredToolIndex('remove_state', args.index);
+
+        store.dispatch(
+          domainActions.removeState({
+            path,
+            index,
+          }),
+        );
+        return structuredClone(readPath(store.getState().domain.data, path) ?? null);
+      });
     },
   };
 }

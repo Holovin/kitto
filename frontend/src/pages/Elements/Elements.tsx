@@ -9,7 +9,13 @@ import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/action
 import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import { getToolPathValue, getToolRecordValue } from '@features/builder/openui/runtime/toolArguments';
+import {
+  getRequiredToolIndex,
+  getRequiredToolPatch,
+  getRequiredToolPath,
+  getRequiredToolValue,
+  wrapToolError,
+} from '@features/builder/openui/runtime/toolArguments';
 import { appendPathValue, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
 import type { BuilderParseIssue } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
@@ -41,6 +47,14 @@ function cloneRecord(value?: Record<string, unknown>) {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+async function runSandboxTool<T>(toolName: string, callback: () => T | Promise<T>) {
+  try {
+    return await callback();
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
 }
 
 function getComponentSchema(componentName: string): ComponentSchema {
@@ -220,66 +234,78 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const toolProvider = useMemo(
     () => ({
       read_state: async (args: Record<string, unknown>) => {
-        const path = getToolPathValue(args.path);
-        return structuredClone(readPath(domainDataRef.current, path) ?? null);
+        return runSandboxTool('read_state', () => {
+          const path = getRequiredToolPath('read_state', args.path);
+          return structuredClone(readPath(domainDataRef.current, path) ?? null);
+        });
       },
       write_state: async (args: Record<string, unknown>) => {
-        const path = getToolPathValue(args.path);
-        let nextValue: unknown = null;
+        return runSandboxTool('write_state', () => {
+          const path = getRequiredToolPath('write_state', args.path);
+          const value = getRequiredToolValue('write_state', args.value);
+          let nextValue: unknown = null;
 
-        setDomainData((previousState) => {
-          const nextState = cloneRecord(previousState);
-          const writtenState = writePathValue(nextState, path, args.value) as Record<string, unknown>;
-          nextValue = structuredClone(readPath(writtenState, path) ?? null);
-          domainDataRef.current = writtenState;
-          return writtenState;
+          setDomainData((previousState) => {
+            const nextState = cloneRecord(previousState);
+            const writtenState = writePathValue(nextState, path, value) as Record<string, unknown>;
+            nextValue = structuredClone(readPath(writtenState, path) ?? null);
+            domainDataRef.current = writtenState;
+            return writtenState;
+          });
+
+          return nextValue;
         });
-
-        return nextValue;
       },
       merge_state: async (args: Record<string, unknown>) => {
-        const path = getToolPathValue(args.path);
-        const patch = getToolRecordValue(args.patch ?? args.value);
-        let nextValue: unknown = null;
+        return runSandboxTool('merge_state', () => {
+          const path = getRequiredToolPath('merge_state', args.path);
+          const patch = getRequiredToolPatch('merge_state', args.patch ?? args.value);
+          let nextValue: unknown = null;
 
-        setDomainData((previousState) => {
-          const nextState = cloneRecord(previousState);
-          const mergedState = mergePathValue(nextState, path, patch);
-          nextValue = structuredClone(readPath(mergedState, path) ?? null);
-          domainDataRef.current = mergedState;
-          return mergedState;
+          setDomainData((previousState) => {
+            const nextState = cloneRecord(previousState);
+            const mergedState = mergePathValue(nextState, path, patch);
+            nextValue = structuredClone(readPath(mergedState, path) ?? null);
+            domainDataRef.current = mergedState;
+            return mergedState;
+          });
+
+          return nextValue;
         });
-
-        return nextValue;
       },
       append_state: async (args: Record<string, unknown>) => {
-        const path = getToolPathValue(args.path);
-        let nextValue: unknown = null;
+        return runSandboxTool('append_state', () => {
+          const path = getRequiredToolPath('append_state', args.path);
+          const value = getRequiredToolValue('append_state', args.value);
+          let nextValue: unknown = null;
 
-        setDomainData((previousState) => {
-          const nextState = cloneRecord(previousState);
-          const appendedState = appendPathValue(nextState, path, args.value);
-          nextValue = structuredClone(readPath(appendedState, path) ?? null);
-          domainDataRef.current = appendedState;
-          return appendedState;
+          setDomainData((previousState) => {
+            const nextState = cloneRecord(previousState);
+            const appendedState = appendPathValue(nextState, path, value);
+            nextValue = structuredClone(readPath(appendedState, path) ?? null);
+            domainDataRef.current = appendedState;
+            return appendedState;
+          });
+
+          return nextValue;
         });
-
-        return nextValue;
       },
       remove_state: async (args: Record<string, unknown>) => {
-        const path = getToolPathValue(args.path);
-        const index = typeof args.index === 'number' ? args.index : 0;
-        let nextValue: unknown = null;
+        return runSandboxTool('remove_state', () => {
+          const path = getRequiredToolPath('remove_state', args.path);
+          const index = getRequiredToolIndex('remove_state', args.index);
+          let nextValue: unknown = null;
 
-        setDomainData((previousState) => {
-          const nextState = cloneRecord(previousState);
-          const trimmedState = removePathValue(nextState, path, index);
-          nextValue = structuredClone(readPath(trimmedState, path) ?? null);
-          domainDataRef.current = trimmedState;
-          return trimmedState;
+          setDomainData((previousState) => {
+            const nextState = cloneRecord(previousState);
+            const trimmedState = removePathValue(nextState, path, index);
+            nextValue = structuredClone(readPath(trimmedState, path) ?? null);
+            domainDataRef.current = trimmedState;
+            return trimmedState;
+          });
+
+          return nextValue;
         });
-
-        return nextValue;
       },
     }),
     [],

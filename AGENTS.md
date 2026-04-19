@@ -20,6 +20,7 @@ Steps:
 - If you update the OpenUI component spec, or change the frontend OpenUI library that defines it, you must run `npm run generate:openui-spec` before finishing.
 - If you change the API contract, OpenUI prompt contract, supported components/tools, builder controls, or any QA-visible runtime behavior, update `docs/qa/openui-agent-smoke.md` and `docs/qa/openui-manual-checklist.md` before finishing whenever their steps, expectations, or contract notes no longer match.
 - Tests must live under `frontend/src/tests/**` or `backend/src/tests/**`. Mirror the source structure inside those folders and do not colocate test files next to production modules.
+- Frontend tests are type-checked by the reviewer build path via `tsc -b`. Keep test fixtures fully type-safe, and explicitly type empty arrays in fixtures when needed to avoid accidental `never[]` inference.
 - After code changes, run the relevant existing tests for the touched feature area before finishing. If the change is substantial and that area has no meaningful tests yet, add targeted tests for it. Do not add tests for every tiny refactor or trivial copy change.
 - Documentation must not contain absolute local filesystem paths, local file URLs, usernames, home-directory references, tokens, API keys, secrets, or other personal or machine-specific data. Use plain text or project-relative paths only.
 
@@ -51,6 +52,13 @@ Steps:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Current sandbox tools exposed to generated apps:
   - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+- Persisted tool contract:
+  - paths must be non-empty dot-paths no deeper than 10 segments
+  - path segments may use only letters, numbers, `_`, or `-`
+  - `__proto__`, `prototype`, and `constructor` are always invalid path or object keys
+  - numeric path segments are array indexes only
+  - `remove_state` requires an explicit non-negative integer `index`
+  - `write_state` and `append_state` values must stay JSON-compatible, and `merge_state` patches must stay plain objects
 
 ## Architecture
 

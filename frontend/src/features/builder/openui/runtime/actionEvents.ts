@@ -1,16 +1,17 @@
 import { BuiltinActionType, type ActionEvent } from '@openuidev/react-lang';
+import { parseSafeUrl } from './safeUrl';
 
 export function handleOpenUiActionEvent(event: ActionEvent) {
   if (event.type !== BuiltinActionType.OpenUrl) {
     return false;
   }
 
-  const url = typeof event.params.url === 'string' ? event.params.url : '';
+  const safeUrl = parseSafeUrl(event.params.url);
 
-  if (!url.startsWith('https://')) {
+  if (!safeUrl) {
     return false;
   }
 
-  window.open(url, '_blank', 'noopener,noreferrer');
+  window.open(safeUrl, '_blank', 'noopener,noreferrer');
   return true;
 }

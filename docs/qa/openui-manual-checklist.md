@@ -21,8 +21,15 @@ Supported API:
 - Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `write_state`, `merge_state`, `append_state`, and `remove_state`.
+- Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
+- Persisted path segments may use only letters, numbers, `_`, or `-`, and must reject `__proto__`, `prototype`, and `constructor`.
+- Numeric path segments are valid only when they address array indexes.
+- `write_state` and `append_state` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
+- Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
 - `@OpenUrl` is handled through the OpenUI built-in action event bridge, not through persisted tools.
-- External URL opens should be limited to `https://...`.
+- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash links `#...`.
+- `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
+- `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Screen navigation uses local state such as `$currentScreen` with `@Set(...)`.
 - Persisted tools are for exportable/shared domain data, not internal screen navigation.
 

@@ -30,7 +30,7 @@ describe('persistedState', () => {
     };
     const initialDomainData = {
       app: {
-        users: [],
+        users: [] as string[],
       },
     };
 
@@ -78,7 +78,7 @@ describe('persistedState', () => {
         { app: { submissions: ['current'] } },
         {
           initialRuntimeState: { currentScreen: 'intro' },
-          initialDomainData: { app: { submissions: [] } },
+          initialDomainData: { app: { submissions: [] as string[] } },
         },
       ),
     ];
@@ -128,7 +128,7 @@ describe('persistedState', () => {
         version: 1,
         source: validSource,
         runtimeState: { currentScreen: 'main' },
-        domainData: { app: { tasks: [] } },
+        domainData: { app: { tasks: [] as string[] } },
       }),
     );
 
