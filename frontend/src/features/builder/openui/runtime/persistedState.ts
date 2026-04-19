@@ -41,6 +41,14 @@ function assertValidDefinitionSource(source: string, label: string) {
   throw new Error(`${label} is invalid. ${summary || 'Please check the file contents.'}`);
 }
 
+function isValidDefinitionSource(source: string) {
+  return validateOpenUiSource(source).isValid;
+}
+
+function sanitizeDefinitionHistory(history: BuilderSnapshot[]) {
+  return history.filter((snapshot) => isValidDefinitionSource(snapshot.source));
+}
+
 export function createBuilderSnapshot(
   source: string,
   runtimeState: Record<string, unknown>,
@@ -66,12 +74,16 @@ function createDefinitionExport(
   domainData: Record<string, unknown>,
   history: BuilderSnapshot[],
 ): BuilderDefinitionExport {
+  const sanitizedHistory = sanitizeDefinitionHistory(history);
+
   return {
     version: 1,
     source,
     runtimeState: structuredClone(runtimeState),
     domainData: structuredClone(domainData),
-    history: structuredClone(history),
+    history: structuredClone(
+      sanitizedHistory.length > 0 ? sanitizedHistory : [createBuilderSnapshot(source, runtimeState, domainData)],
+    ),
   };
 }
 
@@ -87,26 +99,22 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
     initialDomainData: latestSnapshot.initialDomainData,
   });
 
-  return {
-    version: 1,
+  return createDefinitionExport(
     source,
-    runtimeState: structuredClone(resetSnapshot.runtimeState),
-    domainData: structuredClone(resetSnapshot.domainData),
-    history: structuredClone([...history.slice(0, -1), resetSnapshot]),
-  };
+    resetSnapshot.runtimeState,
+    resetSnapshot.domainData,
+    [...history.slice(0, -1), resetSnapshot],
+  );
 }
 
 export function parseImportedDefinition(rawValue: string) {
   const parsedValue = builderDefinitionSchema.parse(JSON.parse(rawValue));
   assertValidDefinitionSource(parsedValue.source, 'Imported definition source');
-
-  parsedValue.history.forEach((snapshot, index) => {
-    assertValidDefinitionSource(snapshot.source, `Imported history snapshot ${index + 1}`);
-  });
+  const sanitizedHistory = sanitizeDefinitionHistory(parsedValue.history);
 
   const normalizedHistory =
-    parsedValue.history.length > 0
-      ? parsedValue.history.map((snapshot) => {
+    sanitizedHistory.length > 0
+      ? sanitizedHistory.map((snapshot) => {
           return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
             initialRuntimeState: snapshot.initialRuntimeState,
             initialDomainData: snapshot.initialDomainData,

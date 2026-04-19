@@ -112,6 +112,7 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
   const chatMessages = useAppSelector(selectChatMessages);
   const { isError: isBackendDisconnected } = useBackendConnectionState();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const showEmptyChatHint = !isBackendDisconnected && !feedback && chatMessages.length === 0;
   const scrollToLatestMessage = useEffectEvent(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   });
@@ -134,6 +135,12 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
         {feedback ? (
           <article className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
             {feedback}
+          </article>
+        ) : null}
+
+        {showEmptyChatHint ? (
+          <article className="max-w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
+            Describe the app or change you want.
           </article>
         ) : null}
 

@@ -40,15 +40,15 @@ function createMessage(
 }
 
 function createInitialChatMessages(): BuilderChatMessage[] {
-  return [
-    {
-      id: 'builder-welcome',
-      role: 'assistant',
-      content: 'Describe the app or change you want.',
-      tone: 'info',
-      createdAt: new Date(0).toISOString(),
-    },
-  ];
+  return [];
+}
+
+function isLegacyWelcomeMessage(message: Record<string, unknown>) {
+  return (
+    message.id === 'builder-welcome' &&
+    message.role === 'assistant' &&
+    message.content === 'Describe the app or change you want.'
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -62,6 +62,10 @@ function normalizeChatMessages(value: unknown) {
 
   const normalizedMessages = value.flatMap((message) => {
     if (!isRecord(message) || typeof message.content !== 'string' || typeof message.role !== 'string') {
+      return [];
+    }
+
+    if (isLegacyWelcomeMessage(message)) {
       return [];
     }
 

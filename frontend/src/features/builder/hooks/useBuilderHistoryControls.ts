@@ -82,7 +82,7 @@ export function useBuilderHistoryControls({
           note: 'Imported a saved Kitto definition from disk.',
         }),
       );
-      onFeedbackChange('Definition imported.');
+      onFeedbackChange(null);
     } catch (error) {
       onFeedbackChange(`Import failed: ${getFeedbackMessage(error)}`);
     } finally {

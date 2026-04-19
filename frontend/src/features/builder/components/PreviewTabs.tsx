@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { LoaderCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@components/ui/button';
@@ -47,7 +47,16 @@ export function PreviewTabs() {
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewEmptyCanvas = !previewSource.trim();
+  const resolvedActiveTab = isPreviewEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const combinedIssues = isPreviewEmptyCanvas || isShowingRejectedDefinition ? parseIssues : [...parseIssues, ...runtimeIssues];
+
+  useEffect(() => {
+    if (!isPreviewEmptyCanvas || activeTab === 'preview') {
+      return;
+    }
+
+    dispatch(builderActions.setActiveTab('preview'));
+  }, [activeTab, dispatch, isPreviewEmptyCanvas]);
 
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
@@ -62,16 +71,26 @@ export function PreviewTabs() {
 
   return (
     <Tabs
-      value={activeTab}
-      onValueChange={(value: string) => dispatch(builderActions.setActiveTab(value as BuilderTabId))}
+      value={resolvedActiveTab}
+      onValueChange={(value: string) => {
+        if (isPreviewEmptyCanvas && value !== 'preview') {
+          return;
+        }
+
+        dispatch(builderActions.setActiveTab(value as BuilderTabId));
+      }}
       className="flex h-full min-h-0 flex-col gap-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview, definition, and state</CardTitle>
         <TabsList>
           <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="definition">Definition</TabsTrigger>
-          <TabsTrigger value="app-state">App State</TabsTrigger>
+          <TabsTrigger value="definition" disabled={isPreviewEmptyCanvas}>
+            Definition
+          </TabsTrigger>
+          <TabsTrigger value="app-state" disabled={isPreviewEmptyCanvas}>
+            App State
+          </TabsTrigger>
         </TabsList>
       </div>
 
