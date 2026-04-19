@@ -16,6 +16,15 @@ interface LlmRequestCompaction {
 interface ParsedLlmRequest {
   chatHistory: Array<{
     content: string;
+    role: 'assistant' | 'user';
+  }>;
+  currentSource: string;
+  prompt: string;
+}
+
+interface RawParsedLlmRequest {
+  chatHistory: Array<{
+    content: string;
     role: 'assistant' | 'system' | 'user';
   }>;
   currentSource: string;
@@ -43,6 +52,19 @@ function createLlmRequestSchema(env: AppEnv) {
       )
       .default([]),
   });
+}
+
+function isConversationChatMessage(
+  message: RawParsedLlmRequest['chatHistory'][number],
+): message is ParsedLlmRequest['chatHistory'][number] {
+  return message.role === 'assistant' || message.role === 'user';
+}
+
+function sanitizeLlmRequest(request: RawParsedLlmRequest): ParsedLlmRequest {
+  return {
+    ...request,
+    chatHistory: request.chatHistory.filter(isConversationChatMessage),
+  };
 }
 
 function isAbortError(error: unknown) {
@@ -128,7 +150,7 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
     });
   }
 
-  const request = createLlmRequestSchema(env).parse(parsedBody);
+  const request = sanitizeLlmRequest(createLlmRequestSchema(env).parse(parsedBody));
   const compactedRequest = compactLlmRequest(request, env);
 
   if (getRequestSizeBytes(compactedRequest.request) > env.LLM_REQUEST_MAX_BYTES) {

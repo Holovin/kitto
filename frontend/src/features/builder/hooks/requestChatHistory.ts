@@ -5,7 +5,7 @@ type BuilderRequestChatMessage = BuilderLlmRequest['chatHistory'][number];
 function isRequestChatMessage(
   message: BuilderChatMessage,
 ): message is BuilderChatMessage & { role: BuilderRequestChatMessage['role'] } {
-  return message.role !== 'system';
+  return message.role === 'assistant' || message.role === 'user';
 }
 
 export function buildRequestChatHistory(messages: BuilderChatMessage[], maxItems: number): BuilderRequestChatMessage[] {

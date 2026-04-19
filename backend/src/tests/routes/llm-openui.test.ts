@@ -259,6 +259,53 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledSignal).toBeInstanceOf(AbortSignal);
   });
 
+  it('drops system chat messages before compaction and generation', async () => {
+    const { app } = createRouteApp({
+      LLM_CHAT_HISTORY_MAX_ITEMS: 2,
+      OPENAI_MODEL: 'gpt-test-model',
+    });
+    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'build a compact app',
+        currentSource: '',
+        chatHistory: [
+          { role: 'system', content: 'internal UI notice' },
+          { role: 'user', content: 'oldest user message' },
+          { role: 'system', content: 'automatic repair notice' },
+          { role: 'assistant', content: 'recent assistant reply' },
+          { role: 'user', content: 'most recent user message' },
+        ],
+      }),
+    });
+    const payload = await response.json();
+    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      compaction: {
+        compactedByBytes: false,
+        compactedByItemLimit: true,
+        omittedChatMessages: 1,
+      },
+      model: 'gpt-test-model',
+      source: 'root = AppShell([])',
+    });
+    expect(calledRequest).toEqual({
+      prompt: 'build a compact app',
+      currentSource: '',
+      chatHistory: [
+        { role: 'assistant', content: 'recent assistant reply' },
+        { role: 'user', content: 'most recent user message' },
+      ],
+    });
+  });
+
   it('compacts oversized requests by bytes while keeping the newest chat messages', async () => {
     const { app } = createRouteApp({
       LLM_REQUEST_MAX_BYTES: 260,

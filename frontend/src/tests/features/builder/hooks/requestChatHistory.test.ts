@@ -5,28 +5,24 @@ import { buildRequestChatHistory } from '@features/builder/hooks/requestChatHist
 function createMessage(
   role: BuilderChatMessage['role'],
   content: string,
-  tone: BuilderChatMessage['tone'] = 'default',
+  tone: BuilderChatMessage['tone'] | 'warning' = 'default',
 ): BuilderChatMessage {
   return {
     id: `${role}-${content}`,
     role,
     content,
-    tone,
+    tone: tone as BuilderChatMessage['tone'],
     createdAt: '2026-04-19T10:00:00.000Z',
   };
 }
 
 describe('buildRequestChatHistory', () => {
-  it('excludes system info messages from request history', () => {
-    expect(buildRequestChatHistory([createMessage('system', 'Imported a saved Kitto definition.', 'info')], 10)).toEqual([]);
+  it.each(['info', 'success', 'error', 'warning'] as const)('excludes system %s messages from request history', (tone) => {
+    expect(buildRequestChatHistory([createMessage('system', `system ${tone} message`, tone)], 10)).toEqual([]);
   });
 
-  it('excludes system error messages from request history', () => {
-    expect(buildRequestChatHistory([createMessage('system', 'Prompt too large.', 'error')], 10)).toEqual([]);
-  });
-
-  it('excludes system success messages from request history', () => {
-    expect(buildRequestChatHistory([createMessage('system', 'Imported a saved Kitto definition.', 'success')], 10)).toEqual([]);
+  it('excludes system messages even when they use the default tone', () => {
+    expect(buildRequestChatHistory([createMessage('system', 'Internal UI notice')], 10)).toEqual([]);
   });
 
   it('includes user messages in request history', () => {
