@@ -36,6 +36,11 @@ type ElementSandboxProps = {
   initialRuntimeState?: Record<string, unknown>;
 };
 
+type ScopedRuntimeIssues = {
+  issues: BuilderParseIssue[];
+  scope: string;
+};
+
 const librarySchema = builderOpenUiLibrary.toJSONSchema();
 const librarySpec = builderOpenUiLibrary.toSpec();
 const groupByComponent = new Map(
@@ -222,19 +227,20 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const [domainData, setDomainData] = useState<Record<string, unknown>>(initialDomainDataSnapshot);
   const [runtimeState, setRuntimeState] = useState<Record<string, unknown>>(initialRuntimeStateSnapshot);
   const [parseIssues, setParseIssues] = useState<BuilderParseIssue[]>([]);
-  const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
+  const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
+    issues: [],
+    scope: '',
+  });
   const [resetVersion, setResetVersion] = useState(0);
   const stateDeclarationDefaultsRef = useRef<Record<string, unknown>>({});
   const hasHydratedInitialRuntimeStateRef = useRef(false);
   const domainDataRef = useRef(domainData);
+  const runtimeIssueScope = `${componentName}:${source}:${resetVersion}`;
+  const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
 
   useEffect(() => {
     domainDataRef.current = domainData;
   }, [domainData]);
-
-  useEffect(() => {
-    setRuntimeIssues([]);
-  }, [source]);
 
   const toolProvider = useMemo(
     () => ({
@@ -320,7 +326,6 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 
   function handleReset() {
     setParseIssues([]);
-    setRuntimeIssues([]);
     hasHydratedInitialRuntimeStateRef.current = false;
     setRuntimeState(mergeRuntimeDefaults(stateDeclarationDefaultsRef.current, initialRuntimeStateSnapshot));
     setDomainData(cloneRecord(initialDomainDataSnapshot));
@@ -364,9 +369,10 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
                   </div>
                 )}
                 onError={(error) => {
-                  setRuntimeIssues([
-                    createRendererCrashIssue(error, 'sandbox-runtime-error', 'The element sandbox crashed while rendering.'),
-                  ]);
+                  setScopedRuntimeIssues({
+                    issues: [createRendererCrashIssue(error, 'sandbox-runtime-error', 'The element sandbox crashed while rendering.')],
+                    scope: runtimeIssueScope,
+                  });
                 }}
                 resetKeys={[source, resetVersion]}
               >
@@ -375,7 +381,12 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
                   initialState={runtimeState}
                   library={builderOpenUiLibrary}
                   onAction={handleOpenUiActionEvent}
-                  onError={(errors) => setRuntimeIssues(mapOpenUiErrorsToIssues(errors))}
+                  onError={(errors) =>
+                    setScopedRuntimeIssues({
+                      issues: mapOpenUiErrorsToIssues(errors),
+                      scope: runtimeIssueScope,
+                    })
+                  }
                   onParseResult={(result) => {
                     setParseIssues(mapParseResultToIssues(result));
                     stateDeclarationDefaultsRef.current =

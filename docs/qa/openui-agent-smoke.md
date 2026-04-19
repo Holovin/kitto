@@ -39,6 +39,7 @@ Expected:
 - no new `/api/llm/generate` or `/api/llm/generate/stream` request is made after Scenario 1 has finished
 - no runtime errors appear
 - navigation is handled locally in runtime state rather than by rebuilding the definition
+- if you inspect `Definition`, screen flow uses local `$currentScreen` state with `@Set(...)` rather than persisted tool calls
 
 Follow-up:
 1. Reload the page.

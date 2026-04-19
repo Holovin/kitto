@@ -35,6 +35,11 @@ import { domainActions } from '@features/builder/store/domainSlice';
 import type { BuilderParseIssue, BuilderTabId } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
+type ScopedRuntimeIssues = {
+  issues: BuilderParseIssue[];
+  scope: string;
+};
+
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
@@ -50,7 +55,10 @@ export function PreviewTabs() {
   const parseIssues = useAppSelector(selectParseIssues);
   const previewSource = useAppSelector(selectPreviewSource);
   const runtimeSessionState = useAppSelector(selectRuntimeSessionState);
-  const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
+  const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
+    issues: [],
+    scope: '',
+  });
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
@@ -58,6 +66,8 @@ export function PreviewTabs() {
   const isPreviewEmptyCanvas = !previewSource.trim();
   const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
+  const runtimeIssueScope = `${history.length}:${currentSnapshot?.committedAt ?? ''}:${previewSource}:${isShowingRejectedDefinition ? 'rejected' : 'preview'}:${rendererResetVersion}`;
+  const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
   const combinedIssues = combinePreviewIssues({
     isPreviewEmptyCanvas,
     isShowingRejectedDefinition,
@@ -99,8 +109,6 @@ export function PreviewTabs() {
     if (!isShowingRejectedDefinition) {
       dispatch(builderActions.setParseIssues([]));
     }
-
-    setRuntimeIssues([]);
   }, [dispatch, isShowingRejectedDefinition, previewSource]);
 
   function handleResetAppState() {
@@ -111,7 +119,6 @@ export function PreviewTabs() {
     dispatch(domainActions.replaceData(structuredClone(currentSnapshot.initialDomainData)));
     dispatch(builderSessionActions.replaceRuntimeSessionState(structuredClone(currentSnapshot.initialRuntimeState)));
     dispatch(builderActions.resetCurrentAppState());
-    setRuntimeIssues([]);
     setRendererResetVersion((currentValue) => currentValue + 1);
   }
 
@@ -162,9 +169,10 @@ export function PreviewTabs() {
                         return;
                       }
 
-                      setRuntimeIssues([
-                        createRendererCrashIssue(error, 'preview-runtime-error', 'The committed preview crashed while rendering.'),
-                      ]);
+                      setScopedRuntimeIssues({
+                        issues: [createRendererCrashIssue(error, 'preview-runtime-error', 'The committed preview crashed while rendering.')],
+                        scope: runtimeIssueScope,
+                      });
                     }}
                     resetKeys={[deferredPreviewSource, rendererResetVersion]}
                   >
@@ -179,7 +187,10 @@ export function PreviewTabs() {
                           return;
                         }
 
-                        setRuntimeIssues(mapOpenUiErrorsToIssues(errors));
+                        setScopedRuntimeIssues({
+                          issues: mapOpenUiErrorsToIssues(errors),
+                          scope: runtimeIssueScope,
+                        });
                       }}
                       onParseResult={(result) => {
                         if (isShowingRejectedDefinition || !isPreviewSynchronized) {

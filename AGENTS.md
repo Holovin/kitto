@@ -31,6 +31,7 @@ Steps:
   - `frontend/`: React 19 + Vite 8 builder UI and OpenUI runtime
   - `backend/`: Hono API, OpenAI integration, prompt building, rate limiting, and static hosting for `frontend/dist`
 - The root scripts are the main entry points:
+  - `npm run generate:openui-spec`: regenerates the committed OpenUI component spec artifact from the frontend library
   - `npm run dev`: starts frontend and backend together
   - `npm run lint`: frontend ESLint + backend TypeScript checks
   - `npm run build`: regenerates the OpenUI component spec, then builds frontend and backend
@@ -52,6 +53,9 @@ Steps:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Current sandbox tools exposed to generated apps:
   - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+- Built-in action events exposed by the runtime:
+  - `@OpenUrl(...)` uses the OpenUI action event bridge, not the persisted tool provider
+  - `Link(...)` and `@OpenUrl(...)` share the same safe URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...`
 - Persisted tool contract:
   - paths must be non-empty dot-paths no deeper than 10 segments
   - path segments may use only letters, numbers, `_`, or `-`

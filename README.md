@@ -64,7 +64,8 @@ By default:
 - `npm run test` - runs frontend and backend unit tests without calling the real OpenAI service
 - `npm run test:frontend` - runs frontend Vitest coverage for validation, reducers, import/export helpers, and stream parsing
 - `npm run test:backend` - runs backend Vitest coverage for `/api/*` contracts, request validation, and prompt drift guards
-- `npm run build` - builds the frontend bundle and the backend server
+- `npm run generate:openui-spec` - regenerates the OpenUI component spec from the frontend library source of truth
+- `npm run build` - regenerates the OpenUI component spec, then builds the frontend bundle and the backend server
 - `npm run start` - starts the compiled backend
 
 ## Development and production flow
@@ -117,9 +118,11 @@ The supported API lives under `/api/*` only.
 
 `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 
-### Built-in actions in the sandbox
+### Persisted tools exposed through `Query(...)` and `Mutation(...)`
 
 `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+
+Built-in OpenUI action events are separate from persisted tools. `@OpenUrl(...)` is handled through the OpenUI action-event bridge and shares the same safe URL policy as `Link(...)`.
 
 Internal screen changes should use local OpenUI state such as `$currentScreen` with `@Set(...)` instead of persisted tools.
 Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use only letters, numbers, `_`, or `-`, and must never include `__proto__`, `prototype`, or `constructor`. `remove_state` also requires an explicit non-negative integer `index`.
