@@ -7,7 +7,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 - chat-driven app generation with streaming updates
 - a single automatic repair pass when the first model draft is invalid OpenUI
 - live preview from the last committed valid source, a raw definition panel that can show the incoming draft, and an app-state inspector for reactive and persisted data
-- undo/redo, reset, JSON import/export, and local persistence for builder history
+- undo/redo, reset, JSON import/export with validation-before-apply, and local persistence for builder history
 - a `/elements` route for browsing supported OpenUI components, actions, demos, and schemas
 
 ## Workspace layout
@@ -129,6 +129,7 @@ Internal screen changes should use local OpenUI state such as `$currentScreen` w
 - OpenAI request timeouts
 - a single automatic repair retry that includes the original request, committed valid source, invalid draft, validation issues, and critical syntax rules
 - Preview stays on the last committed valid app while streaming, validation, and automatic repair run against the incoming draft
+- imported definition files are validated before they replace the current committed preview
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
 - upstream stream cancellation when the browser disconnects
 
@@ -138,7 +139,7 @@ When you change QA-visible behavior, update the QA docs in the same change if th
 
 ## Additional docs
 
-- [docs/qa/openui-agent-smoke.md](/Users/alex/projects/kitto-openui/docs/qa/openui-agent-smoke.md)
-- [docs/qa/openui-manual-checklist.md](/Users/alex/projects/kitto-openui/docs/qa/openui-manual-checklist.md)
-- [frontend/README.md](/Users/alex/projects/kitto-openui/frontend/README.md)
-- [backend/README.md](/Users/alex/projects/kitto-openui/backend/README.md)
+- [docs/qa/openui-agent-smoke.md](docs/qa/openui-agent-smoke.md)
+- [docs/qa/openui-manual-checklist.md](docs/qa/openui-manual-checklist.md)
+- [frontend/README.md](frontend/README.md)
+- [backend/README.md](backend/README.md)

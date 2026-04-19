@@ -47,16 +47,17 @@ export function PreviewTabs() {
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewEmptyCanvas = !previewSource.trim();
-  const resolvedActiveTab = isPreviewEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
+  const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
+  const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const combinedIssues = isPreviewEmptyCanvas || isShowingRejectedDefinition ? parseIssues : [...parseIssues, ...runtimeIssues];
 
   useEffect(() => {
-    if (!isPreviewEmptyCanvas || activeTab === 'preview') {
+    if (!isEmptyCanvas || activeTab === 'preview') {
       return;
     }
 
     dispatch(builderActions.setActiveTab('preview'));
-  }, [activeTab, dispatch, isPreviewEmptyCanvas]);
+  }, [activeTab, dispatch, isEmptyCanvas]);
 
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
@@ -73,7 +74,7 @@ export function PreviewTabs() {
     <Tabs
       value={resolvedActiveTab}
       onValueChange={(value: string) => {
-        if (isPreviewEmptyCanvas && value !== 'preview') {
+        if (isEmptyCanvas && value !== 'preview') {
           return;
         }
 
@@ -85,7 +86,7 @@ export function PreviewTabs() {
         <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview, definition, and state</CardTitle>
         <TabsList>
           <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="definition" disabled={isPreviewEmptyCanvas}>
+          <TabsTrigger value="definition" disabled={isEmptyCanvas}>
             Definition
           </TabsTrigger>
           <TabsTrigger value="app-state" disabled={isPreviewEmptyCanvas}>

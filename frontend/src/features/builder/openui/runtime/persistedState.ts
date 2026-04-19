@@ -22,23 +22,39 @@ const builderDefinitionSchema = z.object({
   history: z.array(builderSnapshotSchema).default([]),
 });
 
-function formatValidationIssueMessage(code: string, message: string, statementId?: string) {
-  return `${code}${statementId ? ` in ${statementId}` : ''}: ${message}`;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function assertValidDefinitionSource(source: string, label: string) {
-  const validation = validateOpenUiSource(source);
+function parseBuilderDefinitionExport(rawValue: string) {
+  let parsedJson: unknown;
 
-  if (validation.isValid) {
-    return;
+  try {
+    parsedJson = JSON.parse(rawValue);
+  } catch {
+    throw new Error('Import file is not valid JSON.');
   }
 
-  const summary = validation.issues
-    .slice(0, 3)
-    .map((issue) => formatValidationIssueMessage(issue.code, issue.message, issue.statementId))
-    .join(' | ');
+  if (!isRecord(parsedJson)) {
+    throw new Error('Import file must contain a Kitto definition export object.');
+  }
 
-  throw new Error(`${label} is invalid. ${summary || 'Please check the file contents.'}`);
+  if (parsedJson.version !== 1) {
+    const versionLabel =
+      typeof parsedJson.version === 'number' || typeof parsedJson.version === 'string'
+        ? `version ${String(parsedJson.version)}`
+        : 'an unsupported format';
+
+    throw new Error(`Import file uses ${versionLabel}. Expected a Kitto definition export with version 1.`);
+  }
+
+  const parsedValue = builderDefinitionSchema.safeParse(parsedJson);
+
+  if (!parsedValue.success) {
+    throw new Error('Import file is not a valid Kitto definition export.');
+  }
+
+  return parsedValue.data;
 }
 
 function isValidDefinitionSource(source: string) {
@@ -108,22 +124,16 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
 }
 
 export function parseImportedDefinition(rawValue: string) {
-  const parsedValue = builderDefinitionSchema.parse(JSON.parse(rawValue));
-  assertValidDefinitionSource(parsedValue.source, 'Imported definition source');
+  const parsedValue = parseBuilderDefinitionExport(rawValue);
   const sanitizedHistory = sanitizeDefinitionHistory(parsedValue.history);
-
-  const normalizedHistory =
-    sanitizedHistory.length > 0
-      ? sanitizedHistory.map((snapshot) => {
-          return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
-            initialRuntimeState: snapshot.initialRuntimeState,
-            initialDomainData: snapshot.initialDomainData,
-          });
-        })
-      : [createBuilderSnapshot(parsedValue.source, parsedValue.runtimeState, parsedValue.domainData)];
 
   return {
     ...parsedValue,
-    history: normalizedHistory,
+    history: sanitizedHistory.map((snapshot) => {
+      return createBuilderSnapshot(snapshot.source, snapshot.runtimeState, snapshot.domainData, {
+        initialRuntimeState: snapshot.initialRuntimeState,
+        initialDomainData: snapshot.initialDomainData,
+      });
+    }),
   };
 }

@@ -19,6 +19,7 @@ Steps:
 
 - If you update the OpenUI component spec, or change the frontend OpenUI library that defines it, you must run `npm run generate:openui-spec` before finishing.
 - If you change the API contract, OpenUI prompt contract, supported components/tools, builder controls, or any QA-visible runtime behavior, update `docs/qa/openui-agent-smoke.md` and `docs/qa/openui-manual-checklist.md` before finishing whenever their steps, expectations, or contract notes no longer match.
+- Documentation must not contain absolute local filesystem paths, local file URLs, usernames, home-directory references, tokens, API keys, secrets, or other personal or machine-specific data. Use plain text or project-relative paths only.
 
 ## Project Context
 
@@ -80,7 +81,7 @@ Steps:
 - The frontend prefers streaming via `POST /api/llm/generate/stream`
 - If streaming fails before the first chunk, the frontend falls back to `POST /api/llm/generate`
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
-- The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected drafts stay in Definition while Preview keeps the last committed source
+- The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected streamed or imported source stays in Definition while Preview keeps the last committed source
 - If the generated source is invalid, the frontend performs 1 automatic repair attempt by sending a repair prompt back to the backend
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline

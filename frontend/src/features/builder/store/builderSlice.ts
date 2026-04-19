@@ -83,6 +83,17 @@ function normalizeChatMessages(value: unknown) {
   return normalizedMessages.length > 0 ? normalizedMessages : createInitialChatMessages();
 }
 
+function validateRestoredSource(source: string) {
+  if (!source.trim()) {
+    return {
+      isValid: true,
+      issues: [] as BuilderParseIssue[],
+    };
+  }
+
+  return validateOpenUiSource(source);
+}
+
 function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
   if (!Array.isArray(value)) {
     return {
@@ -117,7 +128,7 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
         initialDomainData: snapshot.initialDomainData,
       },
     );
-    const validation = validateOpenUiSource(normalizedSnapshot.source);
+    const validation = validateRestoredSource(normalizedSnapshot.source);
 
     if (!validation.isValid) {
       rejectedSource = {
@@ -142,6 +153,7 @@ interface BuilderState {
   chatMessages: BuilderChatMessage[];
   committedSource: string;
   draftPrompt: string;
+  hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
   isStreaming: boolean;
   parseIssues: BuilderParseIssue[];
@@ -158,6 +170,7 @@ const initialState: BuilderState = {
   chatMessages: createInitialChatMessages(),
   committedSource: DEFAULT_OPENUI_SOURCE,
   draftPrompt: '',
+  hasRejectedDefinition: false,
   history: [initialSnapshot],
   isStreaming: false,
   parseIssues: [],
@@ -175,7 +188,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
   const history = normalizedHistory.snapshots;
   const latestSnapshot = history.at(-1) ?? initialSnapshot;
   const persistedCommittedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
-  const committedSourceValidation = validateOpenUiSource(persistedCommittedSource);
+  const committedSourceValidation = validateRestoredSource(persistedCommittedSource);
   const rejectedSource = !committedSourceValidation.isValid
     ? {
         issues: committedSourceValidation.issues,
@@ -199,6 +212,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
+    hasRejectedDefinition: Boolean(rejectedSource),
     history,
     isStreaming: false,
     parseIssues: rejectedSource ? rejectedSource.issues : Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
@@ -213,10 +227,9 @@ export const builderSlice = createSlice({
   initialState,
   reducers: {
     resetTransientState(state) {
-      const hasRejectedDefinition = state.parseIssues.length > 0 && state.streamedSource !== state.committedSource;
       state.isStreaming = false;
       state.streamError = null;
-      if (!hasRejectedDefinition) {
+      if (!state.hasRejectedDefinition) {
         state.streamedSource = state.committedSource;
       }
     },
@@ -229,6 +242,7 @@ export const builderSlice = createSlice({
     beginStreaming(state, action: PayloadAction<{ prompt: string }>) {
       state.isStreaming = true;
       state.draftPrompt = '';
+      state.hasRejectedDefinition = false;
       state.streamError = null;
       state.streamedSource = '';
       state.parseIssues = [];
@@ -247,6 +261,7 @@ export const builderSlice = createSlice({
     ) {
       state.isStreaming = false;
       state.streamError = null;
+      state.hasRejectedDefinition = false;
       state.committedSource = action.payload.source;
       state.streamedSource = action.payload.source;
       state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
@@ -265,16 +280,34 @@ export const builderSlice = createSlice({
       }>,
     ) {
       state.isStreaming = false;
+      state.hasRejectedDefinition = Boolean(action.payload.source && (action.payload.issues?.length ?? 0) > 0);
       state.streamError = action.payload.message;
       state.streamedSource = action.payload.source ?? state.committedSource;
       state.parseIssues = action.payload.issues ?? [];
-      if (action.payload.source && action.payload.source !== state.committedSource && (action.payload.issues?.length ?? 0) > 0) {
+      if (state.hasRejectedDefinition) {
         state.activeTab = 'definition';
       }
       pushMessage(state.chatMessages, createMessage('system', action.payload.message, 'error'));
     },
+    rejectDefinition(
+      state,
+      action: PayloadAction<{
+        issues: BuilderParseIssue[];
+        source: string;
+      }>,
+    ) {
+      state.activeTab = 'definition';
+      state.isStreaming = false;
+      state.hasRejectedDefinition = true;
+      state.streamError = null;
+      state.streamedSource = action.payload.source;
+      state.parseIssues = action.payload.issues;
+    },
     setParseIssues(state, action: PayloadAction<BuilderParseIssue[]>) {
       state.parseIssues = action.payload;
+      if (action.payload.length === 0) {
+        state.hasRejectedDefinition = false;
+      }
     },
     appendChatMessage(
       state,
@@ -295,6 +328,7 @@ export const builderSlice = createSlice({
 
       state.streamError = null;
       state.isStreaming = false;
+      state.hasRejectedDefinition = false;
       pushMessage(state.chatMessages, createMessage('system', 'Reset the generated app state to its initial version.', 'info'));
     },
     undoLatest(state) {
@@ -312,6 +346,7 @@ export const builderSlice = createSlice({
 
       state.redoHistory = trimHistory([...state.redoHistory, cloneForState(currentSnapshot)]);
       state.committedSource = previousSnapshot.source;
+      state.hasRejectedDefinition = false;
       state.streamedSource = previousSnapshot.source;
       state.parseIssues = [];
       state.streamError = null;
@@ -328,6 +363,7 @@ export const builderSlice = createSlice({
       state.redoHistory = state.redoHistory.slice(0, -1);
       state.history = trimHistory([...state.history, cloneForState(redoSnapshot)]);
       state.committedSource = redoSnapshot.source;
+      state.hasRejectedDefinition = false;
       state.streamedSource = redoSnapshot.source;
       state.parseIssues = [];
       state.streamError = null;
@@ -347,6 +383,7 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.draftPrompt = '';
       state.chatMessages = createInitialChatMessages();
+      state.hasRejectedDefinition = false;
       state.history = trimHistory(action.payload.history);
       state.parseIssues = [];
       state.redoHistory = [];
@@ -366,6 +403,7 @@ export const builderSlice = createSlice({
     ) {
       state.activeTab = 'preview';
       state.committedSource = action.payload.snapshot.source;
+      state.hasRejectedDefinition = false;
       state.streamedSource = action.payload.snapshot.source;
       state.draftPrompt = '';
       state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
@@ -383,6 +421,7 @@ export const builderSlice = createSlice({
       state.chatMessages = createInitialChatMessages();
       state.committedSource = DEFAULT_OPENUI_SOURCE;
       state.draftPrompt = '';
+      state.hasRejectedDefinition = false;
       state.streamedSource = DEFAULT_OPENUI_SOURCE;
       state.history = [createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT_DOMAIN_DATA)];
       state.isStreaming = false;

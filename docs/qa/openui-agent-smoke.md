@@ -75,6 +75,16 @@ Expected:
 - after import, Preview, Definition, runtime state, and persisted data restore coherently
 - no runtime crash or parser error appears
 
+Follow-up:
+1. Edit the exported JSON so `source` becomes invalid OpenUI.
+2. Import the broken file.
+
+Expected:
+- an import error appears
+- Definition shows the rejected imported source and validation issues
+- Preview stays on the last committed valid app
+- chat history is not wiped by the failed import
+
 ## Scenario 6 — Undo/redo
 
 Actions:

@@ -2,7 +2,8 @@ import { useRef, type ChangeEvent, type MutableRefObject } from 'react';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
-import { createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
+import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
+import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
   selectCommittedSource,
   selectHistory,
@@ -71,6 +72,24 @@ export function useBuilderHistoryControls({
     try {
       const rawValue = await file.text();
       const importedDefinition = parseImportedDefinition(rawValue);
+      const sourceValidation = validateOpenUiSource(importedDefinition.source);
+
+      if (!sourceValidation.isValid) {
+        dispatch(
+          builderActions.rejectDefinition({
+            source: importedDefinition.source,
+            issues: sourceValidation.issues,
+          }),
+        );
+        onFeedbackChange('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.');
+        return;
+      }
+
+      const importedHistory =
+        importedDefinition.history.length > 0
+          ? importedDefinition.history
+          : [createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData)];
+
       resetAppState();
       dispatch(domainActions.replaceData(importedDefinition.domainData));
       dispatch(builderSessionActions.replaceRuntimeSessionState(importedDefinition.runtimeState));
@@ -78,7 +97,7 @@ export function useBuilderHistoryControls({
         builderActions.loadDefinition({
           source: importedDefinition.source,
           runtimeState: importedDefinition.runtimeState,
-          history: importedDefinition.history,
+          history: importedHistory,
           note: 'Imported a saved Kitto definition from disk.',
         }),
       );

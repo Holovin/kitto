@@ -98,6 +98,7 @@ Generated app behaviors that should stay supported:
 Builder controls that should stay working alongside generated apps:
 
 - import/export
+- invalid import should show Definition validation issues without replacing the current preview or wiping chat history
 - undo/redo
 - reset
 
