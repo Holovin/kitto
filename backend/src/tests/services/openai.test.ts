@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PromptBuildRequest } from '../../prompts/openui.js';
+import { UpstreamFailureError } from '../../errors/publicError.js';
 import { createTestEnv } from '../createTestEnv.js';
 
 const { MockApiUserAbortError, responsesCreateMock, responsesStreamMock } = vi.hoisted(() => {
@@ -33,7 +34,7 @@ vi.mock('openai', () => {
   };
 });
 
-import { streamOpenUiSource } from '../../services/openai.js';
+import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.js';
 
 const request: PromptBuildRequest = {
   chatHistory: [],
@@ -117,6 +118,39 @@ describe('streamOpenUiSource', () => {
     await expect(streamOpenUiSource(env, request, onTextDelta, abortController.signal)).rejects.toBeInstanceOf(
       MockApiUserAbortError,
     );
+
+    expect(onTextDelta).not.toHaveBeenCalled();
+    expect(stream.abort).toHaveBeenCalledTimes(1);
+    expect(stream.finalResponse).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-stream model output that exceeds the backend byte limit', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-3',
+      LLM_OUTPUT_MAX_BYTES: 12,
+    });
+
+    responsesCreateMock.mockResolvedValue({
+      output_text: 'root = AppShell([])',
+    });
+
+    await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
+    expect(responsesCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts the upstream stream when streamed output exceeds the backend byte limit', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-4',
+      LLM_OUTPUT_MAX_BYTES: 6,
+    });
+    const onTextDelta = vi.fn();
+    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: 'root = ' }], {
+      output_text: 'root = AppShell([])',
+    });
+
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(streamOpenUiSource(env, request, onTextDelta)).rejects.toBeInstanceOf(UpstreamFailureError);
 
     expect(onTextDelta).not.toHaveBeenCalled();
     expect(stream.abort).toHaveBeenCalledTimes(1);

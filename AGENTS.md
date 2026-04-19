@@ -129,6 +129,7 @@ Steps:
 - Health/model status is exposed through `GET /api/health`
 - The backend rejects oversized raw request bodies before JSON parsing
 - The raw request hard limit is derived from `LLM_REQUEST_MAX_BYTES * 4`
+- The backend rejects model output above `LLM_OUTPUT_MAX_BYTES` before returning a non-stream response or finalizing an SSE stream
 - Public backend error codes are `validation_error`, `timeout_error`, `upstream_error`, and `internal_error`
 - Rate limiting is in-memory and process-local; do not treat it as distributed-safe production infrastructure
 

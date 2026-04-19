@@ -9,6 +9,11 @@ Supported API:
 - `POST /api/llm/generate`
 - `POST /api/llm/generate/stream`
 
+Guardrails:
+
+- oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
+- backend model output above the configured byte limit must fail with a controlled `upstream_error`
+
 ## Runtime invariants
 
 - Preview renders committed source only.

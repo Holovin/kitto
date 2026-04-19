@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 import {
   DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS,
+  DEFAULT_LLM_OUTPUT_MAX_BYTES,
   DEFAULT_LLM_PROMPT_MAX_CHARS,
   DEFAULT_LLM_RATE_LIMIT_MAX_REQUESTS,
   DEFAULT_LLM_RATE_LIMIT_WINDOW_MS,
@@ -14,6 +15,7 @@ import {
 const envSchema = z.object({
   FRONTEND_ORIGIN: z.string().default('http://localhost:5555'),
   LLM_CHAT_HISTORY_MAX_ITEMS: z.coerce.number().int().positive().default(DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS),
+  LLM_OUTPUT_MAX_BYTES: z.coerce.number().int().positive().default(DEFAULT_LLM_OUTPUT_MAX_BYTES),
   LLM_PROMPT_MAX_CHARS: z.coerce.number().int().positive().default(DEFAULT_LLM_PROMPT_MAX_CHARS),
   LLM_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(DEFAULT_LLM_RATE_LIMIT_MAX_REQUESTS),
   LLM_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(DEFAULT_LLM_RATE_LIMIT_WINDOW_MS),

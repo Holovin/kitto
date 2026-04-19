@@ -34,6 +34,7 @@ cp backend/.env.example backend/.env
 - `LLM_PROMPT_MAX_CHARS` - default `4096`
 - `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`
 - `LLM_REQUEST_MAX_BYTES` - default `300000`
+- `LLM_OUTPUT_MAX_BYTES` - default `100000`
 - `LLM_RATE_LIMIT_MAX_REQUESTS` - default `60`
 - `LLM_RATE_LIMIT_WINDOW_MS` - default `60000`
 
@@ -87,7 +88,8 @@ Accepts the same request shape and streams Server-Sent Events:
 
 ## Current behavior
 
-- rejects oversized raw request bodies before JSON parsing
+- rejects oversized raw request bodies before JSON parsing with Hono body-limit middleware
+- rejects model output that exceeds `LLM_OUTPUT_MAX_BYTES` before returning JSON or completing an SSE response
 - compacts chat history when item or byte limits are exceeded
 - rate-limits LLM endpoints with in-memory middleware
 - cancels the upstream OpenAI request when the client disconnects

@@ -21,6 +21,8 @@ interface RequestValidationErrorOptions {
   publicMessage?: string;
 }
 
+export const REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE = 'Request body is too large to process safely.';
+
 export class RequestValidationError extends Error {
   readonly publicMessage: string;
   readonly status: ValidationStatus;
@@ -40,12 +42,22 @@ export class UpstreamFailureError extends Error {
   }
 }
 
+export function createRequestBodyTooLargeError(message: string) {
+  return new RequestValidationError(message, 413, {
+    publicMessage: REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE,
+  });
+}
+
 function getValidationMessage(error: ZodError) {
   if (error.issues.some((issue) => issue.code === 'too_big')) {
-    return 'Request body is too large to process safely.';
+    return REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE;
   }
 
   return 'The request payload is invalid.';
+}
+
+function isBodyLimitError(error: unknown) {
+  return error instanceof Error && error.name === 'BodyLimitError';
 }
 
 function isTimeoutError(error: unknown) {
@@ -57,6 +69,14 @@ function isTimeoutError(error: unknown) {
 }
 
 function toPublicError(error: unknown): PublicError {
+  if (isBodyLimitError(error)) {
+    return {
+      code: 'validation_error',
+      message: REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE,
+      status: 413,
+    };
+  }
+
   if (error instanceof RequestValidationError) {
     return {
       code: 'validation_error',

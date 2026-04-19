@@ -2,11 +2,10 @@ import { Hono, type Context } from 'hono';
 import { APIUserAbortError } from 'openai';
 import { z } from 'zod';
 import type { AppEnv } from '../env.js';
-import { logServerError, RequestValidationError, toPublicErrorPayload } from '../errors/publicError.js';
+import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
+import { getByteLength } from '../limits.js';
 import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
 import { generateOpenUiSource, streamOpenUiSource } from '../services/openai.js';
-const RAW_REQUEST_MAX_BYTES_MULTIPLIER = 4;
-const textEncoder = new TextEncoder();
 
 interface LlmRequestCompaction {
   compactedByBytes: boolean;
@@ -64,11 +63,7 @@ function formatSseEvent(event: string, data: string) {
 }
 
 function getRequestSizeBytes(request: ParsedLlmRequest) {
-  return textEncoder.encode(JSON.stringify(request)).byteLength;
-}
-
-function getRawRequestMaxBytes(env: AppEnv) {
-  return env.LLM_REQUEST_MAX_BYTES * RAW_REQUEST_MAX_BYTES_MULTIPLIER;
+  return getByteLength(JSON.stringify(request));
 }
 
 function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): ParsedLlmRequestResult {
@@ -110,28 +105,18 @@ function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): ParsedLlmReq
   };
 }
 
+function assertModelOutputWithinLimit(source: string, env: AppEnv) {
+  const outputSizeBytes = getByteLength(source);
+
+  if (outputSizeBytes > env.LLM_OUTPUT_MAX_BYTES) {
+    throw new UpstreamFailureError(
+      `Model output size ${outputSizeBytes} bytes exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+    );
+  }
+}
+
 async function parseLlmRequest(context: Context, env: AppEnv) {
-  const contentLengthHeader = context.req.header('content-length');
-  const rawRequestMaxBytes = getRawRequestMaxBytes(env);
-
-  if (contentLengthHeader) {
-    const contentLength = Number.parseInt(contentLengthHeader, 10);
-
-    if (Number.isFinite(contentLength) && contentLength > rawRequestMaxBytes) {
-      throw new RequestValidationError(`Content-Length ${contentLength} exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`, 413, {
-        publicMessage: 'Request body is too large to process safely.',
-      });
-    }
-  }
-
   const rawBody = await context.req.text();
-  const rawBodyBytes = textEncoder.encode(rawBody).byteLength;
-
-  if (rawBodyBytes > rawRequestMaxBytes) {
-    throw new RequestValidationError(`Request body size ${rawBodyBytes} bytes exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`, 413, {
-      publicMessage: 'Request body is too large to process safely.',
-    });
-  }
 
   let parsedBody: unknown;
 
@@ -168,6 +153,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
     try {
       const { compaction, request } = await parseLlmRequest(context, env);
       const source = await generateOpenUiSource(env, request, context.req.raw.signal);
+      assertModelOutputWithinLimit(source, env);
 
       return context.json({
         compaction,
@@ -235,18 +221,20 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                 },
                 abortController.signal,
               );
+              const source = finalSource || streamedSource;
 
               if (abortController.signal.aborted) {
                 closeController();
                 return;
               }
 
+              assertModelOutputWithinLimit(source, env);
               writeEvent(
                 'done',
                 JSON.stringify({
                   compaction,
                   model: env.OPENAI_MODEL,
-                  source: finalSource || streamedSource,
+                  source,
                 }),
               );
               closeController();

@@ -2,6 +2,7 @@ import OpenAI, { APIUserAbortError } from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../env.js';
 import { UpstreamFailureError } from '../errors/publicError.js';
+import { getByteLength } from '../limits.js';
 import { buildOpenUiSystemPrompt, buildOpenUiUserPrompt, type PromptBuildRequest } from '../prompts/openui.js';
 
 let cachedClient: { apiKey: string; client: OpenAI } | null = null;
@@ -106,6 +107,16 @@ function throwIfAborted(signal?: AbortSignal, stream?: { abort?: () => void }) {
   throw new APIUserAbortError();
 }
 
+function assertModelOutputWithinLimit(source: string, env: AppEnv) {
+  const outputSizeBytes = getByteLength(source);
+
+  if (outputSizeBytes > env.LLM_OUTPUT_MAX_BYTES) {
+    throw new UpstreamFailureError(
+      `Model output size ${outputSizeBytes} bytes exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+    );
+  }
+}
+
 export async function generateOpenUiSource(env: AppEnv, request: PromptBuildRequest, signal?: AbortSignal) {
   const client = getClient(env);
   const response = await client.responses.create(
@@ -119,7 +130,9 @@ export async function generateOpenUiSource(env: AppEnv, request: PromptBuildRequ
     },
   );
 
-  return normalizeOpenUiSource(extractResponseText(response));
+  const source = normalizeOpenUiSource(extractResponseText(response));
+  assertModelOutputWithinLimit(source, env);
+  return source;
 }
 
 export async function streamOpenUiSource(
@@ -140,12 +153,21 @@ export async function streamOpenUiSource(
     },
   );
   let streamedText = '';
+  let streamedTextBytes = 0;
 
   for await (const event of stream) {
     throwIfAborted(signal, stream);
 
     if (event.type === 'response.output_text.delta' && event.delta) {
       throwIfAborted(signal, stream);
+      streamedTextBytes += getByteLength(event.delta);
+      if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
+        stream.abort();
+        throw new UpstreamFailureError(
+          `Streamed model output exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+        );
+      }
+
       streamedText += event.delta;
       await onTextDelta(event.delta);
     }
@@ -153,5 +175,7 @@ export async function streamOpenUiSource(
 
   throwIfAborted(signal, stream);
   const finalResponse = await stream.finalResponse();
-  return normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
+  const source = normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
+  assertModelOutputWithinLimit(source, env);
+  return source;
 }

@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
-import { logServerError, toPublicErrorPayload } from './errors/publicError.js';
+import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from './errors/publicError.js';
+import { getRawRequestMaxBytes } from './limits.js';
 import { createConfigRoutes } from './routes/config.js';
 import { createHealthRoutes } from './routes/health.js';
 import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
@@ -45,6 +47,23 @@ export function createApp(env: AppEnv) {
   }
 
   app.use('/api/*', cors({ origin: env.FRONTEND_ORIGIN }));
+
+  const rawRequestMaxBytes = getRawRequestMaxBytes(env);
+  app.use(
+    '/api/llm/*',
+    bodyLimit({
+      maxSize: rawRequestMaxBytes,
+      onError(context) {
+        const publicError = toPublicErrorPayload(
+          createRequestBodyTooLargeError(
+            `Request body exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`,
+          ),
+        );
+
+        return context.json(publicError, publicError.status);
+      },
+    }),
+  );
 
   const configRoutes = createConfigRoutes(env);
   const healthRoutes = createHealthRoutes(env);

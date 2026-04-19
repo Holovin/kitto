@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
 import { APIUserAbortError } from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp } from '../../app.js';
 import { createTestEnv } from '../createTestEnv.js';
 
 vi.mock(import('../../services/openai.js'), () => ({
@@ -9,17 +9,26 @@ vi.mock(import('../../services/openai.js'), () => ({
 }));
 
 import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.js';
-import { createLlmOpenUiRoutes } from '../../routes/llm-openui.js';
+import { getRawRequestMaxBytes } from '../../limits.js';
 
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
 const streamOpenUiSourceMock = vi.mocked(streamOpenUiSource);
+const textEncoder = new TextEncoder();
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
-  const app = new Hono();
-  app.route('/api', createLlmOpenUiRoutes(env));
+  const app = createApp(env);
 
   return { app, env };
+}
+
+function createStreamingBody(body: string) {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(textEncoder.encode(body));
+      controller.close();
+    },
+  });
 }
 
 function parseSseEvents(payload: string) {
@@ -120,22 +129,22 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
-  it('rejects oversized raw bodies before parsing or calling the OpenAI service', async () => {
-    const { app } = createRouteApp({
+  it('rejects oversized Content-Length before parsing or calling the OpenAI service', async () => {
+    const { app, env } = createRouteApp({
       LLM_REQUEST_MAX_BYTES: 20,
-    });
-    const oversizedBody = JSON.stringify({
-      prompt: 'x'.repeat(60),
-      currentSource: '',
-      chatHistory: [],
     });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
       headers: {
+        'content-length': String(getRawRequestMaxBytes(env) + 1),
         'content-type': 'application/json',
       },
-      body: oversizedBody,
+      body: JSON.stringify({
+        prompt: 'ok',
+        currentSource: '',
+        chatHistory: [],
+      }),
     });
 
     expect(response.status).toBe(413);
@@ -145,6 +154,62 @@ describe('createLlmOpenUiRoutes', () => {
       status: 413,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized streamed bodies before parsing or calling the OpenAI service', async () => {
+    const { app } = createRouteApp({
+      LLM_REQUEST_MAX_BYTES: 20,
+    });
+    const oversizedBody = JSON.stringify({
+      prompt: 'x'.repeat(60),
+      currentSource: '',
+      chatHistory: [],
+    });
+    const requestInit: RequestInit & { duplex: 'half' } = {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: createStreamingBody(oversizedBody),
+      duplex: 'half',
+    };
+
+    const response = await app.request('/api/llm/generate', requestInit);
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Request body is too large to process safely.',
+      status: 413,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized model output with a controlled upstream error', async () => {
+    const { app } = createRouteApp({
+      LLM_OUTPUT_MAX_BYTES: 12,
+    });
+    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      code: 'upstream_error',
+      error: 'The model service could not complete the request.',
+      status: 502,
+    });
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
   });
 
   it('compacts chat history by item limit before generation', async () => {

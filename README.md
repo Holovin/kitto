@@ -93,6 +93,7 @@ Frontend env is optional.
 - `LLM_PROMPT_MAX_CHARS` - prompt length limit, default `4096`
 - `LLM_CHAT_HISTORY_MAX_ITEMS` - chat window sent to the backend, default `40`
 - `LLM_REQUEST_MAX_BYTES` - safe compacted request size, default `300000`
+- `LLM_OUTPUT_MAX_BYTES` - backend-generated source byte limit, default `100000`
 - `LLM_RATE_LIMIT_MAX_REQUESTS` - in-memory request cap per window, default `60`
 - `LLM_RATE_LIMIT_WINDOW_MS` - rate-limit window, default `60000`
 
@@ -126,7 +127,9 @@ Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use onl
 ## Runtime safeguards
 
 - prompt, chat-history, and request-size validation before the OpenAI call
+- raw `/api/llm/*` bodies above `LLM_REQUEST_MAX_BYTES * 4` are rejected with JSON `413` before the backend buffers them fully in memory
 - request compaction when chat history exceeds the configured item or byte limits
+- backend model output above `LLM_OUTPUT_MAX_BYTES` is rejected with a controlled upstream error before it is returned or finalized
 - in-memory rate limiting on LLM routes
 - OpenAI request timeouts
 - a single automatic repair retry that includes the original request, committed valid source, invalid draft, validation issues, and critical syntax rules
