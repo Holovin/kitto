@@ -19,6 +19,21 @@ interface StreamBuilderDefinitionResult {
   source: string;
 }
 
+function normalizeSseDataLine(line: string) {
+  const value = line.slice(5);
+  return value.startsWith(' ') ? value.slice(1) : value;
+}
+
+function createAbortError() {
+  try {
+    return new DOMException('This operation was aborted', 'AbortError');
+  } catch {
+    const error = new Error('This operation was aborted');
+    error.name = 'AbortError';
+    return error;
+  }
+}
+
 function parseServerSentEvent(eventBlock: string) {
   const lines = eventBlock.split('\n').filter(Boolean);
   let event = 'message';
@@ -31,7 +46,7 @@ function parseServerSentEvent(eventBlock: string) {
     }
 
     if (line.startsWith('data:')) {
-      data.push(line.slice(5).trimStart());
+      data.push(normalizeSseDataLine(line));
     }
   }
 
@@ -85,6 +100,8 @@ export async function streamBuilderDefinition({
   const decoder = new TextDecoder();
   let buffer = '';
   let fullSource = '';
+  let receivedDone = false;
+  let donePayload: StreamDonePayload | undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -111,19 +128,19 @@ export async function streamBuilderDefinition({
       }
 
       if (parsedEvent.event === 'done') {
-        let payload: StreamDonePayload;
-
         try {
-          payload = JSON.parse(parsedEvent.data) as StreamDonePayload;
+          donePayload = JSON.parse(parsedEvent.data) as StreamDonePayload;
         } catch {
           throw new Error('Received a malformed "done" event from the backend stream.');
         }
 
-        return {
-          compaction: payload.compaction,
-          source: payload.source ?? fullSource,
-        };
+        receivedDone = true;
+        break;
       }
+    }
+
+    if (receivedDone) {
+      break;
     }
 
     if (done) {
@@ -131,11 +148,16 @@ export async function streamBuilderDefinition({
     }
   }
 
-  if (!fullSource.trim()) {
-    throw new Error('The model stream ended before it returned any OpenUI source.');
+  if (receivedDone && donePayload) {
+    return {
+      compaction: donePayload.compaction,
+      source: donePayload.source ?? fullSource,
+    };
   }
 
-  return {
-    source: fullSource,
-  };
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+
+  throw new Error('Stream ended before done event');
 }

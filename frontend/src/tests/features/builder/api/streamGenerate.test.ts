@@ -22,6 +22,23 @@ function createTextStream(chunks: string[]) {
   });
 }
 
+function createAbortableTextStream(chunk: string, signal: AbortSignal) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(chunk));
+
+      const closeStream = () => {
+        signal.removeEventListener('abort', closeStream);
+        controller.close();
+      };
+
+      signal.addEventListener('abort', closeStream, { once: true });
+    },
+  });
+}
+
 describe('streamBuilderDefinition', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -171,11 +188,45 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
-  it('throws when the stream ends before any source arrives', async () => {
+  it('preserves meaningful leading spaces in chunk data', async () => {
+    const onChunk = vi.fn();
+
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(createTextStream([]), {
+        new Response(
+          createTextStream([
+            'event: chunk\ndata:   Text("hero", "Leading spaces matter")\n\n',
+            'event: done\ndata: {"model":"gpt-5.4-mini"}\n\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        apiBaseUrl: 'http://localhost:8787/api',
+        onChunk,
+        request,
+      }),
+    ).resolves.toEqual({
+      source: '  Text("hero", "Leading spaces matter")',
+    });
+
+    expect(onChunk).toHaveBeenCalledWith('  Text("hero", "Leading spaces matter")');
+  });
+
+  it('throws when the stream ends without a done event', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(createTextStream(['event: chunk\ndata: root = AppShell([])\n\n']), {
           headers: {
             'content-type': 'text/event-stream',
           },
@@ -190,6 +241,37 @@ describe('streamBuilderDefinition', () => {
         onChunk: vi.fn(),
         request,
       }),
-    ).rejects.toThrow('The model stream ended before it returned any OpenUI source.');
+    ).rejects.toThrow('Stream ended before done event');
+  });
+
+  it('treats an aborted stream without done as an abort instead of returning partial source', async () => {
+    const abortController = new AbortController();
+    const onChunk = vi.fn((chunk: string) => {
+      expect(chunk).toBe('root = AppShell([])');
+      abortController.abort();
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(createAbortableTextStream('event: chunk\ndata: root = AppShell([])\n\n', abortController.signal), {
+          headers: {
+            'content-type': 'text/event-stream',
+          },
+          status: 200,
+        }),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        apiBaseUrl: 'http://localhost:8787/api',
+        onChunk,
+        request,
+        signal: abortController.signal,
+      }),
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+    });
   });
 });

@@ -96,6 +96,7 @@ Steps:
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
+- A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
 - Each frontend generation request carries a `requestId`; stale stream chunks, stale fallback responses, and intentional aborts must be ignored and must never commit over a newer request
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API
 - Streaming responses use SSE with `chunk`, `done`, and `error` events

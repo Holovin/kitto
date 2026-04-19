@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { APIUserAbortError } from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestEnv } from '../createTestEnv.js';
 
@@ -23,7 +24,6 @@ function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) 
 
 function parseSseEvents(payload: string) {
   return payload
-    .trim()
     .split('\n\n')
     .filter(Boolean)
     .map((entry) => {
@@ -281,5 +281,29 @@ describe('createLlmOpenUiRoutes', () => {
       model: 'gpt-stream-model',
       source: 'root = AppShell([])',
     });
+  });
+
+  it('closes the SSE stream without done or error when the upstream stream is aborted', async () => {
+    const { app } = createRouteApp();
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      await onTextDelta('root = ');
+      throw new APIUserAbortError();
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'abort the stream',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([{ event: 'chunk', data: 'root = ' }]);
   });
 });

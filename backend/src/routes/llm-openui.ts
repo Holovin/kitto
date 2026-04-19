@@ -226,6 +226,10 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                 env,
                 request,
                 (delta) => {
+                  if (abortController.signal.aborted) {
+                    return;
+                  }
+
                   streamedSource += delta;
                   writeEvent('chunk', delta);
                 },

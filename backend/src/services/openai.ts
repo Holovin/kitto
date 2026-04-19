@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { APIUserAbortError } from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../env.js';
 import { UpstreamFailureError } from '../errors/publicError.js';
@@ -97,6 +97,15 @@ function normalizeOpenUiSource(rawSource: unknown) {
   return trimmedSource.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
 }
 
+function throwIfAborted(signal?: AbortSignal, stream?: { abort?: () => void }) {
+  if (!signal?.aborted) {
+    return;
+  }
+
+  stream?.abort?.();
+  throw new APIUserAbortError();
+}
+
 export async function generateOpenUiSource(env: AppEnv, request: PromptBuildRequest, signal?: AbortSignal) {
   const client = getClient(env);
   const response = await client.responses.create(
@@ -133,12 +142,16 @@ export async function streamOpenUiSource(
   let streamedText = '';
 
   for await (const event of stream) {
+    throwIfAborted(signal, stream);
+
     if (event.type === 'response.output_text.delta' && event.delta) {
+      throwIfAborted(signal, stream);
       streamedText += event.delta;
       await onTextDelta(event.delta);
     }
   }
 
+  throwIfAborted(signal, stream);
   const finalResponse = await stream.finalResponse();
   return normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
 }

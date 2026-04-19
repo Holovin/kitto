@@ -135,6 +135,7 @@ Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use onl
 - invalid imports stay visible in Definition as rejected drafts with parse issues, without wiping chat history or the current runtime/domain snapshot
 - reload restores the last committed source, current reactive state, persisted domain data, and undo/redo history from local persistence
 - automatic fallback from streaming to non-streaming generation when the stream fails before the first chunk
+- a streaming response counts as successful only after a valid terminal `done` event; truncated or aborted streams never commit partial drafts
 - request-scoped generation prevents stale stream or fallback responses from overwriting a newer request, and intentional aborts never commit partial drafts
 - `Link(...)` and `@OpenUrl(...)` share a safe URL policy: only `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...` links are allowed; blocked or malformed URLs are rendered inert or ignored
 - upstream stream cancellation when the browser disconnects
