@@ -1,13 +1,14 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
-import { LoaderCircle, RotateCcw } from 'lucide-react';
+import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '@components/ui/button';
-import { Card, CardContent, CardTitle } from '@components/ui/card';
+import { Card, CardContent } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
+import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import {
@@ -40,11 +41,15 @@ type ScopedRuntimeIssues = {
   scope: string;
 };
 
+interface PreviewTabsProps {
+  onFeedbackChange: (message: string | null) => void;
+}
+
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-export function PreviewTabs() {
+export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
   const definitionSource = useAppSelector(selectDefinitionSource);
@@ -79,6 +84,22 @@ export function PreviewTabs() {
     isShowingRejectedDefinition: boolean;
     previewSource: string;
   } | null>(null);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+  const inactiveCancelRequestRef = useRef<(() => void) | null>(null);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const {
+    canExport,
+    fileInputRef,
+    handleExport,
+    handleImport,
+  } = useBuilderHistoryControls({
+    cancelActiveRequestRef: inactiveCancelRequestRef,
+    onFeedbackChange,
+  });
+  const toolbarButtonClassName =
+    'h-11 w-11 rounded-full border border-slate-200 bg-white/80 p-0 text-slate-700 shadow-none hover:bg-white hover:text-slate-950';
+  const fileMenuItemClassName =
+    'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent disabled:hover:text-slate-400';
 
   useEffect(() => {
     if (!isEmptyCanvas || activeTab === 'preview') {
@@ -111,6 +132,34 @@ export function PreviewTabs() {
     }
   }, [dispatch, isShowingRejectedDefinition, previewSource]);
 
+  useEffect(() => {
+    if (!isFileMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (fileMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsFileMenuOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsFileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFileMenuOpen]);
+
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
       return;
@@ -135,7 +184,6 @@ export function PreviewTabs() {
       className="flex h-full min-h-0 flex-col gap-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle className="max-w-full text-2xl leading-tight break-words sm:text-3xl">Preview</CardTitle>
         <TabsList>
           <TabsTrigger value="preview">Preview</TabsTrigger>
           <TabsTrigger value="definition" disabled={isEmptyCanvas}>
@@ -145,6 +193,49 @@ export function PreviewTabs() {
             App State
           </TabsTrigger>
         </TabsList>
+        <div ref={fileMenuRef} className="relative">
+          <Button
+            aria-label="File actions"
+            aria-expanded={isFileMenuOpen}
+            aria-haspopup="menu"
+            className={toolbarButtonClassName}
+            variant="ghost"
+            onClick={() => setIsFileMenuOpen((currentValue) => !currentValue)}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+          {isFileMenuOpen ? (
+            <div
+              className="absolute right-0 top-full z-20 mt-2 min-w-40 rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg"
+              role="menu"
+            >
+              <button
+                className={fileMenuItemClassName}
+                disabled={!canExport}
+                type="button"
+                onClick={() => {
+                  handleExport();
+                  setIsFileMenuOpen(false);
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
+              <button
+                className={fileMenuItemClassName}
+                type="button"
+                onClick={() => {
+                  setIsFileMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+              >
+                <FileUp className="h-4 w-4" />
+                Import
+              </button>
+            </div>
+          ) : null}
+          <input ref={fileInputRef} accept="application/json" className="hidden" type="file" onChange={handleImport} />
+        </div>
       </div>
 
       <TabsContent value="preview" className="mt-0 flex-1 min-h-0">

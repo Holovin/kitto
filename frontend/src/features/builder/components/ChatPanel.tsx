@@ -1,5 +1,5 @@
-import { useEffect, useEffectEvent, useRef, useState, type MutableRefObject } from 'react';
-import { Download, FileUp, Redo2, RotateCcw, Send, Square, Undo2 } from 'lucide-react';
+import { useEffect, useEffectEvent, useRef, type MutableRefObject } from 'react';
+import { Redo2, RotateCcw, Send, Square, Undo2 } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
@@ -21,6 +21,11 @@ interface ChatComposerProps {
   onFeedbackChange: (message: string | null) => void;
 }
 
+interface ChatPanelProps {
+  feedback: string | null;
+  onFeedbackChange: (message: string | null) => void;
+}
+
 function getMessageBubbleClasses(message: BuilderChatMessage) {
   if (message.role === 'user') {
     return 'ml-auto border-slate-900 bg-slate-950 text-white';
@@ -39,13 +44,9 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
 
 function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarProps) {
   const {
-    canExport,
     canRedo,
     canReset,
     canUndo,
-    fileInputRef,
-    handleExport,
-    handleImport,
     handleRedo,
     handleResetToEmpty,
     handleUndo,
@@ -59,26 +60,7 @@ function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarPr
     'h-7 w-7 rounded-lg border border-slate-200 bg-white/70 px-0 shadow-none hover:bg-white';
 
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:justify-end">
-      <Button
-        className={toolbarButtonClassName}
-        disabled={!canExport}
-        size="sm"
-        variant="ghost"
-        onClick={handleExport}
-      >
-        <Download className="h-4 w-4" />
-        Export
-      </Button>
-      <Button
-        className={toolbarButtonClassName}
-        size="sm"
-        variant="ghost"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <FileUp className="h-4 w-4" />
-        Import
-      </Button>
+    <div className="flex shrink-0 items-center gap-2">
       <Button
         aria-label="Undo"
         className={toolbarIconButtonClassName}
@@ -109,7 +91,6 @@ function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarPr
         <RotateCcw className="h-4 w-4" />
         Reset
       </Button>
-      <input ref={fileInputRef} accept="application/json" className="hidden" type="file" onChange={handleImport} />
     </div>
   );
 }
@@ -207,10 +188,9 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackCh
   );
 }
 
-export function ChatPanel() {
+export function ChatPanel({ feedback, onFeedbackChange }: ChatPanelProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const cancelActiveRequestRef = useRef<(() => void) | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const abortCurrentRequest = useEffectEvent(() => {
     cancelActiveRequestRef.current?.();
   });
@@ -223,11 +203,11 @@ export function ChatPanel() {
 
   return (
     <Card className="flex h-full min-h-0 flex-col border-white/70 bg-white/92">
-      <CardHeader className="flex flex-wrap items-center gap-3 border-b border-slate-200/70 pb-4">
+      <CardHeader className="flex-row items-center justify-between gap-4 border-b border-slate-200/70 pb-4">
         <CardTitle className="shrink-0 text-2xl">Chat</CardTitle>
         <ChatToolbar
           cancelActiveRequestRef={cancelActiveRequestRef}
-          onFeedbackChange={setFeedback}
+          onFeedbackChange={onFeedbackChange}
         />
       </CardHeader>
 
@@ -236,7 +216,7 @@ export function ChatPanel() {
         <ChatComposer
           abortControllerRef={abortControllerRef}
           cancelActiveRequestRef={cancelActiveRequestRef}
-          onFeedbackChange={setFeedback}
+          onFeedbackChange={onFeedbackChange}
         />
       </CardContent>
     </Card>

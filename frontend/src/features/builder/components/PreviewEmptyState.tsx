@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { FolderOpen, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { BUILDER_DEMO_PRESETS } from '@features/builder/openui/runtime/demos';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
@@ -26,6 +26,11 @@ const EMPTY_PREVIEW_DEMOS = [
   { label: 'Todo list', presetId: 'todo-demo' },
   { label: 'Quiz with 3 questions', presetId: 'quiz-demo' },
 ] as const;
+
+const promptCardClassName =
+  'h-[6.5rem] w-[8.75rem] shrink-0 flex-col items-start justify-between rounded-[1.25rem] border-slate-200/90 px-4 py-3 text-left text-[0.92rem] leading-5 whitespace-normal bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(239,246,255,0.96)_100%)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(235,245,255,0.98)_100%)]';
+const demoCardClassName =
+  'h-[6.5rem] w-[8.75rem] shrink-0 flex-col items-start justify-between rounded-[1.25rem] border-slate-200/90 px-4 py-3 text-left text-[0.92rem] leading-5 whitespace-normal bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,243,255,0.96)_100%)] hover:bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(241,238,255,0.98)_100%)]';
 
 export function PreviewEmptyState() {
   const dispatch = useAppDispatch();
@@ -65,11 +70,21 @@ export function PreviewEmptyState() {
       <div className="h-px w-full max-w-md bg-slate-200/80" />
 
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm font-medium text-slate-500">Try these prompts:</p>
+        <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
+          <MessageSquarePlus className="h-4 w-4" />
+          Try these prompts
+        </p>
         <div className="flex max-w-4xl flex-wrap items-center justify-center gap-3">
           {EMPTY_PREVIEW_PROMPTS.map((suggestion) => (
-            <Button key={suggestion.label} size="lg" variant="secondary" onClick={() => handleInsertPrompt(suggestion.prompt)}>
-              {suggestion.label}
+            <Button
+              key={suggestion.label}
+              className={promptCardClassName}
+              size="lg"
+              variant="secondary"
+              onClick={() => handleInsertPrompt(suggestion.prompt)}
+            >
+              <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em] text-slate-400">Prompt</span>
+              <span>{suggestion.label}</span>
             </Button>
           ))}
         </div>
@@ -78,16 +93,21 @@ export function PreviewEmptyState() {
       <div className="h-px w-full max-w-md bg-slate-200/80" />
 
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm font-medium text-slate-500">Or import a generated app</p>
+        <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
+          <FolderOpen className="h-4 w-4" />
+          Or load an already generated app
+        </p>
         <div className="flex max-w-4xl flex-wrap items-center justify-center gap-3">
           {EMPTY_PREVIEW_DEMOS.map((suggestion) => (
             <Button
               key={suggestion.label}
+              className={demoCardClassName}
               size="lg"
               variant="secondary"
               onClick={() => handleLoadSuggestion(suggestion.presetId)}
             >
-              {suggestion.label}
+              <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em] text-slate-400">Demo</span>
+              <span>{suggestion.label}</span>
             </Button>
           ))}
         </div>
