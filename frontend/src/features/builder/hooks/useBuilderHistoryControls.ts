@@ -5,7 +5,6 @@ import { domainActions } from '@features/builder/store/domainSlice';
 import { countCommittedVersions, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
 import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
-import { createStandaloneHtml } from '@features/builder/standalone/createStandaloneHtml';
 import { createStandalonePayload } from '@features/builder/standalone/createStandalonePayload';
 import { downloadStandaloneHtml } from '@features/builder/standalone/downloadStandaloneHtml';
 import {
@@ -23,6 +22,8 @@ interface UseBuilderHistoryControlsOptions {
   onFeedbackChange: (message: string | null) => void;
 }
 
+let standaloneHtmlModulePromise: Promise<typeof import('@features/builder/standalone/createStandaloneHtml')> | null = null;
+
 function createDownloadFileName() {
   return `kitto-definition-${new Date().toISOString().replaceAll(':', '-')}.json`;
 }
@@ -37,6 +38,25 @@ function getFeedbackMessage(error: unknown) {
   }
 
   return 'Something went wrong.';
+}
+
+function loadStandaloneHtmlModule() {
+  if (!standaloneHtmlModulePromise) {
+    standaloneHtmlModulePromise = import('@features/builder/standalone/createStandaloneHtml').catch((error) => {
+      standaloneHtmlModulePromise = null;
+      throw error;
+    });
+  }
+
+  return standaloneHtmlModulePromise;
+}
+
+function preloadStandaloneHtmlModule() {
+  void loadStandaloneHtmlModule()
+    .then(({ preloadStandalonePlayerAssets }) => preloadStandalonePlayerAssets())
+    .catch(() => {
+      // Ignore preload failures and fall back to the on-click path.
+    });
 }
 
 export function useBuilderHistoryControls({
@@ -105,7 +125,7 @@ export function useBuilderHistoryControls({
     appendSuccessChatMessage('Definition exported.');
   }
 
-  function handleDownloadStandalone() {
+  async function handleDownloadStandalone() {
     if (!committedSource.trim()) {
       return;
     }
@@ -120,11 +140,13 @@ export function useBuilderHistoryControls({
     }
 
     try {
+      // Load the standalone HTML generator and inline player assets only when the user exports.
+      const { createStandaloneHtml } = await loadStandaloneHtmlModule();
       const payload = createStandalonePayload({
         committedSource,
         history,
       });
-      const standaloneHtml = createStandaloneHtml(payload);
+      const standaloneHtml = await createStandaloneHtml(payload);
 
       downloadStandaloneHtml(standaloneHtml, createStandaloneDownloadFileName());
       appendSuccessChatMessage('Standalone HTML downloaded.');
@@ -220,6 +242,7 @@ export function useBuilderHistoryControls({
     canReset: historyVersionState.canReset,
     canUndo: historyVersionState.canUndo,
     fileInputRef,
+    preloadStandaloneHtml: preloadStandaloneHtmlModule,
     handleDownloadStandalone,
     handleExport,
     handleImport,

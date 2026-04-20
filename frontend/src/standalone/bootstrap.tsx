@@ -5,7 +5,8 @@ import { parseStandalonePayload, type KittoStandalonePayload } from '@features/b
 import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@features/builder/standalone/constants';
 import { StandaloneApp } from './StandaloneApp';
 
-type StandaloneDocument = Pick<Document, 'body' | 'createElement' | 'getElementById'>;
+type StandaloneDocument = Pick<Document, 'activeElement' | 'body' | 'createElement' | 'getElementById'>;
+type StandaloneLocation = Pick<Location, 'protocol'> | undefined;
 
 function StandaloneBootstrapFallback({ message }: { message: string }) {
   return (
@@ -32,6 +33,36 @@ export function parseEmbeddedStandalonePayload(rawValue: string | null | undefin
 
 export function readEmbeddedStandalonePayload(standaloneDocument: Pick<Document, 'getElementById'> = document) {
   return parseEmbeddedStandalonePayload(standaloneDocument.getElementById(STANDALONE_PAYLOAD_ELEMENT_ID)?.textContent);
+}
+
+function isIframeElement(element: Element | null | undefined) {
+  if (!element) {
+    return false;
+  }
+
+  if (typeof HTMLIFrameElement === 'function' && element instanceof HTMLIFrameElement) {
+    return true;
+  }
+
+  return element.tagName === 'IFRAME';
+}
+
+export function blurStandaloneActiveIframeFocus(
+  standaloneDocument: Pick<Document, 'activeElement'> = document,
+  standaloneLocation: StandaloneLocation = globalThis.location,
+) {
+  if (standaloneLocation?.protocol !== 'file:') {
+    return false;
+  }
+
+  const activeElement = standaloneDocument.activeElement as (Element & { blur?: () => void }) | null;
+
+  if (!isIframeElement(activeElement) || typeof activeElement?.blur !== 'function') {
+    return false;
+  }
+
+  activeElement.blur();
+  return true;
 }
 
 function renderStandaloneBootstrapError(message: string, rootElement: HTMLElement | null, standaloneDocument: StandaloneDocument) {
@@ -70,6 +101,10 @@ export function mountStandaloneApp(standaloneDocument: StandaloneDocument = docu
     renderStandaloneBootstrapError('Missing or invalid standalone payload.', rootElement, standaloneDocument);
     return;
   }
+
+  // React checks the deeply focused element during commit. On file:// pages,
+  // browser- or extension-owned iframes can trigger a noisy cross-origin warning.
+  blurStandaloneActiveIframeFocus(standaloneDocument);
 
   createRoot(rootElement).render(
     <StrictMode>

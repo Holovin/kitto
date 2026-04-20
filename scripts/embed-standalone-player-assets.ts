@@ -2,25 +2,21 @@ import { existsSync, unwatchFile, watchFile } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  STANDALONE_PLAYER_CSS_PUBLIC_PATH,
+  STANDALONE_PLAYER_JS_PUBLIC_PATH,
+} from '../frontend/src/features/builder/standalone/constants';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(currentDirectory, '..');
 const standalonePlayerDirectory = path.resolve(repositoryRoot, 'frontend/dist-standalone-player');
 const standalonePlayerJsPath = path.resolve(standalonePlayerDirectory, 'player.js');
 const standalonePlayerCssPath = path.resolve(standalonePlayerDirectory, 'style.css');
-const generatedModulePath = path.resolve(
-  repositoryRoot,
-  'frontend/src/features/builder/standalone/playerAssets.generated.ts',
-);
+const publicDirectory = path.resolve(repositoryRoot, 'frontend/public');
+const mirroredStandalonePlayerJsPath = path.resolve(publicDirectory, STANDALONE_PLAYER_JS_PUBLIC_PATH);
+const mirroredStandalonePlayerCssPath = path.resolve(publicDirectory, STANDALONE_PLAYER_CSS_PUBLIC_PATH);
 const watchMode = process.argv.includes('--watch');
 const watchedBundlePaths = [standalonePlayerJsPath, standalonePlayerCssPath] as const;
-
-function createGeneratedSource(standalonePlayerJs: string, standalonePlayerCss: string) {
-  return `// Generated file. Do not edit manually.
-export const STANDALONE_PLAYER_JS = ${JSON.stringify(standalonePlayerJs)};
-export const STANDALONE_PLAYER_CSS = ${JSON.stringify(standalonePlayerCss)};
-`;
-}
 
 function getMissingBundleLabel() {
   if (!existsSync(standalonePlayerJsPath)) {
@@ -55,25 +51,38 @@ async function readStandaloneBundle({ allowMissing = false } = {}) {
   };
 }
 
-async function writeGeneratedModule({ allowMissing = false } = {}) {
+async function mirrorBundleFile(filePath: string, content: string) {
+  const currentContent = existsSync(filePath) ? await readFile(filePath, 'utf8') : null;
+
+  if (currentContent === content) {
+    return false;
+  }
+
+  await writeFile(filePath, content, 'utf8');
+  return true;
+}
+
+async function writeMirroredAssets({ allowMissing = false } = {}) {
   const bundle = await readStandaloneBundle({ allowMissing });
 
   if (!bundle) {
     return false;
   }
 
-  const generatedSource = createGeneratedSource(bundle.standalonePlayerJs, bundle.standalonePlayerCss);
+  await mkdir(publicDirectory, { recursive: true });
 
-  await mkdir(path.dirname(generatedModulePath), { recursive: true });
+  const [didUpdateJs, didUpdateCss] = await Promise.all([
+    mirrorBundleFile(mirroredStandalonePlayerJsPath, bundle.standalonePlayerJs),
+    mirrorBundleFile(mirroredStandalonePlayerCssPath, bundle.standalonePlayerCss),
+  ]);
 
-  const currentGeneratedSource = existsSync(generatedModulePath) ? await readFile(generatedModulePath, 'utf8') : null;
-
-  if (currentGeneratedSource === generatedSource) {
+  if (!didUpdateJs && !didUpdateCss) {
     return false;
   }
 
-  await writeFile(generatedModulePath, generatedSource, 'utf8');
-  console.log(`[standalone] embedded assets -> ${path.relative(repositoryRoot, generatedModulePath)}`);
+  console.log(
+    `[standalone] mirrored assets -> ${path.relative(repositoryRoot, mirroredStandalonePlayerJsPath)}, ${path.relative(repositoryRoot, mirroredStandalonePlayerCssPath)}`,
+  );
   return true;
 }
 
@@ -90,9 +99,9 @@ function watchGeneratedModule() {
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
 
-      void writeGeneratedModule({ allowMissing: true }).catch((error) => {
+      void writeMirroredAssets({ allowMissing: true }).catch((error) => {
         console.error(
-          `[standalone] failed to embed standalone assets: ${error instanceof Error ? error.message : 'Unknown error.'}`,
+          `[standalone] failed to mirror standalone assets: ${error instanceof Error ? error.message : 'Unknown error.'}`,
         );
       });
     }, 75);
@@ -130,7 +139,7 @@ async function main() {
     return;
   }
 
-  await writeGeneratedModule();
+  await writeMirroredAssets();
 }
 
 void main().catch((error) => {

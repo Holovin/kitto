@@ -27,31 +27,36 @@ const SelectTrigger = React.forwardRef<
 
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
-const SelectContent = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = 'popper', ...props }, ref) => (
-  <SelectPrimitive.Portal>
-    <SelectPrimitive.Content
-      ref={ref}
-      className={cn(
-        'relative z-50 min-w-[8rem] overflow-hidden rounded-[1.25rem] border border-white/70 bg-white p-1 text-slate-950 shadow-xl',
-        position === 'popper' && 'translate-y-1',
-        className,
-      )}
-      position={position}
-      {...props}
-    >
-      <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1">
-        <ChevronUp className="h-4 w-4" />
-      </SelectPrimitive.ScrollUpButton>
-      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
-      <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1">
-        <ChevronDown className="h-4 w-4" />
-      </SelectPrimitive.ScrollDownButton>
-    </SelectPrimitive.Content>
-  </SelectPrimitive.Portal>
-));
+type SelectContentProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
+  portalled?: boolean;
+};
+
+const SelectContent = React.forwardRef<React.ElementRef<typeof SelectPrimitive.Content>, SelectContentProps>(
+  ({ className, children, portalled = true, position = 'popper', ...props }, ref) => {
+    const content = (
+      <SelectPrimitive.Content
+        ref={ref}
+        className={cn(
+          'relative z-50 min-w-[8rem] overflow-hidden rounded-[1.25rem] border border-white/70 bg-white p-1 text-slate-950 shadow-xl',
+          position === 'popper' && 'translate-y-1',
+          className,
+        )}
+        position={position}
+        {...props}
+      >
+        <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1">
+          <ChevronUp className="h-4 w-4" />
+        </SelectPrimitive.ScrollUpButton>
+        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+        <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1">
+          <ChevronDown className="h-4 w-4" />
+        </SelectPrimitive.ScrollDownButton>
+      </SelectPrimitive.Content>
+    );
+
+    return portalled ? <SelectPrimitive.Portal>{content}</SelectPrimitive.Portal> : content;
+  },
+);
 
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 

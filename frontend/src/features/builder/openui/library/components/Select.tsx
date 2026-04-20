@@ -84,7 +84,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         >
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
-        <SelectContent style={selectStyle}>
+        <SelectContent portalled={false} style={selectStyle}>
           {props.options.map((option) => (
             <SelectItem key={option.value} style={itemStyle} value={option.value}>
               {option.label}

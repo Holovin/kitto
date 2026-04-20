@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { parseEmbeddedStandalonePayload, readEmbeddedStandalonePayload } from '@src/standalone/bootstrap';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  blurStandaloneActiveIframeFocus,
+  parseEmbeddedStandalonePayload,
+  readEmbeddedStandalonePayload,
+} from '@src/standalone/bootstrap';
 import { STANDALONE_PAYLOAD_ELEMENT_ID } from '@features/builder/standalone/constants';
 
 const validPayloadJson = JSON.stringify({
@@ -72,5 +76,54 @@ describe('standalone bootstrap payload helpers', () => {
       initialDomainData: {},
       storageKey: 'kitto:standalone:v1-test1234',
     });
+  });
+
+  it('blurs an active iframe when standalone HTML runs from file protocol', () => {
+    const blur = vi.fn();
+
+    expect(
+      blurStandaloneActiveIframeFocus(
+        {
+          activeElement: {
+            blur,
+            tagName: 'IFRAME',
+          } as unknown as Element,
+        },
+        { protocol: 'file:' },
+      ),
+    ).toBe(true);
+
+    expect(blur).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not blur non-iframe elements or non-file runtimes', () => {
+    const bodyBlur = vi.fn();
+    const iframeBlur = vi.fn();
+
+    expect(
+      blurStandaloneActiveIframeFocus(
+        {
+          activeElement: {
+            blur: bodyBlur,
+            tagName: 'BODY',
+          } as unknown as Element,
+        },
+        { protocol: 'file:' },
+      ),
+    ).toBe(false);
+    expect(bodyBlur).not.toHaveBeenCalled();
+
+    expect(
+      blurStandaloneActiveIframeFocus(
+        {
+          activeElement: {
+            blur: iframeBlur,
+            tagName: 'IFRAME',
+          } as unknown as Element,
+        },
+        { protocol: 'https:' },
+      ),
+    ).toBe(false);
+    expect(iframeBlur).not.toHaveBeenCalled();
   });
 });

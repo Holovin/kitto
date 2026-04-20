@@ -7,6 +7,22 @@ import tailwindcss from '@tailwindcss/vite';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
+function escapeForRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createScopedReactCompilerPreset(sourceRoot: string) {
+  const preset = reactCompilerPreset();
+
+  preset.rolldown ??= {};
+  preset.rolldown.filter ??= {};
+  preset.rolldown.filter.id = {
+    include: [new RegExp(`^${escapeForRegExp(path.resolve(sourceRoot, 'src'))}[\\\\/].*\\.[jt]sx?$`)],
+  };
+
+  return preset;
+}
+
 export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -14,7 +30,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    babel({ presets: [createScopedReactCompilerPreset(rootDir)] }),
   ],
   publicDir: false,
   resolve: {

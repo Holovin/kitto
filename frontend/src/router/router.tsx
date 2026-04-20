@@ -2,7 +2,6 @@ import { RouteErrorBoundary } from '@components/ErrorFallback/RouteErrorBoundary
 import { createBrowserRouter } from 'react-router-dom';
 import { BaseLayout } from '@layouts/BaseLayout';
 import ChatPage from '@pages/Chat/Chat';
-import ElementsPage from '@pages/Elements/Elements';
 import { SiteRoutes } from './siteRoutes';
 
 export const router = createBrowserRouter([
@@ -20,7 +19,10 @@ export const router = createBrowserRouter([
       },
       {
         path: SiteRoutes.elements.path,
-        element: <ElementsPage />,
+        lazy: async () => {
+          const ElementsPage = await import('@pages/Elements/Elements');
+          return { Component: ElementsPage.default };
+        },
       },
     ],
   },

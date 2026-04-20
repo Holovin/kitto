@@ -5,6 +5,10 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 
+function escapeForRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function readBackendPort() {
   const backendEnvPath = path.resolve(__dirname, '../backend/.env');
 
@@ -37,12 +41,25 @@ function getDevApiTarget(mode: string) {
   return `http://localhost:${readBackendPort()}`;
 }
 
+function createScopedReactCompilerPreset(rootDir: string) {
+  const preset = reactCompilerPreset();
+  const sourceDirectoryPattern = new RegExp(`^${escapeForRegExp(path.resolve(rootDir, 'src'))}[\\\\/].*\\.[jt]sx?$`);
+
+  preset.rolldown ??= {};
+  preset.rolldown.filter ??= {};
+  preset.rolldown.filter.id = {
+    include: [sourceDirectoryPattern],
+  };
+
+  return preset;
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
     tailwindcss(),
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    babel({ presets: [createScopedReactCompilerPreset(__dirname)] }),
   ],
   resolve: {
     alias: {

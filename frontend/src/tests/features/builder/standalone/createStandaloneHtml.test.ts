@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createStandaloneHtml } from '@features/builder/standalone/createStandaloneHtml';
-import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@features/builder/standalone/constants';
-import { STANDALONE_PLAYER_CSS, STANDALONE_PLAYER_JS } from '@features/builder/standalone/playerAssets.generated';
+import {
+  STANDALONE_PAYLOAD_ELEMENT_ID,
+  STANDALONE_PLAYER_CSS_PUBLIC_PATH,
+  STANDALONE_PLAYER_JS_PUBLIC_PATH,
+  STANDALONE_ROOT_ELEMENT_ID,
+} from '@features/builder/standalone/constants';
 import type { KittoStandalonePayload } from '@features/builder/standalone/types';
 
+const standalonePlayerJs = 'console.log("standalone player ready");';
+const standalonePlayerCss = 'body{color:#111827;}';
 function createPayload(overrides: Partial<KittoStandalonePayload> = {}): KittoStandalonePayload {
   return {
     version: 1,
@@ -32,36 +37,80 @@ function extractEmbeddedPayloadJson(html: string) {
     .trim();
 }
 
+function mockStandalonePlayerFetch({
+  css = standalonePlayerCss,
+  js = standalonePlayerJs,
+}: {
+  css?: string;
+  js?: string;
+} = {}) {
+  const fetchMock = vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+
+    if (url.endsWith(STANDALONE_PLAYER_JS_PUBLIC_PATH)) {
+      return Promise.resolve(
+        new Response(js, {
+          status: 200,
+        }),
+      );
+    }
+
+    if (url.endsWith(STANDALONE_PLAYER_CSS_PUBLIC_PATH)) {
+      return Promise.resolve(
+        new Response(css, {
+          status: 200,
+        }),
+      );
+    }
+
+    return Promise.resolve(
+      new Response('missing', {
+        status: 404,
+      }),
+    );
+  });
+
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
 describe('createStandaloneHtml', () => {
   afterEach(() => {
-    vi.doUnmock('@features/builder/standalone/playerAssets.generated');
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.resetModules();
   });
 
-  it('embeds the payload and the generated inline player assets', () => {
-    const html = createStandaloneHtml(createPayload());
+  it('embeds the payload and the mirrored inline player assets', async () => {
+    mockStandalonePlayerFetch();
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(createPayload());
 
-    expect(STANDALONE_PLAYER_JS.length).toBeGreaterThan(0);
-    expect(STANDALONE_PLAYER_CSS.length).toBeGreaterThan(0);
+    expect(standalonePlayerJs.length).toBeGreaterThan(0);
+    expect(standalonePlayerCss.length).toBeGreaterThan(0);
     expect(html).toContain(`<div id="${STANDALONE_ROOT_ELEMENT_ID}"></div>`);
     expect(html).toContain(`<script id="${STANDALONE_PAYLOAD_ELEMENT_ID}" type="application/json">`);
-    expect(html).toContain(STANDALONE_PLAYER_JS.slice(0, 32));
-    expect(html).toContain(STANDALONE_PLAYER_CSS.slice(0, 32));
+    expect(html).toContain(standalonePlayerJs.slice(0, 32));
+    expect(html).toContain(standalonePlayerCss.slice(0, 16));
     expect(html).not.toContain('window.__KITTO_STANDALONE_APP__');
   });
 
-  it('places the inert payload script before the inline player script', () => {
-    const html = createStandaloneHtml(createPayload());
+  it('places the inert payload script before the inline player script', async () => {
+    mockStandalonePlayerFetch();
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(createPayload());
     const payloadScriptStart = html.indexOf(`<script id="${STANDALONE_PAYLOAD_ELEMENT_ID}" type="application/json">`);
-    const playerScriptStart = html.indexOf(`<script>\n${STANDALONE_PLAYER_JS.slice(0, 16)}`);
+    const playerScriptStart = html.indexOf(`<script>\n${standalonePlayerJs.slice(0, 16)}`);
 
     expect(payloadScriptStart).toBeGreaterThan(-1);
     expect(playerScriptStart).toBeGreaterThan(-1);
     expect(payloadScriptStart).toBeLessThan(playerScriptStart);
   });
 
-  it('escapes dangerous payload characters so inline data cannot break the script tag', () => {
-    const html = createStandaloneHtml(
+  it('escapes dangerous payload characters so inline data cannot break the script tag', async () => {
+    mockStandalonePlayerFetch();
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(
       createPayload({
         source: 'root = AppShell([Text("</script><script>alert(1)</script> & < >", "body", "start")])',
       }),
@@ -71,8 +120,10 @@ describe('createStandaloneHtml', () => {
     expect(html).not.toContain('</script><script>alert(1)</script>');
   });
 
-  it('serializes only the standalone app definition fields and excludes chat/history metadata', () => {
-    const html = createStandaloneHtml({
+  it('serializes only the standalone app definition fields and excludes chat/history metadata', async () => {
+    mockStandalonePlayerFetch();
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml({
       ...createPayload(),
       appId: 'legacy-test1234',
       chatHistory: [{ role: 'user', content: 'secret' }],
@@ -96,17 +147,27 @@ describe('createStandaloneHtml', () => {
   });
 
   it('escapes closing style and script tags inside inline player assets', async () => {
-    vi.doMock('@features/builder/standalone/playerAssets.generated', () => ({
-      STANDALONE_PLAYER_JS: 'console.log("</script><script>boom</script>");',
-      STANDALONE_PLAYER_CSS: 'body::after{content:"</style><script>boom</script>";}',
-    }));
+    mockStandalonePlayerFetch({
+      js: 'console.log("</script><script>boom</script>");',
+      css: 'body::after{content:"</style><script>boom</script>";}',
+    });
 
-    const { createStandaloneHtml: createMockedStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
-    const html = createMockedStandaloneHtml(createPayload());
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(createPayload());
 
     expect(html).toContain('<\\/script>');
     expect(html).toContain('<\\/style>');
     expect(html).not.toContain('</style><script>boom</script>');
     expect(html).not.toContain('</script><script>boom</script>');
+  });
+
+  it('reuses the same fetched standalone player assets across exports', async () => {
+    const fetchMock = mockStandalonePlayerFetch();
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+
+    await createStandaloneHtml(createPayload());
+    await createStandaloneHtml(createPayload({ exportId: 'v1-test5678', storageKey: 'kitto:standalone:v1-test5678' }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

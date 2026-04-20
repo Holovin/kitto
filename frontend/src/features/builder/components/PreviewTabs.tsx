@@ -147,6 +147,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     canExport,
     canDownloadStandalone,
     fileInputRef,
+    preloadStandaloneHtml,
     handleDownloadStandalone,
     handleExport,
     handleImport,
@@ -157,7 +158,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const toolbarButtonClassName =
     'h-11 w-11 rounded-full border border-slate-200 bg-white/80 p-0 text-slate-700 shadow-none hover:bg-white hover:text-slate-950';
   const fileMenuItemClassName =
-    'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent disabled:hover:text-slate-400';
+    'flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent disabled:hover:text-slate-400';
 
   useEffect(() => {
     if (!isEmptyCanvas || activeTab === 'preview') {
@@ -225,6 +226,10 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
       return;
     }
 
+    if (canDownloadStandalone) {
+      preloadStandaloneHtml();
+    }
+
     function handlePointerDown(event: MouseEvent) {
       if (fileMenuRef.current?.contains(event.target as Node)) {
         return;
@@ -246,7 +251,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isFileMenuOpen]);
+  }, [canDownloadStandalone, isFileMenuOpen, preloadStandaloneHtml]);
 
   function handleResetAppState() {
     if (!currentSnapshot || isStreaming) {
@@ -288,27 +293,25 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
             aria-haspopup="menu"
             className={toolbarButtonClassName}
             variant="ghost"
+            onFocus={() => {
+              if (canDownloadStandalone) {
+                preloadStandaloneHtml();
+              }
+            }}
+            onMouseEnter={() => {
+              if (canDownloadStandalone) {
+                preloadStandaloneHtml();
+              }
+            }}
             onClick={() => setIsFileMenuOpen((currentValue) => !currentValue)}
           >
             <MoreHorizontal className="h-5 w-5" />
           </Button>
           {isFileMenuOpen ? (
             <div
-              className="absolute right-0 top-full z-20 mt-2 min-w-56 rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg"
+              className="absolute right-0 top-full z-20 mt-2 min-w-[18.25rem] rounded-[1.25rem] border border-slate-200 bg-white p-1 shadow-lg"
               role="menu"
             >
-              <button
-                className={fileMenuItemClassName}
-                disabled={!canExport}
-                type="button"
-                onClick={() => {
-                  handleExport();
-                  setIsFileMenuOpen(false);
-                }}
-              >
-                <Download className="h-4 w-4" />
-                Export JSON
-              </button>
               <button
                 className={fileMenuItemClassName}
                 type="button"
@@ -322,10 +325,25 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
               </button>
               <button
                 className={fileMenuItemClassName}
-                disabled={!canDownloadStandalone}
+                disabled={!canExport}
                 type="button"
                 onClick={() => {
-                  handleDownloadStandalone();
+                  handleExport();
+                  setIsFileMenuOpen(false);
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Export JSON
+              </button>
+              <div aria-hidden="true" className="my-1 h-px bg-slate-200" role="separator" />
+              <button
+                className={fileMenuItemClassName}
+                disabled={!canDownloadStandalone}
+                type="button"
+                onFocus={preloadStandaloneHtml}
+                onMouseEnter={preloadStandaloneHtml}
+                onClick={() => {
+                  void handleDownloadStandalone();
                   setIsFileMenuOpen(false);
                 }}
               >
