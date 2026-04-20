@@ -71,6 +71,7 @@ Guardrails:
 - Persisted path segments may use only letters, numbers, `_`, or `-`, and must reject `__proto__`, `prototype`, and `constructor`.
 - Numeric path segments are valid only when they address array indexes.
 - `write_state` and `append_state` values must stay JSON-compatible, `append_item` values must be plain objects, `update_item_field` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
+- For generated collection-row CRUD, do not mutate array elements through numeric persisted paths such as `app.items.0`; prefer id-based collection-item tools instead.
 - Collection-item tool field names such as `idField` and `field` must be safe single keys only and must reject `__proto__`, `prototype`, and `constructor`.
 - `compute_value` and `write_computed_state` must return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access before reaching for compute tools.
@@ -253,6 +254,7 @@ Todo request guardrails:
 - `Checkbox(...)` supports two modes: use a writable `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.
 - Do not combine checkbox action mode with a writable `$binding<boolean>` on the same control.
 - Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.
+- Inside `@Each(...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`; those edits do not persist automatically.
 - For canonical interactive todo rows, prefer an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)`.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.

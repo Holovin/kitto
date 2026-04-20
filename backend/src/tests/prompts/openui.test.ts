@@ -197,6 +197,12 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain('Collection-item relay recipe: `$targetItemId = ""`');
     expect(prompt).toContain(
+      'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
+    );
+    expect(prompt).toContain(
+      'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
+    );
+    expect(prompt).toContain(
       'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`',
     );
 
@@ -312,6 +318,12 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain(
       'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
+    );
+    expect(prompt).toContain(
+      'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
+    );
+    expect(prompt).toContain(
+      'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
     );
     expect(prompt).toContain(
       'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',

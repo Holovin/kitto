@@ -1106,6 +1106,101 @@ root = AppShell([
     );
   });
 
+  it('marks item-bound controls inside @Each without action as blocking quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `items = Query("read_state", { path: "app.items" }, [])
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Items", [
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create an item browser with row actions.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'item-bound-control-without-action',
+          message:
+            'Item-scoped control without `action` will not persist changes back to `items`. Use action-mode with `toggle_item_field` / `update_item_field`.',
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('does not mark item-bound controls inside @Each when action mode is used', () => {
+    const issues = detectOpenUiQualityIssues(
+      `items = Query("read_state", { path: "app.items" }, [])
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([]))
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Items", [
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create an item browser with row actions.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'item-bound-control-without-action')).toBeUndefined();
+  });
+
+  it('marks index-based persisted mutation paths as blocking quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `toggleFirst = Mutation("merge_state", {
+  path: "app.items.0",
+  patch: { completed: true }
+})
+
+root = AppShell([
+  Screen("main", "Items", [
+    Text("Items", "body", "start")
+  ])
+])`,
+      'Create an item browser with row actions.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'mutation-uses-array-index-path',
+          message:
+            'Mutating array elements by index is fragile. Use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField`+`id`.',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'toggleFirst',
+        }),
+      ]),
+    );
+  });
+
+  it('does not mark collection-level persisted mutation paths as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `saveItems = Mutation("write_state", {
+  path: "app.items",
+  value: []
+})
+
+root = AppShell([
+  Screen("main", "Items", [
+    Text("Items", "body", "start")
+  ])
+])`,
+      'Create an item browser with row actions.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'mutation-uses-array-index-path')).toBeUndefined();
+  });
+
   it('rejects inline tool calls inside @Each row actions via parser or blocking quality issues', () => {
     const source = `$selectedItemId = ""
 items = Query("read_state", { path: "app.items" }, [

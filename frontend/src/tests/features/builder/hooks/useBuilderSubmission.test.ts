@@ -253,6 +253,22 @@ const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const NEW_BLOCKING_QUALITY_SOURCE = `items = Query("read_state", { path: "app.items" }, [])
+toggleFirst = Mutation("merge_state", {
+  path: "app.items.0",
+  patch: { completed: true }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Items", [
+    Repeater(rows, "No items yet.")
+  ])
+])`;
+
 const FATAL_QUALITY_SOURCE = `$accepted = false
 
 root = AppShell([
@@ -715,6 +731,34 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('includes new blocking-quality issue codes in the repair request payload', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create an item browser with row actions.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: NEW_BLOCKING_QUALITY_SOURCE,
+    });
+    testHarness.generateMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+
+    const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
+      request: { mode?: string; prompt: string };
+    }).request;
+
+    expect(repairRequest.mode).toBe('repair');
+    expect(repairRequest.prompt).toContain('item-bound-control-without-action');
+    expect(repairRequest.prompt).toContain('mutation-uses-array-index-path');
+    expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
 
     submission.unmount();
   });

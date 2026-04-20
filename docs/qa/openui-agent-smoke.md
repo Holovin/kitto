@@ -233,7 +233,9 @@ Create a task list with completed status and a filter with All, Active and Compl
 
 - User can add multiple items.
 - Completion should be interactive through an explicit persisted mutation + refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggle_item_field)`, and `@Run(read_state)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
+- Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
 - Row actions should use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
+- The committed source must not mutate persisted array rows by numeric paths such as `app.items.0`; item updates should stay id-based through collection-item tools.
 - Any row action must reference top-level `Query(...)` / `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
 - Definition re-runs the visible `Query("read_state", ...)` after persisted add and complete mutations.
 - If the filter is implemented with action-mode `Select(...)`, the source should route the newly selected option through runtime-managed `$lastChoice` into a top-level persisted mutation instead of assuming direct binding write-back.
