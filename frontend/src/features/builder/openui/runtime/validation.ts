@@ -28,6 +28,23 @@ interface OpenUiValidationResult {
 
 type ToolAst = ParseResult['queryStatements'][number]['toolAST'] | ParseResult['mutationStatements'][number]['toolAST'];
 
+interface OpenUiQualityMetrics {
+  blockGroupCount: number;
+  hasThemeStyling: boolean;
+  hasValidationRules: boolean;
+  screenCount: number;
+}
+
+const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
+const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
+const THEME_REQUEST_PATTERN = /\b(theme|theming|dark|light|color|colors|colour|colours|palette)\b/i;
+const COMPUTE_REQUEST_PATTERN =
+  /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b/i;
+const FILTER_REQUEST_PATTERN = /\b(filter|filters|filtered|search)\b/i;
+const VALIDATION_REQUEST_PATTERN = /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b/i;
+const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
+const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
+
 function normalizeSourceForValidation(source: string) {
   return source.trim();
 }
@@ -36,6 +53,13 @@ function createParserIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderPar
   return {
     ...issue,
     source: 'parser',
+  };
+}
+
+function createQualityIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderParseIssue {
+  return {
+    ...issue,
+    source: 'quality',
   };
 }
 
@@ -191,6 +215,59 @@ function isLiteralObjectValue(value: unknown): value is Record<string, unknown> 
   return prototype === Object.prototype || prototype === null;
 }
 
+function inspectQualityNode(value: unknown, metrics: OpenUiQualityMetrics) {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      inspectQualityNode(entry, metrics);
+    }
+
+    return;
+  }
+
+  if (!isElementNode(value)) {
+    if (typeof value === 'object' && value !== null) {
+      for (const nestedValue of Object.values(value)) {
+        inspectQualityNode(nestedValue, metrics);
+      }
+    }
+
+    return;
+  }
+
+  if (value.typeName === 'Screen') {
+    metrics.screenCount += 1;
+  }
+
+  if (value.typeName === 'Group' && value.props.variant !== 'inline') {
+    metrics.blockGroupCount += 1;
+  }
+
+  if (value.props.appearance != null) {
+    metrics.hasThemeStyling = true;
+  }
+
+  if (Array.isArray(value.props.validation) ? value.props.validation.length > 0 : value.props.validation != null) {
+    metrics.hasValidationRules = true;
+  }
+
+  for (const nestedValue of Object.values(value.props)) {
+    inspectQualityNode(nestedValue, metrics);
+  }
+}
+
+function collectQualityMetrics(value: unknown): OpenUiQualityMetrics {
+  const metrics: OpenUiQualityMetrics = {
+    blockGroupCount: 0,
+    hasThemeStyling: false,
+    hasValidationRules: false,
+    screenCount: 0,
+  };
+
+  inspectQualityNode(value, metrics);
+
+  return metrics;
+}
+
 function validateLiteralProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
   if (Array.isArray(value)) {
     return value.flatMap((entry) => validateLiteralProps(entry, inheritedStatementId));
@@ -341,6 +418,109 @@ function validateMutationTools(result: ParseResult): BuilderParseIssue[] {
       }),
     ];
   });
+}
+
+function isSimplePrompt(prompt: string) {
+  return SIMPLE_PROMPT_INCLUDE_PATTERN.test(prompt) && !SIMPLE_PROMPT_EXCLUDE_PATTERN.test(prompt);
+}
+
+function promptRequestsTheme(prompt: string) {
+  return THEME_REQUEST_PATTERN.test(prompt);
+}
+
+function promptRequestsCompute(prompt: string) {
+  return COMPUTE_REQUEST_PATTERN.test(prompt);
+}
+
+function promptRequestsFiltering(prompt: string) {
+  return FILTER_REQUEST_PATTERN.test(prompt);
+}
+
+function promptRequestsValidation(prompt: string) {
+  return VALIDATION_REQUEST_PATTERN.test(prompt);
+}
+
+function hasComputeTools(result: ParseResult) {
+  return [...result.queryStatements, ...result.mutationStatements].some((statement) => {
+    const toolName = extractStringLiteral(statement.toolAST);
+
+    return toolName ? QUALITY_COMPUTE_TOOL_NAMES.has(toolName) : false;
+  });
+}
+
+export function detectOpenUiQualityWarnings(source: string, userPrompt: string): BuilderParseIssue[] {
+  const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
+  const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
+
+  if (!trimmedSource || !trimmedPrompt) {
+    return [];
+  }
+
+  const result = parser.parse(trimmedSource);
+
+  if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root) {
+    return [];
+  }
+
+  const warnings: BuilderParseIssue[] = [];
+  const maskedSource = maskStringLiterals(trimmedSource);
+  const metrics = collectQualityMetrics(result.root);
+
+  if (isSimplePrompt(trimmedPrompt) && metrics.screenCount > 1) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-too-many-screens',
+        message: 'Simple request generated multiple screens.',
+      }),
+    );
+  }
+
+  if (isSimplePrompt(trimmedPrompt) && metrics.blockGroupCount > MAX_SIMPLE_PROMPT_BLOCK_GROUPS) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-too-many-block-groups',
+        message: 'Simple request generated many block groups. Consider fewer sections.',
+      }),
+    );
+  }
+
+  if (!promptRequestsTheme(trimmedPrompt) && (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-unrequested-theme',
+        message: 'Theme styling was added even though not requested.',
+      }),
+    );
+  }
+
+  if (!promptRequestsCompute(trimmedPrompt) && hasComputeTools(result)) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-unrequested-compute',
+        message: 'Compute tools were added even though not requested.',
+      }),
+    );
+  }
+
+  if (!promptRequestsFiltering(trimmedPrompt) && /@Filter\s*\(/.test(maskedSource)) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-unrequested-filter',
+        message: 'Filtering was added even though not requested.',
+      }),
+    );
+  }
+
+  if (!promptRequestsValidation(trimmedPrompt) && metrics.hasValidationRules) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-unrequested-validation',
+        message: 'Validation rules were added even though not requested.',
+      }),
+    );
+  }
+
+  return warnings;
 }
 
 export function validateOpenUiSource(source: string): OpenUiValidationResult {

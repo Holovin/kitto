@@ -21,6 +21,8 @@ Guardrails:
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Definition may show streamed draft source while generation is still in progress.
+- Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
+- Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
 - That invalid-generation chat failure must end with: `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
@@ -262,6 +264,14 @@ rollDice = Mutation("write_computed_state", {
 })
 ```
 
+Compute tool rules:
+
+- treat `compute_value` and `write_computed_state` as opt-in tools, not defaults
+- do not use compute tools for simple list CRUD, basic screen navigation, filtering, or normal input display
+- use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules
+- for button-triggered random values, use `write_computed_state` with `op: "random_int"`
+- do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior
+
 Do use:
 
 - the smallest working app that satisfies the latest user request
@@ -292,8 +302,9 @@ Do use:
 - avoid over-nesting block groups
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
 - `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
-- `compute_value` only when normal OpenUI expressions are not enough
+- `compute_value` only when the requested task truly needs computation beyond normal OpenUI expressions
 - `write_computed_state` only when a button should compute and persist a primitive value
+- `write_computed_state` with `op: "random_int"` for button-triggered random values
 - local `$variables` for ephemeral UI state such as draft inputs, filters, and internal screen flow
 - local arrays for runtime-only collections such as selected answers, and `Query("read_state", ...)` for persisted collections
 - `Query("read_state", ...)` with a sensible default when reading persisted data

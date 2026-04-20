@@ -187,6 +187,7 @@ interface BuilderState {
   chatMessages: BuilderChatMessage[];
   committedSource: string;
   currentRequestId: BuilderRequestId | null;
+  definitionWarnings: BuilderParseIssue[];
   draftPrompt: string;
   hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
@@ -213,6 +214,7 @@ const initialState: BuilderState = {
   chatMessages: createInitialChatMessages(),
   committedSource: DEFAULT_OPENUI_SOURCE,
   currentRequestId: null,
+  definitionWarnings: [],
   draftPrompt: '',
   hasRejectedDefinition: false,
   history: [initialSnapshot],
@@ -258,6 +260,11 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     currentRequestId: null,
+    definitionWarnings: rejectedSource
+      ? []
+      : Array.isArray(value.definitionWarnings)
+        ? (value.definitionWarnings as BuilderParseIssue[])
+        : [],
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
     hasRejectedDefinition: Boolean(rejectedSource),
     history,
@@ -319,6 +326,7 @@ export const builderSlice = createSlice({
         requestId: BuilderRequestId;
         snapshot: BuilderSnapshot;
         source: string;
+        warnings: BuilderParseIssue[];
       }>,
     ) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -332,6 +340,7 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.hasRejectedDefinition = false;
       state.committedSource = action.payload.source;
+      state.definitionWarnings = action.payload.warnings;
       state.streamedSource = action.payload.source;
       state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
       state.redoHistory = [];
@@ -446,6 +455,7 @@ export const builderSlice = createSlice({
       state.redoHistory = trimHistory([...state.redoHistory, cloneForState(currentSnapshot)]);
       state.committedSource = previousSnapshot.source;
       state.currentRequestId = null;
+      state.definitionWarnings = [];
       state.hasRejectedDefinition = false;
       state.retryPrompt = null;
       state.streamedSource = previousSnapshot.source;
@@ -469,6 +479,7 @@ export const builderSlice = createSlice({
       state.history = trimHistory([...state.history, cloneForState(redoSnapshot)]);
       state.committedSource = redoSnapshot.source;
       state.currentRequestId = null;
+      state.definitionWarnings = [];
       state.hasRejectedDefinition = false;
       state.retryPrompt = null;
       state.streamedSource = redoSnapshot.source;
@@ -495,6 +506,7 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.currentRequestId = null;
       state.draftPrompt = '';
+      state.definitionWarnings = [];
       state.hasRejectedDefinition = false;
       state.history = trimHistory(action.payload.history);
       state.parseIssues = [];
@@ -518,6 +530,7 @@ export const builderSlice = createSlice({
       state.activeTab = 'preview';
       state.committedSource = action.payload.snapshot.source;
       state.currentRequestId = null;
+      state.definitionWarnings = [];
       state.hasRejectedDefinition = false;
       state.streamedSource = action.payload.snapshot.source;
       state.draftPrompt = '';
@@ -543,6 +556,7 @@ export const builderSlice = createSlice({
       state.chatMessages = createInitialChatMessages();
       state.committedSource = DEFAULT_OPENUI_SOURCE;
       state.currentRequestId = null;
+      state.definitionWarnings = [];
       state.draftPrompt = '';
       state.hasRejectedDefinition = false;
       state.streamedSource = DEFAULT_OPENUI_SOURCE;

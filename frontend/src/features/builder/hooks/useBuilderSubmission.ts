@@ -14,7 +14,7 @@ import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from '@features/builder/h
 import { resolveBuilderComposerPrompt } from '@features/builder/hooks/submissionPrompt';
 import { createValidationFailureMessage } from '@features/builder/hooks/validationFailureMessage';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
   selectChatMessages,
   selectCommittedSource,
@@ -274,6 +274,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   ) {
     throwIfInactiveRequest(requestId);
     const validatedResult = await ensureValidGeneratedSource(response.source, request, requestId);
+    const qualityWarnings = detectOpenUiQualityWarnings(validatedResult.source, request.prompt);
     throwIfInactiveRequest(requestId);
     const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
 
@@ -286,6 +287,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         source: validatedResult.source,
         note: validatedResult.note,
         snapshot,
+        warnings: qualityWarnings,
       }),
     );
     clearRequestHandles(requestId);

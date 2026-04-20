@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -548,6 +548,203 @@ ${validSource}`);
       expect.arrayContaining([
         expect.objectContaining({
           code: 'source-too-large',
+        }),
+      ]),
+    );
+  });
+});
+
+describe('detectOpenUiQualityWarnings', () => {
+  it('does not warn for a simple todo request that stays on one screen', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Checkbox(item.title, item.title, item.completed)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('warns when a simple todo request generates multiple screens', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Tasks", "title", "start")
+  ]),
+  Screen("details", "Details", [
+    Text("Task details", "body", "start")
+  ], false),
+  Screen("settings", "Settings", [
+    Text("Preferences", "body", "start")
+  ], false)
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-too-many-screens',
+          message: 'Simple request generated multiple screens.',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('does not warn about theme styling when the prompt asks for a theme', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$currentTheme = "dark"
+root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Theme preview", "body", "start")
+  ])
+], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`,
+      'Create a todo list with a dark theme.',
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
+  it('warns when theme styling was added without being requested', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$currentTheme = "dark"
+root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Theme preview", "body", "start")
+  ])
+], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-theme',
+          message: 'Theme styling was added even though not requested.',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('does not warn about compute tools when the prompt asks for randomness', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+      'Create a random dice roller.',
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-unrequested-compute')).toBeUndefined();
+  });
+
+  it('warns when compute tools were added without being requested', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-compute',
+          message: 'Compute tools were added even though not requested.',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('warns when filtering was added without being requested', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `items = [
+  { title: "Write tests", completed: true },
+  { title: "Ship changes", completed: false }
+]
+visibleItems = @Filter(items, "completed", "==", true)
+rows = @Each(visibleItems, "item", Text(item.title, "body", "start"))
+
+root = AppShell([
+  Screen("main", "Tasks", [
+    Repeater(rows, "No tasks")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-filter',
+          message: 'Filtering was added even though not requested.',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('warns when validation rules were added without being requested', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$email = ""
+root = AppShell([
+  Screen("main", "Signup", [
+    Input("email", "Email", $email, "name@example.com", "Enter email", "email", [
+      { type: "required", message: "Email is required" },
+      { type: "email", message: "Enter a valid email" }
+    ])
+  ])
+])`,
+      'Create a signup form.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-validation',
+          message: 'Validation rules were added even though not requested.',
+          source: 'quality',
         }),
       ]),
     );

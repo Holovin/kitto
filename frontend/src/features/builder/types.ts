@@ -41,7 +41,7 @@ export interface BuilderParseIssue {
   code: string;
   message: string;
   statementId?: string;
-  source?: 'mutation' | 'parser' | 'query' | 'runtime';
+  source?: 'mutation' | 'parser' | 'quality' | 'query' | 'runtime';
 }
 
 export interface BuilderLlmRequest {

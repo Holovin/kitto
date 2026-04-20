@@ -138,6 +138,7 @@ describe('builderSlice', () => {
         requestId: 'request-2',
         snapshot,
         source: validSource,
+        warnings: [],
       }),
     );
 
@@ -159,6 +160,35 @@ describe('builderSlice', () => {
     );
 
     vi.useRealTimers();
+  });
+
+  it('stores generation quality warnings without rejecting the committed source', () => {
+    const warning = {
+      code: 'quality-too-many-screens',
+      message: 'Simple request generated multiple screens.',
+      source: 'quality' as const,
+    };
+    const started = builderReducer(
+      createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Create a todo list',
+        requestId: 'request-quality-warning',
+      }),
+    );
+    const completed = builderReducer(
+      started,
+      builderActions.completeStreaming({
+        requestId: 'request-quality-warning',
+        snapshot: createBuilderSnapshot(validSource, {}, {}),
+        source: validSource,
+        warnings: [warning],
+      }),
+    );
+
+    expect(completed.committedSource).toBe(validSource);
+    expect(completed.hasRejectedDefinition).toBe(false);
+    expect(completed.parseIssues).toEqual([]);
+    expect(completed.definitionWarnings).toEqual([warning]);
   });
 
   it('appends export success messages with the file name to the end of chat history', () => {
@@ -449,6 +479,7 @@ describe('builderSlice', () => {
         requestId: null as never,
         snapshot: firstSnapshot,
         source: firstSnapshot.source,
+        warnings: [],
       }),
     );
     const withSecondCommit = builderReducer(
@@ -460,6 +491,7 @@ describe('builderSlice', () => {
         requestId: 'request-4',
         snapshot: secondSnapshot,
         source: secondSnapshot.source,
+        warnings: [],
       }),
     );
     const undone = builderReducer(withSecondCommit, builderActions.undoLatest());
@@ -580,6 +612,7 @@ describe('builderSlice', () => {
         requestId: 'request-5',
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
+        warnings: [],
       }),
     );
 
@@ -610,6 +643,7 @@ describe('builderSlice', () => {
         requestId: 'request-7',
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
+        warnings: [],
       }),
     );
 

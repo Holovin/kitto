@@ -92,7 +92,7 @@ const toolSpecifications: ToolSpec[] = [
   {
     name: 'compute_value',
     description:
-      'Run a safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Returns an object shaped like `{ value }`.',
+      'Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Returns an object shaped like `{ value }`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -173,7 +173,7 @@ const toolSpecifications: ToolSpec[] = [
   {
     name: 'write_computed_state',
     description:
-      'Compute a safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`.',
+      'Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`. Use it for button-triggered computed values such as random rolls that should persist for later rendering.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -426,9 +426,14 @@ const additionalRules = [
   'TOOL MINIMALITY:',
   'Use $variables for ephemeral UI state.',
   'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
+  'Compute tools are opt-in. Do not use `compute_value` or `write_computed_state` unless the requested task needs them.',
+  'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
+  'Use compute tools only when the user asks for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
   'Use `compute_value` only when normal OpenUI expressions are not enough.',
   'Use `write_computed_state` only when a button must compute and persist a primitive value.',
-  'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, or date comparisons.',
+  'For button-triggered random values, use `write_computed_state` with `op: "random_int"`.',
+  'Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
+  'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, date comparisons, or other compute-specific behavior.',
   'APPEARANCE / THEME CONTRACT:',
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
   'Use `activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
@@ -491,8 +496,12 @@ const additionalRules = [
   'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
   'Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.',
   'Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.',
+  'Do not use compute tools for simple list CRUD, basic screen navigation, filtering, or normal input display.',
+  'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
   'Both compute tools return `{ value }`.',
   'Do not render a Mutation statement reference directly in UI text such as `Text("Result: " + rollDice, ...)`; Mutation refs resolve to status objects, not plain primitive tool outputs.',
+  'For button-triggered random values, use `write_computed_state` with `op: "random_int"`.',
+  'Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
   'When a `write_computed_state` result should be displayed after a click, prefer reading the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.',
   'If you must read the latest successful Mutation result directly, use `mutationRef.data.value` only after checking that the mutation succeeded.',
   'Date compute operations only accept strict YYYY-MM-DD strings.',

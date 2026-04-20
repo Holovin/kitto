@@ -43,6 +43,7 @@ Expected:
 - There is no extra screen flow, no `$currentScreen`, and no unrelated persisted fields.
 - There are no filters, due dates, theme toggles, validation rules, or compute tools unless explicitly requested.
 - There are no parser or runtime errors in the UI or Console.
+- If the draft still commits with avoidable over-complexity such as extra screens, theme state, filters, validation rules, or compute tools, `Definition` shows non-blocking quality warnings instead of rejecting the commit.
 
 ## Scenario 2 — Basic generation and local screen flow
 
@@ -228,9 +229,7 @@ Add a button that rolls a random number from 1 to 100 and shows the result.
 
 Expected:
 
-- Source uses a safe compute tool:
-  - `compute_value`
-  - or `write_computed_state` if the result needs to be stored
+- Source uses `write_computed_state` for the button-triggered random value, not `Query("compute_value", { op: "random_int" }, ...)`.
 - For a random integer it uses `op: "random_int"` with integer `min` / `max`.
 - Clicking the button updates the number locally.
 - There are no new `/api/llm/*` requests after the click.
@@ -245,7 +244,7 @@ Show a warning if the name field is empty.
 
 Expected:
 
-- It uses a built-in expression or `compute_value`.
+- It uses a built-in expression first, or `compute_value` only if normal expressions do not cover the requested check cleanly.
 - The warning appears and disappears locally while typing.
 - There is no arbitrary JS validation.
 

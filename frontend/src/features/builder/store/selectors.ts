@@ -6,6 +6,8 @@ export const selectCommittedSource = (state: RootState) => state.builder.committ
 export const selectDomainData = (state: RootState) => state.domain.data;
 export const selectDraftPrompt = (state: RootState) => state.builder.draftPrompt;
 export const selectHistory = (state: RootState) => state.builder.history;
+export const selectDefinitionWarnings = (state: RootState) =>
+  state.builder.isStreaming || selectHasRejectedDefinition(state) ? [] : state.builder.definitionWarnings;
 export const selectIsStreaming = (state: RootState) => state.builder.isStreaming;
 export const selectLastStreamChunkAt = (state: RootState) => state.builder.lastStreamChunkAt;
 export const selectParseIssues = (state: RootState) => state.builder.parseIssues;

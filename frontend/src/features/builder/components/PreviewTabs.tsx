@@ -25,6 +25,7 @@ import {
 import { builderToolProvider } from '@features/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
+  selectDefinitionWarnings,
   selectDefinitionSource,
   selectDomainData,
   selectHasRejectedDefinition,
@@ -82,6 +83,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     }),
   });
   const activeTab = useAppSelector(selectActiveTab);
+  const definitionWarnings = useAppSelector(selectDefinitionWarnings);
   const definitionSource = useAppSelector(selectDefinitionSource);
   const domainData = useAppSelector(selectDomainData);
   const history = useAppSelector(selectHistory);
@@ -450,7 +452,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
       </TabsContent>
 
       <TabsContent value="definition" className="mt-0 flex-1 min-h-0">
-        <DefinitionPanel issues={combinedIssues} source={definitionSource} />
+        <DefinitionPanel issues={combinedIssues} source={definitionSource} warnings={definitionWarnings} />
       </TabsContent>
 
       <TabsContent value="app-state" className="mt-0 flex-1 min-h-0">
