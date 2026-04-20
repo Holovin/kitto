@@ -330,7 +330,7 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Input.type must be one of "text", "email", "number", "date", "time", "url", "tel", "password".',
+          message: 'Input.type must be one of "text", "email", "number", "date", "time", "password".',
         }),
       ]),
     );
@@ -394,7 +394,7 @@ root = AppShell([
         expect.objectContaining({
           code: 'invalid-prop',
           message:
-            'validation[0].type must be one of "required", "minLength", "maxLength", "minNumber", "maxNumber", "dateOnOrAfter", "dateOnOrBefore", "email", "url".',
+            'validation[0].type must be one of "required", "minLength", "maxLength", "minNumber", "maxNumber", "dateOnOrAfter", "dateOnOrBefore", "email".',
         }),
       ]),
     );

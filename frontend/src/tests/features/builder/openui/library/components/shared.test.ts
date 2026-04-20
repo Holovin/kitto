@@ -38,12 +38,14 @@ describe('inputTypeSchema', () => {
     expect(inputTypeSchema.safeParse('date').success).toBe(true);
     expect(inputTypeSchema.safeParse('number').success).toBe(true);
     expect(inputTypeSchema.safeParse('email').success).toBe(true);
-    expect(inputTypeSchema.safeParse('url').success).toBe(true);
-    expect(inputTypeSchema.safeParse('tel').success).toBe(true);
+    expect(inputTypeSchema.safeParse('time').success).toBe(true);
+    expect(inputTypeSchema.safeParse('password').success).toBe(true);
   });
 
   it('rejects unsupported input types', () => {
     expect(inputTypeSchema.safeParse('search').success).toBe(false);
+    expect(inputTypeSchema.safeParse('url').success).toBe(false);
+    expect(inputTypeSchema.safeParse('tel').success).toBe(false);
   });
 });
 
@@ -51,6 +53,11 @@ describe('validationRuleSchema', () => {
   it('accepts structured validation rules', () => {
     expect(validationRuleSchema.safeParse({ type: 'required', message: 'Required' }).success).toBe(true);
     expect(validationRuleSchema.safeParse({ type: 'minNumber', value: 1 }).success).toBe(true);
+    expect(validationRuleSchema.safeParse({ type: 'email', message: 'Invalid email' }).success).toBe(true);
+  });
+
+  it('rejects removed url validation rules', () => {
+    expect(validationRuleSchema.safeParse({ type: 'url' }).success).toBe(false);
   });
 });
 
@@ -128,17 +135,13 @@ describe('validation helpers', () => {
     expect(timeRules).toEqual([]);
   });
 
-  it('applies email and url validation only on matching input types', () => {
+  it('applies email validation only on email inputs', () => {
     const emailRules = sanitizeValidationRules({ componentType: 'Input', inputType: 'email' }, [{ type: 'email' }]);
-    const urlRules = sanitizeValidationRules({ componentType: 'Input', inputType: 'url' }, [{ type: 'url' }]);
-    const telRules = sanitizeValidationRules({ componentType: 'Input', inputType: 'tel' }, [{ type: 'email' }, { type: 'url' }]);
+    const textRules = sanitizeValidationRules({ componentType: 'Input', inputType: 'text' }, [{ type: 'email' }]);
 
     expect(evaluateValidationRules({ target: { componentType: 'Input', inputType: 'email' }, rules: emailRules, value: 'bad-email' })).toBe(
       'Enter a valid email address.',
     );
-    expect(evaluateValidationRules({ target: { componentType: 'Input', inputType: 'url' }, rules: urlRules, value: 'not-a-url' })).toBe(
-      'Enter a valid URL.',
-    );
-    expect(telRules).toEqual([]);
+    expect(textRules).toEqual([]);
   });
 });

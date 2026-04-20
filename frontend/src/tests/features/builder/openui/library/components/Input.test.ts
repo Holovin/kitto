@@ -26,8 +26,8 @@ root = AppShell([
     ['date', '2026-04-25'],
     ['number', '12'],
     ['email', 'ada@example.com'],
-    ['url', 'https://example.com'],
-    ['tel', '+49 30 123456'],
+    ['time', '09:30'],
+    ['password', 'secret-123'],
   ] as const)('renders input[type=%s]', (inputType, value) => {
     const props = InputComponent.props.parse({
       label: 'Field',
@@ -85,7 +85,7 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Input.type must be one of "text", "email", "number", "date", "time", "url", "tel", "password".',
+          message: 'Input.type must be one of "text", "email", "number", "date", "time", "password".',
         }),
       ]),
     );

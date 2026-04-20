@@ -114,14 +114,13 @@ Expected:
 Prompt:
 
 ```txt
-Create a form with name, email, phone, quantity, due date, description and required agreement checkbox. Add basic validation.
+Create a form with name, email, quantity, due date, description and required agreement checkbox. Add basic validation.
 ```
 
 Expected:
 
 - Appropriate input types are used:
   - `email` for email
-  - `tel` for phone
   - `number` for quantity
   - `date` for due date
   - `textarea` for description
@@ -159,6 +158,7 @@ Expected:
 - The email field uses `Input(..., "email", ...)`.
 - The email field uses declarative `required` and `email` validation rules.
 - The agreement checkbox uses declarative `required` validation.
+- The agreement checkbox error clears immediately after the checkbox is checked.
 - The generated source does not contain arbitrary JavaScript validation code.
 
 Focused prompt:

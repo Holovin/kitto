@@ -11,7 +11,7 @@ const appearanceContrastColorProp = hexColorSchema.describe('Optional contrast t
 
 export const KITTO_MAIN_COLOR_VAR = '--kitto-main-color';
 export const KITTO_CONTRAST_COLOR_VAR = '--kitto-contrast-color';
-export const INPUT_TYPES = ['text', 'email', 'number', 'date', 'time', 'url', 'tel', 'password'] as const;
+export const INPUT_TYPES = ['text', 'email', 'number', 'date', 'time', 'password'] as const;
 export const VALIDATION_RULE_TYPES = [
   'required',
   'minLength',
@@ -21,7 +21,6 @@ export const VALIDATION_RULE_TYPES = [
   'dateOnOrAfter',
   'dateOnOrBefore',
   'email',
-  'url',
 ] as const;
 
 export type KittoAppearance = {
@@ -52,8 +51,7 @@ export type ValidationRule =
   | { type: 'maxNumber'; message?: string; value: number }
   | { type: 'dateOnOrAfter'; message?: string; value: string }
   | { type: 'dateOnOrBefore'; message?: string; value: string }
-  | { type: 'email'; message?: string }
-  | { type: 'url'; message?: string };
+  | { type: 'email'; message?: string };
 
 export interface ValidationConfigIssue {
   message: string;
@@ -65,7 +63,7 @@ const validationRuleTypeSchema = z.enum(VALIDATION_RULE_TYPES);
 
 export const inputTypeSchema = inputTypeSchemaValues
   .default('text')
-  .describe('HTML input type. Allowed values: text, email, number, date, time, url, tel, password. Defaults to text.');
+  .describe('HTML input type. Allowed values: text, email, number, date, time, password. Defaults to text.');
 
 export const validationRuleSchema = z
   .object({
@@ -111,8 +109,6 @@ const validationRuleTypesByInputType: Record<InputType, ValidationRuleType[]> = 
   number: ['required', 'minNumber', 'maxNumber'],
   date: ['required', 'dateOnOrAfter', 'dateOnOrBefore'],
   time: ['required'],
-  url: ['required', 'minLength', 'maxLength', 'url'],
-  tel: ['required', 'minLength', 'maxLength'],
   password: ['required', 'minLength', 'maxLength'],
 };
 
@@ -275,7 +271,7 @@ function validateValidationRuleConfig(target: ValidationTarget, rule: Record<str
     pushValidationIssue(issues, index, 'message', `${createValidationRulePath(index, 'message')} must be a string literal.`);
   }
 
-  if (rawType === 'required' || rawType === 'email' || rawType === 'url') {
+  if (rawType === 'required' || rawType === 'email') {
     if (rule.value !== undefined) {
       pushValidationIssue(issues, index, 'value', `Validation rule "${rawType}" does not accept a value.`);
     }
@@ -391,7 +387,6 @@ export function sanitizeValidationRules(target: ValidationTarget, rawRules: unkn
     switch (rawRule.type) {
       case 'required':
       case 'email':
-      case 'url':
         rules.push(message ? { type: rawRule.type, message } : { type: rawRule.type });
         break;
       case 'minLength':
@@ -538,15 +533,6 @@ export function evaluateValidationRules(args: {
           }
         }
         break;
-      case 'url':
-        if (typeof value === 'string' && value.length > 0) {
-          try {
-            new URL(value);
-          } catch {
-            return rule.message ?? 'Enter a valid URL.';
-          }
-        }
-        break;
     }
   }
 
@@ -561,10 +547,6 @@ export function getInputAutoComplete(name: string, inputType: InputType) {
   switch (inputType) {
     case 'email':
       return 'email';
-    case 'tel':
-      return 'tel';
-    case 'url':
-      return 'url';
     case 'password':
       return 'current-password';
     default:

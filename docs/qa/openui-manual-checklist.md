@@ -133,7 +133,7 @@ Repeater(children, emptyText?, appearance?)
 Typed inputs and declarative validation:
 
 ```txt
-Input type values: text | email | number | date | time | url | tel | password
+Input type values: text | email | number | date | time | password
 Input default type: text
 Input values always stay strings
 date values use YYYY-MM-DD
@@ -148,8 +148,7 @@ validation = [
   { type: "maxNumber", value: number, message?: string },
   { type: "dateOnOrAfter", value: "YYYY-MM-DD", message?: string },
   { type: "dateOnOrBefore", value: "YYYY-MM-DD", message?: string },
-  { type: "email", message?: string },
-  { type: "url", message?: string }
+  { type: "email", message?: string }
 ]
 ```
 
@@ -160,8 +159,6 @@ Validation applicability:
 - `Input(type="number")`: `required`, `minNumber`, `maxNumber`
 - `Input(type="date")`: `required`, `dateOnOrAfter`, `dateOnOrBefore`
 - `Input(type="time")`: `required`
-- `Input(type="url")`: `required`, `url`, optional `minLength`, `maxLength`
-- `Input(type="tel")`: `required`, `minLength`, `maxLength`
 - `Input(type="password")`: `required`, `minLength`, `maxLength`
 - `TextArea`: `required`, `minLength`, `maxLength`
 - `Select`: `required`
@@ -237,10 +234,9 @@ Do use:
 - `appearance.contrastColor` for text or the contrasting action color
 - only strict `#RRGGBB` values such as `#111827`, `#F9FAFB`, or `#2563EB` inside `appearance`
 - `Input(..., ..., ..., ..., ..., "date", validation)` for due dates, deadlines, birthdays, and scheduled dates
-- `Input(..., ..., ..., ..., ..., "number", validation)` for numeric quantities while keeping the runtime value as a string
-- `Input(..., ..., ..., ..., ..., "email", validation)` for email fields
-- `Input(..., ..., ..., ..., ..., "url", validation)` for website fields
-- `Input(..., ..., ..., ..., ..., "tel", validation)` for phone numbers
+- `Input(..., ..., ..., ..., ..., "number", validation)` for quantity, count, amount, and other numeric fields while keeping the runtime value as a string
+- `Input(..., ..., ..., ..., ..., "email", validation)` for email fields, together with `email` validation when the field must contain a valid address
+- `Checkbox(..., validation)` with `required` for agreement, confirmation, consent, and acknowledgement fields
 - declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
@@ -283,7 +279,7 @@ Do not use:
 Generated app behaviors that should stay supported:
 
 - text input
-- typed `Input(...)` fields for semantic cases such as email, quantity, due date, URL, phone, password, or time
+- typed `Input(...)` fields for semantic cases such as email, quantity, due date, password, or time
 - textarea, select, radio group, or checkbox when the prompt calls for longer input or choices
 - declarative local validation on supported input-like components
 - buttons with `Action([...])`

@@ -1,4 +1,4 @@
-import { APIUserAbortError } from 'openai';
+import { APIError, APIUserAbortError } from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../app.js';
 import { UpstreamFailureError } from '../../errors/publicError.js';
@@ -255,6 +255,44 @@ describe('createLlmOpenUiRoutes', () => {
       status: 502,
     });
     expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not leak sensitive OpenAI SDK error messages to the client', async () => {
+    const { app } = createRouteApp();
+    const sensitiveMessage = 'sk-live-secret-key should never reach the browser';
+
+    generateOpenUiSourceMock.mockRejectedValue(
+      new APIError(
+        500,
+        {
+          message: sensitiveMessage,
+          type: 'server_error',
+        },
+        undefined,
+        new Headers({ 'x-request-id': 'req-sensitive' }),
+      ),
+    );
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toEqual({
+      code: 'upstream_error',
+      error: 'The model service could not complete the request.',
+      status: 502,
+    });
+    expect(JSON.stringify(payload)).not.toContain(sensitiveMessage);
   });
 
   it('compacts chat history by item limit before generation', async () => {
