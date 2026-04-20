@@ -200,6 +200,8 @@ Expected:
 Failure-path note:
 - if a generation fails because the model still returns invalid OpenUI after automatic repair, no new version is created
 - the final red chat message ends with `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
+- with an empty composer after that failure, the primary chat button becomes enabled and reads `Repeat`
+- typing any new prompt into the composer changes that button text back to `Send` immediately
 - Preview and Definition both continue showing the last committed valid app rather than the rejected draft
 
 ## Scenario 10 — Preview runtime issue lifecycle
@@ -220,24 +222,35 @@ Expected:
 
 Prompt:
 
-Add dark mode.
+Сделай приложение со всеми контролами что ты знаешь. Сделай сверху отдельную группу с двумя кнопками: светлая и тёмная темы. Нужно показывать активную тему КРАСНОЙ кнопкой с белым текстом.
 
 Expected:
-- generated source uses `color` and/or `background` props on visible components
-- every generated color override uses strict `#RRGGBB` values
-- the rendered UI visibly changes to a dark-looking design
-- screen titles may use the trailing `Screen(..., isActive?, color?, background?)` overrides when needed
-- dark form controls use control-level `color` / `background` props instead of relying only on parent `Screen` or `Group` colors
+- generated source sets `AppShell(..., appearance?)` from a theme variable
+- the active theme button uses conditional `appearance` with red background and white text
+- inactive theme buttons are not red
+- clicks on the theme buttons update local runtime state only and do not trigger `/api/llm/*`
+- the rendered UI changes together across screens, groups, and controls through inherited appearance
 - no raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or `url()` appears in generated source
 
 Follow-up prompt:
 
-Make the warning message yellow and the submit button blue.
+Сделай чтобы кнопки переключали тему. Тема должна влиять на все элементы, включая блок темы.
 
 Expected:
-- generated source uses safe `#RRGGBB` values for the warning message and submit button
-- the warning message uses `Text(..., color?)` or a surrounding surface component instead of `Text.background`
-- existing component variants still remain valid where they are enough
+- generated source keeps the shared theme on `AppShell(..., appearance?)`
+- nested elements inherit colors automatically instead of repeating the same `appearance` object on every control
+- the theme button block also follows the same inherited theme
+- local `appearance` is only used where a control intentionally overrides the inherited colors
+- no arbitrary CSS or style-object syntax appears in generated source
+
+Follow-up prompt:
+
+Сделай тёмную тему.
+
+Expected:
+- the rendered app looks dark and readable
+- generated source uses `AppShell(..., appearance?)` with a dark background and light text
+- controls inherit the dark theme unless a local override is needed
 - no arbitrary CSS or style-object syntax appears in generated source
 
 ## Scenario 12 — Safe compute tools
@@ -251,6 +264,7 @@ Expected:
 - the generated mutation writes to persisted state and a `Query("read_state", ...)` displays the saved result after click
 - clicking the button updates the UI locally with no new `/api/llm/*` request
 - the generated `random_int` options use integer `min` / `max` values only
+- generated source does not interpolate the raw Mutation ref into `Text(...)`; no `"[object Object]"` result appears after click
 
 Follow-up prompt:
 

@@ -1,5 +1,5 @@
-import type { ReactElement } from 'react';
-import { isValidElement } from 'react';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LinkComponent } from '@features/builder/openui/library/components/Link';
 import { parseSafeUrl } from '@features/builder/openui/runtime/safeUrl';
@@ -9,15 +9,11 @@ import {
 } from '@src/tests/features/builder/openui/runtime/safeUrlTestCases';
 
 function renderLink(props: { label: string; newTab: boolean; url: unknown }) {
-  const element = LinkComponent.component({ props } as never);
-
-  expect(isValidElement(element)).toBe(true);
-
-  if (!isValidElement(element)) {
-    throw new Error('Link component did not return a valid React element.');
+  function TestLink() {
+    return LinkComponent.component({ props } as never);
   }
 
-  return element as ReactElement<Record<string, unknown>>;
+  return renderToStaticMarkup(createElement(TestLink));
 }
 
 describe('LinkComponent', () => {
@@ -29,121 +25,112 @@ describe('LinkComponent', () => {
   it.each([...allowedUrlCases, ...rejectedUrlCases])(
     'uses parseSafeUrl to decide whether $label renders as an active anchor',
     ({ label, value }) => {
-      let element: ReactElement<Record<string, unknown>> | undefined;
-
-      expect(() => {
-        element = renderLink({
-          label,
-          newTab: false,
-          url: value,
-        });
-      }).not.toThrow();
-
-      if (!element) {
-        throw new Error('Link component did not return a React element.');
-      }
-
+      const html = renderLink({
+        label,
+        newTab: false,
+        url: value,
+      });
       const safeUrl = parseSafeUrl(value);
 
       if (safeUrl) {
-        expect(element.type).toBe('a');
-        expect(element.props.href).toBe(safeUrl);
-        expect(element.props.target).toBeUndefined();
-        expect(element.props.rel).toBeUndefined();
+        expect(html).toContain('<a');
+        expect(html).toContain(`href="${safeUrl}"`);
+        expect(html).not.toContain('target="_blank"');
+        expect(html).not.toContain('rel="noopener noreferrer"');
         return;
       }
 
-      expect(element.type).toBe('span');
-      expect(element.props['aria-disabled']).toBe('true');
-      expect(element.props.href).toBeUndefined();
-      expect(element.props.children).toBe(label);
+      expect(html).toContain('<span');
+      expect(html).toContain('aria-disabled="true"');
+      expect(html).toContain(label);
+      expect(html).not.toContain('href=');
     },
   );
 
   it('rejects javascript: URLs', () => {
-    const element = renderLink({
+    const html = renderLink({
       label: 'Unsafe link',
       newTab: true,
       url: 'javascript:alert(1)',
     });
 
-    expect(element.type).toBe('span');
-    expect(element.props['aria-disabled']).toBe('true');
-    expect(element.props.children).toBe('Unsafe link');
+    expect(html).toContain('<span');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('Unsafe link');
   });
 
   it('rejects data: URLs', () => {
-    const element = renderLink({
+    const html = renderLink({
       label: 'Unsafe data link',
       newTab: true,
       url: 'data:text/html,<script>alert(1)</script>',
     });
 
-    expect(element.type).toBe('span');
-    expect(element.props['aria-disabled']).toBe('true');
+    expect(html).toContain('<span');
+    expect(html).toContain('aria-disabled="true"');
   });
 
   it('rejects blob: URLs', () => {
-    const element = renderLink({
+    const html = renderLink({
       label: 'Unsafe blob link',
       newTab: true,
       url: 'blob:https://example.com/123',
     });
 
-    expect(element.type).toBe('span');
-    expect(element.props['aria-disabled']).toBe('true');
+    expect(html).toContain('<span');
+    expect(html).toContain('aria-disabled="true"');
   });
 
   it('accepts https URLs', () => {
-    const element = renderLink({
+    const html = renderLink({
       label: 'Docs',
       newTab: true,
       url: 'https://example.com',
     });
 
-    expect(element.type).toBe('a');
-    expect(element.props.href).toBe('https://example.com');
-    expect(element.props.target).toBe('_blank');
-    expect(element.props.rel).toBe('noopener noreferrer');
+    expect(html).toContain('<a');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 
   it('accepts relative app paths', () => {
-    const element = renderLink({
+    const html = renderLink({
       label: 'Chat',
       newTab: false,
       url: '/chat',
     });
 
-    expect(element.type).toBe('a');
-    expect(element.props.href).toBe('/chat');
-    expect(element.props.target).toBeUndefined();
+    expect(html).toContain('<a');
+    expect(html).toContain('href="/chat"');
+    expect(html).not.toContain('target="_blank"');
   });
 
   it('renders relative app paths as inert text when opened from file protocol', () => {
     vi.stubGlobal('location', { protocol: 'file:' });
 
-    const element = renderLink({
+    const html = renderLink({
       label: 'Chat',
       newTab: false,
       url: '/chat',
     });
 
-    expect(element.type).toBe('span');
-    expect(element.props['aria-disabled']).toBe('true');
-    expect(element.props.children).toBe('Chat');
+    expect(html).toContain('<span');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('Chat');
   });
 
   it('renders hash links as inert text when opened from file protocol', () => {
     vi.stubGlobal('location', { protocol: 'file:' });
 
-    const element = renderLink({
+    const html = renderLink({
       label: 'Section',
       newTab: true,
       url: '#section',
     });
 
-    expect(element.type).toBe('span');
-    expect(element.props['aria-disabled']).toBe('true');
-    expect(element.props.children).toBe('Section');
+    expect(html).toContain('<span');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('Section');
   });
 });

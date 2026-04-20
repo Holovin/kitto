@@ -76,6 +76,17 @@ export function useBuilderHistoryControls({
     );
   }
 
+  function appendErrorChatMessage(content: string) {
+    onFeedbackChange(content);
+    dispatch(
+      builderActions.appendChatMessage({
+        content,
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+  }
+
   function handleExport() {
     if (isPristineCanvas) {
       return;
@@ -142,7 +153,7 @@ export function useBuilderHistoryControls({
             issues: sourceValidation.issues,
           }),
         );
-        onFeedbackChange('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.');
+        appendErrorChatMessage('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.');
         return;
       }
 
@@ -165,7 +176,7 @@ export function useBuilderHistoryControls({
       );
       onFeedbackChange(null);
     } catch (error) {
-      onFeedbackChange(`Import failed: ${getFeedbackMessage(error)}`);
+      appendErrorChatMessage(`Import failed: ${getFeedbackMessage(error)}`);
     } finally {
       event.target.value = '';
     }

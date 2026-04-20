@@ -7,11 +7,18 @@ interface ElementDemoDefinition {
 export const ELEMENT_DEMO_DEFINITIONS: Record<string, ElementDemoDefinition> = {
   AppShell: {
     source: `$currentScreen = "overview"
+$theme = "light"
+
+appAppearance = $theme == "dark" ? { textColor: "#F9FAFB", bgColor: "#0F172A" } : { textColor: "#111827", bgColor: "#FFFFFF" }
 
 root = AppShell([
   Screen("overview", "Overview", [
+    Group("Theme", "horizontal", [
+      Button("theme-light", "Light", "secondary", Action([@Set($theme, "light")]), false),
+      Button("theme-dark", "Dark", "secondary", Action([@Set($theme, "dark")]), false)
+    ], "inline"),
     Group("Root shell", "vertical", [
-      Text("AppShell is a technical wrapper and renders only its children.", "body", "start"),
+      Text("AppShell can also set the inherited theme for everything below it.", "body", "start"),
       Button("show-details", "Show details", "secondary", Action([@Set($currentScreen, "details")]), false)
     ])
   ], $currentScreen == "overview"),
@@ -21,10 +28,13 @@ root = AppShell([
       Button("show-overview", "Show overview", "secondary", Action([@Set($currentScreen, "overview")]), false)
     ])
   ], $currentScreen == "details")
-])`,
+], appAppearance)`,
   },
   Screen: {
     source: `$currentScreen = "alpha"
+
+alphaAppearance = { textColor: "#0F172A", bgColor: "#F8FAFC" }
+betaAppearance = { textColor: "#0F172A", bgColor: "#E0F2FE" }
 
 root = AppShell([
   Screen("alpha", "Alpha", [
@@ -32,13 +42,13 @@ root = AppShell([
       Text("Alpha is visible right now.", "body", "start"),
       Button("go-beta", "Go to beta", "default", Action([@Set($currentScreen, "beta")]), false)
     ])
-  ], $currentScreen == "alpha", "#0F172A", "#F8FAFC"),
+  ], $currentScreen == "alpha", alphaAppearance),
   Screen("beta", "Beta", [
     Group("Second screen", "vertical", [
       Text("Beta is active.", "body", "start"),
       Button("go-alpha", "Go to alpha", "secondary", Action([@Set($currentScreen, "alpha")]), false)
     ])
-  ], $currentScreen == "beta", "#0F172A", "#E0F2FE")
+  ], $currentScreen == "beta", betaAppearance)
 ])`,
   },
   Group: {
@@ -74,9 +84,9 @@ root = AppShell([
       Text("Role: " + $role, "body", "start")
     ]),
     Group("Dark section", "vertical", [
-      Text("Color overrides support dark-looking sections without exposing raw CSS.", "body", "start", "#F9FAFB"),
-      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, "#FFFFFF", "#2563EB")
-    ], "block", "#F9FAFB", "#111827")
+      Text("Appearance overrides support dark-looking sections without exposing raw CSS.", "body", "start"),
+      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
+    ], "block", { textColor: "#F9FAFB", bgColor: "#111827" })
   ])
 ])`,
   },
@@ -121,7 +131,7 @@ root = AppShell([
         Button("append-item", "Append item", "default", Action([@Run(appendSavedItem), @Run(savedItems), @Reset($draft)]), $draft == ""),
         Button("remove-first", "Remove first", "secondary", Action([@Run(removeFirstSavedItem), @Run(savedItems)]), @Count(savedItems) == 0)
       ], "inline"),
-      Repeater(savedRows, "No saved items yet.")
+      Repeater(savedRows, "No saved items yet.", { textColor: "#F9FAFB", bgColor: "#111827" })
     ])
   ])
 ])`,
@@ -139,8 +149,8 @@ root = AppShell([
         Text("just now", "muted", "start")
       ], "inline"),
       Group("Warning surface", "vertical", [
-        Text("Please complete all fields.", "body", "start", "#92400E")
-      ], "inline", "#92400E", "#FEF3C7"),
+        Text("Please complete all fields.", "body", "start")
+      ], "inline", { textColor: "#92400E", bgColor: "#FEF3C7" }),
       Text("variant=body: Centered text", "body", "center"),
       Text("variant=body: Right-aligned text", "body", "end")
     ])
@@ -260,7 +270,7 @@ root = AppShell([
         Button("increment", "Increment", "default", Action([@Set($count, $count + 1), @Set($lastModifier, "+")]), false),
         Button("decrease", "Decrease", "secondary", Action([@Set($count, $count - 1), @Set($lastModifier, "-")]), false),
         Button("reset-count", "Reset", "destructive", Action([@Set($count, 0)]), false),
-        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, "#FFFFFF", "#2563EB")
+        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
       ], "inline")
     ])
   ])

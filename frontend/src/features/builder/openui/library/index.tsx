@@ -21,6 +21,7 @@ export const builderOpenUiLibrary = createLibrary({
       notes: [
         'Use Screen for major steps and Group for local layout.',
         'Use Group variant "block" for standalone visual sections and variant "inline" for nested groups, inline controls, and repeated rows.',
+        'Use AppShell.appearance for one shared theme, and use Screen/Group/Repeater appearance only when a subtree needs a local override.',
         'Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.',
       ],
     },

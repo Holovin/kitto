@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
+import { resolvePreviewCanvasState } from '@features/builder/components/previewCanvasState';
 import { PreviewUnavailableState } from '@features/builder/components/PreviewUnavailableState';
 import { getBuilderStreamTimeouts } from '@features/builder/config';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
@@ -29,9 +30,11 @@ import {
   selectHasRejectedDefinition,
   selectHistory,
   selectIsStreaming,
+  selectLastStreamChunkAt,
   selectParseIssues,
   selectPreviewSource,
   selectRuntimeSessionState,
+  selectStreamedSource,
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
@@ -52,6 +55,25 @@ function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+const textEncoder = new TextEncoder();
+const STREAM_ACTIVE_WINDOW_MS = 2_500;
+
+function getByteLength(value: string) {
+  return textEncoder.encode(value).byteLength;
+}
+
+function formatByteCount(bytes: number) {
+  if (bytes < 1_024) {
+    return `${new Intl.NumberFormat().format(bytes)} B`;
+  }
+
+  if (bytes < 1_048_576) {
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_024)} KB`;
+  }
+
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
+}
+
 export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const configState = useConfigQuery(undefined, {
@@ -65,22 +87,29 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const history = useAppSelector(selectHistory);
   const isShowingRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const isStreaming = useAppSelector(selectIsStreaming);
+  const lastStreamChunkAt = useAppSelector(selectLastStreamChunkAt);
   const parseIssues = useAppSelector(selectParseIssues);
   const previewSource = useAppSelector(selectPreviewSource);
   const runtimeSessionState = useAppSelector(selectRuntimeSessionState);
+  const streamedSource = useAppSelector(selectStreamedSource);
   const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
     issues: [],
     scope: '',
   });
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
   const [elapsedStreamingSeconds, setElapsedStreamingSeconds] = useState(0);
+  const [streamingClockMs, setStreamingClockMs] = useState(0);
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
-  const isPreviewEmptyCanvas = !previewSource.trim();
-  const isPreviewUnavailable = isPreviewEmptyCanvas && isShowingRejectedDefinition;
-  const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
+  const previewCanvasState = resolvePreviewCanvasState({
+    isShowingRejectedDefinition,
+    previewSource,
+  });
+  const isPreviewEmptyCanvas = previewCanvasState !== 'preview';
+  const isPreviewUnavailable = previewCanvasState === 'unavailable';
+  const isEmptyCanvas = previewCanvasState === 'empty';
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const runtimeIssueScope = `${history.length}:${currentSnapshot?.committedAt ?? ''}:${previewSource}:${isShowingRejectedDefinition ? 'rejected' : 'preview'}:${rendererResetVersion}`;
   const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
@@ -96,6 +125,17 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     elapsedStreamingSeconds >= 20
       ? `${elapsedStreamingSeconds} / ${streamMaxDurationSeconds}s`
       : `${elapsedStreamingSeconds}s elapsed`;
+  const streamedSourceBytes = getByteLength(streamedSource);
+  const streamAgeMs =
+    lastStreamChunkAt === null ? null : Math.max(0, (streamingClockMs || lastStreamChunkAt) - lastStreamChunkAt);
+  const previewOverlayStatusLabel =
+    lastStreamChunkAt === null
+      ? 'Waiting for first chunk'
+      : streamAgeMs !== null && streamAgeMs <= STREAM_ACTIVE_WINDOW_MS
+        ? 'Stream active'
+        : 'Finalizing response';
+  const previewOverlayPrimaryLabel = `${previewOverlayLabel} · ${previewOverlayTimerLabel}`;
+  const previewOverlaySecondaryLabel = `${previewOverlayStatusLabel} · ${formatByteCount(streamedSourceBytes)} draft`;
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
     previewSource: string;
@@ -154,6 +194,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     if (!isStreaming) {
       const resetTimeoutId = window.setTimeout(() => {
         setElapsedStreamingSeconds(0);
+        setStreamingClockMs(0);
       }, 0);
 
       return () => {
@@ -164,10 +205,13 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     const startedAt = Date.now();
     const resetTimeoutId = window.setTimeout(() => {
       setElapsedStreamingSeconds(0);
+      setStreamingClockMs(startedAt);
     }, 0);
 
     const intervalId = window.setInterval(() => {
-      setElapsedStreamingSeconds(Math.floor((Date.now() - startedAt) / 1_000));
+      const now = Date.now();
+      setElapsedStreamingSeconds(Math.floor((now - startedAt) / 1_000));
+      setStreamingClockMs(now);
     }, 1_000);
 
     return () => {
@@ -371,13 +415,13 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[1.75rem] bg-white/60 backdrop-blur-[1px]">
                   <div
                     aria-live="polite"
-                    className="flex items-center gap-3 rounded-full border border-slate-200/80 bg-white/90 px-4 py-3 text-slate-900 shadow-lg"
+                    className="flex min-w-[350px] items-center gap-3 rounded-full border border-slate-200/80 bg-white/90 px-5 py-4 text-slate-900 shadow-lg"
                     role="status"
                   >
                     <LoaderCircle className="h-7 w-7 animate-spin" />
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{previewOverlayLabel}</span>
-                      <span className="text-xs text-slate-500">{previewOverlayTimerLabel}</span>
+                      <span className="text-sm font-medium">{previewOverlayPrimaryLabel}</span>
+                      <span className="text-xs text-slate-500">{previewOverlaySecondaryLabel}</span>
                     </div>
                   </div>
                 </div>

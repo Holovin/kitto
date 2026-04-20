@@ -1,14 +1,13 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Button as ButtonUI } from '@components/ui/button';
 import { z } from 'zod';
-import { getHexColorStyle, hexColorOverrideProps } from './shared';
+import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 const variantSchema = z.enum(['default', 'secondary', 'destructive']).default('default');
 
 type ButtonRendererProps = ComponentRenderProps<{
   action?: unknown;
-  background?: string;
-  color?: string;
+  appearance?: { bgColor?: string; textColor?: string };
   disabled?: StateField<boolean>;
   id: string;
   label: string;
@@ -19,17 +18,28 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const triggerAction = useTriggerAction();
   const isStreaming = useIsStreaming();
   const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
+  const appearanceScope = useKittoAppearanceScope();
+  const buttonStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyBackgroundColor: true,
+    hasInheritedBgColor: appearanceScope.hasBgColor,
+  });
+  const labelStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+  });
 
   return (
     <ButtonUI
       disabled={isStreaming || Boolean(disabledField.value)}
-      style={getHexColorStyle({ background: props.background })}
+      style={buttonStyle}
       variant={props.variant}
       onClick={() => {
         void triggerAction(props.label, undefined, props.action as never);
       }}
     >
-      <span style={getHexColorStyle({ color: props.color })}>{props.label}</span>
+      <span style={labelStyle}>{props.label}</span>
     </ButtonUI>
   );
 }
@@ -44,7 +54,7 @@ export const ButtonComponent = defineComponent({
     variant: variantSchema.describe('Visual style: default, secondary, or destructive.'),
     action: z.unknown().optional().describe('Usually Action([...]) with one or more @Run, @Set, @Reset, or @ToAssistant steps executed in order.'),
     disabled: reactive(z.boolean().optional().default(false).describe('Whether the button is disabled.')),
-    ...hexColorOverrideProps,
+    appearance: appearanceSchema,
   }),
   component: OpenUiButtonRenderer,
 });

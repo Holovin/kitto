@@ -1,11 +1,10 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { RadioGroup as RadioGroupUI, RadioGroupItem } from '@components/ui/radio-group';
 import { z } from 'zod';
-import { choiceOptionSchema, getHexColorStyle, hexColorOverrideProps } from './shared';
+import { appearanceSchema, choiceOptionSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 type RadioGroupRendererProps = ComponentRenderProps<{
-  background?: string;
-  color?: string;
+  appearance?: { bgColor?: string; textColor?: string };
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
@@ -15,10 +14,23 @@ type RadioGroupRendererProps = ComponentRenderProps<{
 function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  const appearanceScope = useKittoAppearanceScope();
+  const labelStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+  });
+  const optionStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    applyBackgroundColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+    hasInheritedBgColor: appearanceScope.hasBgColor,
+  });
 
   return (
     <div className="flex flex-col gap-3">
-      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={getHexColorStyle({ color: props.color })}>
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
         {props.label}
       </span>
       <RadioGroupUI disabled={isStreaming} value={field.value ?? ''} onValueChange={field.setValue}>
@@ -26,9 +38,9 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
           <label
             key={option.value}
             className="flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800"
-            style={getHexColorStyle(props)}
+            style={optionStyle}
           >
-            <RadioGroupItem style={getHexColorStyle(props)} value={option.value} />
+            <RadioGroupItem style={optionStyle} value={option.value} />
             <span>{option.label}</span>
           </label>
         ))}
@@ -45,7 +57,7 @@ export const RadioGroupComponent = defineComponent({
     label: z.string().describe('Visible label for the option set.'),
     value: reactive(z.string().optional().describe('Currently selected option value, often bound to a $variable.')),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
-    ...hexColorOverrideProps,
+    appearance: appearanceSchema,
   }),
   component: OpenUiRadioGroupRenderer,
 });

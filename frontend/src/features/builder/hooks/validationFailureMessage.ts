@@ -12,5 +12,5 @@ export function createValidationFailureMessage(issues: BuilderParseIssue[], maxA
   const repairAttemptLabel =
     maxAutoRepairAttempts === 1 ? '1 automatic repair attempt' : `${maxAutoRepairAttempts} automatic repair attempts`;
 
-  return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'} ${FAILED_GENERATION_RECOVERY_MESSAGE}`;
+  return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'}\n\n${FAILED_GENERATION_RECOVERY_MESSAGE}`;
 }

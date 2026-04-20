@@ -1,11 +1,10 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Textarea as TextareaUI } from '@components/ui/textarea';
 import { z } from 'zod';
-import { getHexColorStyle, hexColorOverrideProps, nullableTextSchema } from './shared';
+import { appearanceSchema, getAppearanceStyle, nullableTextSchema, useKittoAppearanceScope } from './shared';
 
 type TextAreaRendererProps = ComponentRenderProps<{
-  background?: string;
-  color?: string;
+  appearance?: { bgColor?: string; textColor?: string };
   label: string;
   name: string;
   placeholder?: string | null;
@@ -15,17 +14,30 @@ type TextAreaRendererProps = ComponentRenderProps<{
 function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  const appearanceScope = useKittoAppearanceScope();
+  const labelStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+  });
+  const textAreaStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    applyBackgroundColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+    hasInheritedBgColor: appearanceScope.hasBgColor,
+  });
 
   return (
     <label className="flex flex-col gap-2">
-      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={getHexColorStyle({ color: props.color })}>
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
         {props.label}
       </span>
       <TextareaUI
         disabled={isStreaming}
         name={props.name}
         placeholder={props.placeholder ?? undefined}
-        style={getHexColorStyle(props)}
+        style={textAreaStyle}
         value={field.value ?? ''}
         onChange={(event) => field.setValue(event.target.value)}
       />
@@ -41,7 +53,7 @@ export const TextAreaComponent = defineComponent({
     label: z.string().describe('Visible label for the field.'),
     value: reactive(z.string().optional().describe('Current value, often bound to a $variable.')),
     placeholder: nullableTextSchema.describe('Placeholder text shown when empty.'),
-    ...hexColorOverrideProps,
+    appearance: appearanceSchema,
   }),
   component: OpenUiTextAreaRenderer,
 });

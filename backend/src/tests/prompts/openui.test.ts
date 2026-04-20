@@ -24,10 +24,9 @@ describe('openui prompts', () => {
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
     const prompt = buildOpenUiSystemPrompt();
 
-    expect(prompt).toContain('Screen(id: string, title: string, children?: any[], isActive?: boolean, color?: string, background?: string)');
-    expect(prompt).toContain(
-      'Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, color?: string, background?: string)',
-    );
+    expect(prompt).toContain('AppShell(children?: any[], appearance?: {');
+    expect(prompt).toContain('Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {');
+    expect(prompt).toContain('Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {');
     expect(prompt).toContain('$currentScreen');
     expect(prompt).toContain('@Set($currentScreen');
   });
@@ -38,42 +37,44 @@ describe('openui prompts', () => {
 
     expect(groupSpec).toBeDefined();
 
-    expect(groupSpec?.signature).toContain('variant?: "block" | "inline", color?: string, background?: string');
-    expect(prompt).toContain(
-      'Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", color?: string, background?: string)',
-    );
+    expect(groupSpec?.signature).toContain('variant?: "block" | "inline", appearance?: {');
+    expect(prompt).toContain('Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", appearance?: {');
     expect(prompt).toContain('Use Group variant "block" for standalone visual sections.');
     expect(prompt).toContain(
       'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
     );
     expect(prompt).toContain('Do not over-nest block Groups.');
-    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?, color?, background?)`.');
+    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?, appearance?)`.');
     expect(prompt).toContain('The second Group argument is direction and must be `"vertical"` or `"horizontal"`.');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put `"block"` or `"inline"` in the second Group argument.');
     expect(prompt).toContain('Group("Profile", "vertical", [');
-    expect(prompt).toContain('], "block", "#F9FAFB", "#111827")');
+    expect(prompt).toContain('], "inline")');
   });
 
-  it('guides safe visual color overrides through strict hex props only', () => {
+  it('guides safe visual appearance overrides through strict hex props only', () => {
     const prompt = buildOpenUiSystemPrompt();
 
-    expect(prompt).toContain('Use `color` and `background` hex props for visual color changes on containers and control surfaces.');
+    expect(prompt).toContain('Use `appearance` for visual color changes.');
+    expect(prompt).toContain('appearance.textColor is the text or foreground color.');
+    expect(prompt).toContain('appearance.bgColor is the background or surface color.');
     expect(prompt).toContain('Only use #RRGGBB colors.');
     expect(prompt).toContain('For dark-looking UI, use dark background colors like #111827 and light text like #F9FAFB.');
     expect(prompt).toContain(
       'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
     );
-    expect(prompt).toContain(
-      'Use existing variants first when enough; use hex color/background when the user asks for specific visual color changes.',
-    );
-    expect(prompt).toContain('Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", color?: string)');
-    expect(prompt).toContain('Text supports only the `color` hex prop. Do not pass `background` to Text.');
-    expect(prompt).toContain('When a form control should look dark or light, pass `color` and `background` directly to Input, TextArea, Checkbox, RadioGroup, Select, Button, or Link as needed.');
-    expect(prompt).toContain('Parent Screen or Group colors do not recolor nested form controls automatically.');
-    expect(prompt).toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
+    expect(prompt).toContain('Use `AppShell(..., appearance)` first for global theme switching.');
+    expect(prompt).toContain('Children inherit appearance colors from parent AppShell, Screen, Group, or Repeater containers.');
+    expect(prompt).toContain('Do not pass the same appearance object to every control when the user asked for one shared theme.');
+    expect(prompt).toContain('Use conditional appearance for active or selected buttons instead of inventing activeColor props.');
+    expect(prompt).toContain('appearance overrides variant colors.');
+    expect(prompt).toContain('Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {');
+    expect(prompt).toContain('Text supports only `appearance.textColor`. Do not pass `appearance.bgColor` to Text.');
+    expect(prompt).toContain('appAppearance = $currentTheme == "dark" ? { textColor: "#F9FAFB", bgColor: "#0F172A" } : { textColor: "#111827", bgColor: "#FFFFFF" }');
+    expect(prompt).toContain('Button("submit-button", "Submit", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })');
     expect(prompt).toContain('Screen("main", "Dark app", [');
-    expect(prompt).toContain('], true, "#F9FAFB", "#0F172A")');
+    expect(prompt).toContain('], true, { textColor: "#F9FAFB", bgColor: "#111827" })');
+    expect(prompt).not.toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {
@@ -105,6 +106,9 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.');
     expect(prompt).toContain('Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.');
     expect(prompt).toContain('Both compute tools return `{ value }`.');
+    expect(prompt).toContain('Do not render a Mutation statement reference directly in UI text');
+    expect(prompt).toContain('When a `write_computed_state` result should be displayed after a click, prefer reading the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.');
+    expect(prompt).toContain('If you must read the latest successful Mutation result directly, use `mutationRef.data.value` only after checking that the mutation succeeded.');
     expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
     expect(prompt).toContain('Use `random_int` only with integer min/max options.');
     expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');

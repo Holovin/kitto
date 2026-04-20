@@ -1,7 +1,7 @@
 import { defineComponent } from '@openuidev/react-lang';
 import { cn } from '@lib/utils';
 import { z } from 'zod';
-import { asDisplayText, getHexColorStyle, hexColorProp, textValueSchema } from './shared';
+import { asDisplayText, getAppearanceStyle, textAppearanceSchema, textValueSchema, useKittoAppearanceScope } from './shared';
 
 const variantSchema = z.enum(['body', 'code', 'muted', 'title']).default('body');
 const alignSchema = z.enum(['start', 'center', 'end']).default('start');
@@ -19,6 +19,30 @@ const alignClassNames: Record<z.infer<typeof alignSchema>, string> = {
   end: 'text-right',
 };
 
+function TextRenderer({
+  props,
+}: {
+  props: {
+    align: 'center' | 'end' | 'start';
+    appearance?: { textColor?: string };
+    value?: string | number | boolean | null;
+    variant: 'body' | 'code' | 'muted' | 'title';
+  };
+}) {
+  const appearanceScope = useKittoAppearanceScope();
+  const textStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+  });
+
+  return (
+    <div className={cn(variantClassNames[props.variant], alignClassNames[props.align])} style={textStyle}>
+      {asDisplayText(props.value)}
+    </div>
+  );
+}
+
 export const TextComponent = defineComponent({
   name: 'Text',
   description: 'Generic text node for headings, helper copy, code-style snippets, and status lines.',
@@ -26,11 +50,7 @@ export const TextComponent = defineComponent({
     value: textValueSchema.describe('Text or expression result to display.'),
     variant: variantSchema.describe('Visual style: body, muted, title, or code.'),
     align: alignSchema.describe('Text alignment.'),
-    color: hexColorProp,
+    appearance: textAppearanceSchema,
   }),
-  component: ({ props }) => (
-    <div className={cn(variantClassNames[props.variant], alignClassNames[props.align])} style={getHexColorStyle({ color: props.color })}>
-      {asDisplayText(props.value)}
-    </div>
-  ),
+  component: TextRenderer,
 });

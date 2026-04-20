@@ -11,6 +11,7 @@ import {
 import { getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
 import { buildRequestChatHistory } from '@features/builder/hooks/requestChatHistory';
 import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from '@features/builder/hooks/repairPrompt';
+import { resolveBuilderComposerPrompt } from '@features/builder/hooks/submissionPrompt';
 import { createValidationFailureMessage } from '@features/builder/hooks/validationFailureMessage';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
@@ -20,6 +21,7 @@ import {
   selectDomainData,
   selectDraftPrompt,
   selectIsStreaming,
+  selectRetryPrompt,
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
@@ -89,6 +91,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const isStreaming = useAppSelector(selectIsStreaming);
+  const retryPrompt = useAppSelector(selectRetryPrompt);
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data }) => ({
       data,
@@ -156,7 +159,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     dispatch(builderActions.cancelStreaming({ requestId }));
   }
 
-  function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean }) {
+  function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
     if (options?.abort) {
       abortRequestHandles(requestId);
     } else {
@@ -168,16 +171,17 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       builderActions.failStreaming({
         requestId,
         message: getBuilderRequestErrorMessage(error),
+        retryPrompt: options?.retryPrompt ?? null,
       }),
     );
   }
 
-  function handleStreamTimeout(requestId: BuilderRequestId, kind: BuilderStreamTimeoutKind) {
+  function handleStreamTimeout(requestId: BuilderRequestId, kind: BuilderStreamTimeoutKind, retryPrompt: string) {
     if (!isActiveRequest(requestId)) {
       return;
     }
 
-    failRequest(requestId, new BuilderStreamTimeoutError(kind), { abort: true });
+    failRequest(requestId, new BuilderStreamTimeoutError(kind), { abort: true, retryPrompt });
   }
 
   async function runGenerateRequest(requestId: BuilderRequestId, request: BuilderLlmRequest) {
@@ -324,7 +328,10 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextPrompt = draftPrompt.trim();
+    const nextPrompt = resolveBuilderComposerPrompt({
+      draftPrompt,
+      retryPrompt,
+    });
 
     if (!nextPrompt || isSubmitting) {
       return;
@@ -368,7 +375,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
           dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
         },
         onTimeout: (kind) => {
-          handleStreamTimeout(requestId, kind);
+          handleStreamTimeout(requestId, kind, request.prompt);
         },
       });
 
@@ -376,7 +383,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     } catch (error) {
       if (error instanceof BuilderStreamTimeoutError) {
         if (isActiveRequest(requestId)) {
-          failRequest(requestId, error);
+          failRequest(requestId, error, { retryPrompt: request.prompt });
         }
 
         return;
@@ -395,7 +402,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         } catch (fallbackError) {
           if (fallbackError instanceof BuilderStreamTimeoutError) {
             if (isActiveRequest(requestId)) {
-              failRequest(requestId, fallbackError);
+              failRequest(requestId, fallbackError, { retryPrompt: request.prompt });
             }
 
             return;
@@ -410,12 +417,12 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
             return;
           }
 
-          failRequest(requestId, fallbackError);
+          failRequest(requestId, fallbackError, { retryPrompt: request.prompt });
           return;
         }
       }
 
-      failRequest(requestId, error);
+      failRequest(requestId, error, { retryPrompt: request.prompt });
     } finally {
       if (isActiveRequest(requestId)) {
         cancelRequest(requestId);
@@ -438,5 +445,6 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     handleSubmit,
     isSubmitting,
     promptMaxChars: requestLimits.promptMaxChars,
+    retryPrompt,
   };
 }

@@ -178,8 +178,10 @@ interface BuilderState {
   hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
   isStreaming: boolean;
+  lastStreamChunkAt: number | null;
   parseIssues: BuilderParseIssue[];
   redoHistory: BuilderSnapshot[];
+  retryPrompt: string | null;
   streamError: string | null;
   // Draft source accumulated during generation; Preview continues to use committedSource until completeStreaming.
   streamedSource: string;
@@ -202,8 +204,10 @@ const initialState: BuilderState = {
   hasRejectedDefinition: false,
   history: [initialSnapshot],
   isStreaming: false,
+  lastStreamChunkAt: null,
   parseIssues: [],
   redoHistory: [],
+  retryPrompt: null,
   streamError: null,
   streamedSource: DEFAULT_OPENUI_SOURCE,
 };
@@ -245,8 +249,10 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     hasRejectedDefinition: Boolean(rejectedSource),
     history,
     isStreaming: false,
+    lastStreamChunkAt: null,
     parseIssues: rejectedSource ? rejectedSource.issues : Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
     redoHistory: normalizeSnapshots(value.redoHistory, []).snapshots,
+    retryPrompt: typeof value.retryPrompt === 'string' ? value.retryPrompt : null,
     streamError: typeof value.streamError === 'string' ? value.streamError : null,
     streamedSource,
   };
@@ -259,6 +265,8 @@ export const builderSlice = createSlice({
     resetTransientState(state) {
       state.currentRequestId = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
+      state.retryPrompt = null;
       state.streamError = null;
       state.hasRejectedDefinition = isRejectedDefinitionState(state);
       if (!state.hasRejectedDefinition) {
@@ -274,8 +282,10 @@ export const builderSlice = createSlice({
     beginStreaming(state, action: PayloadAction<{ prompt: string; requestId: BuilderRequestId }>) {
       state.currentRequestId = action.payload.requestId;
       state.isStreaming = true;
+      state.lastStreamChunkAt = null;
       state.draftPrompt = '';
       state.hasRejectedDefinition = false;
+      state.retryPrompt = null;
       state.streamError = null;
       state.streamedSource = '';
       state.parseIssues = [];
@@ -287,6 +297,7 @@ export const builderSlice = createSlice({
       }
 
       state.streamedSource += action.payload.chunk;
+      state.lastStreamChunkAt = Date.now();
     },
     completeStreaming(
       state,
@@ -303,6 +314,8 @@ export const builderSlice = createSlice({
 
       state.currentRequestId = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
+      state.retryPrompt = null;
       state.streamError = null;
       state.hasRejectedDefinition = false;
       state.committedSource = action.payload.source;
@@ -319,6 +332,7 @@ export const builderSlice = createSlice({
       action: PayloadAction<{
         message: string;
         requestId: BuilderRequestId;
+        retryPrompt: string | null;
       }>,
     ) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -327,7 +341,9 @@ export const builderSlice = createSlice({
 
       state.currentRequestId = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = false;
+      state.retryPrompt = action.payload.retryPrompt;
       state.streamError = action.payload.message;
       state.streamedSource = state.committedSource;
       state.parseIssues = [];
@@ -340,7 +356,9 @@ export const builderSlice = createSlice({
 
       state.currentRequestId = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = false;
+      state.retryPrompt = null;
       state.streamError = null;
       state.streamedSource = state.committedSource;
       state.parseIssues = [];
@@ -356,7 +374,9 @@ export const builderSlice = createSlice({
       state.activeTab = 'definition';
       state.currentRequestId = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = true;
+      state.retryPrompt = null;
       state.streamError = action.payload.message ?? null;
       state.streamedSource = action.payload.source;
       state.parseIssues = action.payload.issues;
@@ -383,8 +403,10 @@ export const builderSlice = createSlice({
       }
 
       state.currentRequestId = null;
+      state.retryPrompt = null;
       state.streamError = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = false;
       pushMessage(state.chatMessages, createMessage('system', 'Reset the generated app state to its initial version.', 'info'));
     },
@@ -405,10 +427,12 @@ export const builderSlice = createSlice({
       state.committedSource = previousSnapshot.source;
       state.currentRequestId = null;
       state.hasRejectedDefinition = false;
+      state.retryPrompt = null;
       state.streamedSource = previousSnapshot.source;
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       pushSingletonHistoryNavigationMessage(
         state.chatMessages,
         createMessage('system', getBuilderHistoryChatMessage('undo', state), 'info'),
@@ -426,10 +450,12 @@ export const builderSlice = createSlice({
       state.committedSource = redoSnapshot.source;
       state.currentRequestId = null;
       state.hasRejectedDefinition = false;
+      state.retryPrompt = null;
       state.streamedSource = redoSnapshot.source;
       state.parseIssues = [];
       state.streamError = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       pushSingletonHistoryNavigationMessage(
         state.chatMessages,
         createMessage('system', getBuilderHistoryChatMessage('redo', state), 'info'),
@@ -453,8 +479,10 @@ export const builderSlice = createSlice({
       state.history = trimHistory(action.payload.history);
       state.parseIssues = [];
       state.redoHistory = [];
+      state.retryPrompt = null;
       state.streamError = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       pushMessage(
         state.chatMessages,
         createMessage('system', action.payload.note ?? 'Imported a saved Kitto definition.', 'success'),
@@ -476,8 +504,10 @@ export const builderSlice = createSlice({
       state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
       state.parseIssues = [];
       state.redoHistory = [];
+      state.retryPrompt = null;
       state.streamError = null;
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       pushMessage(
         state.chatMessages,
         createMessage('system', `Loaded the "${action.payload.label}" demo into the blank canvas.`, 'success'),
@@ -493,8 +523,10 @@ export const builderSlice = createSlice({
       state.streamedSource = DEFAULT_OPENUI_SOURCE;
       state.history = [createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT_DOMAIN_DATA)];
       state.isStreaming = false;
+      state.lastStreamChunkAt = null;
       state.parseIssues = [];
       state.redoHistory = [];
+      state.retryPrompt = null;
       state.streamError = null;
     },
   },

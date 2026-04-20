@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
+import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissionPrompt';
 import { useBackendConnectionState } from '@features/builder/hooks/useBuilderBootstrap';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
@@ -146,7 +147,7 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
             key={message.id}
             className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${getMessageBubbleClasses(message)}`}
           >
-            <p>{message.content}</p>
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
           </article>
         ))}
         <div ref={messagesEndRef} />
@@ -156,13 +157,18 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
 }
 
 function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: ChatComposerProps) {
-  const { draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars } = useBuilderSubmission({
+  const { draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } = useBuilderSubmission({
     abortControllerRef,
     cancelActiveRequestRef,
     onFeedbackChange,
   });
   const committedSource = useAppSelector(selectCommittedSource);
-  const submitButtonLabel = isSubmitting ? (!committedSource.trim() ? 'Generating...' : 'Updating...') : 'Send';
+  const submitButtonState = getBuilderComposerSubmitState({
+    draftPrompt,
+    hasCommittedSource: Boolean(committedSource.trim()),
+    isSubmitting,
+    retryPrompt,
+  });
 
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
@@ -188,9 +194,9 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackCh
               Cancel
             </Button>
           ) : null}
-          <Button disabled={!draftPrompt.trim() || isSubmitting} type="submit">
+          <Button disabled={submitButtonState.disabled} type="submit">
             <Send className="h-4 w-4" />
-            {submitButtonLabel}
+            {submitButtonState.label}
           </Button>
         </div>
       </div>

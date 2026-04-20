@@ -57,6 +57,105 @@ function extractStringLiteral(toolAst: ToolAst) {
   return toolAst.v;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function maskStringLiterals(source: string) {
+  let maskedSource = '';
+  let activeQuote: '"' | "'" | null = null;
+  let isEscaped = false;
+
+  for (const character of source) {
+    if (activeQuote) {
+      if (isEscaped) {
+        isEscaped = false;
+        maskedSource += ' ';
+        continue;
+      }
+
+      if (character === '\\') {
+        isEscaped = true;
+        maskedSource += ' ';
+        continue;
+      }
+
+      if (character === activeQuote) {
+        activeQuote = null;
+      }
+
+      maskedSource += ' ';
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      activeQuote = character;
+      maskedSource += ' ';
+      continue;
+    }
+
+    maskedSource += character;
+  }
+
+  return maskedSource;
+}
+
+function isSafeMutationReferenceUse(line: string, referenceIndex: number, statementId: string) {
+  const beforeReference = line.slice(0, referenceIndex);
+  const afterReference = line.slice(referenceIndex + statementId.length);
+
+  if (/^\s*$/.test(beforeReference) && /^\s*=\s*Mutation\s*\(/.test(afterReference)) {
+    return true;
+  }
+
+  if (/@Run\(\s*$/.test(beforeReference) && /^\s*\)/.test(afterReference)) {
+    return true;
+  }
+
+  if (/^\s*\.(data|status|error)\b/.test(afterReference)) {
+    return true;
+  }
+
+  return false;
+}
+
+function validateMutationReferenceUsage(source: string, result: ParseResult): BuilderParseIssue[] {
+  if (result.meta.incomplete || result.mutationStatements.length === 0) {
+    return [];
+  }
+
+  const maskedSource = maskStringLiterals(source);
+  const issues: BuilderParseIssue[] = [];
+
+  for (const mutation of result.mutationStatements) {
+    const referencePattern = new RegExp(`(?<![\\w$])${escapeRegExp(mutation.statementId)}(?![\\w$])`, 'g');
+    const maskedLines = maskedSource.split('\n');
+
+    for (const line of maskedLines) {
+      let match: RegExpExecArray | null = referencePattern.exec(line);
+
+      while (match) {
+        const matchIndex = match.index ?? 0;
+
+        if (!isSafeMutationReferenceUse(line, matchIndex, mutation.statementId)) {
+          issues.push(
+            createParserIssue({
+              code: 'invalid-mutation-reference',
+              message: `Mutation statement "${mutation.statementId}" cannot be used as a bare UI value. Read the persisted value with Query("read_state", ...) or use ${mutation.statementId}.data.value after checking ${mutation.statementId}.status.`,
+              statementId: mutation.statementId,
+            }),
+          );
+          break;
+        }
+
+        match = referencePattern.exec(line);
+      }
+    }
+  }
+
+  return issues;
+}
+
 function isElementNode(
   value: unknown,
 ): value is {
@@ -78,6 +177,20 @@ function isElementNode(
   );
 }
 
+function isLiteralObjectValue(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  if ('k' in value && typeof value.k === 'string') {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
+}
+
 function validateLiteralProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
   if (Array.isArray(value)) {
     return value.flatMap((entry) => validateLiteralProps(entry, inheritedStatementId));
@@ -94,6 +207,7 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
   const statementId = value.statementId ?? inheritedStatementId;
   const componentSchema = componentSchemaDefinitions[value.typeName];
   const issues: BuilderParseIssue[] = [];
+  const appearanceValue = value.props.appearance;
 
   for (const [propName, propSchema] of Object.entries(componentSchema?.properties ?? {})) {
     const propValue = value.props[propName];
@@ -111,20 +225,31 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
     );
   }
 
-  for (const propName of ['color', 'background'] as const) {
-    const propValue = value.props[propName];
+  if (isLiteralObjectValue(appearanceValue)) {
+    const allowedAppearanceKeys = value.typeName === 'Text' ? new Set(['textColor']) : new Set(['textColor', 'bgColor']);
 
-    if (typeof propValue !== 'string' || HEX_COLOR_PATTERN.test(propValue)) {
-      continue;
+    for (const [appearanceKey, appearancePropValue] of Object.entries(appearanceValue)) {
+      if (!allowedAppearanceKeys.has(appearanceKey)) {
+        issues.push(
+          createParserIssue({
+            code: 'invalid-prop',
+            message: `${value.typeName}.appearance.${appearanceKey} is not allowed.`,
+            statementId,
+          }),
+        );
+        continue;
+      }
+
+      if (typeof appearancePropValue === 'string' && !HEX_COLOR_PATTERN.test(appearancePropValue)) {
+        issues.push(
+          createParserIssue({
+            code: 'invalid-prop',
+            message: `${value.typeName}.appearance.${appearanceKey} must be a #RRGGBB hex color.`,
+            statementId,
+          }),
+        );
+      }
     }
-
-    issues.push(
-      createParserIssue({
-        code: 'invalid-prop',
-        message: `${value.typeName}.${propName} must be a #RRGGBB hex color.`,
-        statementId,
-      }),
-    );
   }
 
   for (const nestedValue of Object.values(value.props)) {
@@ -291,6 +416,7 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
 
   issues.push(...validateQueryTools(result));
   issues.push(...validateMutationTools(result));
+  issues.push(...validateMutationReferenceUsage(trimmedSource, result));
 
   return {
     isValid: issues.length === 0,

@@ -34,6 +34,9 @@ describe('builderSlice', () => {
   });
 
   it('tracks the current streaming request and ignores stale chunks', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-20T09:00:00.000Z'));
+
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
@@ -58,6 +61,7 @@ describe('builderSlice', () => {
     );
 
     expect(started.isStreaming).toBe(true);
+    expect(started.lastStreamChunkAt).toBeNull();
     expect(started.chatMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -68,6 +72,9 @@ describe('builderSlice', () => {
     );
     expect(ignoredChunk.streamedSource).toBe('');
     expect(appendedChunk.streamedSource).toBe(validSource);
+    expect(appendedChunk.lastStreamChunkAt).toBe(new Date('2026-04-20T09:00:00.000Z').getTime());
+
+    vi.useRealTimers();
   });
 
   it('cancels an aborted stream without committing the partial draft', () => {
@@ -95,9 +102,11 @@ describe('builderSlice', () => {
 
     expect(canceled.currentRequestId).toBeNull();
     expect(canceled.isStreaming).toBe(false);
+    expect(canceled.lastStreamChunkAt).toBeNull();
     expect(canceled.committedSource).toBe(initialState.committedSource);
     expect(canceled.streamedSource).toBe(initialState.committedSource);
     expect(canceled.history).toHaveLength(1);
+    expect(canceled.retryPrompt).toBeNull();
     expect(canceled.chatMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -133,10 +142,12 @@ describe('builderSlice', () => {
 
     expect(completed.currentRequestId).toBeNull();
     expect(completed.isStreaming).toBe(false);
+    expect(completed.lastStreamChunkAt).toBeNull();
     expect(completed.committedSource).toBe(validSource);
     expect(completed.streamedSource).toBe(validSource);
     expect(completed.history).toHaveLength(2);
     expect(completed.redoHistory).toHaveLength(0);
+    expect(completed.retryPrompt).toBeNull();
     expect(completed.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         role: 'assistant',
@@ -195,13 +206,16 @@ describe('builderSlice', () => {
       builderActions.failStreaming({
         message: 'The generated source was invalid.',
         requestId: 'request-3',
+        retryPrompt: 'Break it',
       }),
     );
 
     expect(failed.currentRequestId).toBeNull();
     expect(failed.isStreaming).toBe(false);
+    expect(failed.lastStreamChunkAt).toBeNull();
     expect(failed.activeTab).toBe(initialState.activeTab);
     expect(failed.hasRejectedDefinition).toBe(false);
+    expect(failed.retryPrompt).toBe('Break it');
     expect(failed.streamedSource).toBe(initialState.committedSource);
     expect(failed.parseIssues).toEqual([]);
     expect(failed.history).toHaveLength(initialState.history.length);

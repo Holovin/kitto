@@ -62,6 +62,7 @@ Notes:
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; only chat submissions hit `/api/llm/*`.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
+- If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 
 ## 6. Standalone HTML export
@@ -100,10 +101,10 @@ Notes:
 
 Notes:
 
-- `Screen(id, title, children, isActive?, color?, background?)` supports optional screen title `color` and screen surface `background` overrides as strict `#RRGGBB`.
-- `Group(title, direction, children, variant?, color?, background?)` supports `block` and `inline`. `block` is the default card-like section surface; `inline` is the lightweight nested layout for inline controls, repeated rows, and groups inside an existing block.
-- `Text` accepts only an optional trailing `color?` override. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`, `Group`, and `Screen` accept trailing `color?` and `background?`.
-- Use control-level `color` / `background` props for dark or light form controls; parent `Screen` or `Group` colors do not recolor nested control surfaces automatically.
+- `AppShell(children, appearance?)` can set the global inherited theme with `appearance.textColor` and `appearance.bgColor`.
+- `Screen(id, title, children, isActive?, appearance?)`, `Group(title, direction, children, variant?, appearance?)`, and `Repeater(children, emptyText?, appearance?)` can override the inherited theme for a subtree.
+- `Text(value, variant?, align?, appearance?)` accepts only `appearance.textColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.textColor` and `appearance.bgColor`.
+- Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.

@@ -7,8 +7,10 @@ export const selectDomainData = (state: RootState) => state.domain.data;
 export const selectDraftPrompt = (state: RootState) => state.builder.draftPrompt;
 export const selectHistory = (state: RootState) => state.builder.history;
 export const selectIsStreaming = (state: RootState) => state.builder.isStreaming;
+export const selectLastStreamChunkAt = (state: RootState) => state.builder.lastStreamChunkAt;
 export const selectParseIssues = (state: RootState) => state.builder.parseIssues;
 export const selectRedoHistory = (state: RootState) => state.builder.redoHistory;
+export const selectRetryPrompt = (state: RootState) => state.builder.retryPrompt;
 export const selectRuntimeSessionState = (state: RootState) => state.builderSession.runtimeSessionState;
 export const selectStreamedSource = (state: RootState) => state.builder.streamedSource;
 export const selectHasRejectedDefinition = (state: RootState) =>

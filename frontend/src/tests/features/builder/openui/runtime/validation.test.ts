@@ -160,11 +160,47 @@ root = AppShell([
     });
   });
 
-  it.each(['#000000', '#FFFFFF'])('accepts strict hex color prop %s', (hexColor) => {
+  it('rejects bare mutation refs used as display values', () => {
     const result = validateOpenUiSource(`root = AppShell([
-  Screen("main", "Main", [
-    Text("Hello", "body", "start", "${hexColor}")
-  ], true, "#F9FAFB", "#111827")
+  Screen("main", "Roll", [
+    Button("roll-button", "Roll", "default", Action([@Run(rollResult)]), false),
+    Text(rollResult == null ? "Нажмите Roll" : "Результат: " + rollResult, "title", "start")
+  ])
+])
+
+rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+rollValue = Query("read_state", { path: "app.rollResult" }, null)`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-mutation-reference',
+          statementId: 'rollResult',
+        }),
+      ]),
+    );
+  });
+
+  it('accepts explicit mutation status/data access when needed', () => {
+    const result = validateOpenUiSource(`rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+root = AppShell([
+  Screen("main", "Roll", [
+    Button("roll-button", "Roll", "default", Action([@Run(rollResult)]), false),
+    Text(rollResult.status == "success" ? "Результат: " + rollResult.data.value : "Нажмите Roll", "title", "start")
+  ])
 ])`);
 
     expect(result).toEqual({
@@ -173,15 +209,56 @@ root = AppShell([
     });
   });
 
-  it('rejects Text background because the component no longer supports it', () => {
+  it('accepts appearance props on the supported themed components', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
-    Text("Hello", "body", "start", "#000000", "#111827")
+    Group("Section", "vertical", [
+      Text("Hello", "body", "start", { textColor: "#000000" }),
+      Input("name", "Name", $name, "Ada", { textColor: "#000000", bgColor: "#FFFFFF" }),
+      Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" }),
+      Repeater([], "Empty state", { textColor: "#000000", bgColor: "#FFFFFF" })
+    ], "block", { textColor: "#000000", bgColor: "#FFFFFF" })
+  ], true, { textColor: "#111827", bgColor: "#FFFFFF" })
+], { textColor: "#111827", bgColor: "#FFFFFF" })
+
+$name = "Ada"`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it('accepts conditional appearance expressions without treating AST keys as appearance props', () => {
+    const result = validateOpenUiSource(`$currentTheme = "light"
+root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start")
+  ])
+], $currentTheme == "dark" ? { textColor: "#F9FAFB", bgColor: "#111827" } : { textColor: "#111827", bgColor: "#FFFFFF" })`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it('rejects Text appearance.bgColor because the component only supports textColor', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start", { textColor: "#000000", bgColor: "#111827" })
   ])
 ])`);
 
     expect(result.isValid).toBe(false);
-    expect(result.issues.length).toBeGreaterThan(0);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Text.appearance.bgColor is not allowed.',
+        }),
+      ]),
+    );
   });
 
   it('rejects unknown components inside an otherwise valid document', () => {
@@ -217,7 +294,7 @@ root = AppShell([
   ])('rejects invalid visual color prop %s', (invalidColor) => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
-    Text("Hello", "body", "start", "${invalidColor}")
+    Text("Hello", "body", "start", { textColor: "${invalidColor}" })
   ])
 ])`);
 
@@ -226,17 +303,17 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Text.color must be a #RRGGBB hex color.',
+          message: 'Text.appearance.textColor must be a #RRGGBB hex color.',
         }),
       ]),
     );
   });
 
-  it('rejects invalid Screen title colors', () => {
+  it('rejects invalid Screen appearance colors', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
-  ], true, "red", "#111827")
+  ], true, { textColor: "red", bgColor: "#111827" })
 ])`);
 
     expect(result.isValid).toBe(false);
@@ -244,17 +321,17 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Screen.color must be a #RRGGBB hex color.',
+          message: 'Screen.appearance.textColor must be a #RRGGBB hex color.',
         }),
       ]),
     );
   });
 
-  it('rejects invalid Screen background colors', () => {
+  it('rejects invalid Screen appearance background colors', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
-  ], true, "#F9FAFB", "red")
+  ], true, { textColor: "#F9FAFB", bgColor: "red" })
 ])`);
 
     expect(result.isValid).toBe(false);
@@ -262,7 +339,25 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Screen.background must be a #RRGGBB hex color.',
+          message: 'Screen.appearance.bgColor must be a #RRGGBB hex color.',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects unknown appearance keys', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Button("save", "Save", "default", Action([]), false, { color: "#FFFFFF" })
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Button.appearance.color is not allowed.',
         }),
       ]),
     );

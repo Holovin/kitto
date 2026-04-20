@@ -56,18 +56,20 @@ Steps:
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Group layout guidance:
-  - `Group(title, direction, children, variant?, color?, background?)` supports `block | inline`
+  - `Group(title, direction, children, variant?, appearance?)` supports `block | inline`
   - the second `Group` argument is always `direction`, and `variant` belongs in the optional fourth argument
   - default variant is `block`
   - use `block` for standalone visual sections
   - use `inline` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
   - avoid over-nesting block groups
 - Safe visual color guidance:
-- `Screen(id, title, children, isActive?, color?, background?)` accepts optional trailing title color and background props
-  - `Text(...)` accepts only an optional trailing `color` prop
-  - `Group`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept optional trailing `color` and `background` props
-  - `color` and `background` must be strict `#RRGGBB` hex strings only
-  - parent `Screen` or `Group` colors do not recolor nested form controls automatically; pass colors to the control surface itself
+- `AppShell(children, appearance?)` accepts optional inherited theme colors for the whole app
+  - `Screen(id, title, children, isActive?, appearance?)`, `Group(...)`, and `Repeater(children, emptyText?, appearance?)` can override inherited subtree colors
+  - `appearance` supports only `textColor` and `bgColor`
+  - `Text(...)` accepts only `appearance.textColor`
+  - `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept `appearance.textColor` and `appearance.bgColor`
+  - `appearance.textColor` and `appearance.bgColor` must be strict `#RRGGBB` hex strings only
+  - parent `AppShell`, `Screen`, `Group`, and `Repeater` appearance values recolor nested controls automatically unless a child sets its own local appearance
   - use existing variants first when enough, and never expose or generate `style`, `className`, CSS strings, named colors, `rgb()`, `hsl()`, `var()`, or layout props
 - Repeater collection guidance:
   - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
@@ -103,7 +105,7 @@ Steps:
 ## State Model
 
 - Redux state is split intentionally:
-  - `builder`: committed source, streamed draft source, chat messages, undo/redo history, parse issues
+  - `builder`: committed source, streamed draft source, chat messages, undo/redo history, parse issues, and the last failed prompt used by the composer `Repeat` action
   - `builderSession`: current runtime session/form state used by the renderer
   - `domain`: persisted app data mutated by OpenUI tools
 - `builder`, `builderSession`, and `domain` are persisted in `localStorage` through `redux-remember`
@@ -131,6 +133,7 @@ Steps:
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
 - Every generation must terminate in exactly one state: committed, failed, or cancelled; the frontend must not stay stuck in a streaming state forever
+- When a generation fails, the composer keeps the last failed prompt as a retry candidate; an empty composer shows `Repeat`, and typing any new prompt switches the primary action back to `Send`
 - The frontend applies both a max stream duration and an idle timeout before failing the request and preserving the last committed preview
 - Each frontend generation request carries a `requestId`; stale stream chunks, stale fallback responses, and intentional aborts must be ignored and must never commit over a newer request
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API

@@ -1,7 +1,42 @@
-import { Children } from 'react';
+import { Children, type ReactNode } from 'react';
 import { defineComponent } from '@openuidev/react-lang';
 import { z } from 'zod';
-import { nullableTextSchema } from './shared';
+import { KittoAppearanceProvider, appearanceSchema, getAppearanceStyle, nullableTextSchema, useKittoAppearanceScope } from './shared';
+
+function RepeaterRenderer({
+  props,
+  renderNode,
+}: {
+  props: { appearance?: { bgColor?: string; textColor?: string }; children: unknown[]; emptyText?: string | null };
+  renderNode: (value: unknown) => ReactNode;
+}) {
+  const appearanceScope = useKittoAppearanceScope();
+  const renderedChildren = Children.toArray(renderNode(props.children));
+  const repeaterStyle = getAppearanceStyle({
+    appearance: props.appearance,
+    applyTextColor: true,
+    applyBackgroundColor: true,
+    hasInheritedTextColor: appearanceScope.hasTextColor,
+    hasInheritedBgColor: appearanceScope.hasBgColor,
+  });
+
+  const content =
+    renderedChildren.length === 0 ? (
+      <div className="text-sm text-current opacity-80">
+        {props.emptyText ?? 'Nothing to show yet.'}
+      </div>
+    ) : (
+      renderedChildren
+    );
+
+  return (
+    <KittoAppearanceProvider appearance={props.appearance}>
+      <div className="flex flex-col gap-3" style={repeaterStyle}>
+        {content}
+      </div>
+    </KittoAppearanceProvider>
+  );
+}
 
 export const RepeaterComponent = defineComponent({
   name: 'Repeater',
@@ -13,19 +48,7 @@ export const RepeaterComponent = defineComponent({
       .default([])
       .describe('Array of already-built row or card nodes, typically returned by @Each(collection, "item", ...).'),
     emptyText: nullableTextSchema.describe('Fallback message shown when the repeated rows array is empty.'),
+    appearance: appearanceSchema,
   }),
-  component: ({ props, renderNode }) => {
-    const renderedChildren = Children.toArray(renderNode(props.children));
-
-    const content =
-      renderedChildren.length === 0 ? (
-        <div className="text-sm text-current opacity-80">
-          {props.emptyText ?? 'Nothing to show yet.'}
-        </div>
-      ) : (
-        renderedChildren
-      );
-
-    return <div className="flex flex-col gap-3">{content}</div>;
-  },
+  component: RepeaterRenderer,
 });

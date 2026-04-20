@@ -24,6 +24,8 @@ Guardrails:
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
 - That invalid-generation chat failure must end with: `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
+- After that generation failure, an empty composer shows an enabled `Repeat` primary action that resubmits the last failed prompt.
+- Typing any new prompt into the composer changes that primary action back to `Send` immediately.
 - If a rejected cached/imported definition is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state.
 - Frontend stream idle timeout or max-duration timeout must abort the in-flight request, surface a controlled failure message, and keep the last committed Preview visible.
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
@@ -54,6 +56,7 @@ Guardrails:
 - `compute_value` and `write_computed_state` must return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access before reaching for compute tools.
 - `write_computed_state` must validate the target persisted path using the same hardened rules as other persisted state tools.
+- Mutation statement refs are status objects. Do not render them directly into `Text(...)`; for display, prefer a follow-up `Query("read_state", ...)` or explicit `mutationRef.data.value` access after success.
 - Date compute operations accept only strict `YYYY-MM-DD` strings; natural-language dates and datetimes are invalid.
 - `random_int` uses integer `min` / `max` options only and must stay inside the clamped safe range.
 - Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
@@ -72,22 +75,28 @@ Root:
 root = AppShell([...])
 ```
 
+AppShell theme:
+
+```txt
+AppShell(children, appearance?)
+```
+
 Button:
 
 ```txt
-Button(id, label, variant, action?, disabled?, color?, background?)
+Button(id, label, variant, action?, disabled?, appearance?)
 ```
 
 Screen:
 
 ```txt
-Screen(id, title, children, isActive?, color?, background?)
+Screen(id, title, children, isActive?, appearance?)
 ```
 
 Group:
 
 ```txt
-Group(title, direction, children, variant?, color?, background?)
+Group(title, direction, children, variant?, appearance?)
 ```
 
 Variants:
@@ -105,13 +114,15 @@ block
 Safe color overrides:
 
 ```txt
-Text(value, variant, align, color?)
-Input(name, label, value?, placeholder?, color?, background?)
-TextArea(name, label, value?, placeholder?, color?, background?)
-Checkbox(name, label, checked?, color?, background?)
-RadioGroup(name, label, value?, options?, color?, background?)
-Select(name, label, value?, options?, color?, background?)
-Link(label, url, newTab?, color?, background?)
+appearance = { textColor?: "#RRGGBB", bgColor?: "#RRGGBB" }
+Text(value, variant, align, appearance?)
+Input(name, label, value?, placeholder?, appearance?)
+TextArea(name, label, value?, placeholder?, appearance?)
+Checkbox(name, label, checked?, appearance?)
+RadioGroup(name, label, value?, options?, appearance?)
+Select(name, label, value?, options?, appearance?)
+Link(label, url, newTab?, appearance?)
+Repeater(children, emptyText?, appearance?)
 ```
 
 Navigation:
@@ -176,12 +187,16 @@ Do use:
 - `Screen(...)` for screen-level sections and `Group(...)` for local layout
 - `Group(..., "block")` for standalone visual sections
 - `Group(..., "inline")` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
-- optional trailing `color?` / `background?` on `Screen(...)`
-- optional `color?` on `Text(...)`
-- optional `color?` / `background?` props on `Group`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`
-- only strict `#RRGGBB` values such as `#111827`, `#F9FAFB`, or `#2563EB` for those color overrides
-- when a form control should look dark or light, pass the color props directly to the control component instead of only the parent container
+- `AppShell(..., appearance?)` first when the request is about one shared theme or dark mode
+- `Screen(...)`, `Group(...)`, and `Repeater(...)` appearance overrides when a subtree needs different inherited colors
+- `appearance.textColor` for text or foreground color
+- `appearance.bgColor` for background or surface color
+- only strict `#RRGGBB` values such as `#111827`, `#F9FAFB`, or `#2563EB` inside `appearance`
+- `Text(...)` only with `appearance.textColor`; never `Text(..., { bgColor: ... })`
+- local control `appearance` only when a specific control must override the inherited theme
+- conditional `appearance` for active buttons or selected theme toggles
 - existing variants first when they already express the requested visual treatment
+- parent `AppShell`, `Screen`, `Group`, and `Repeater` appearance values recolor nested controls automatically
 - avoid over-nesting block groups
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
 - `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
@@ -200,6 +215,7 @@ Do not use:
 - `Screen(..., null, ...)` for the required title argument
 - persisted tools for internal screen navigation
 - raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, `url()`, or arbitrary layout styling props
+- `color`, `background`, `surface`, `border`, `accent`, `primaryColor`, or other invented appearance keys
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings

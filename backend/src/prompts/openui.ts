@@ -223,20 +223,29 @@ const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
 const toolExamples = [
-  `$name = "Ada"
+  `$currentTheme = "light"
+$name = "Ada"
 $email = "ada@example.com"
+
+appAppearance = $currentTheme == "dark" ? { textColor: "#F9FAFB", bgColor: "#0F172A" } : { textColor: "#111827", bgColor: "#FFFFFF" }
+inactiveThemeButton = { textColor: "#111827", bgColor: "#E5E7EB" }
+activeThemeButton = { textColor: "#FFFFFF", bgColor: "#DC2626" }
 
 root = AppShell([
   Screen("main", "Profile form", [
+    Group("Theme", "horizontal", [
+      Button("theme-light", "Light", "secondary", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton),
+      Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
+    ], "inline"),
     Group("Profile", "vertical", [
-      Text("Review your profile details below.", "body", "start", "#F9FAFB"),
+      Text("Review your profile details below.", "body", "start"),
       Group("Inline fields", "horizontal", [
-        Input("name", "Name", $name, "Ada", "#F9FAFB", "#111827"),
-        Input("email", "Email", $email, "ada@example.com", "#F9FAFB", "#111827")
+        Input("name", "Name", $name, "Ada"),
+        Input("email", "Email", $email, "ada@example.com")
       ], "inline")
-    ], "block", "#F9FAFB", "#111827")
-  ], true, "#F9FAFB", "#0F172A")
-])`,
+    ])
+  ], true)
+], appAppearance)`,
   `$email = ""
 $priority = "normal"
 
@@ -245,16 +254,20 @@ priorityOptions = [
   { label: "Normal", value: "normal" },
   { label: "High", value: "high" }
 ]
+warningAppearance = { textColor: "#92400E", bgColor: "#FEF3C7" }
 
 root = AppShell([
   Screen("main", "Dark app", [
     Group("Welcome", "vertical", [
-      Text("This is a dark interface.", "body", "start", "#F9FAFB"),
-      Input("email", "Email", $email, "ada@example.com", "#F9FAFB", "#111827"),
-      RadioGroup("priority", "Priority", $priority, priorityOptions, "#F9FAFB", "#111827"),
-      Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")
-    ], "block", "#F9FAFB", "#111827")
-  ], true, "#F9FAFB", "#0F172A")
+      Text("This is a dark interface.", "body", "start"),
+      Input("email", "Email", $email, "ada@example.com"),
+      RadioGroup("priority", "Priority", $priority, priorityOptions),
+      Button("submit-button", "Submit", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
+    ], "block"),
+    Group("Warning", "vertical", [
+      Text("Double-check the selected priority before submit.", "body", "start")
+    ], "inline", warningAppearance)
+  ], true, { textColor: "#F9FAFB", bgColor: "#111827" })
 ])`,
   `items = [
   { label: "First", value: "first" },
@@ -382,21 +395,27 @@ const additionalRules = [
   'Use only the supported components and tools provided in this prompt.',
   'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
-  'Group signature is `Group(title, direction, children, variant?, color?, background?)`.',
+  'AppShell signature is `AppShell(children, appearance?)`.',
+  'Group signature is `Group(title, direction, children, variant?, appearance?)`.',
   'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put `"block"` or `"inline"` in the second Group argument.',
   'Use Group variant "block" for standalone visual sections.',
   'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
   'Do not over-nest block Groups.',
-  'Use `color` and `background` hex props for visual color changes on containers and control surfaces.',
-  'Text supports only the `color` hex prop. Do not pass `background` to Text.',
+  'Use `appearance` for visual color changes.',
+  'appearance.textColor is the text or foreground color.',
+  'appearance.bgColor is the background or surface color.',
+  'Text supports only `appearance.textColor`. Do not pass `appearance.bgColor` to Text.',
   'Only use #RRGGBB colors.',
   'For dark-looking UI, use dark background colors like #111827 and light text like #F9FAFB.',
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
-  'Use existing variants first when enough; use hex color/background when the user asks for specific visual color changes.',
-  'When a form control should look dark or light, pass `color` and `background` directly to Input, TextArea, Checkbox, RadioGroup, Select, Button, or Link as needed.',
-  'Parent Screen or Group colors do not recolor nested form controls automatically.',
+  'Use `AppShell(..., appearance)` first for global theme switching.',
+  'Children inherit appearance colors from parent AppShell, Screen, Group, or Repeater containers.',
+  'Do not pass the same appearance object to every control when the user asked for one shared theme.',
+  'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
+  'appearance overrides variant colors.',
+  'Variants are fallback styles, not the primary mechanism for theme switching.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
@@ -410,10 +429,10 @@ const additionalRules = [
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
   'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
-  'Screen signature is `Screen(id, title, children, isActive?, color?, background?)`.',
-  'Use `Screen(id, title, children, isActive?, color?, background?)` when you need screen-level sections.',
-  'Screen uses trailing visual overrides in the same order as other color-capable components: `color` first, then `background`.',
-  'Button signature is `Button(id, label, variant, action?, disabled?, color?, background?)`.',
+  'Screen signature is `Screen(id, title, children, isActive?, appearance?)`.',
+  'Use `Screen(id, title, children, isActive?, appearance?)` when you need screen-level sections.',
+  'Repeater signature is `Repeater(children, emptyText?, appearance?)`.',
+  'Button signature is `Button(id, label, variant, action?, disabled?, appearance?)`.',
   'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
   'Use `$currentScreen` + `@Set(...)` for screen navigation.',
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
@@ -423,6 +442,9 @@ const additionalRules = [
   'Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.',
   'Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.',
   'Both compute tools return `{ value }`.',
+  'Do not render a Mutation statement reference directly in UI text such as `Text("Result: " + rollDice, ...)`; Mutation refs resolve to status objects, not plain primitive tool outputs.',
+  'When a `write_computed_state` result should be displayed after a click, prefer reading the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.',
+  'If you must read the latest successful Mutation result directly, use `mutationRef.data.value` only after checking that the mutation succeeded.',
   'Date compute operations only accept strict YYYY-MM-DD strings.',
   'Use `random_int` only with integer min/max options.',
   'Use write_state, merge_state, append_state, remove_state, and write_computed_state for exportable persistent data.',
