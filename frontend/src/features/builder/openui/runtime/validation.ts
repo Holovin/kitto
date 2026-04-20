@@ -37,6 +37,7 @@ interface OpenUiQualityMetrics {
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
+const TODO_REQUEST_PATTERN = /\b(todo|to-?do|task\s+list)\b|список\s+задач/i;
 const THEME_REQUEST_PATTERN = /\b(theme|theming|dark|light|color|colors|colour|colours|palette)\b/i;
 const COMPUTE_REQUEST_PATTERN =
   /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b/i;
@@ -450,6 +451,10 @@ function promptRequestsTheme(prompt: string) {
   return THEME_REQUEST_PATTERN.test(prompt);
 }
 
+function promptRequestsTodo(prompt: string) {
+  return TODO_REQUEST_PATTERN.test(prompt);
+}
+
 function promptRequestsCompute(prompt: string) {
   return COMPUTE_REQUEST_PATTERN.test(prompt);
 }
@@ -468,6 +473,39 @@ function hasComputeTools(result: ParseResult) {
 
     return toolName ? QUALITY_COMPUTE_TOOL_NAMES.has(toolName) : false;
   });
+}
+
+function hasElementType(value: unknown, targetTypeName: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasElementType(entry, targetTypeName));
+  }
+
+  if (isElementNode(value)) {
+    return value.typeName === targetTypeName || Object.values(value.props).some((entry) => hasElementType(entry, targetTypeName));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((entry) => hasElementType(entry, targetTypeName));
+  }
+
+  return false;
+}
+
+function hasMutationTool(result: ParseResult, toolName: string) {
+  return result.mutationStatements.some((statement) => extractStringLiteral(statement.toolAST) === toolName);
+}
+
+function hasRequiredTodoControls(result: ParseResult) {
+  if (!result.root) {
+    return false;
+  }
+
+  return (
+    hasElementType(result.root, 'Input') &&
+    hasElementType(result.root, 'Button') &&
+    hasElementType(result.root, 'Repeater') &&
+    hasMutationTool(result, 'append_state')
+  );
 }
 
 function isAstNode(value: unknown): value is ExpressionAst {
@@ -700,6 +738,15 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
       createQualityIssue({
         code: 'quality-unrequested-validation',
         message: 'Validation rules were added even though not requested.',
+      }),
+    );
+  }
+
+  if (promptRequestsTodo(trimmedPrompt) && !hasRequiredTodoControls(result)) {
+    warnings.push(
+      createQualityIssue({
+        code: 'quality-missing-todo-controls',
+        message: 'Todo request did not generate required todo controls.',
       }),
     );
   }

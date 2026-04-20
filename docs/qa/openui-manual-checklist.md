@@ -22,6 +22,7 @@ Guardrails:
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Definition may show streamed draft source while generation is still in progress.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
+- Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.`.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
@@ -33,13 +34,14 @@ Guardrails:
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
 - Rejected imported source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
-- Input-like components validate locally on change and blur.
+- Input-like components validate locally on change, blur, and submit-like primary button interactions.
 - Validation error text renders below the relevant control and overrides helper text while the error is visible.
 - Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
+- Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - The chat toolbar shows `Version: N / M` before the previous-version and next-version buttons, where `N` counts committed non-empty versions and may be `0` after undoing back to a blank canvas with history still available.
 - A pristine blank builder with no committed version history shows `—` in the chat toolbar.
@@ -63,7 +65,7 @@ Guardrails:
 - `compute_value` and `write_computed_state` must return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access before reaching for compute tools.
 - `write_computed_state` must validate the target persisted path using the same hardened rules as other persisted state tools.
-- Mutation statement refs are status objects. Do not render them directly into `Text(...)`; for display, prefer a follow-up `Query("read_state", ...)` or explicit `mutationRef.data.value` access after success.
+- Mutation statement refs are status objects. Do not render them directly into `Text(...)`; for visible compute results, write to persisted state and re-read through `Query("read_state", ...)` instead of relying on the raw mutation object.
 - Date compute operations accept only strict `YYYY-MM-DD` strings; natural-language dates and datetimes are invalid.
 - `random_int` uses integer `min` / `max` options only and must stay inside the clamped safe range.
 - Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
@@ -124,6 +126,7 @@ Simple-app bias:
 Prefer the smallest working app that satisfies the latest user request.
 Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.
 For simple apps, use one Screen and one or two Groups.
+If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.
 ```
 
 Layout simplicity:
@@ -218,10 +221,16 @@ root = AppShell([
       Input("draft", "Task", $draft, "New task"),
       Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
     ], "inline"),
-    Repeater(rows, "No items yet.")
+    Repeater(rows, "No tasks yet.")
   ])
 ])
 ```
+
+Todo request guardrails:
+
+- For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_state", { path: "app.items", value: ... })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
+- Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
+- For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
 
 Derived filtering:
 
@@ -256,14 +265,14 @@ isOverdue = Query("compute_value", {
   returnType: "boolean"
 }, { value: false })
 
-rollDice = Mutation("write_computed_state", {
+roll = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
   options: { min: 1, max: 100 },
   returnType: "number"
 })
 rollValue = Query("read_state", { path: "app.roll" }, null)
-Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)
+Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)
 Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
 ```
 
@@ -274,6 +283,9 @@ Compute tool rules:
 - use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules
 - for button-triggered random values, use `write_computed_state` with `op: "random_int"`
 - do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior
+- for button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`
+- do not expect a mutation result object to automatically refresh visible text
+- do not render the raw mutation object into `Text(...)`; it can show up as `[object Object]`
 
 Do use:
 
@@ -315,7 +327,7 @@ Do use:
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
 - after every persisted `Mutation(...)` that affects visible UI, immediately re-run the matching `Query("read_state", ...)` in the same `Action(...)`
 - `Action([@Run(addTask), @Run(tasks), @Reset($draft)])` for create-and-refresh flows
-- `Action([@Run(rollDice), @Run(rollValue)])` for button-triggered persisted compute flows
+- `Action([@Run(roll), @Run(rollValue)])` for button-triggered persisted compute flows
 - stable string ids as the first argument of every `Button(...)`
 
 Do not use:

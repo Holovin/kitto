@@ -3,6 +3,7 @@ import {
   createBuilderSnapshot,
   createResetDefinitionExport,
   parseImportedDefinition,
+  resolveImportedDefinition,
 } from '@features/builder/openui/runtime/persistedState';
 
 const validSource = `root = AppShell([
@@ -175,5 +176,50 @@ describe('persistedState', () => {
     );
 
     expect(imported.source).toBe('root = UnknownComponent([])');
+  });
+
+  it('classifies invalid imported source without throwing so the UI can reject it once', () => {
+    const resolved = resolveImportedDefinition(
+      JSON.stringify({
+        version: 1,
+        source: 'root = UnknownComponent([])',
+        runtimeState: {},
+        domainData: {},
+        history: [],
+      }),
+    );
+
+    expect(resolved.kind).toBe('invalid-source');
+    if (resolved.kind !== 'invalid-source') {
+      throw new Error('Expected invalid-source result.');
+    }
+    expect(resolved.definition.source).toBe('root = UnknownComponent([])');
+    expect(resolved.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-component',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('classifies valid imported source for the success import path', () => {
+    const resolved = resolveImportedDefinition(
+      JSON.stringify({
+        version: 1,
+        source: validSource,
+        runtimeState: { currentScreen: 'main' },
+        domainData: { app: { tasks: [] as string[] } },
+        history: [],
+      }),
+    );
+
+    expect(resolved.kind).toBe('valid');
+    if (resolved.kind !== 'valid') {
+      throw new Error('Expected valid result.');
+    }
+    expect(resolved.definition.source).toBe(validSource);
+    expect(resolved.definition.history).toHaveLength(1);
   });
 });

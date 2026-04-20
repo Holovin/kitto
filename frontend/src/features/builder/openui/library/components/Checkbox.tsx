@@ -4,11 +4,12 @@ import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
 import { z } from 'zod';
 import {
   appearanceSchema,
-  evaluateValidationRules,
+  getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
   sanitizeValidationRules,
   useKittoAppearanceScope,
+  useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
@@ -27,19 +28,18 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.checked);
+  const { submitLikeInteractionCount } = useKittoValidationInteraction();
   const hasLabel = props.label.trim().length > 0;
   const validationTarget = { componentType: 'Checkbox' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const validationError = touched
-    ? evaluateValidationRules({
-        rules: validationRules,
-        target: validationTarget,
-        value: Boolean(field.value),
-      })
-    : undefined;
-  const hasVisibleError = validationError !== undefined;
-  const helperText =
-    validationError ?? (typeof props.helper === 'string' && props.helper.trim().length > 0 ? props.helper : undefined);
+  const { hasVisibleError, helperText } = getValidationFeedback({
+    helper: props.helper,
+    rules: validationRules,
+    submitLikeInteractionCount,
+    target: validationTarget,
+    touched,
+    value: Boolean(field.value),
+  });
   const appearanceScope = useKittoAppearanceScope();
   const checkboxStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -75,8 +75,10 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
         <div className="flex h-5 items-center">{checkboxControl}</div>
         {helperText ? (
           <p
+            aria-live={hasVisibleError ? 'polite' : undefined}
             className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
             id={feedbackId}
+            role={hasVisibleError ? 'alert' : undefined}
           >
             {helperText}
           </p>
@@ -89,7 +91,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
     <div className="flex flex-col gap-2">
       <label
         className={`flex items-start gap-3 rounded-[1.25rem] border bg-white px-4 py-3 ${
-          hasVisibleError ? 'border-rose-300' : 'border-slate-200'
+          hasVisibleError ? 'border-rose-400' : 'border-slate-200'
         }`}
         style={checkboxStyle}
       >
@@ -102,8 +104,10 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       </label>
       {helperText ? (
         <p
+          aria-live={hasVisibleError ? 'polite' : undefined}
           className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
           id={feedbackId}
+          role={hasVisibleError ? 'alert' : undefined}
         >
           {helperText}
         </p>

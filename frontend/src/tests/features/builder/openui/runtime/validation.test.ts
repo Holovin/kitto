@@ -750,6 +750,28 @@ root = AppShell([
     );
   });
 
+  it('warns when a todo request commits without the required todo controls', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Todo list", "title", "start"),
+    Text("Start by describing your tasks here.", "body", "start")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('warns when append_state does not rerun the matching read_state query in the same Action', () => {
     const warnings = detectOpenUiQualityWarnings(
       `$draft = ""

@@ -1,4 +1,4 @@
-import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { z } from 'zod';
 
 export const nullableTextSchema = z.union([z.string(), z.null()]).optional();
@@ -124,12 +124,25 @@ type KittoAppearanceScope = {
   hasMainColor: boolean;
 };
 
+type KittoValidationInteractionContextValue = {
+  markSubmitLikeInteraction: () => void;
+  submitLikeInteractionCount: number;
+};
+
 const defaultKittoAppearanceScope: KittoAppearanceScope = {
   hasContrastColor: false,
   hasMainColor: false,
 };
 
+const defaultKittoValidationInteractionContext: KittoValidationInteractionContextValue = {
+  markSubmitLikeInteraction: () => undefined,
+  submitLikeInteractionCount: 0,
+};
+
 const KittoAppearanceContext = createContext<KittoAppearanceScope>(defaultKittoAppearanceScope);
+const KittoValidationInteractionContext = createContext<KittoValidationInteractionContextValue>(
+  defaultKittoValidationInteractionContext,
+);
 
 export function asDisplayText(value: unknown) {
   if (value == null) {
@@ -539,6 +552,35 @@ export function evaluateValidationRules(args: {
   return undefined;
 }
 
+function getNormalizedHelperText(helper: string | null | undefined) {
+  return typeof helper === 'string' && helper.trim().length > 0 ? helper : undefined;
+}
+
+export function getValidationFeedback(args: {
+  helper?: string | null;
+  rules: ValidationRule[];
+  submitLikeInteractionCount: number;
+  target: ValidationTarget;
+  touched: boolean;
+  value: unknown;
+}) {
+  const { helper, rules, submitLikeInteractionCount, target, touched, value } = args;
+  const validationError =
+    touched || submitLikeInteractionCount > 0
+      ? evaluateValidationRules({
+          rules,
+          target,
+          value,
+        })
+      : undefined;
+
+  return {
+    hasVisibleError: validationError !== undefined,
+    helperText: validationError ?? getNormalizedHelperText(helper),
+    validationError,
+  };
+}
+
 export function getInputAutoComplete(name: string, inputType: InputType) {
   if (name === 'name') {
     return 'name';
@@ -562,6 +604,10 @@ export function useKittoAppearanceScope() {
   return useContext(KittoAppearanceContext);
 }
 
+export function useKittoValidationInteraction() {
+  return useContext(KittoValidationInteractionContext);
+}
+
 export function KittoAppearanceProvider({
   appearance,
   children,
@@ -576,6 +622,22 @@ export function KittoAppearanceProvider({
   };
 
   return <KittoAppearanceContext.Provider value={scope}>{children}</KittoAppearanceContext.Provider>;
+}
+
+export function KittoValidationInteractionProvider({ children }: { children: ReactNode }) {
+  const [submitLikeInteractionCount, setSubmitLikeInteractionCount] = useState(0);
+  const markSubmitLikeInteraction = useCallback(() => {
+    setSubmitLikeInteractionCount((count) => count + 1);
+  }, []);
+  const value = useMemo(
+    () => ({
+      markSubmitLikeInteraction,
+      submitLikeInteractionCount,
+    }),
+    [markSubmitLikeInteraction, submitLikeInteractionCount],
+  );
+
+  return <KittoValidationInteractionContext.Provider value={value}>{children}</KittoValidationInteractionContext.Provider>;
 }
 
 type AppearanceRole = 'contrast' | 'main';

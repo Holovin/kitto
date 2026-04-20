@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BuilderDefinitionExport, BuilderSnapshot } from '@features/builder/types';
+import type { BuilderDefinitionExport, BuilderParseIssue, BuilderSnapshot } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from '@features/builder/store/defaults';
 import { validateOpenUiSource } from './validation';
 
@@ -140,5 +140,34 @@ export function parseImportedDefinition(rawValue: string) {
   return {
     ...parsedValue,
     history: normalizedHistory,
+  };
+}
+
+export type ResolvedImportedDefinition =
+  | {
+      definition: ReturnType<typeof parseImportedDefinition>;
+      kind: 'invalid-source';
+      issues: BuilderParseIssue[];
+    }
+  | {
+      definition: ReturnType<typeof parseImportedDefinition>;
+      kind: 'valid';
+    };
+
+export function resolveImportedDefinition(rawValue: string): ResolvedImportedDefinition {
+  const definition = parseImportedDefinition(rawValue);
+  const sourceValidation = validateOpenUiSource(definition.source);
+
+  if (!sourceValidation.isValid) {
+    return {
+      definition,
+      kind: 'invalid-source',
+      issues: sourceValidation.issues,
+    };
+  }
+
+  return {
+    definition,
+    kind: 'valid',
   };
 }

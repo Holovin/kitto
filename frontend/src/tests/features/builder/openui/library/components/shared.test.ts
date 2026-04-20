@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appearanceSchema,
   evaluateValidationRules,
+  getValidationFeedback,
   hexColorSchema,
   inputTypeSchema,
   sanitizeValidationRules,
@@ -75,6 +76,43 @@ describe('validation helpers', () => {
 
     expect(evaluateValidationRules({ target: { componentType: 'Checkbox' }, rules, value: false })).toBe('This field is required.');
     expect(evaluateValidationRules({ target: { componentType: 'Checkbox' }, rules, value: true })).toBeUndefined();
+  });
+
+  it('shows a checkbox error after a submit-like interaction and hides helper text while invalid', () => {
+    const rules = sanitizeValidationRules(
+      { componentType: 'Checkbox' },
+      [{ type: 'required', message: 'You must accept the agreement' }],
+    );
+
+    expect(
+      getValidationFeedback({
+        helper: 'Required agreement',
+        rules,
+        submitLikeInteractionCount: 0,
+        target: { componentType: 'Checkbox' },
+        touched: false,
+        value: false,
+      }),
+    ).toEqual({
+      hasVisibleError: false,
+      helperText: 'Required agreement',
+      validationError: undefined,
+    });
+
+    expect(
+      getValidationFeedback({
+        helper: 'Required agreement',
+        rules,
+        submitLikeInteractionCount: 1,
+        target: { componentType: 'Checkbox' },
+        touched: false,
+        value: false,
+      }),
+    ).toEqual({
+      hasVisibleError: true,
+      helperText: 'You must accept the agreement',
+      validationError: 'You must accept the agreement',
+    });
   });
 
   it('applies minLength and maxLength for text inputs', () => {

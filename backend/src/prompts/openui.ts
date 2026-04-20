@@ -92,7 +92,7 @@ const toolSpecifications: ToolSpec[] = [
   {
     name: 'compute_value',
     description:
-      'Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Returns an object shaped like `{ value }`.',
+      'Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Do not use it for button-triggered roll-on-click randomness; use `write_computed_state` plus `Query("read_state", ...)` instead. Returns an object shaped like `{ value }`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -173,7 +173,7 @@ const toolSpecifications: ToolSpec[] = [
   {
     name: 'write_computed_state',
     description:
-      'Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`. Use it for button-triggered computed values such as random rolls that should persist for later rendering.',
+      'Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`. Use it for button-triggered computed values such as random rolls that should persist for later rendering. After the action, re-read the visible value with `Query("read_state", ...)` instead of rendering the Mutation ref directly.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -239,7 +239,7 @@ root = AppShell([
       Input("draft", "Task", $draft, "New task"),
       Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
     ], "inline"),
-    Repeater(rows, "No items yet.")
+    Repeater(rows, "No tasks yet.")
   ])
 ])`,
   `$currentTheme = "light"
@@ -312,17 +312,17 @@ root = AppShell([
     ])
   ], true)
 ])`,
-  `rollDice = Mutation("write_computed_state", {
+  `roll = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
-  options: { min: 1, max: 6 },
+  options: { min: 1, max: 100 },
   returnType: "number"
 })
 rollValue = Query("read_state", { path: "app.roll" }, null)
 
 root = AppShell([
   Screen("main", "Dice", [
-    Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false),
     Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
   ])
 ])`,
@@ -397,6 +397,7 @@ const additionalRules = [
   'Prefer the smallest working app that satisfies the latest user request.',
   'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
   'For simple apps, use one Screen and one or two Groups.',
+  'If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.',
   'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
   'Return the full updated program every time, not a patch.',
   'The root statement must be `root = AppShell([...])`.',
@@ -407,6 +408,17 @@ const additionalRules = [
   '- compute options',
   '- validation rule objects',
   'Do not invent any other nested config objects.',
+  'TODO / TASK LIST RECIPE:',
+  'For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:',
+  '- `$draft`',
+  '- an `Input` for the new task',
+  '- `Query("read_state", { path: "app.items" }, [])`',
+  '- `Mutation("append_state", { path: "app.items", value: ... })`',
+  '- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`',
+  '- `@Each(items, "item", ...)`',
+  '- `Repeater(rows, "No tasks yet.")`',
+  'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
+  'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
   'LAYOUT RULES:',
   'Use Screen for top-level app sections.',
   'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
@@ -433,6 +445,8 @@ const additionalRules = [
   'Use `write_computed_state` only when a button must compute and persist a primitive value.',
   'For button-triggered random values, use `write_computed_state` with `op: "random_int"`.',
   'Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
+  'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`.',
+  'Do not expect a Mutation result object to automatically refresh visible text.',
   'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, date comparisons, or other compute-specific behavior.',
   'APPEARANCE / THEME CONTRACT:',
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
@@ -499,11 +513,16 @@ const additionalRules = [
   'Do not use compute tools for simple list CRUD, basic screen navigation, filtering, or normal input display.',
   'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
   'Both compute tools return `{ value }`.',
-  'Do not render a Mutation statement reference directly in UI text such as `Text("Result: " + rollDice, ...)`; Mutation refs resolve to status objects, not plain primitive tool outputs.',
+  'CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:',
+  '1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`',
+  '2. `rollValue = Query("read_state", { path: "app.roll" }, null)`',
+  '3. Button action: `Action([@Run(roll), @Run(rollValue)])`.',
+  '4. `Text(...)` reads `rollValue`, not the Mutation ref.',
+  'Do not render a Mutation statement reference directly in UI text such as `Text("Result: " + roll, ...)`; Mutation refs resolve to status objects and can stringify as `[object Object]`.',
   'For button-triggered random values, use `write_computed_state` with `op: "random_int"`.',
   'Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
-  'When a `write_computed_state` result should be displayed after a click, prefer reading the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.',
-  'If you must read the latest successful Mutation result directly, use `mutationRef.data.value` only after checking that the mutation succeeded.',
+  'When a `write_computed_state` result should be displayed after a click, read the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.',
+  'Do not rely on `mutationRef.data.value` to refresh visible text for persisted compute flows; the canonical path is state write plus `Query("read_state", ...)` re-read.',
   'Date compute operations only accept strict YYYY-MM-DD strings.',
   'Use `random_int` only with integer min/max options.',
   'Use write_state, merge_state, append_state, remove_state, and write_computed_state for exportable persistent data.',
@@ -515,7 +534,7 @@ const additionalRules = [
   'Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.',
   'After every Mutation that changes persisted state used by visible UI, immediately re-run the Query that reads that state in the same Action.',
   'Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.',
-  'Random example: `Action([@Run(rollDice), @Run(rollValue)])`.',
+  'Random example: `Action([@Run(roll), @Run(rollValue)])`.',
   'Remove example: `Action([@Run(removeItem), @Run(items)])`.',
   'Update example: `Action([@Run(updateItem), @Run(items)])`.',
   'Every `@Run(ref)` must reference a defined Query or Mutation statement.',

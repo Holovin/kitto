@@ -29,6 +29,16 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - Do not use DOM-only fill.
 - For import, if the OS picker is unavailable, it is acceptable to use the hidden `input[type="file"]` with a generated `File`.
 
+## Scenario status values
+
+Use one of these statuses for each scenario report entry:
+
+- `pass`: the scenario was exercised end-to-end and behaved as expected.
+- `fail`: the scenario was exercised and the product/runtime behaved incorrectly.
+- `not verified`: the scenario could not be completed only because of MCP/browser tooling limits, and there is not yet evidence of a product/runtime failure.
+
+`not verified` does not block the overall smoke pass by itself. It means manual follow-up is still required.
+
 ## Scenario 1 — Simple todo stays simple
 
 ### Prompt
@@ -46,6 +56,7 @@ Create a todo list.
   - task list.
 - User can add a task.
 - Internal todo interactions do not call `/api/llm/*`.
+- Definition does not show `Todo request did not generate required todo controls.`.
 - No parser/runtime errors appear.
 - The app does not add unrelated features such as:
   - theme toggle;
@@ -62,6 +73,7 @@ Record:
 - pass/fail;
 - whether repair happened;
 - whether the app was overcomplicated;
+- whether the missing-controls warning appeared;
 - whether add task worked.
 
 ## Scenario 2 — Multi-screen local flow
@@ -187,6 +199,7 @@ Create a form with name, email, quantity, due date, description and required agr
 - Description uses textarea.
 - Agreement uses checkbox.
 - Required validation is visible.
+- Agreement checkbox error text appears directly below the checkbox row when invalid and uses the same error treatment as other fields.
 - Email validation works.
 - Number validation works if min/max is generated.
 - Due date stores a `YYYY-MM-DD` value.
@@ -240,6 +253,8 @@ Add a button that rolls a random number from 1 to 100 and shows the result.
 
 - Button click produces a number locally.
 - Result is between 1 and 100.
+- Definition uses the persisted compute recipe: `Mutation("write_computed_state", ...)`, `Query("read_state", ...)`, and a button `Action(...)` that runs both.
+- Visible result text reads the re-queried persisted value instead of a raw mutation object.
 - Result displays as a primitive value, not `[object Object]`.
 - Button click does not call `/api/llm/*`.
 - No arbitrary JS appears.
@@ -319,6 +334,7 @@ Expected:
 Expected:
 
 - Import is rejected.
+- Invalid import shows a single clear failure message.
 - Preview remains on last committed valid app.
 - Definition shows rejected source or validation issues.
 - Chat/history/runtime/domain state are not wiped.
@@ -381,13 +397,20 @@ Skip if standalone export is intentionally disabled.
 - Standalone state persists after reload.
 - Reset local data restores embedded baseline.
 
+### Standalone status rules
+
+- Record `not verified` when the standalone artifact downloads successfully and the HTML contains the embedded app payload, but MCP tooling cannot open the local `file://` runtime.
+- Record `pass` when the standalone file is opened and the runtime works as expected.
+- Record `fail` when the standalone file is opened but the runtime is broken, or when the export artifact/payload is missing.
+
 ### Report notes
 
 Record:
 
-- pass/fail;
+- pass/fail/not verified;
 - whether standalone opened offline;
 - whether standalone localStorage worked.
+- any manual follow-up still required, especially when `not verified` was caused by MCP not opening `file://`.
 
 ## Scenario 12 — Cancel and stale request recovery
 

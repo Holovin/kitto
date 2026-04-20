@@ -102,7 +102,7 @@ describe('openui prompts', () => {
     const themeIndex = prompt.indexOf('$currentTheme = "light"');
     const filterIndex = prompt.indexOf('$filter = "all"');
     const validationIndex = prompt.indexOf('$email = ""');
-    const computeIndex = prompt.indexOf('rollDice = Mutation("write_computed_state", {');
+    const computeIndex = prompt.indexOf('roll = Mutation("write_computed_state", {');
 
     expect(prompt).toContain('SIMPLE APP RULE:');
     expect(prompt).toContain('Prefer the smallest working app that satisfies the latest user request.');
@@ -110,6 +110,7 @@ describe('openui prompts', () => {
       'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
     );
     expect(prompt).toContain('For simple apps, use one Screen and one or two Groups.');
+    expect(prompt).toContain('If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.');
     expect(prompt).toContain('TOOL MINIMALITY:');
     expect(prompt).toContain('Use $variables for ephemeral UI state.');
     expect(prompt).toContain(
@@ -137,7 +138,7 @@ describe('openui prompts', () => {
 
     expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
     expect(prompt).toContain('Checkbox(item.title, item.title, item.completed)');
-    expect(prompt).toContain('Repeater(rows, "No items yet.")');
+    expect(prompt).toContain('Repeater(rows, "No tasks yet.")');
 
     expect(todoIndex).toBeGreaterThan(-1);
     expect(themeIndex).toBeGreaterThan(-1);
@@ -213,6 +214,26 @@ describe('openui prompts', () => {
     expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
   });
 
+  it('keeps the todo recipe and placeholder guardrails in the system prompt', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('TODO / TASK LIST RECIPE:');
+    expect(prompt).toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
+    expect(prompt).toContain('- `$draft`');
+    expect(prompt).toContain('- an `Input` for the new task');
+    expect(prompt).toContain('- `Query("read_state", { path: "app.items" }, [])`');
+    expect(prompt).toContain('- `Mutation("append_state", { path: "app.items", value: ... })`');
+    expect(prompt).toContain('- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`');
+    expect(prompt).toContain('- `@Each(items, "item", ...)`');
+    expect(prompt).toContain('- `Repeater(rows, "No tasks yet.")`');
+    expect(prompt).toContain(
+      'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
+    );
+    expect(prompt).toContain(
+      'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
+    );
+  });
+
   it('guides filtered collection views toward built-in functions instead of invented tools', () => {
     const prompt = buildOpenUiSystemPrompt();
 
@@ -235,21 +256,29 @@ describe('openui prompts', () => {
       'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
     );
     expect(prompt).toContain('Both compute tools return `{ value }`.');
+    expect(prompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(prompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
+    expect(prompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
+    expect(prompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
+    expect(prompt).toContain('4. `Text(...)` reads `rollValue`, not the Mutation ref.');
     expect(prompt).toContain('Do not render a Mutation statement reference directly in UI text');
+    expect(prompt).toContain('can stringify as `[object Object]`');
     expect(prompt).toContain('For button-triggered random values, use `write_computed_state` with `op: "random_int"`.');
     expect(prompt).toContain('Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.');
-    expect(prompt).toContain('When a `write_computed_state` result should be displayed after a click, prefer reading the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.');
-    expect(prompt).toContain('If you must read the latest successful Mutation result directly, use `mutationRef.data.value` only after checking that the mutation succeeded.');
+    expect(prompt).toContain('For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`.');
+    expect(prompt).toContain('Do not expect a Mutation result object to automatically refresh visible text.');
+    expect(prompt).toContain('When a `write_computed_state` result should be displayed after a click, read the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.');
+    expect(prompt).toContain('Do not rely on `mutationRef.data.value` to refresh visible text for persisted compute flows; the canonical path is state write plus `Query("read_state", ...)` re-read.');
     expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
     expect(prompt).toContain('Use `random_int` only with integer min/max options.');
     expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
     expect(prompt).toContain('After every Mutation that changes persisted state used by visible UI, immediately re-run the Query that reads that state in the same Action.');
     expect(prompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
-    expect(prompt).toContain('Random example: `Action([@Run(rollDice), @Run(rollValue)])`.');
+    expect(prompt).toContain('Random example: `Action([@Run(roll), @Run(rollValue)])`.');
     expect(prompt).toContain('Remove example: `Action([@Run(removeItem), @Run(items)])`.');
     expect(prompt).toContain('Update example: `Action([@Run(updateItem), @Run(items)])`.');
-    expect(prompt).toContain('rollDice = Mutation("write_computed_state", {');
-    expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)');
+    expect(prompt).toContain('roll = Mutation("write_computed_state", {');
+    expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)');
     expect(prompt).toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
     expect(prompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
     expect(prompt).toContain('right: today.value');

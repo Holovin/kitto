@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 import { defineComponent } from '@openuidev/react-lang';
 import { cn } from '@lib/utils';
 import { z } from 'zod';
-import { KittoAppearanceProvider, appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
+import {
+  KittoAppearanceProvider,
+  KittoValidationInteractionProvider,
+  appearanceSchema,
+  getAppearanceStyle,
+  useKittoAppearanceScope,
+} from './shared';
 
 function AppShellRenderer({
   props,
@@ -22,13 +28,15 @@ function AppShellRenderer({
 
   return (
     <KittoAppearanceProvider appearance={props.appearance}>
-      <div
-        className={cn('flex min-h-full flex-col gap-6', props.appearance?.mainColor ? 'rounded-[1.75rem] p-4' : '')}
-        data-app-shell="true"
-        style={shellStyle}
-      >
-        {renderNode(props.children)}
-      </div>
+      <KittoValidationInteractionProvider>
+        <div
+          className={cn('flex min-h-full flex-col gap-6', props.appearance?.mainColor ? 'rounded-[1.75rem] p-4' : '')}
+          data-app-shell="true"
+          style={shellStyle}
+        >
+          {renderNode(props.children)}
+        </div>
+      </KittoValidationInteractionProvider>
     </KittoAppearanceProvider>
   );
 }

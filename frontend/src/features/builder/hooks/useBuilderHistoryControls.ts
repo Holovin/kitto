@@ -3,7 +3,11 @@ import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
 import { countCommittedVersions, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
-import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefinition } from '@features/builder/openui/runtime/persistedState';
+import {
+  createBuilderSnapshot,
+  createResetDefinitionExport,
+  resolveImportedDefinition,
+} from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { createStandalonePayload } from '@features/builder/standalone/createStandalonePayload';
 import { downloadStandaloneHtml } from '@features/builder/standalone/downloadStandaloneHtml';
@@ -111,7 +115,7 @@ export function useBuilderHistoryControls({
   }
 
   function appendErrorChatMessage(content: string) {
-    onFeedbackChange(content);
+    onFeedbackChange(null);
     dispatch(
       builderActions.appendChatMessage({
         content,
@@ -187,21 +191,22 @@ export function useBuilderHistoryControls({
 
     try {
       const rawValue = await file.text();
-      const importedDefinition = parseImportedDefinition(rawValue);
-      const sourceValidation = validateOpenUiSource(importedDefinition.source);
+      const importedDefinitionResult = resolveImportedDefinition(rawValue);
 
-      if (!sourceValidation.isValid) {
+      if (importedDefinitionResult.kind === 'invalid-source') {
+        const { definition, issues } = importedDefinitionResult;
         dispatch(
           builderActions.rejectDefinition({
             message: 'Imported definition is invalid.',
-            source: importedDefinition.source,
-            issues: sourceValidation.issues,
+            source: definition.source,
+            issues,
           }),
         );
         appendErrorChatMessage('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.');
         return;
       }
 
+      const importedDefinition = importedDefinitionResult.definition;
       const validHistory = importedDefinition.history.filter((snapshot) => validateOpenUiSource(snapshot.source).isValid);
       const importedHistory =
         validHistory.length > 0

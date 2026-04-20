@@ -5,11 +5,12 @@ import { z } from 'zod';
 import {
   appearanceSchema,
   choiceOptionSchema,
-  evaluateValidationRules,
+  getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
   sanitizeValidationRules,
   useKittoAppearanceScope,
+  useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
@@ -29,18 +30,17 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
   const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  const { submitLikeInteractionCount } = useKittoValidationInteraction();
   const validationTarget = { componentType: 'RadioGroup' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const validationError = touched
-    ? evaluateValidationRules({
-        rules: validationRules,
-        target: validationTarget,
-        value: field.value ?? '',
-      })
-    : undefined;
-  const hasVisibleError = validationError !== undefined;
-  const helperText =
-    validationError ?? (typeof props.helper === 'string' && props.helper.trim().length > 0 ? props.helper : undefined);
+  const { hasVisibleError, helperText } = getValidationFeedback({
+    helper: props.helper,
+    rules: validationRules,
+    submitLikeInteractionCount,
+    target: validationTarget,
+    touched,
+    value: field.value ?? '',
+  });
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -86,8 +86,10 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
       </RadioGroupUI>
       {helperText ? (
         <p
+          aria-live={hasVisibleError ? 'polite' : undefined}
           className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
           id={feedbackId}
+          role={hasVisibleError ? 'alert' : undefined}
         >
           {helperText}
         </p>
