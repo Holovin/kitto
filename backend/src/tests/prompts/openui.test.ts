@@ -14,7 +14,7 @@ interface ComponentSpec {
 
 const componentSpecPath = new URL('../../../../shared/openui-component-spec.json', import.meta.url);
 const componentSpec = JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as ComponentSpec;
-const supportedToolNames = ['read_state', 'write_state', 'merge_state', 'append_state', 'remove_state'];
+const supportedToolNames = ['read_state', 'compute_value', 'write_state', 'merge_state', 'append_state', 'remove_state', 'write_computed_state'];
 
 describe('openui prompts', () => {
   it('keeps the generated component spec artifact committed in the repository', () => {
@@ -92,9 +92,25 @@ describe('openui prompts', () => {
 
     expect(prompt).toContain('Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.');
     expect(prompt).toContain('Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.');
+    expect(prompt).toContain('Use `@Filter(collection, field, operator, value)` with a field string and comparison operator; do not invent predicate-form filters or JavaScript callbacks.');
     expect(prompt).toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(prompt).toContain('visibleCount = @Count(visibleItems)');
     expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');
+  });
+
+  it('documents the safe compute tools with built-ins-first guidance', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.');
+    expect(prompt).toContain('Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.');
+    expect(prompt).toContain('Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.');
+    expect(prompt).toContain('Both compute tools return `{ value }`.');
+    expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
+    expect(prompt).toContain('Use `random_int` only with integer min/max options.');
+    expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
+    expect(prompt).toContain('rollDice = Mutation("write_computed_state", {');
+    expect(prompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
+    expect(prompt).toContain('right: today.value');
   });
 
   it('keeps the generated system prompt aligned with the committed component spec', () => {

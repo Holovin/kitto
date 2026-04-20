@@ -27,18 +27,27 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8787),
 });
 
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+export function resolveBackendEnvPath(moduleUrl: string | URL) {
+  return path.resolve(path.dirname(fileURLToPath(moduleUrl)), '../.env');
+}
+
+export function resolveFrontendDistDir(moduleUrl: string | URL) {
+  return path.resolve(path.dirname(fileURLToPath(moduleUrl)), '../../frontend/dist');
+}
+
+const backendEnvPath = resolveBackendEnvPath(import.meta.url);
+const frontendDistDir = resolveFrontendDistDir(import.meta.url);
 
 export type AppEnv = z.infer<typeof envSchema> & {
   frontendDistDir: string;
 };
 
 export function loadEnv(): AppEnv {
-  dotenv.config();
+  dotenv.config({ path: backendEnvPath, quiet: true });
   const parsedEnv = envSchema.parse(process.env);
 
   return {
     ...parsedEnv,
-    frontendDistDir: path.resolve(currentDirectory, '../../frontend/dist'),
+    frontendDistDir,
   };
 }

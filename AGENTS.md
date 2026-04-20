@@ -31,6 +31,7 @@ Steps:
 - The workspace has two packages:
   - `frontend/`: React 19 + Vite 8 builder UI and OpenUI runtime
   - `backend/`: Hono API, OpenAI integration, prompt building, rate limiting, and static hosting for `frontend/dist`
+- Production deployment is a single-process PM2 setup behind one reverse proxy origin. The app itself serves both frontend routes and `/api/*` from one Node process on port `8888`.
 - The root scripts are the main entry points:
   - `npm run generate:openui-spec`: regenerates the committed OpenUI component spec artifact from the frontend library
   - `npm run build:standalone-player`: rebuilds the standalone player bundle and regenerates the embedded asset module used for standalone HTML export
@@ -71,6 +72,10 @@ Steps:
 - Repeater collection guidance:
   - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
   - when the requested list is dynamic, derive rows from local arrays, runtime state, or `Query("read_state", ...)` data instead of hardcoding duplicate rows
+- Filtering guidance:
+  - use `@Filter(collection, field, operator, value)` for derived filtered collections
+  - keep ephemeral filter selection in local runtime state such as `$filter`
+  - do not use predicate-form filters or invent filtering-specific tools
 - Current sandbox tools exposed to generated apps:
   - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
 - Built-in action events exposed by the runtime:
@@ -90,6 +95,7 @@ Steps:
 - Main user routes:
   - `/` and `/chat`: builder experience
   - `/elements`: component/action explorer and OpenUI sandbox
+- `shared/frontend-routes.json` is the source of truth for production SPA fallback routes; `frontend/src/router/siteRoutes.ts` must stay aligned with it
 - The backend exposes `/api/*` routes only
 - After `npm run build`, the backend can serve `frontend/dist` as the SPA shell for non-API routes
 - In development, Vite proxies `/api/*` to the backend
@@ -137,6 +143,11 @@ Steps:
   - `frontend/src/pages/Elements/elementDemos.ts`
   - `frontend/src/features/builder/openui/runtime/demos.ts`
   - any component-specific documentation or examples in `/elements`
+- Route changes have an explicit contract now. If you add, remove, or rename a frontend route, sync:
+  - `shared/frontend-routes.json`
+  - `frontend/src/router/siteRoutes.ts`
+  - `backend/src/tests/frontendRoutesContract.test.ts`
+  - `frontend/src/tests/router/siteRoutes.test.ts`
 - Tool changes are also duplicated in multiple places. If you add, remove, or change a tool name, args, or semantics, sync:
   - `backend/src/prompts/openui.ts` tool specs/examples/rules
   - `frontend/src/features/builder/openui/runtime/createDomainToolProvider.ts`
@@ -162,6 +173,7 @@ Steps:
 
 - Default frontend URL: `http://localhost:5555`
 - Default backend URL: `http://localhost:8787`
+- Production backend listener: `http://127.0.0.1:8888`
 - In development, the frontend talks to `/api/*` and Vite proxies requests to the backend
 - The supported backend API lives under `/api/*` only
 - Public runtime limits and stream timeout policy are exposed through `GET /api/config`
@@ -176,6 +188,10 @@ Steps:
 
 - Prefer repo-root scripts over ad hoc workspace commands unless there is a specific reason not to
 - When reading or writing repo-shared artifacts from backend code, do not assume `process.cwd()` is the repo root; workspace scripts may run with `cwd` set to `backend/`
+- For PM2 production deploys, use the repo-root `ecosystem.config.cjs` with one forked instance only. Do not switch to cluster mode or `instances: max` because rate limiting is in-memory and process-local.
+- The backend now loads `backend/.env` relative to its own package path, so repo-root PM2 launches are expected and safe.
+- Keep the deployed repo layout intact so `backend/dist` can resolve `frontend/dist` and `shared/openui-component-spec.json`.
+- `backend/.env.example` is production-oriented. For local development, set `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555` in `backend/.env`.
 - If you change the backend prompt contract, remember that only these backend prompt pieces are still manually maintained:
   - tool specs
   - tool examples

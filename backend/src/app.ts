@@ -8,6 +8,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
 import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from './errors/publicError.js';
 import { getRawRequestMaxBytes } from './limits.js';
+import { isFrontendRoute } from './frontendRoutes.js';
 import { createConfigRoutes } from './routes/config.js';
 import { createHealthRoutes } from './routes/health.js';
 import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
@@ -23,20 +24,6 @@ function jsonRouteNotFound(context: Context) {
 
 function isApiRoute(pathname: string) {
   return pathname === '/api' || pathname.startsWith('/api/');
-}
-
-function normalizeRoutePath(pathname: string) {
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    return pathname.slice(0, -1);
-  }
-
-  return pathname;
-}
-
-function isFrontendRoute(pathname: string) {
-  const normalizedPath = normalizeRoutePath(pathname);
-
-  return normalizedPath === '/' || normalizedPath === '/chat' || normalizedPath === '/elements';
 }
 
 export function createApp(env: AppEnv) {

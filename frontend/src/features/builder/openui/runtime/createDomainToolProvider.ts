@@ -1,4 +1,5 @@
 import { appendPathValue, clonePlainObject, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
+import { computeValue } from './computeTools';
 import { getRequiredToolIndex, getRequiredToolPatch, getRequiredToolPath, getRequiredToolValue, wrapToolError } from './toolArguments';
 
 export type DomainToolAdapter = {
@@ -64,6 +65,37 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
 
         adapter.replaceDomainData(nextData);
         return structuredClone(readPath(nextData, path) ?? null);
+      });
+    },
+    compute_value: async (args: Record<string, unknown>) => {
+      return runTool('compute_value', () =>
+        computeValue({
+          op: args.op as never,
+          input: args.input,
+          left: args.left,
+          right: args.right,
+          values: args.values as never,
+          options: args.options as never,
+          returnType: args.returnType as never,
+        }),
+      );
+    },
+    write_computed_state: async (args: Record<string, unknown>) => {
+      return runTool('write_computed_state', () => {
+        const path = getRequiredToolPath('write_computed_state', args.path);
+        const computedValue = computeValue({
+          op: args.op as never,
+          input: args.input,
+          left: args.left,
+          right: args.right,
+          values: args.values as never,
+          options: args.options as never,
+          returnType: args.returnType as never,
+        });
+        const nextData = writePathValue(readDomainSnapshot(adapter), path, computedValue.value);
+
+        adapter.replaceDomainData(nextData);
+        return computedValue;
       });
     },
   };

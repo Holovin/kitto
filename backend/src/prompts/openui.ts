@@ -3,6 +3,70 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generatePrompt, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 
+const computeOperationEnum = [
+  'truthy',
+  'falsy',
+  'not',
+  'and',
+  'or',
+  'equals',
+  'not_equals',
+  'number_gt',
+  'number_gte',
+  'number_lt',
+  'number_lte',
+  'is_empty',
+  'not_empty',
+  'contains_text',
+  'starts_with',
+  'ends_with',
+  'to_lower',
+  'to_upper',
+  'trim',
+  'to_number',
+  'add',
+  'subtract',
+  'multiply',
+  'divide',
+  'clamp',
+  'random_int',
+  'today_date',
+  'date_before',
+  'date_after',
+  'date_on_or_before',
+  'date_on_or_after',
+] as const;
+
+const computeReturnTypeEnum = ['string', 'number', 'boolean'] as const;
+
+const computeToolSharedProperties = {
+  input: {
+    description: 'Primary input value for unary operations.',
+  },
+  left: {
+    description: 'Left-hand operand for binary comparisons or math.',
+  },
+  right: {
+    description: 'Right-hand operand for binary comparisons or math.',
+  },
+  values: {
+    type: 'array',
+    items: {},
+    description: 'Array of values for variadic boolean operations such as `and` or `or`.',
+  },
+  options: {
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Plain-object options. Use `options.query` for string checks, `options.min`/`options.max` for clamp or random_int, and only YYYY-MM-DD strings for date comparisons.',
+  },
+  returnType: {
+    type: 'string',
+    enum: [...computeReturnTypeEnum],
+    description: 'Optional output type normalization. Output must stay a primitive string, number, or boolean.',
+  },
+} as const;
+
 const toolSpecifications: ToolSpec[] = [
   {
     name: 'read_state',
@@ -20,6 +84,30 @@ const toolSpecifications: ToolSpec[] = [
     },
     outputSchema: {
       description: 'The value currently stored at the path, or null when the path is missing.',
+    },
+    annotations: {
+      readOnlyHint: true,
+    },
+  },
+  {
+    name: 'compute_value',
+    description:
+      'Run a safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Returns an object shaped like `{ value }`.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        op: {
+          type: 'string',
+          enum: [...computeOperationEnum],
+          description:
+            'Allowed operations only. Prefer OpenUI built-ins and normal expressions first; use this when those do not cover the requested logic cleanly.',
+        },
+        ...computeToolSharedProperties,
+      },
+      required: ['op'],
+    },
+    outputSchema: {
+      description: 'An object shaped like `{ value }`, where `value` is always a primitive string, number, or boolean.',
     },
     annotations: {
       readOnlyHint: true,
@@ -80,6 +168,31 @@ const toolSpecifications: ToolSpec[] = [
     },
     outputSchema: {
       description: 'The updated array stored at the path.',
+    },
+  },
+  {
+    name: 'write_computed_state',
+    description:
+      'Compute a safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        op: {
+          type: 'string',
+          enum: [...computeOperationEnum],
+          description: 'Allowed compute operation name.',
+        },
+        ...computeToolSharedProperties,
+      },
+      required: ['path', 'op'],
+    },
+    outputSchema: {
+      description: 'An object shaped like `{ value }`, and the same primitive value is written at the requested path.',
     },
   },
   {
@@ -228,6 +341,38 @@ root = AppShell([
     Repeater(itemRows, "No matching items.")
   ])
 ])`,
+  `$currentScreen = "main"
+
+rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ], $currentScreen == "main")
+])`,
+  `$dueDate = ""
+
+today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })
+isOverdue = Query("compute_value", {
+  op: "date_before",
+  left: $dueDate,
+  right: today.value,
+  returnType: "boolean"
+}, { value: false })
+
+root = AppShell([
+  Screen("main", "Deadlines", [
+    Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD"),
+    Text($dueDate == "" ? "Add a due date." : isOverdue.value ? "This task is overdue." : "This task is not overdue.", "body", "start")
+  ])
+])`,
 ];
 
 const additionalRules = [
@@ -257,6 +402,7 @@ const additionalRules = [
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
   'If collection data is persisted browser data, read it through Query("read_state", { path: "..." }, defaultValue) before passing it to @Each(...).',
   'Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.',
+  'Use `@Filter(collection, field, operator, value)` with a field string and comparison operator; do not invent predicate-form filters or JavaScript callbacks.',
   'When the user asks for all, active, completed, or similar filtered views of one collection, keep one source collection and derive the visible collection with `@Filter(...)` instead of inventing a new tool.',
   'Expressions are allowed inside the source argument to `@Each(...)`, so you may pass either a named derived collection or an inline filtered expression.',
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
@@ -273,12 +419,19 @@ const additionalRules = [
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
   'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
   'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
-  'Use write_state, merge_state, append_state, and remove_state for exportable persistent data.',
+  'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
+  'Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.',
+  'Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.',
+  'Both compute tools return `{ value }`.',
+  'Date compute operations only accept strict YYYY-MM-DD strings.',
+  'Use `random_int` only with integer min/max options.',
+  'Use write_state, merge_state, append_state, remove_state, and write_computed_state for exportable persistent data.',
   'Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.',
   'Each persisted path segment may only use letters, numbers, `_`, or `-`. Numeric segments are array indexes only.',
   'Never use path segments named `__proto__`, `prototype`, or `constructor`.',
   'write_state and append_state values must stay JSON-compatible, and merge_state patches must be plain objects.',
   'remove_state requires an explicit non-negative integer index and only works on existing arrays.',
+  'Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.',
   'If a Mutation changes data that is rendered by a Query, call `@Run(theQueryStatement)` after the mutation so the preview refreshes immediately.',
   'Every `@Run(ref)` must reference a defined Query or Mutation statement.',
   'Every Button must start with a stable id string so button state and actions stay deterministic.',

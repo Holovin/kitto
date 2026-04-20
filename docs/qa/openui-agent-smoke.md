@@ -97,8 +97,10 @@ Add a filter control so the app can show all items, active items, and completed 
 
 Expected:
 - generated source uses built-in collection helpers such as `@Filter(` and `@Count(` rather than inventing a new tool
+- generated source keeps the selected filter in a local `$filter` variable rather than a persisted tool-backed value
 - the filtered view is derived from one source collection instead of duplicating separate hardcoded lists
 - filtered rows still render through `@Each(` plus `Repeater(`
+- switching between All, Active, and Completed updates the visible rows locally without any extra `/api/llm/*` request
 - no todo-specific filter tool names or custom filtering APIs appear
 - no parser errors or unresolved refs appear
 
@@ -237,3 +239,34 @@ Expected:
 - the warning message uses `Text(..., color?)` or a surrounding surface component instead of `Text.background`
 - existing component variants still remain valid where they are enough
 - no arbitrary CSS or style-object syntax appears in generated source
+
+## Scenario 12 — Safe compute tools
+
+Prompt:
+
+Add a button that rolls a random number from 1 to 100.
+
+Expected:
+- generated source uses `Mutation("write_computed_state", ...)` with `op: "random_int"`
+- the generated mutation writes to persisted state and a `Query("read_state", ...)` displays the saved result after click
+- clicking the button updates the UI locally with no new `/api/llm/*` request
+- the generated `random_int` options use integer `min` / `max` values only
+
+Follow-up prompt:
+
+Show a warning if the name field is empty.
+
+Expected:
+- generated source uses a normal built-in expression when that is enough, or `Query("compute_value", ...)` when it needs the safe compute tool
+- no JavaScript code, functions, `eval`, or regex appears in generated source
+- if `compute_value` is used, the generated source reads the returned primitive through `.value`
+
+Follow-up prompt:
+
+Show whether the due date is before today.
+
+Expected:
+- generated source uses `Query("compute_value", ...)` with the date operations rather than JavaScript date parsing
+- the generated source computes today through `op: "today_date"` and compares with `today.value`
+- date strings stay in strict `YYYY-MM-DD` form
+- no new `/api/llm/*` request is made when interacting with the rendered controls

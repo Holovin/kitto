@@ -17,6 +17,8 @@ Create the env file first:
 cp backend/.env.example backend/.env
 ```
 
+The checked-in example is production-oriented for the PM2 deployment in [docs/deploy.md](../docs/deploy.md). For local development, change `PORT` back to `8787` and `FRONTEND_ORIGIN` back to `http://localhost:5555` after copying it.
+
 ### Required
 
 - `OPENAI_API_KEY` - API key used for generation
@@ -28,6 +30,8 @@ cp backend/.env.example backend/.env
 - `PORT` - HTTP port, default `8787`
 - `FRONTEND_ORIGIN` - allowed browser origin for CORS, default `http://localhost:5555`
 - `LOG_LEVEL` - `debug`, `info`, `warn`, `error`, or `silent`
+
+The backend loads `backend/.env` relative to its own package path, so PM2 can keep `cwd` at the repo root without losing the env file.
 
 ### Request limits and safeguards
 
@@ -98,4 +102,7 @@ Accepts the same request shape and streams Server-Sent Events:
 
 ## Notes
 
-- rate limiting is process-local and meant for local development, not distributed deployment
+- after `npm run build`, one Node process can serve both `frontend/dist` and `/api/*`
+- use the repo-root [ecosystem.config.cjs](../ecosystem.config.cjs) with `instances: 1` and `exec_mode: "fork"` for PM2 deployments; multiple instances change the in-memory rate-limit behavior
+- keep the PM2 `cwd` at the repo root so the compiled backend can resolve `frontend/dist`
+- rate limiting is process-local and meant for single-process deployment, not distributed deployment

@@ -12,6 +12,8 @@ export const ALLOWED_TOOLS = new Set([
   'merge_state',
   'append_state',
   'remove_state',
+  'compute_value',
+  'write_computed_state',
 ]);
 
 export const UNSAFE_SOURCE_PATTERNS = [/<script/i, /\beval\s*\(/i, /dangerouslySetInnerHTML/i, /javascript:/i];

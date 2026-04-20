@@ -206,4 +206,45 @@ describe('builderToolProvider', () => {
       },
     });
   });
+
+  it('exposes compute tools and returns { value } for read-only computations', async () => {
+    expect(builderToolProvider).toHaveProperty('compute_value');
+    expect(builderToolProvider).toHaveProperty('write_computed_state');
+
+    await expect(
+      builderToolProvider.compute_value({
+        op: 'not_empty',
+        input: 'Ada',
+        returnType: 'boolean',
+      }),
+    ).resolves.toEqual({ value: true });
+  });
+
+  it('writes computed primitive values to valid state paths', async () => {
+    await expect(
+      builderToolProvider.write_computed_state({
+        path: 'app.roll',
+        op: 'random_int',
+        options: { min: 4, max: 4 },
+        returnType: 'number',
+      }),
+    ).resolves.toEqual({ value: 4 });
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        roll: 4,
+      },
+    });
+  });
+
+  it('rejects write_computed_state when the path is invalid', async () => {
+    await expect(
+      builderToolProvider.write_computed_state({
+        path: '   ',
+        op: 'random_int',
+      }),
+    ).rejects.toThrow('write_computed_state: State path must be a non-empty dot-path.');
+
+    expect(mockState.domain.data).toEqual({});
+  });
 });

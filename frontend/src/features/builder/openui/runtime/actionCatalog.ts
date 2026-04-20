@@ -1,3 +1,5 @@
+import { COMPUTE_OPS, COMPUTE_RETURN_TYPES } from './computeTools';
+
 interface OpenUiActionDefinition {
   demoExample: string;
   documentation: {
@@ -36,6 +38,101 @@ Text(savedName == "" ? "No saved name" : savedName, "body", "start")`,
         },
       },
       required: ['path'],
+    },
+  },
+  {
+    demoExample: `// Compute a safe boolean for UI copy or visibility.
+nameValid = Query("compute_value", {
+  op: "not_empty",
+  input: $name,
+  returnType: "boolean"
+}, { value: false })
+
+Text(nameValid.value ? "Name looks good." : "Name is required.", "body", "start")`,
+    documentation: {
+      summary: 'Runs a safe primitive-only calculation and returns an object shaped like `{ value }`.',
+      useWhen: 'Use this for simple boolean, number, string, random-int, or date calculations that OpenUI built-ins and normal expressions do not already cover well.',
+      returns: 'Returns `{ value }`, where `value` is always a primitive string, number, or boolean.',
+    },
+    name: 'compute_value',
+    shortDescription: 'Compute primitive value',
+    signature: 'compute_value(op, input?, left?, right?, values?, options?, returnType?)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        op: {
+          type: 'string',
+          enum: [...COMPUTE_OPS],
+        },
+        input: {},
+        left: {},
+        right: {},
+        values: {
+          type: 'array',
+          items: {},
+        },
+        options: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        returnType: {
+          type: 'string',
+          enum: [...COMPUTE_RETURN_TYPES],
+        },
+      },
+      required: ['op'],
+    },
+  },
+  {
+    demoExample: `// Compute a random integer and persist it for later reads.
+rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)
+Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")`,
+    documentation: {
+      summary: 'Computes a safe primitive value, writes it into persisted state at a validated path, and returns `{ value }`.',
+      useWhen: 'Use this when a button or action should compute a new primitive result such as a random roll and keep it in persisted browser data.',
+      returns: 'Returns `{ value }`, and also writes that same primitive value into the target persisted state path.',
+    },
+    name: 'write_computed_state',
+    shortDescription: 'Compute and persist',
+    signature: 'write_computed_state(path, op, input?, left?, right?, values?, options?, returnType?)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
+        },
+        op: {
+          type: 'string',
+          enum: [...COMPUTE_OPS],
+        },
+        input: {},
+        left: {},
+        right: {},
+        values: {
+          type: 'array',
+          items: {},
+        },
+        options: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        returnType: {
+          type: 'string',
+          enum: [...COMPUTE_RETURN_TYPES],
+        },
+      },
+      required: ['path', 'op'],
     },
   },
   {

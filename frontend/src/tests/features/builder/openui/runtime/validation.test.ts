@@ -117,6 +117,34 @@ root = AppShell([
     });
   });
 
+  it('accepts safe compute tools and .value access for object query results', () => {
+    const result = validateOpenUiSource(`$name = ""
+nameValid = Query("compute_value", {
+  op: "not_empty",
+  input: $name,
+  returnType: "boolean"
+}, { value: false })
+rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+root = AppShell([
+  Screen("main", "Main", [
+    Text(nameValid.value ? "Ready" : "Name required", "body", "start"),
+    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
   it.each(['#000000', '#FFFFFF'])('accepts strict hex color prop %s', (hexColor) => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [

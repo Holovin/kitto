@@ -21,6 +21,7 @@ Requirements:
 npm install
 cp backend/.env.example backend/.env
 # set OPENAI_API_KEY in backend/.env
+# for local dev, set PORT=8787 and FRONTEND_ORIGIN=http://localhost:5555
 npm run dev
 npm run test
 npm run build
@@ -34,19 +35,28 @@ Notes:
 - In development, the frontend talks to `/api/*` and Vite proxies those requests to the backend.
 - `npm run start` launches the compiled backend after `npm run build` and serves the built frontend when `frontend/dist` exists.
 - `npm run build` also rebuilds the standalone player assets embedded into exported `.html` files.
+- `backend/.env.example` is production-oriented for PM2 deployment. For local development, set `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555` in `backend/.env` after copying it.
 - If you want to override the API base URL or dev proxy target, copy `frontend/.env.example` to `frontend/.env`.
 
-## 3. Architecture note
+## 3. Production deployment
+
+- One compiled Node process serves both the frontend routes and `/api/*`.
+- The supported production path is `npm run build`, then `pm2 start ecosystem.config.cjs --env production`.
+- Keep PM2 running from the repo root so the backend can resolve `frontend/dist`. The backend loads `backend/.env` relative to its own package, so the PM2 working directory does not need to be the `backend/` folder.
+- See [docs/deploy.md](docs/deploy.md) for the full VPS and Nginx Proxy Manager flow.
+
+## 4. Architecture note
 
 - `frontend/` is a React 19 + Vite 8 builder UI for chat, Definition, Preview, `/elements`, and state inspection.
 - State is managed with Redux Toolkit and persisted with `redux-remember`.
 - The OpenUI runtime renders a constrained component/action/tool surface in the browser.
 - The frontend OpenUI library is the source of truth, and `shared/openui-component-spec.json` is a generated artifact consumed by the backend prompt.
+- The production SPA fallback route allowlist lives in `shared/frontend-routes.json`. Keep it aligned with `frontend/src/router/siteRoutes.ts`; backend fallback tests and frontend route contract tests both depend on it.
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
 - Generation follows a validation, single-repair, and commit pipeline.
 - Preview renders committed source only.
 
-## 4. AI usage note
+## 5. AI usage note
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; only chat submissions hit `/api/llm/*`.
@@ -54,7 +64,7 @@ Notes:
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 
-## 5. Standalone HTML export
+## 6. Standalone HTML export
 
 - `Download standalone HTML` creates one self-contained `.html` file from the current committed OpenUI app.
 - The file embeds a minimal OpenUI player runtime, the committed source, and the committed snapshot baseline runtime/domain state.
@@ -64,7 +74,7 @@ Notes:
 - When a standalone export is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` are intentionally treated as invalid and rendered inert because there is no builder router or stable hosted origin behind the file.
 - The export includes only the standalone app definition payload and does not include chat history, undo/redo or builder version history, rejected drafts, or React source code.
 
-## 6. Trade-offs / scope
+## 7. Trade-offs / scope
 
 - There is no arbitrary JavaScript or general code mode; generated output is constrained to the supported OpenUI surface.
 - The project does not generate npm packages, full codebases, or general-purpose app scaffolding.
@@ -72,7 +82,7 @@ Notes:
 - Rate limiting is in-memory and demo-grade rather than distributed production infrastructure.
 - Generated apps are browser-first and do not require a generated backend.
 
-## 7. Supported surface
+## 8. Supported surface
 
 ### Main routes
 
@@ -84,9 +94,9 @@ Notes:
 
 `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 
-### Persisted tools exposed through `Query(...)` and `Mutation(...)`
+### Supported tools exposed through `Query(...)` and `Mutation(...)`
 
-`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+`read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `remove_state`, `write_computed_state`
 
 Notes:
 
@@ -97,11 +107,16 @@ Notes:
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
+- Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
+- Collection filtering should use `@Filter(collection, field, operator, value)` with a field string and comparison operator, not predicate-style callbacks.
+- Keep ephemeral filter selection in local `$variables` such as `$filter`; switching filters should stay local and must not hit `/api/llm/*`.
+- `compute_value` and `write_computed_state` both return `{ value }`, where `value` is always a primitive string, number, or boolean.
+- `write_computed_state` computes a safe primitive and writes it into persisted state at the validated path.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
 - Import/export uses a versioned JSON format and validates before apply; invalid imports stay in Definition and do not replace the current committed preview.
 - Standalone HTML export always uses the latest committed source and the committed snapshot baseline state, not the current live clicked state.
 
-## 8. API surface
+## 9. API surface
 
 The supported backend API lives under `/api/*` only.
 
@@ -110,8 +125,9 @@ The supported backend API lives under `/api/*` only.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
 - `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events.
 
-## 9. Additional docs
+## 10. Additional docs
 
+- [docs/deploy.md](docs/deploy.md)
 - [docs/qa/openui-agent-smoke.md](docs/qa/openui-agent-smoke.md)
 - [docs/qa/openui-manual-checklist.md](docs/qa/openui-manual-checklist.md)
 - [frontend/README.md](frontend/README.md)

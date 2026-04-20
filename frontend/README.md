@@ -35,10 +35,11 @@ This package contains the Kitto builder UI. It lets you prompt the backend for O
 
 ### Actions
 
-`read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+`read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `remove_state`, `write_computed_state`
 
 Use local OpenUI state such as `$currentScreen` plus `@Set(...)` for internal screen changes.
 Persisted tool paths must be non-empty dot-paths up to 10 segments deep, use only letters, numbers, `_`, or `-`, and must never include `__proto__`, `prototype`, or `constructor`. `remove_state` also requires an explicit non-negative integer `index`.
+Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, and normal expressions first; `compute_value` and `write_computed_state` are only for safe primitive gaps and both return `{ value }`.
 
 ## Scripts
 
