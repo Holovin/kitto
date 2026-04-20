@@ -9,6 +9,7 @@ export interface BuilderChatMessage {
   role: BuilderMessageRole;
   content: string;
   createdAt: string;
+  messageKey?: string;
   tone?: BuilderMessageTone;
 }
 

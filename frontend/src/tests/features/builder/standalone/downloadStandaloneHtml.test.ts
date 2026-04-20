@@ -37,11 +37,11 @@ describe('downloadStandaloneHtml', () => {
       revokeObjectURL,
     });
 
-    downloadStandaloneHtml('<html></html>', 'kitto-app-2026-04-19.html');
+    downloadStandaloneHtml('<html></html>', 'kitto-app-2026-04-19T10-00-00.000Z.html');
 
     expect(createElement).toHaveBeenCalledWith('a');
     expect(appendChild).toHaveBeenCalledWith(anchor);
-    expect(anchor.download).toBe('kitto-app-2026-04-19.html');
+    expect(anchor.download).toBe('kitto-app-2026-04-19T10-00-00.000Z.html');
     expect(anchor.href).toBe('blob:kitto-standalone');
     expect(click).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledTimes(1);

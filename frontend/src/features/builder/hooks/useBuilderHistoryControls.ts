@@ -7,6 +7,7 @@ import { createBuilderSnapshot, createResetDefinitionExport, parseImportedDefini
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { createStandalonePayload } from '@features/builder/standalone/createStandalonePayload';
 import { downloadStandaloneHtml } from '@features/builder/standalone/downloadStandaloneHtml';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import {
   selectCommittedSource,
   selectHasRejectedDefinition,
@@ -29,7 +30,19 @@ function createDownloadFileName() {
 }
 
 function createStandaloneDownloadFileName() {
-  return `kitto-app-${new Date().toISOString().slice(0, 10)}.html`;
+  return `kitto-app-${new Date().toISOString().replaceAll(':', '-')}.html`;
+}
+
+function createImportSuccessMessage(fileName: string) {
+  return `Imported a saved Kitto definition from disk (${fileName}).`;
+}
+
+function createStandaloneDownloadSuccessMessage(fileName: string) {
+  return `Standalone HTML downloaded (${fileName}).`;
+}
+
+function createDefinitionExportSuccessMessage(fileName: string) {
+  return `Definition exported (${fileName}).`;
 }
 
 function getFeedbackMessage(error: unknown) {
@@ -85,11 +98,12 @@ export function useBuilderHistoryControls({
   });
   const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;
 
-  function appendSuccessChatMessage(content: string) {
+  function appendSuccessChatMessage(content: string, messageKey?: string) {
     onFeedbackChange(null);
     dispatch(
       builderActions.appendChatMessage({
         content,
+        messageKey,
         role: 'system',
         tone: 'success',
       }),
@@ -101,6 +115,7 @@ export function useBuilderHistoryControls({
     dispatch(
       builderActions.appendChatMessage({
         content,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
         role: 'system',
         tone: 'error',
       }),
@@ -116,13 +131,17 @@ export function useBuilderHistoryControls({
     const fileBlob = new Blob([JSON.stringify(definitionExport, null, 2)], {
       type: 'application/json',
     });
+    const downloadFileName = createDownloadFileName();
     const downloadUrl = URL.createObjectURL(fileBlob);
     const linkElement = document.createElement('a');
     linkElement.href = downloadUrl;
-    linkElement.download = createDownloadFileName();
+    linkElement.download = downloadFileName;
     linkElement.click();
     URL.revokeObjectURL(downloadUrl);
-    appendSuccessChatMessage('Definition exported.');
+    appendSuccessChatMessage(
+      createDefinitionExportSuccessMessage(downloadFileName),
+      SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
+    );
   }
 
   async function handleDownloadStandalone() {
@@ -147,9 +166,13 @@ export function useBuilderHistoryControls({
         history,
       });
       const standaloneHtml = await createStandaloneHtml(payload);
+      const downloadFileName = createStandaloneDownloadFileName();
 
-      downloadStandaloneHtml(standaloneHtml, createStandaloneDownloadFileName());
-      appendSuccessChatMessage('Standalone HTML downloaded.');
+      downloadStandaloneHtml(standaloneHtml, downloadFileName);
+      appendSuccessChatMessage(
+        createStandaloneDownloadSuccessMessage(downloadFileName),
+        SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+      );
     } catch (error) {
       onFeedbackChange(`Standalone export failed: ${getFeedbackMessage(error)}`);
     }
@@ -193,7 +216,8 @@ export function useBuilderHistoryControls({
           source: importedDefinition.source,
           runtimeState: importedDefinition.runtimeState,
           history: importedHistory,
-          note: 'Imported a saved Kitto definition from disk.',
+          messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+          note: createImportSuccessMessage(file.name),
         }),
       );
       onFeedbackChange(null);

@@ -3,6 +3,7 @@ import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHist
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import type { BuilderChatMessage, BuilderParseIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 
@@ -19,6 +20,30 @@ function cloneForState<T>(value: T): T {
 }
 
 function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
+  if (message.messageKey) {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.messageKey !== message.messageKey) {
+        continue;
+      }
+
+      const existingMessage = messages.splice(index, 1)[0];
+
+      messages.push({
+        ...existingMessage,
+        content: message.content,
+        createdAt: message.createdAt,
+        role: message.role,
+        tone: message.tone,
+      });
+
+      if (messages.length > MAX_MESSAGES) {
+        messages.splice(0, messages.length - MAX_MESSAGES);
+      }
+
+      return;
+    }
+  }
+
   messages.push(message);
 
   if (messages.length > MAX_MESSAGES) {
@@ -26,25 +51,11 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
   }
 }
 
-function isHistoryNavigationMessage(message: Pick<BuilderChatMessage, 'content' | 'role' | 'tone'>) {
-  return (
-    message.role === 'system' &&
-    message.tone === 'info' &&
-    (message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '))
-  );
-}
-
-function pushSingletonHistoryNavigationMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
-  const filteredMessages = messages.filter((currentMessage) => !isHistoryNavigationMessage(currentMessage));
-
-  messages.splice(0, messages.length, ...filteredMessages);
-  pushMessage(messages, message);
-}
-
 function createMessage(
   role: BuilderChatMessage['role'],
   content: string,
   tone: BuilderChatMessage['tone'] = 'default',
+  messageKey?: BuilderChatMessage['messageKey'],
 ): BuilderChatMessage {
   return {
     id: nanoid(),
@@ -52,6 +63,7 @@ function createMessage(
     content,
     tone,
     createdAt: new Date().toISOString(),
+    messageKey,
   };
 }
 
@@ -78,6 +90,7 @@ function normalizeChatMessages(value: unknown) {
         id: typeof message.id === 'string' ? message.id : nanoid(),
         role: message.role as BuilderChatMessage['role'],
         content: message.content,
+        messageKey: typeof message.messageKey === 'string' ? message.messageKey : undefined,
         tone: typeof message.tone === 'string' ? (message.tone as BuilderChatMessage['tone']) : 'default',
         createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
       },
@@ -389,11 +402,15 @@ export const builderSlice = createSlice({
       state,
       action: PayloadAction<{
         content: string;
+        messageKey?: BuilderChatMessage['messageKey'];
         role: BuilderChatMessage['role'];
         tone?: BuilderChatMessage['tone'];
       }>,
     ) {
-      pushMessage(state.chatMessages, createMessage(action.payload.role, action.payload.content, action.payload.tone));
+      pushMessage(
+        state.chatMessages,
+        createMessage(action.payload.role, action.payload.content, action.payload.tone, action.payload.messageKey),
+      );
     },
     resetCurrentAppState(state) {
       const latestSnapshot = state.history.at(-1);
@@ -408,7 +425,10 @@ export const builderSlice = createSlice({
       state.isStreaming = false;
       state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = false;
-      pushMessage(state.chatMessages, createMessage('system', 'Reset the generated app state to its initial version.', 'info'));
+      pushMessage(
+        state.chatMessages,
+        createMessage('system', 'Reset the generated app state to its initial version.', 'info', SYSTEM_CHAT_MESSAGE_KEYS.appStateReset),
+      );
     },
     undoLatest(state) {
       if (state.history.length < 2) {
@@ -433,9 +453,9 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.isStreaming = false;
       state.lastStreamChunkAt = null;
-      pushSingletonHistoryNavigationMessage(
+      pushMessage(
         state.chatMessages,
-        createMessage('system', getBuilderHistoryChatMessage('undo', state), 'info'),
+        createMessage('system', getBuilderHistoryChatMessage('undo', state), 'info', SYSTEM_CHAT_MESSAGE_KEYS.historyNavigation),
       );
     },
     redoLatest(state) {
@@ -456,15 +476,16 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.isStreaming = false;
       state.lastStreamChunkAt = null;
-      pushSingletonHistoryNavigationMessage(
+      pushMessage(
         state.chatMessages,
-        createMessage('system', getBuilderHistoryChatMessage('redo', state), 'info'),
+        createMessage('system', getBuilderHistoryChatMessage('redo', state), 'info', SYSTEM_CHAT_MESSAGE_KEYS.historyNavigation),
       );
     },
     loadDefinition(
       state,
       action: PayloadAction<{
         history: BuilderSnapshot[];
+        messageKey?: BuilderChatMessage['messageKey'];
         note?: string;
         runtimeState: Record<string, unknown>;
         source: string;
@@ -474,7 +495,6 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.currentRequestId = null;
       state.draftPrompt = '';
-      state.chatMessages = createInitialChatMessages();
       state.hasRejectedDefinition = false;
       state.history = trimHistory(action.payload.history);
       state.parseIssues = [];
@@ -485,7 +505,7 @@ export const builderSlice = createSlice({
       state.lastStreamChunkAt = null;
       pushMessage(
         state.chatMessages,
-        createMessage('system', action.payload.note ?? 'Imported a saved Kitto definition.', 'success'),
+        createMessage('system', action.payload.note ?? 'Imported a saved Kitto definition.', 'success', action.payload.messageKey),
       );
     },
     applyDemoDefinition(
@@ -510,7 +530,12 @@ export const builderSlice = createSlice({
       state.lastStreamChunkAt = null;
       pushMessage(
         state.chatMessages,
-        createMessage('system', `Loaded the "${action.payload.label}" demo into the blank canvas.`, 'success'),
+        createMessage(
+          'system',
+          `Loaded the "${action.payload.label}" demo into the blank canvas.`,
+          'success',
+          SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess,
+        ),
       );
     },
     resetToEmpty(state) {

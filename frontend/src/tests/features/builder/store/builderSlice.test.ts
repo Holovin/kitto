@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -160,7 +161,7 @@ describe('builderSlice', () => {
     vi.useRealTimers();
   });
 
-  it('appends export success messages to the end of chat history', () => {
+  it('appends export success messages with the file name to the end of chat history', () => {
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
@@ -171,7 +172,8 @@ describe('builderSlice', () => {
     const withExportMessage = builderReducer(
       started,
       builderActions.appendChatMessage({
-        content: 'Definition exported.',
+        content: 'Definition exported (kitto-definition-2026-04-20T15-00-00.000Z.json).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
         role: 'system',
         tone: 'success',
       }),
@@ -179,7 +181,8 @@ describe('builderSlice', () => {
 
     expect(withExportMessage.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'Definition exported.',
+        content: 'Definition exported (kitto-definition-2026-04-20T15-00-00.000Z.json).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
         role: 'system',
         tone: 'success',
       }),
@@ -188,6 +191,145 @@ describe('builderSlice', () => {
       expect.objectContaining({
         content: 'Build a simple app',
         role: 'user',
+      }),
+    );
+  });
+
+  it('updates the existing export success message instead of appending a duplicate', () => {
+    const withFirstExport = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content: 'Definition exported (kitto-definition-2026-04-20T15-00-00.000Z.json).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+    const firstExportMessageId = withFirstExport.chatMessages.at(-1)?.id;
+    const withSecondExport = builderReducer(
+      withFirstExport,
+      builderActions.appendChatMessage({
+        content: 'Definition exported (kitto-definition-2026-04-20T15-30-00.000Z.json).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+
+    expect(withSecondExport.chatMessages).toHaveLength(1);
+    expect(withSecondExport.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Definition exported (kitto-definition-2026-04-20T15-30-00.000Z.json).',
+        id: firstExportMessageId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionExportSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+  });
+
+  it('appends successful import messages to the end of existing chat history', () => {
+    const started = builderReducer(
+      createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Keep this context',
+        requestId: 'request-import-order',
+      }),
+    );
+    const importedSnapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+    const loaded = builderReducer(
+      started,
+      builderActions.loadDefinition({
+        history: [importedSnapshot],
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+        note: 'Imported a saved Kitto definition from disk (first-import.json).',
+        runtimeState: importedSnapshot.runtimeState,
+        source: importedSnapshot.source,
+      }),
+    );
+
+    expect(loaded.chatMessages).toHaveLength(2);
+    expect(loaded.chatMessages.at(-2)).toEqual(
+      expect.objectContaining({
+        content: 'Keep this context',
+        role: 'user',
+      }),
+    );
+    expect(loaded.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Imported a saved Kitto definition from disk (first-import.json).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+  });
+
+  it('updates the existing import success message instead of appending a duplicate', () => {
+    const importedSnapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+    const withFirstImport = builderReducer(
+      createInitialState(),
+      builderActions.loadDefinition({
+        history: [importedSnapshot],
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+        note: 'Imported a saved Kitto definition from disk (first-import.json).',
+        runtimeState: importedSnapshot.runtimeState,
+        source: importedSnapshot.source,
+      }),
+    );
+    const firstImportMessageId = withFirstImport.chatMessages.at(-1)?.id;
+    const withSecondImport = builderReducer(
+      withFirstImport,
+      builderActions.loadDefinition({
+        history: [importedSnapshot],
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+        note: 'Imported a saved Kitto definition from disk (second-import.json).',
+        runtimeState: importedSnapshot.runtimeState,
+        source: importedSnapshot.source,
+      }),
+    );
+
+    expect(withSecondImport.chatMessages).toHaveLength(1);
+    expect(withSecondImport.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Imported a saved Kitto definition from disk (second-import.json).',
+        id: firstImportMessageId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+  });
+
+  it('updates the existing standalone HTML success message instead of appending a duplicate', () => {
+    const withFirstDownload = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-00-00.000Z.html).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+    const firstDownloadMessageId = withFirstDownload.chatMessages.at(-1)?.id;
+    const withSecondDownload = builderReducer(
+      withFirstDownload,
+      builderActions.appendChatMessage({
+        content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-30-00.000Z.html).',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+
+    expect(withSecondDownload.chatMessages).toHaveLength(1);
+    expect(withSecondDownload.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-30-00.000Z.html).',
+        id: firstDownloadMessageId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        role: 'system',
+        tone: 'success',
       }),
     );
   });
@@ -228,6 +370,52 @@ describe('builderSlice', () => {
     );
   });
 
+  it('appends request failure messages without deduplicating them', () => {
+    const firstFailed = builderReducer(
+      builderReducer(
+        createInitialState(),
+        builderActions.beginStreaming({
+          prompt: 'First failure',
+          requestId: 'request-failure-1',
+        }),
+      ),
+      builderActions.failStreaming({
+        message: 'The first request failed.',
+        requestId: 'request-failure-1',
+        retryPrompt: 'First failure',
+      }),
+    );
+    const firstFailureMessageId = firstFailed.chatMessages.at(-1)?.id;
+    const secondStarted = builderReducer(
+      firstFailed,
+      builderActions.beginStreaming({
+        prompt: 'Second failure',
+        requestId: 'request-failure-2',
+      }),
+    );
+    const secondFailed = builderReducer(
+      secondStarted,
+      builderActions.failStreaming({
+        message: 'The second request failed.',
+        requestId: 'request-failure-2',
+        retryPrompt: 'Second failure',
+      }),
+    );
+
+    const failureMessages = secondFailed.chatMessages.filter((message) => message.tone === 'error');
+
+    expect(failureMessages).toHaveLength(2);
+    expect(failureMessages.map((message) => message.content)).toEqual(['The first request failed.', 'The second request failed.']);
+    expect(failureMessages[0]?.id).toBe(firstFailureMessageId);
+    expect(failureMessages[1]).toEqual(
+      expect.objectContaining({
+        content: 'The second request failed.',
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+  });
+
   it('keeps the committed source when rejectDefinition moves invalid source to Definition', () => {
     const initialState = createInitialState();
     const rejected = builderReducer(
@@ -245,7 +433,7 @@ describe('builderSlice', () => {
     expect(rejected.hasRejectedDefinition).toBe(true);
   });
 
-  it('supports undo and redo across committed snapshots', () => {
+  it('keeps history navigation as a single latest system message', () => {
     const firstSnapshot = createBuilderSnapshot(
       `root = AppShell([
   Screen("main", "First", [])
@@ -283,29 +471,36 @@ describe('builderSlice', () => {
     expect(undone.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Reverted to version 1 / 2.',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.historyNavigation,
         role: 'system',
         tone: 'info',
       }),
     );
     expect(
-      undone.chatMessages.filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version ')),
-    ).toHaveLength(1);
+      undone.chatMessages
+        .filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '))
+        .map((message) => message.content),
+    ).toEqual(['Reverted to version 1 / 2.']);
     expect(redone.committedSource).toBe(secondSnapshot.source);
     expect(redone.redoHistory).toHaveLength(0);
     expect(redone.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Restored version 2 / 2.',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.historyNavigation,
         role: 'system',
         tone: 'info',
       }),
     );
     expect(
-      redone.chatMessages.filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version ')),
-    ).toHaveLength(1);
+      redone.chatMessages
+        .filter((message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '))
+        .map((message) => message.content),
+    ).toEqual(['Restored version 2 / 2.']);
     expect(undoneToEmpty.committedSource).toBe('');
     expect(undoneToEmpty.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Reverted to version 0 / 2.',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.historyNavigation,
         role: 'system',
         tone: 'info',
       }),
@@ -313,8 +508,55 @@ describe('builderSlice', () => {
     expect(
       undoneToEmpty.chatMessages.filter(
         (message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '),
-      ),
-    ).toHaveLength(1);
+      ).map((message) => message.content),
+    ).toEqual(['Reverted to version 0 / 2.']);
+  });
+
+  it('updates the reset app state message instead of appending duplicates', () => {
+    const withFirstReset = builderReducer(createInitialState(), builderActions.resetCurrentAppState());
+    const firstResetMessageId = withFirstReset.chatMessages.at(-1)?.id;
+    const withSecondReset = builderReducer(withFirstReset, builderActions.resetCurrentAppState());
+
+    expect(withSecondReset.chatMessages.filter((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.appStateReset)).toHaveLength(1);
+    expect(withSecondReset.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Reset the generated app state to its initial version.',
+        id: firstResetMessageId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.appStateReset,
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+  });
+
+  it('updates the demo load message instead of appending duplicates', () => {
+    const demoSnapshot = createBuilderSnapshot(validSource, {}, {});
+    const withFirstDemo = builderReducer(
+      createInitialState(),
+      builderActions.applyDemoDefinition({
+        label: 'First demo',
+        snapshot: demoSnapshot,
+      }),
+    );
+    const firstDemoMessageId = withFirstDemo.chatMessages.at(-1)?.id;
+    const withSecondDemo = builderReducer(
+      withFirstDemo,
+      builderActions.applyDemoDefinition({
+        label: 'Second demo',
+        snapshot: demoSnapshot,
+      }),
+    );
+
+    expect(withSecondDemo.chatMessages.filter((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess)).toHaveLength(1);
+    expect(withSecondDemo.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Loaded the "Second demo" demo into the blank canvas.',
+        id: firstDemoMessageId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
   });
 
   it('ignores stale completions after a newer request replaces the current request id', () => {

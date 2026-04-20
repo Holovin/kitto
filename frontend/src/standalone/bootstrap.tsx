@@ -88,6 +88,50 @@ export function installStandaloneIframeFocusGuard(
   };
 }
 
+export function installStandaloneActiveElementIframeShim(
+  standaloneDocument: Pick<Document, 'activeElement' | 'body'> = document,
+  standaloneLocation: StandaloneLocation = globalThis.location,
+) {
+  if (standaloneLocation?.protocol !== 'file:') {
+    return () => {};
+  }
+
+  const originalOwnDescriptor = Object.getOwnPropertyDescriptor(standaloneDocument, 'activeElement');
+  const inheritedDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(standaloneDocument), 'activeElement');
+  const sourceDescriptor = originalOwnDescriptor ?? inheritedDescriptor;
+
+  if (typeof sourceDescriptor?.get !== 'function') {
+    return () => {};
+  }
+
+  try {
+    Object.defineProperty(standaloneDocument, 'activeElement', {
+      configurable: true,
+      enumerable: sourceDescriptor.enumerable ?? true,
+      get() {
+        const activeElement = sourceDescriptor.get?.call(standaloneDocument) as Element | null | undefined;
+
+        return isIframeElement(activeElement) ? standaloneDocument.body ?? activeElement ?? null : activeElement ?? null;
+      },
+    });
+  } catch {
+    return () => {};
+  }
+
+  return () => {
+    try {
+      if (originalOwnDescriptor) {
+        Object.defineProperty(standaloneDocument, 'activeElement', originalOwnDescriptor);
+        return;
+      }
+
+      delete (standaloneDocument as { activeElement?: Element | null }).activeElement;
+    } catch {
+      // Ignore restore failures during page teardown.
+    }
+  };
+}
+
 function renderStandaloneBootstrapError(message: string, rootElement: HTMLElement | null, standaloneDocument: StandaloneDocument) {
   const mountElement =
     rootElement ??
@@ -113,6 +157,7 @@ function renderStandaloneBootstrapError(message: string, rootElement: HTMLElemen
 export function mountStandaloneApp(standaloneDocument: StandaloneDocument = document) {
   // React checks the deeply focused element during commits. On file:// pages,
   // browser- or extension-owned iframes can trigger a noisy cross-origin warning.
+  installStandaloneActiveElementIframeShim(standaloneDocument);
   installStandaloneIframeFocusGuard(standaloneDocument);
 
   const rootElement = standaloneDocument.getElementById(STANDALONE_ROOT_ELEMENT_ID);

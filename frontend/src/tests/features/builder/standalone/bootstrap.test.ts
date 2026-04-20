@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   blurStandaloneActiveIframeFocus,
+  installStandaloneActiveElementIframeShim,
   installStandaloneIframeFocusGuard,
   parseEmbeddedStandalonePayload,
   readEmbeddedStandalonePayload,
@@ -178,5 +179,57 @@ describe('standalone bootstrap payload helpers', () => {
 
     expect(addEventListener).not.toHaveBeenCalled();
     expect(removeEventListener).not.toHaveBeenCalled();
+  });
+
+  it('installs an activeElement shim that hides iframe focus on file protocol', () => {
+    const bodyElement = { tagName: 'BODY' } as unknown as HTMLElement;
+    const iframeElement = { tagName: 'IFRAME' } as unknown as Element;
+    let currentActiveElement: Element | null = iframeElement;
+    const standaloneDocument = {
+      body: bodyElement,
+    } as {
+      activeElement: Element | null;
+      body: HTMLElement;
+    };
+
+    Object.defineProperty(standaloneDocument, 'activeElement', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return currentActiveElement;
+      },
+    });
+
+    const cleanup = installStandaloneActiveElementIframeShim(standaloneDocument, { protocol: 'file:' });
+
+    expect(standaloneDocument.activeElement).toBe(bodyElement);
+
+    currentActiveElement = bodyElement;
+    expect(standaloneDocument.activeElement).toBe(bodyElement);
+
+    cleanup();
+    currentActiveElement = iframeElement;
+    expect(standaloneDocument.activeElement).toBe(iframeElement);
+  });
+
+  it('skips the activeElement shim outside file protocol', () => {
+    const iframeElement = { tagName: 'IFRAME' } as unknown as Element;
+    const standaloneDocument = {
+      body: null as unknown as HTMLElement,
+    } as Pick<Document, 'activeElement' | 'body'>;
+
+    Object.defineProperty(standaloneDocument, 'activeElement', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return iframeElement;
+      },
+    });
+
+    const cleanup = installStandaloneActiveElementIframeShim(standaloneDocument, { protocol: 'https:' });
+
+    expect(standaloneDocument.activeElement).toBe(iframeElement);
+    cleanup();
+    expect(standaloneDocument.activeElement).toBe(iframeElement);
   });
 });
