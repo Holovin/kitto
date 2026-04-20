@@ -4,6 +4,7 @@ import {
   STANDALONE_PLAYER_JS_PUBLIC_PATH,
   STANDALONE_ROOT_ELEMENT_ID,
 } from './constants';
+import { STANDALONE_PLAYER_CSS, STANDALONE_PLAYER_JS } from './playerAssets.generated';
 import type { KittoStandalonePayload } from './types';
 
 type StandalonePlayerAssets = {
@@ -12,6 +13,13 @@ type StandalonePlayerAssets = {
 };
 
 let standalonePlayerAssetsPromise: Promise<StandalonePlayerAssets> | null = null;
+
+function getGeneratedStandalonePlayerAssets(): StandalonePlayerAssets {
+  return {
+    css: STANDALONE_PLAYER_CSS,
+    js: STANDALONE_PLAYER_JS,
+  };
+}
 
 function escapeHtmlText(value: string) {
   return value
@@ -64,9 +72,8 @@ async function loadStandalonePlayerAssets() {
         css,
         js,
       }))
-      .catch((error) => {
-        standalonePlayerAssetsPromise = null;
-        throw error;
+      .catch(() => {
+        return getGeneratedStandalonePlayerAssets();
       });
   }
 

@@ -107,4 +107,26 @@ describe('createApp', () => {
       fs.rmSync(frontendDistDir, { force: true, recursive: true });
     }
   });
+
+  it('serves root-level static files from frontend/dist when they exist', async () => {
+    const frontendDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kitto-openui-dist-'));
+
+    try {
+      fs.writeFileSync(path.join(frontendDistDir, 'index.html'), '<!doctype html><html><body><div id="root">Kitto</div></body></html>');
+      fs.writeFileSync(path.join(frontendDistDir, 'kitto-standalone-player.js'), 'console.log("standalone");');
+
+      const app = createApp(
+        createTestEnv({
+          frontendDistDir,
+        }),
+      );
+
+      const response = await app.request('/kitto-standalone-player.js');
+
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('console.log("standalone");');
+    } finally {
+      fs.rmSync(frontendDistDir, { force: true, recursive: true });
+    }
+  });
 });

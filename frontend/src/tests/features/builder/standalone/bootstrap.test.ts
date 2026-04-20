@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   blurStandaloneActiveIframeFocus,
+  installStandaloneIframeFocusGuard,
   parseEmbeddedStandalonePayload,
   readEmbeddedStandalonePayload,
 } from '@src/standalone/bootstrap';
@@ -125,5 +126,57 @@ describe('standalone bootstrap payload helpers', () => {
       ),
     ).toBe(false);
     expect(iframeBlur).not.toHaveBeenCalled();
+  });
+
+  it('installs a file-protocol focus guard that keeps iframe focus from sticking', () => {
+    const initialBlur = vi.fn();
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    const standaloneDocument = {
+      activeElement: {
+        blur: initialBlur,
+        tagName: 'IFRAME',
+      } as unknown as Element,
+      addEventListener,
+      removeEventListener,
+    };
+
+    const cleanup = installStandaloneIframeFocusGuard(standaloneDocument, { protocol: 'file:' });
+
+    expect(initialBlur).toHaveBeenCalledTimes(1);
+    expect(addEventListener).toHaveBeenCalledTimes(1);
+    expect(addEventListener).toHaveBeenCalledWith('focusin', expect.any(Function), true);
+
+    const focusInHandler = addEventListener.mock.calls[0]?.[1];
+    const laterBlur = vi.fn();
+    standaloneDocument.activeElement = {
+      blur: laterBlur,
+      tagName: 'IFRAME',
+    } as unknown as Element;
+
+    focusInHandler?.(new Event('focusin'));
+    expect(laterBlur).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    expect(removeEventListener).toHaveBeenCalledWith('focusin', focusInHandler, true);
+  });
+
+  it('skips the focus guard outside file protocol', () => {
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+
+    const cleanup = installStandaloneIframeFocusGuard(
+      {
+        activeElement: null,
+        addEventListener,
+        removeEventListener,
+      },
+      { protocol: 'https:' },
+    );
+
+    cleanup();
+
+    expect(addEventListener).not.toHaveBeenCalled();
+    expect(removeEventListener).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ const repositoryRoot = path.resolve(currentDirectory, '..');
 const standalonePlayerDirectory = path.resolve(repositoryRoot, 'frontend/dist-standalone-player');
 const standalonePlayerJsPath = path.resolve(standalonePlayerDirectory, 'player.js');
 const standalonePlayerCssPath = path.resolve(standalonePlayerDirectory, 'style.css');
+const generatedModulePath = path.resolve(repositoryRoot, 'frontend/src/features/builder/standalone/playerAssets.generated.ts');
 const publicDirectory = path.resolve(repositoryRoot, 'frontend/public');
 const mirroredStandalonePlayerJsPath = path.resolve(publicDirectory, STANDALONE_PLAYER_JS_PUBLIC_PATH);
 const mirroredStandalonePlayerCssPath = path.resolve(publicDirectory, STANDALONE_PLAYER_CSS_PUBLIC_PATH);
@@ -62,6 +63,19 @@ async function mirrorBundleFile(filePath: string, content: string) {
   return true;
 }
 
+function createGeneratedModuleContent({
+  standalonePlayerCss,
+  standalonePlayerJs,
+}: {
+  standalonePlayerCss: string;
+  standalonePlayerJs: string;
+}) {
+  return `// Generated file. Do not edit manually.
+export const STANDALONE_PLAYER_JS = ${JSON.stringify(standalonePlayerJs)};
+export const STANDALONE_PLAYER_CSS = ${JSON.stringify(standalonePlayerCss)};
+`;
+}
+
 async function writeMirroredAssets({ allowMissing = false } = {}) {
   const bundle = await readStandaloneBundle({ allowMissing });
 
@@ -71,17 +85,18 @@ async function writeMirroredAssets({ allowMissing = false } = {}) {
 
   await mkdir(publicDirectory, { recursive: true });
 
-  const [didUpdateJs, didUpdateCss] = await Promise.all([
+  const [didUpdateJs, didUpdateCss, didUpdateGeneratedModule] = await Promise.all([
     mirrorBundleFile(mirroredStandalonePlayerJsPath, bundle.standalonePlayerJs),
     mirrorBundleFile(mirroredStandalonePlayerCssPath, bundle.standalonePlayerCss),
+    mirrorBundleFile(generatedModulePath, createGeneratedModuleContent(bundle)),
   ]);
 
-  if (!didUpdateJs && !didUpdateCss) {
+  if (!didUpdateJs && !didUpdateCss && !didUpdateGeneratedModule) {
     return false;
   }
 
   console.log(
-    `[standalone] mirrored assets -> ${path.relative(repositoryRoot, mirroredStandalonePlayerJsPath)}, ${path.relative(repositoryRoot, mirroredStandalonePlayerCssPath)}`,
+    `[standalone] updated standalone assets -> ${path.relative(repositoryRoot, mirroredStandalonePlayerJsPath)}, ${path.relative(repositoryRoot, mirroredStandalonePlayerCssPath)}, ${path.relative(repositoryRoot, generatedModulePath)}`,
   );
   return true;
 }

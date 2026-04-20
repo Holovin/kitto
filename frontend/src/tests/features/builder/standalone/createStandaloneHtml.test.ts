@@ -170,4 +170,60 @@ describe('createStandaloneHtml', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('falls back to embedded generated assets when the public standalone files are unavailable', async () => {
+    vi.doMock('@features/builder/standalone/playerAssets.generated', () => ({
+      STANDALONE_PLAYER_CSS: 'body{background:#fafaf9;}',
+      STANDALONE_PLAYER_JS: 'console.log("generated player");',
+    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response('missing', {
+            status: 404,
+          }),
+        ),
+      ),
+    );
+
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(createPayload());
+
+    expect(html).toContain('console.log("generated player");');
+    expect(html).toContain('body{background:#fafaf9;}');
+  });
+
+  it('falls back to embedded generated assets when a public asset resolves to the SPA HTML shell', async () => {
+    vi.doMock('@features/builder/standalone/playerAssets.generated', () => ({
+      STANDALONE_PLAYER_CSS: 'body{color:#111827;}',
+      STANDALONE_PLAYER_JS: 'console.log("generated fallback");',
+    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+
+        if (url.endsWith(STANDALONE_PLAYER_JS_PUBLIC_PATH) || url.endsWith(STANDALONE_PLAYER_CSS_PUBLIC_PATH)) {
+          return Promise.resolve(
+            new Response('<!doctype html><html><body>fallback</body></html>', {
+              status: 200,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          new Response('missing', {
+            status: 404,
+          }),
+        );
+      }),
+    );
+
+    const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
+    const html = await createStandaloneHtml(createPayload());
+
+    expect(html).toContain('console.log("generated fallback");');
+    expect(html).not.toContain('<!doctype html><html><body>fallback</body></html>');
+  });
 });

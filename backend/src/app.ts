@@ -26,6 +26,32 @@ function isApiRoute(pathname: string) {
   return pathname === '/api' || pathname.startsWith('/api/');
 }
 
+function resolveFrontendStaticFile(frontendDistDir: string, requestPath: string) {
+  if (requestPath === '/' || isApiRoute(requestPath)) {
+    return null;
+  }
+
+  const trimmedPath = requestPath.replace(/^\/+/, '');
+
+  if (!trimmedPath || !path.extname(trimmedPath)) {
+    return null;
+  }
+
+  const decodedPath = decodeURIComponent(trimmedPath);
+  const resolvedPath = path.resolve(frontendDistDir, decodedPath);
+  const relativeResolvedPath = path.relative(frontendDistDir, resolvedPath);
+
+  if (relativeResolvedPath.startsWith('..') || path.isAbsolute(relativeResolvedPath)) {
+    return null;
+  }
+
+  if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
+    return null;
+  }
+
+  return relativeResolvedPath.split(path.sep).join('/');
+}
+
 export function createApp(env: AppEnv) {
   const app = new Hono();
 
@@ -68,6 +94,20 @@ export function createApp(env: AppEnv) {
     app.use('/assets/*', serveStatic({ root: frontendRoot }));
     app.use('/favicon.svg', serveStatic({ root: frontendRoot }));
     app.use('/icons.svg', serveStatic({ root: frontendRoot }));
+
+    app.get('*', async (context, next) => {
+      const staticFilePath = resolveFrontendStaticFile(frontendDistDir, context.req.path);
+
+      if (!staticFilePath) {
+        await next();
+        return;
+      }
+
+      return serveStatic({
+        root: frontendRoot,
+        path: staticFilePath,
+      })(context, next);
+    });
 
     app.get('*', async (context, next) => {
       if (isApiRoute(context.req.path) || !isFrontendRoute(context.req.path)) {

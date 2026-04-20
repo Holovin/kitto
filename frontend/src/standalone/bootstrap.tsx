@@ -5,7 +5,10 @@ import { parseStandalonePayload, type KittoStandalonePayload } from '@features/b
 import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@features/builder/standalone/constants';
 import { StandaloneApp } from './StandaloneApp';
 
-type StandaloneDocument = Pick<Document, 'activeElement' | 'body' | 'createElement' | 'getElementById'>;
+type StandaloneDocument = Pick<
+  Document,
+  'activeElement' | 'addEventListener' | 'body' | 'createElement' | 'getElementById' | 'removeEventListener'
+>;
 type StandaloneLocation = Pick<Location, 'protocol'> | undefined;
 
 function StandaloneBootstrapFallback({ message }: { message: string }) {
@@ -65,6 +68,26 @@ export function blurStandaloneActiveIframeFocus(
   return true;
 }
 
+export function installStandaloneIframeFocusGuard(
+  standaloneDocument: Pick<Document, 'activeElement' | 'addEventListener' | 'removeEventListener'> = document,
+  standaloneLocation: StandaloneLocation = globalThis.location,
+) {
+  if (standaloneLocation?.protocol !== 'file:') {
+    return () => {};
+  }
+
+  const handleFocusIn = () => {
+    blurStandaloneActiveIframeFocus(standaloneDocument, standaloneLocation);
+  };
+
+  standaloneDocument.addEventListener('focusin', handleFocusIn, true);
+  handleFocusIn();
+
+  return () => {
+    standaloneDocument.removeEventListener('focusin', handleFocusIn, true);
+  };
+}
+
 function renderStandaloneBootstrapError(message: string, rootElement: HTMLElement | null, standaloneDocument: StandaloneDocument) {
   const mountElement =
     rootElement ??
@@ -88,6 +111,10 @@ function renderStandaloneBootstrapError(message: string, rootElement: HTMLElemen
 }
 
 export function mountStandaloneApp(standaloneDocument: StandaloneDocument = document) {
+  // React checks the deeply focused element during commits. On file:// pages,
+  // browser- or extension-owned iframes can trigger a noisy cross-origin warning.
+  installStandaloneIframeFocusGuard(standaloneDocument);
+
   const rootElement = standaloneDocument.getElementById(STANDALONE_ROOT_ELEMENT_ID);
 
   if (!rootElement) {
@@ -101,10 +128,6 @@ export function mountStandaloneApp(standaloneDocument: StandaloneDocument = docu
     renderStandaloneBootstrapError('Missing or invalid standalone payload.', rootElement, standaloneDocument);
     return;
   }
-
-  // React checks the deeply focused element during commit. On file:// pages,
-  // browser- or extension-owned iframes can trigger a noisy cross-origin warning.
-  blurStandaloneActiveIframeFocus(standaloneDocument);
 
   createRoot(rootElement).render(
     <StrictMode>
