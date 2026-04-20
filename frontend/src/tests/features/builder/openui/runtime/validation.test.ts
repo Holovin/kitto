@@ -749,4 +749,92 @@ root = AppShell([
       ]),
     );
   });
+
+  it('warns when append_state does not rerun the matching read_state query in the same Action', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Input("draft", "Task", $draft, "New task"),
+    Button("add-task", "Add", "default", Action([@Run(addItem), @Reset($draft)]), $draft == ""),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) in the same Action for path "app.items".',
+          source: 'quality',
+          statementId: 'addItem',
+        }),
+      ]),
+    );
+  });
+
+  it('warns when write_computed_state does not rerun the matching read_state query in the same Action', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll", "Roll", "default", Action([@Run(rollDice)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+      'Create a random dice roller.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(rollDice), also run @Run(rollValue) in the same Action for path "app.roll".',
+          source: 'quality',
+          statementId: 'rollDice',
+        }),
+      ]),
+    );
+  });
+
+  it('does not warn when the persisted mutation reruns the matching read_state query in the same Action', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Input("draft", "Task", $draft, "New task"),
+    Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == ""),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-stale-persisted-query')).toBeUndefined();
+  });
 });

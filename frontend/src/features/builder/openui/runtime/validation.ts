@@ -44,6 +44,28 @@ const FILTER_REQUEST_PATTERN = /\b(filter|filters|filtered|search)\b/i;
 const VALIDATION_REQUEST_PATTERN = /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b/i;
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
+const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
+  'append_state',
+  'merge_state',
+  'remove_state',
+  'write_computed_state',
+  'write_state',
+]);
+
+type ExpressionAst = {
+  args?: ExpressionAst[];
+  entries?: Array<[string, ExpressionAst]>;
+  k: string;
+  n?: string;
+  name?: string;
+  refType?: string;
+  v?: string;
+};
+
+type ActionRunRef = {
+  refType: 'mutation' | 'query';
+  statementId: string;
+};
 
 function normalizeSourceForValidation(source: string) {
   return source.trim();
@@ -448,6 +470,168 @@ function hasComputeTools(result: ParseResult) {
   });
 }
 
+function isAstNode(value: unknown): value is ExpressionAst {
+  return typeof value === 'object' && value !== null && 'k' in value && typeof (value as { k?: unknown }).k === 'string';
+}
+
+function extractPathLiteral(argsAst: unknown) {
+  if (!isAstNode(argsAst) || argsAst.k !== 'Obj' || !Array.isArray(argsAst.entries)) {
+    return null;
+  }
+
+  const pathEntry = argsAst.entries.find(([key]) => key === 'path');
+  const pathValue = pathEntry?.[1];
+
+  return isAstNode(pathValue) && pathValue.k === 'Str' && typeof pathValue.v === 'string' ? pathValue.v : null;
+}
+
+function collectActionRunRefsFromActionAst(actionAst: unknown): ActionRunRef[] {
+  const runRefs: ActionRunRef[] = [];
+
+  function visit(node: unknown) {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (isAstNode(node)) {
+      if (node.k === 'Comp' && node.name === 'Run') {
+        const refNode = Array.isArray(node.args) ? node.args[0] : null;
+
+        if (
+          isAstNode(refNode) &&
+          refNode.k === 'RuntimeRef' &&
+          (refNode.refType === 'mutation' || refNode.refType === 'query') &&
+          typeof refNode.n === 'string'
+        ) {
+          runRefs.push({
+            refType: refNode.refType,
+            statementId: refNode.n,
+          });
+        }
+      }
+
+      Object.values(node).forEach(visit);
+      return;
+    }
+
+    if (typeof node === 'object' && node !== null) {
+      Object.values(node).forEach(visit);
+    }
+  }
+
+  visit(actionAst);
+  return runRefs;
+}
+
+function collectActionRunRefGroups(value: unknown): ActionRunRef[][] {
+  const actionGroups: ActionRunRef[][] = [];
+
+  function visit(node: unknown) {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (isElementNode(node)) {
+      Object.values(node.props).forEach(visit);
+      return;
+    }
+
+    if (isAstNode(node)) {
+      if (node.k === 'Comp' && node.name === 'Action') {
+        actionGroups.push(collectActionRunRefsFromActionAst(node));
+      }
+
+      Object.values(node).forEach(visit);
+      return;
+    }
+
+    if (typeof node === 'object' && node !== null) {
+      Object.values(node).forEach(visit);
+    }
+  }
+
+  visit(value);
+  return actionGroups;
+}
+
+function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderParseIssue[] {
+  if (result.meta.incomplete || !result.root) {
+    return [];
+  }
+
+  const mutationPathByStatementId = new Map<string, string>();
+  const queryStatementIdsByPath = new Map<string, string[]>();
+
+  for (const mutation of result.mutationStatements) {
+    const toolName = extractStringLiteral(mutation.toolAST);
+    const path = extractPathLiteral(mutation.argsAST);
+
+    if (!toolName || !path || !REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES.has(toolName)) {
+      continue;
+    }
+
+    mutationPathByStatementId.set(mutation.statementId, path);
+  }
+
+  for (const query of result.queryStatements) {
+    const toolName = extractStringLiteral(query.toolAST);
+    const path = extractPathLiteral(query.argsAST);
+
+    if (toolName !== 'read_state' || !path) {
+      continue;
+    }
+
+    const existingIds = queryStatementIdsByPath.get(path) ?? [];
+    existingIds.push(query.statementId);
+    queryStatementIdsByPath.set(path, existingIds);
+  }
+
+  if (mutationPathByStatementId.size === 0 || queryStatementIdsByPath.size === 0) {
+    return [];
+  }
+
+  const warnings: BuilderParseIssue[] = [];
+  const seenWarningKeys = new Set<string>();
+
+  for (const actionRunRefs of collectActionRunRefGroups(result.root)) {
+    const queryRunIds = new Set(actionRunRefs.filter((ref) => ref.refType === 'query').map((ref) => ref.statementId));
+
+    for (const runRef of actionRunRefs) {
+      if (runRef.refType !== 'mutation') {
+        continue;
+      }
+
+      const path = mutationPathByStatementId.get(runRef.statementId);
+      const matchingQueryIds = path ? queryStatementIdsByPath.get(path) ?? [] : [];
+
+      if (!path || matchingQueryIds.length === 0 || matchingQueryIds.some((statementId) => queryRunIds.has(statementId))) {
+        continue;
+      }
+
+      const warningKey = `${runRef.statementId}:${path}`;
+
+      if (seenWarningKeys.has(warningKey)) {
+        continue;
+      }
+
+      seenWarningKeys.add(warningKey);
+      warnings.push(
+        createQualityIssue({
+          code: 'quality-stale-persisted-query',
+          message: `Persisted mutation may not refresh visible query. After @Run(${runRef.statementId}), also run ${matchingQueryIds
+            .map((statementId) => `@Run(${statementId})`)
+            .join(' or ')} in the same Action for path "${path}".`,
+          statementId: runRef.statementId,
+        }),
+      );
+    }
+  }
+
+  return warnings;
+}
+
 export function detectOpenUiQualityWarnings(source: string, userPrompt: string): BuilderParseIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
@@ -519,6 +703,8 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
       }),
     );
   }
+
+  warnings.push(...detectPersistedMutationRefreshWarnings(result));
 
   return warnings;
 }

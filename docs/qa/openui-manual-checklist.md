@@ -262,6 +262,9 @@ rollDice = Mutation("write_computed_state", {
   options: { min: 1, max: 100 },
   returnType: "number"
 })
+rollValue = Query("read_state", { path: "app.roll" }, null)
+Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)
+Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
 ```
 
 Compute tool rules:
@@ -310,7 +313,9 @@ Do use:
 - `Query("read_state", ...)` with a sensible default when reading persisted data
 - persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
-- `@Run(queryRef)` after a mutation when a rendered query result needs an immediate refresh
+- after every persisted `Mutation(...)` that affects visible UI, immediately re-run the matching `Query("read_state", ...)` in the same `Action(...)`
+- `Action([@Run(addTask), @Run(tasks), @Reset($draft)])` for create-and-refresh flows
+- `Action([@Run(rollDice), @Run(rollValue)])` for button-triggered persisted compute flows
 - stable string ids as the first argument of every `Button(...)`
 
 Do not use:

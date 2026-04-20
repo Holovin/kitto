@@ -137,13 +137,14 @@ Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start
   },
   {
     demoExample: `// Write the current input value into persisted state.
+savedName = Query("read_state", { path: "app.name" }, "")
 saveName = Mutation("write_state", {
   path: "app.name",
   value: $name
 })
 
-// Run the mutation from a button.
-Button("save-name", "Save", "default", Action([@Run(saveName)]), false)`,
+// Run the mutation, then refresh the visible query.
+Button("save-name", "Save", "default", Action([@Run(saveName), @Run(savedName)]), false)`,
     documentation: {
       summary: 'Replaces the value at a non-empty state path with the JSON-compatible value you provide.',
       useWhen: 'Use this for direct assignments, form saves, toggles, or resets when you already know the full next value.',
@@ -167,13 +168,14 @@ Button("save-name", "Save", "default", Action([@Run(saveName)]), false)`,
   },
   {
     demoExample: `// Patch only the fields you want to change.
+savedProfile = Query("read_state", { path: "app.profile" }, { name: "" })
 updateProfile = Mutation("merge_state", {
   path: "app.profile",
   patch: { name: $name }
 })
 
-// Apply the partial update from a button.
-Button("update-profile", "Update profile", "default", Action([@Run(updateProfile)]), false)`,
+// Apply the partial update, then refresh the visible query.
+Button("update-profile", "Update profile", "default", Action([@Run(updateProfile), @Run(savedProfile)]), false)`,
     documentation: {
       summary: 'Merges a plain-object patch into the existing object at a non-empty state path.',
       useWhen: 'Use this when you want to update a few fields without overwriting the entire record. The patch must be a plain object with safe keys only.',
@@ -200,13 +202,14 @@ Button("update-profile", "Update profile", "default", Action([@Run(updateProfile
   },
   {
     demoExample: `// Add a new item to a persisted array.
+tasks = Query("read_state", { path: "app.tasks" }, [])
 addTask = Mutation("append_state", {
   path: "app.tasks",
   value: { title: $taskTitle, completed: false }
 })
 
-// Append the item on click.
-Button("add-task", "Add task", "default", Action([@Run(addTask)]), false)`,
+// Append the item, then refresh the visible query.
+Button("add-task", "Add task", "default", Action([@Run(addTask), @Run(tasks)]), false)`,
     documentation: {
       summary: 'Appends a new item to the array stored at a non-empty state path.',
       useWhen: 'Use this for list-style data such as todos, cart items, messages, or comments. The path must already point at an array or an empty slot where an array can be created.',
@@ -230,13 +233,14 @@ Button("add-task", "Add task", "default", Action([@Run(addTask)]), false)`,
   },
   {
     demoExample: `// Remove one item from a persisted array.
+tasks = Query("read_state", { path: "app.tasks" }, [])
 removeFirstTask = Mutation("remove_state", {
   path: "app.tasks",
   index: 0
 })
 
-// Delete the first item on click.
-Button("remove-first", "Remove first", "destructive", Action([@Run(removeFirstTask)]), false)`,
+// Delete the first item, then refresh the visible query.
+Button("remove-first", "Remove first", "destructive", Action([@Run(removeFirstTask), @Run(tasks)]), false)`,
     documentation: {
       summary: 'Removes an item from the array at the given non-empty state path and non-negative index.',
       useWhen: 'Use this to delete list entries without rebuilding the full array manually. The target path must resolve to an existing array.',

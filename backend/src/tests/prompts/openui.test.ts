@@ -243,7 +243,14 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
     expect(prompt).toContain('Use `random_int` only with integer min/max options.');
     expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
+    expect(prompt).toContain('After every Mutation that changes persisted state used by visible UI, immediately re-run the Query that reads that state in the same Action.');
+    expect(prompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
+    expect(prompt).toContain('Random example: `Action([@Run(rollDice), @Run(rollValue)])`.');
+    expect(prompt).toContain('Remove example: `Action([@Run(removeItem), @Run(items)])`.');
+    expect(prompt).toContain('Update example: `Action([@Run(updateItem), @Run(items)])`.');
     expect(prompt).toContain('rollDice = Mutation("write_computed_state", {');
+    expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)');
+    expect(prompt).toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
     expect(prompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
     expect(prompt).toContain('right: today.value');
   });
