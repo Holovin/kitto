@@ -116,6 +116,31 @@ Default:
 block
 ```
 
+Simple-app bias:
+
+```txt
+Prefer the smallest working app that satisfies the latest user request.
+Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.
+For simple apps, use one Screen and one or two Groups.
+```
+
+Layout simplicity:
+
+- Use `Screen(...)` for top-level app sections.
+- Use at most one `Screen(...)` unless the user asks for a wizard, quiz, onboarding, or multi-step flow.
+- Use `Group(...)` only for meaningful visual sections.
+- Do not wrap every individual control in its own `Group(...)`.
+- Use `Group(..., "inline")` only for compact rows of buttons, filters, or controls.
+- For simple todo/list/form apps, avoid deeply nested block groups.
+
+Documented shallow objects only:
+
+- appearance objects
+- tool argument objects
+- compute options
+- validation rule objects
+- do not invent any other nested config objects
+
 Safe color overrides:
 
 ```txt
@@ -172,14 +197,28 @@ $currentScreen = "intro"
 Button("next-button", "Next", "default", Action([@Set($currentScreen, "next")]), false)
 ```
 
-Collections:
+Simple todo recipe:
 
 ```txt
-items = Query("read_state", { path: "quiz.answers" }, [])
-rows = @Each(items, "item", Group(null, "vertical", [
-  Text(item.label, "body", "start")
+$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Checkbox(item.title, item.title, item.completed)
 ], "inline"))
-Repeater(rows, "Empty state")
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No items yet.")
+  ])
+])
 ```
 
 Derived filtering:
@@ -188,8 +227,9 @@ Derived filtering:
 $filter = "all"
 items = Query("read_state", { path: "app.items" }, [])
 visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
-rows = @Each(visibleItems, "item", Group(null, "vertical", [
-  Text(item.title, "body", "start")
+rows = @Each(visibleItems, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Completed" : "Active", "muted", "start")
 ], "inline"))
 Text("Visible: " + @Count(visibleItems), "muted", "start")
 Repeater(rows, "Empty state")
@@ -224,9 +264,11 @@ rollDice = Mutation("write_computed_state", {
 
 Do use:
 
+- the smallest working app that satisfies the latest user request
+- one `Screen(...)` and one or two `Group(...)` sections for simple apps
 - `Screen(...)` for screen-level sections and `Group(...)` for local layout
 - `Group(..., "block")` for standalone visual sections
-- `Group(..., "inline")` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
+- `Group(..., "inline")` for compact rows of buttons, filters, or controls
 - `AppShell(..., appearance?)` first when the request is about one shared theme or dark mode
 - for light/dark theme toggles, prefer the canonical recipe with `$currentTheme`, `lightTheme`, `darkTheme`, `appTheme`, `activeThemeButton`, `inactiveThemeButton`, and `root = AppShell([...], appTheme)`
 - `Screen(...)`, `Group(...)`, and `Repeater(...)` appearance overrides when a subtree needs different inherited colors
@@ -250,11 +292,12 @@ Do use:
 - avoid over-nesting block groups
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
 - `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
-- `compute_value` only for safe primitive calculations that built-ins and normal expressions do not already cover well
-- `write_computed_state` when an action should compute and persist a primitive result such as a random integer
+- `compute_value` only when normal OpenUI expressions are not enough
+- `write_computed_state` only when a button should compute and persist a primitive value
 - local `$variables` for ephemeral UI state such as draft inputs, filters, and internal screen flow
 - local arrays for runtime-only collections such as selected answers, and `Query("read_state", ...)` for persisted collections
 - `Query("read_state", ...)` with a sensible default when reading persisted data
+- persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
 - `@Run(queryRef)` after a mutation when a rendered query result needs an immediate refresh
 - stable string ids as the first argument of every `Button(...)`
@@ -264,8 +307,10 @@ Do not use:
 - markdown code fences around generated OpenUI source
 - `Screen(..., null, ...)` for the required title argument
 - persisted tools for internal screen navigation
+- extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them
 - raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, `url()`, or arbitrary layout styling props
 - `textColor`, `bgColor`, `color`, `background`, `surface`, `border`, `accent`, `primaryColor`, or other invented appearance keys
+- invented nested config objects beyond appearance objects, tool argument objects, compute options, and validation rule objects
 - custom `DateInput` or other custom field components when `Input(..., type, validation)` already covers the request
 - JavaScript validators, regex validators, `eval`, `Function(...)`, or script-like validation logic
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request

@@ -26,7 +26,25 @@ This is not a full regression suite. Full invariants and edge cases live in `doc
 - Do not use DOM-only `fill`, because React may not update state and may leave `Send` disabled.
 - For import/export, if the OS file picker is unavailable, it is acceptable to verify the same frontend import path through the hidden `input[type="file"]` by creating a `File` programmatically and dispatching `change`.
 
-## Scenario 1 — Basic generation and local screen flow
+## Scenario 1 — Simple todo stays simple
+
+Prompt:
+
+```txt
+Create a todo list.
+```
+
+Expected:
+
+- During generation, Preview stays on the last committed app or the empty state.
+- After commit, there is one visible screen section for the app.
+- The app has one task input, one add button, and one repeated task list.
+- `Definition` uses a minimal persisted collection flow such as `$draft`, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_state", ...)`, `@Each(...)`, and `Repeater(...)`.
+- There is no extra screen flow, no `$currentScreen`, and no unrelated persisted fields.
+- There are no filters, due dates, theme toggles, validation rules, or compute tools unless explicitly requested.
+- There are no parser or runtime errors in the UI or Console.
+
+## Scenario 2 — Basic generation and local screen flow
 
 Prompt:
 
@@ -48,7 +66,7 @@ Expected:
 - After internal clicks, there are no new `/api/llm/generate` or `/api/llm/generate/stream` requests.
 - If you inspect Definition, screen flow uses local state such as `$currentScreen` plus `@Set(...)`, not a persisted navigation tool.
 
-## Scenario 2 — Follow-up edit preserves existing app
+## Scenario 3 — Follow-up edit preserves existing app
 
 Prompt:
 
@@ -66,7 +84,7 @@ Expected:
 - If the first draft is invalid and repair runs, that is acceptable, but the final version must be valid.
 - There are no unresolved refs, parser errors, or broken actions.
 
-## Scenario 3 — Theme / appearance / active button
+## Scenario 4 — Theme / appearance / active button
 
 Prompt:
 
@@ -109,7 +127,7 @@ Expected:
 - The inactive theme button falls back to `appTheme` instead of carrying a separate hard-coded control theme.
 - There is no repeat LLM request after clicking theme buttons.
 
-## Scenario 4 — Inputs and validation
+## Scenario 5 — Inputs and validation
 
 Prompt:
 
@@ -173,7 +191,7 @@ Expected:
 - The validation uses `minNumber` and `maxNumber`.
 - The runtime value remains a string unless some later tool explicitly converts it.
 
-## Scenario 5 — Collection, Repeater and filtering
+## Scenario 6 — Collection, Repeater and filtering
 
 Prompt:
 
@@ -200,7 +218,7 @@ Expected:
 
 - No new filtering-specific tool such as `select_state` appears.
 
-## Scenario 6 — Safe compute tools
+## Scenario 7 — Safe compute tools
 
 Prompt:
 
@@ -231,7 +249,7 @@ Expected:
 - The warning appears and disappears locally while typing.
 - There is no arbitrary JS validation.
 
-## Scenario 7 — JSON import/export and standalone HTML export
+## Scenario 8 — JSON import/export and standalone HTML export
 
 ### JSON export/import
 

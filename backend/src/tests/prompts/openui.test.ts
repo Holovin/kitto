@@ -39,10 +39,14 @@ describe('openui prompts', () => {
 
     expect(groupSpec?.signature).toContain('variant?: "block" | "inline", appearance?: {');
     expect(prompt).toContain('Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", appearance?: {');
+    expect(prompt).toContain('LAYOUT RULES:');
+    expect(prompt).toContain('Use Screen for top-level app sections.');
+    expect(prompt).toContain('Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.');
+    expect(prompt).toContain('Use Group only for meaningful visual sections.');
+    expect(prompt).toContain('Do not wrap every individual control in its own Group.');
     expect(prompt).toContain('Use Group variant "block" for standalone visual sections.');
-    expect(prompt).toContain(
-      'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
-    );
+    expect(prompt).toContain('Use Group variant "inline" only for compact rows of buttons, filters, or controls.');
+    expect(prompt).toContain('For simple todo/list/form apps, avoid deeply nested block Groups.');
     expect(prompt).toContain('Do not over-nest block Groups.');
     expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?, appearance?)`.');
     expect(prompt).toContain('The second Group argument is direction and must be `"vertical"` or `"horizontal"`.');
@@ -84,14 +88,57 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton)',
     );
-    expect(prompt).toContain(
-      'RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions, null, [{ type: "required", message: "Choose a contact method" }])',
-    );
+    expect(prompt).toContain('RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)');
     expect(prompt).not.toContain('warningAppearance = { mainColor: "#FEF3C7", contrastColor: "#92400E" }');
     expect(prompt).not.toContain('Screen("main", "Dark app", [');
     expect(prompt).not.toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
     expect(prompt).not.toContain('textColor');
     expect(prompt).not.toContain('bgColor');
+  });
+
+  it('biases simple requests toward minimal apps before advanced recipes', () => {
+    const prompt = buildOpenUiSystemPrompt();
+    const todoIndex = prompt.indexOf('$draft = ""');
+    const themeIndex = prompt.indexOf('$currentTheme = "light"');
+    const filterIndex = prompt.indexOf('$filter = "all"');
+    const validationIndex = prompt.indexOf('$email = ""');
+    const computeIndex = prompt.indexOf('rollDice = Mutation("write_computed_state", {');
+
+    expect(prompt).toContain('SIMPLE APP RULE:');
+    expect(prompt).toContain('Prefer the smallest working app that satisfies the latest user request.');
+    expect(prompt).toContain(
+      'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
+    );
+    expect(prompt).toContain('For simple apps, use one Screen and one or two Groups.');
+    expect(prompt).toContain('TOOL MINIMALITY:');
+    expect(prompt).toContain('Use $variables for ephemeral UI state.');
+    expect(prompt).toContain(
+      'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
+    );
+    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough.');
+    expect(prompt).toContain(
+      'Use `write_computed_state` only when a button must compute and persist a primitive value.',
+    );
+    expect(prompt).toContain(
+      'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, or date comparisons.',
+    );
+    expect(prompt).toContain('Use only documented shallow objects:');
+    expect(prompt).toContain('Do not invent any other nested config objects.');
+    expect(prompt).not.toContain('Avoid deeply nested configuration objects');
+
+    expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
+    expect(prompt).toContain('Checkbox(item.title, item.title, item.completed)');
+    expect(prompt).toContain('Repeater(rows, "No items yet.")');
+
+    expect(todoIndex).toBeGreaterThan(-1);
+    expect(themeIndex).toBeGreaterThan(-1);
+    expect(filterIndex).toBeGreaterThan(-1);
+    expect(validationIndex).toBeGreaterThan(-1);
+    expect(computeIndex).toBeGreaterThan(-1);
+    expect(todoIndex).toBeLessThan(themeIndex);
+    expect(themeIndex).toBeLessThan(filterIndex);
+    expect(filterIndex).toBeLessThan(validationIndex);
+    expect(validationIndex).toBeLessThan(computeIndex);
   });
 
   it('documents typed inputs and declarative validation rules in the component spec and system prompt', () => {
@@ -151,9 +198,10 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Use Repeater only for dynamic or generated collections.');
     expect(prompt).toContain('Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.');
     expect(prompt).toContain('Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.');
+    expect(prompt).toContain('items = Query("read_state", { path: "app.items" }, [])');
     expect(prompt).toContain('savedCards = Query("read_state", { path: "app.savedCards" }, [])');
     expect(prompt).toContain('selectedAnswers = [');
-    expect(prompt).toContain('], "inline"))');
+    expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
   });
 
   it('guides filtered collection views toward built-in functions instead of invented tools', () => {

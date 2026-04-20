@@ -223,6 +223,25 @@ const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
 const toolExamples = [
+  `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Checkbox(item.title, item.title, item.completed)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
   `$currentTheme = "light"
 $name = "Ada"
 $preferredContact = "email"
@@ -245,11 +264,33 @@ root = AppShell([
       Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
     ], "inline"),
     Group("Profile", "vertical", [
-      Input("name", "Name", $name, "Ada", "Enter your full name", "text", [{ type: "required", message: "Name is required" }]),
-      RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions, null, [{ type: "required", message: "Choose a contact method" }])
+      Input("name", "Name", $name, "Ada", "Enter your full name"),
+      RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)
     ])
   ], true)
 ], appTheme)`,
+  `$filter = "all"
+
+items = Query("read_state", { path: "app.items" }, [])
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
+visibleCount = @Count(visibleItems)
+filterOptions = [
+  { label: "All items", value: "all" },
+  { label: "Active items", value: "active" },
+  { label: "Completed items", value: "completed" }
+]
+itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Completed" : "Active", "muted", "start")
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Filtered items", [
+    Select("filter", "Filter", $filter, filterOptions),
+    Text("Visible items: " + visibleCount, "muted", "start"),
+    Repeater(itemRows, "No matching items.")
+  ])
+])`,
   `$email = ""
 $priority = "normal"
 
@@ -271,19 +312,18 @@ root = AppShell([
     ])
   ], true)
 ])`,
-  `items = [
-  { label: "First", value: "first" },
-  { label: "Second", value: "second" }
-]
-
-itemRows = @Each(items, "item", Group("Item", "horizontal", [
-  Text(item.label, "body", "start"),
-  Text(item.value, "muted", "start")
-], "inline"))
+  `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
 
 root = AppShell([
-  Screen("main", "Items", [
-    Repeater(itemRows, "No items yet.")
+  Screen("main", "Dice", [
+    Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
   ])
 ])`,
   `$currentScreen = "question"
@@ -301,7 +341,7 @@ selectedAnswers = [
 answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
   Text(answer.label, "muted", "start"),
   Text(answer.value == "" ? "No response yet." : answer.value, "body", "start")
-], "inline"))
+]))
 
 root = AppShell([
   Screen("question", "Question", [
@@ -323,7 +363,7 @@ saveCard = Mutation("append_state", {
 cardRows = @Each(savedCards, "card", Group(null, "vertical", [
   Text(card.title, "title", "start"),
   Text(card.summary, "muted", "start")
-], "inline"))
+]))
 
 root = AppShell([
   Screen("main", "Saved cards", [
@@ -333,44 +373,6 @@ root = AppShell([
     ]),
     Repeater(cardRows, "No saved cards yet.")
   ])
-])`,
-  `$filter = "all"
-
-items = Query("read_state", { path: "app.items" }, [])
-visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
-visibleCount = @Count(visibleItems)
-filterOptions = [
-  { label: "All items", value: "all" },
-  { label: "Active items", value: "active" },
-  { label: "Completed items", value: "completed" }
-]
-itemRows = @Each(visibleItems, "item", Group(null, "vertical", [
-  Text(item.title, "body", "start"),
-  Text(item.completed ? "Completed" : "Active", "muted", "start")
-], "inline"))
-
-root = AppShell([
-  Screen("main", "Filtered items", [
-    Select("filter", "Filter", $filter, filterOptions),
-    Text("Visible items: " + visibleCount, "muted", "start"),
-    Repeater(itemRows, "No matching items.")
-  ])
-])`,
-  `$currentScreen = "main"
-
-rollDice = Mutation("write_computed_state", {
-  path: "app.roll",
-  op: "random_int",
-  options: { min: 1, max: 6 },
-  returnType: "number"
-})
-rollValue = Query("read_state", { path: "app.roll" }, null)
-
-root = AppShell([
-  Screen("main", "Dice", [
-    Button("roll-button", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
-    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
-  ], $currentScreen == "main")
 ])`,
   `$dueDate = ""
 
@@ -391,6 +393,42 @@ root = AppShell([
 ];
 
 const additionalRules = [
+  'SIMPLE APP RULE:',
+  'Prefer the smallest working app that satisfies the latest user request.',
+  'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
+  'For simple apps, use one Screen and one or two Groups.',
+  'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
+  'Return the full updated program every time, not a patch.',
+  'The root statement must be `root = AppShell([...])`.',
+  'Use only the supported components and tools provided in this prompt.',
+  'Use only documented shallow objects:',
+  '- appearance objects',
+  '- tool argument objects',
+  '- compute options',
+  '- validation rule objects',
+  'Do not invent any other nested config objects.',
+  'LAYOUT RULES:',
+  'Use Screen for top-level app sections.',
+  'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
+  'Use Group only for meaningful visual sections.',
+  'Do not wrap every individual control in its own Group.',
+  'Use Group variant "inline" only for compact rows of buttons, filters, or controls.',
+  'For simple todo/list/form apps, avoid deeply nested block Groups.',
+  'Use Group for local layout within a Screen.',
+  'AppShell signature is `AppShell(children, appearance?)`.',
+  'Group signature is `Group(title, direction, children, variant?, appearance?)`.',
+  'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
+  'If you pass a Group variant, place it in the optional fourth argument.',
+  'Never put `"block"` or `"inline"` in the second Group argument.',
+  'Use Group variant "block" for standalone visual sections.',
+  'Do not over-nest block Groups.',
+  'Destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
+  'TOOL MINIMALITY:',
+  'Use $variables for ephemeral UI state.',
+  'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
+  'Use `compute_value` only when normal OpenUI expressions are not enough.',
+  'Use `write_computed_state` only when a button must compute and persist a primitive value.',
+  'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, or date comparisons.',
   'APPEARANCE / THEME CONTRACT:',
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
   'Use `activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
@@ -409,20 +447,6 @@ const additionalRules = [
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Local appearance overrides inherited theme colors, and buttons still map the theme pair according to their variant.',
   'Variants are fallback styles, not the primary mechanism for theme switching.',
-  'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
-  'Return the full updated program every time, not a patch.',
-  'The root statement must be `root = AppShell([...])`.',
-  'Use only the supported components and tools provided in this prompt.',
-  'Use Screen for screen-level sections and Group for local layout.',
-  'AppShell signature is `AppShell(children, appearance?)`.',
-  'Group signature is `Group(title, direction, children, variant?, appearance?)`.',
-  'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
-  'If you pass a Group variant, place it in the optional fourth argument.',
-  'Never put `"block"` or `"inline"` in the second Group argument.',
-  'Use Group variant "block" for standalone visual sections.',
-  'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
-  'Do not over-nest block Groups.',
-  'Destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
@@ -435,7 +459,6 @@ const additionalRules = [
   'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
-  'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
   'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"password"`.',
   'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
   'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
