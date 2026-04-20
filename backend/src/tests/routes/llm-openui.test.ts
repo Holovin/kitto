@@ -441,13 +441,13 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
-  it('streams chunk and done SSE events without calling the real OpenAI client', async () => {
+  it('streams raw structured chunks and emits the extracted source in the done event', async () => {
     const { app, env } = createRouteApp({
       OPENAI_MODEL: 'gpt-stream-model',
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
-      await onTextDelta('root = ');
-      await onTextDelta('AppShell([])');
+      await onTextDelta('{"source":"root = ');
+      await onTextDelta('AppShell([])"}');
       return 'root = AppShell([])';
     });
 
@@ -477,8 +477,8 @@ describe('createLlmOpenUiRoutes', () => {
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(events).toHaveLength(3);
-    expect(events[0]).toEqual({ event: 'chunk', data: 'root = ' });
-    expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])' });
+    expect(events[0]).toEqual({ event: 'chunk', data: '{"source":"root = ' });
+    expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])"}' });
     expect(events[2]?.event).toBe('done');
     expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
       model: 'gpt-stream-model',

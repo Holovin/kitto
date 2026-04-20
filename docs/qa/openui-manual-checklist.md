@@ -13,6 +13,7 @@ Guardrails:
 
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
+- when structured output is enabled, malformed JSON envelopes, missing `source`, empty `source`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
 
 ## Runtime invariants
@@ -20,7 +21,7 @@ Guardrails:
 - Preview renders committed source only.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
-- Definition may show streamed draft source while generation is still in progress.
+- Definition may show streamed draft text while generation is still in progress. With structured output enabled, that draft may temporarily be the raw JSON envelope rather than bare OpenUI source.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.`.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
@@ -371,7 +372,7 @@ Builder controls that should stay working alongside generated apps:
 
 - import/export
 - standalone HTML export
-- successful JSON export and standalone HTML export append success messages to the end of chat history instead of showing a top feedback banner
+- builder feedback and backend connection notices append as chat history messages at the end of the dialog instead of showing a top feedback banner
 - invalid import should show Definition validation issues without replacing the current preview or wiping chat, undo/redo history, runtime state, or persisted data
 - undo/redo
 - reset

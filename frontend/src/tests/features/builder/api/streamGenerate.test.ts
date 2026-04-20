@@ -75,14 +75,13 @@ describe('streamBuilderDefinition', () => {
     vi.useRealTimers();
   });
 
-  it('streams chunk events across read boundaries and returns the final source', async () => {
+  it('streams raw JSON chunk events across read boundaries and returns the extracted final source', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         createTextStream([
-          'event: chunk\ndata: root = App',
-          'Shell([])\n\n',
-          'event: chunk\ndata: // trailing comment\n\n',
-          'event: done\ndata: {"source":"root = AppShell([])// trailing comment","compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
+          'event: chunk\ndata: {"source":"root = App',
+          'Shell([])"}\n\n',
+          'event: done\ndata: {"source":"root = AppShell([])","compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
         ]),
         {
           headers: {
@@ -98,15 +97,14 @@ describe('streamBuilderDefinition', () => {
     const result = await streamBuilderDefinition(createStreamRequestOptions({ onChunk }));
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/api/llm/generate/stream', expect.any(Object));
-    expect(onChunk).toHaveBeenNthCalledWith(1, 'root = AppShell([])');
-    expect(onChunk).toHaveBeenNthCalledWith(2, '// trailing comment');
+    expect(onChunk).toHaveBeenNthCalledWith(1, '{"source":"root = AppShell([])"}');
     expect(result).toEqual({
       compaction: {
         compactedByBytes: false,
         compactedByItemLimit: true,
         omittedChatMessages: 2,
       },
-      source: 'root = AppShell([])// trailing comment',
+      source: 'root = AppShell([])',
     });
   });
 
@@ -177,14 +175,14 @@ describe('streamBuilderDefinition', () => {
     ).rejects.toThrow('Received a malformed "done" event from the backend stream.');
   });
 
-  it('falls back to accumulated chunks when the done payload omits source', async () => {
+  it('throws when the done payload omits source', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
           createTextStream([
-            'event: chunk\ndata: root = App\n\n',
-            'event: chunk\ndata:Shell([])\n\n',
+            'event: chunk\ndata: {"source":"root = App\n\n',
+            'event: chunk\ndata:Shell([])"}\n\n',
             'event: done\ndata: {"model":"gpt-5.4-mini"}\n\n',
           ]),
           {
@@ -201,9 +199,7 @@ describe('streamBuilderDefinition', () => {
       streamBuilderDefinition({
         ...createStreamRequestOptions(),
       }),
-    ).resolves.toEqual({
-      source: 'root = AppShell([])',
-    });
+    ).rejects.toThrow('Received an invalid "done" event from the backend stream.');
   });
 
   it('preserves meaningful leading spaces in chunk data', async () => {
@@ -215,7 +211,7 @@ describe('streamBuilderDefinition', () => {
         new Response(
           createTextStream([
             'event: chunk\ndata:   Text("hero", "Leading spaces matter")\n\n',
-            'event: done\ndata: {"model":"gpt-5.4-mini"}\n\n',
+            'event: done\ndata: {"model":"gpt-5.4-mini","source":"  Text(\\"hero\\", \\"Leading spaces matter\\")"}\n\n',
           ]),
           {
             headers: {

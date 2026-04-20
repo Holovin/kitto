@@ -22,6 +22,7 @@ const envSchema = z.object({
   LLM_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(DEFAULT_LLM_RATE_LIMIT_MAX_REQUESTS),
   LLM_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(DEFAULT_LLM_RATE_LIMIT_WINDOW_MS),
   LLM_REQUEST_MAX_BYTES: z.coerce.number().int().positive().default(DEFAULT_LLM_REQUEST_MAX_BYTES),
+  LLM_STRUCTURED_OUTPUT: z.stringbool().default(true),
   LOG_LEVEL: z.enum(['debug', 'error', 'info', 'silent', 'warn']).default('info'),
   OPENAI_API_KEY: z.string().optional().default(''),
   OPENAI_MODEL: z.string().default('gpt-5.4-mini'),

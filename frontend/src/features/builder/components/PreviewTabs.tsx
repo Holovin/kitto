@@ -40,7 +40,7 @@ import {
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
-import type { BuilderParseIssue, BuilderTabId } from '@features/builder/types';
+import type { BuilderChatNotice, BuilderParseIssue, BuilderTabId } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
 type ScopedRuntimeIssues = {
@@ -49,7 +49,7 @@ type ScopedRuntimeIssues = {
 };
 
 interface PreviewTabsProps {
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 function formatJson(value: unknown) {
@@ -75,7 +75,7 @@ function formatByteCount(bytes: number) {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
 }
 
-export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
+export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data }) => ({
@@ -155,7 +155,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
     handleImport,
   } = useBuilderHistoryControls({
     cancelActiveRequestRef: inactiveCancelRequestRef,
-    onFeedbackChange,
+    onSystemNotice,
   });
   const toolbarButtonClassName =
     'h-11 w-11 rounded-full border border-slate-200 bg-white/80 p-0 text-slate-700 shadow-none hover:bg-white hover:text-slate-950';

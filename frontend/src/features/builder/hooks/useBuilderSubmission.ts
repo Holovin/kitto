@@ -25,7 +25,13 @@ import {
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
-import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderLlmResponse, BuilderRequestId } from '@features/builder/types';
+import type {
+  BuilderChatNotice,
+  BuilderLlmRequest,
+  BuilderLlmRequestCompaction,
+  BuilderLlmResponse,
+  BuilderRequestId,
+} from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
@@ -52,7 +58,7 @@ function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
 interface UseBuilderSubmissionOptions {
   abortControllerRef: MutableRefObject<AbortController | null>;
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 class OpenUiValidationError extends Error {
@@ -81,7 +87,7 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
 }
 
-export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: UseBuilderSubmissionOptions) {
+export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
   const handleCancelRef = useRef<() => void>(() => {});
@@ -257,22 +263,31 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
         const qualityWarnings = qualityIssues
           .filter((issue) => issue.severity === 'soft-warning')
-          .map(({ severity: _severity, ...issue }) => issue);
+          .map(({ severity, ...issue }) => {
+            void severity;
+            return issue;
+          });
 
         if (fatalQualityIssues.length > 0) {
-          throw new OpenUiValidationError(
-            createValidationFailureMessage(
-              fatalQualityIssues.map(({ severity: _severity, ...issue }) => issue),
-              parserRepairCount + qualityRepairCount,
-            ),
-          );
+            throw new OpenUiValidationError(
+              createValidationFailureMessage(
+                fatalQualityIssues.map(({ severity, ...issue }) => {
+                  void severity;
+                  return issue;
+                }),
+                parserRepairCount + qualityRepairCount,
+              ),
+            );
         }
 
         if (blockingQualityIssues.length > 0) {
           if (qualityRepairCount >= 1) {
             throw new OpenUiValidationError(
               createValidationFailureMessage(
-                blockingQualityIssues.map(({ severity: _severity, ...issue }) => issue),
+                blockingQualityIssues.map(({ severity, ...issue }) => {
+                  void severity;
+                  return issue;
+                }),
                 parserRepairCount + qualityRepairCount,
               ),
             );
@@ -280,7 +295,10 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
           qualityRepairCount += 1;
           await runRepairRequest(
-            blockingQualityIssues.map(({ severity: _severity, ...issue }) => issue),
+            blockingQualityIssues.map(({ severity, ...issue }) => {
+              void severity;
+              return issue;
+            }),
             qualityRepairCount,
           );
           continue;
@@ -351,7 +369,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       return;
     }
 
-    onFeedbackChange(null);
+    onSystemNotice(null);
     cancelRequest(requestId, { abort: true });
   };
 
@@ -384,14 +402,17 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     const requestValidationError = validateBuilderLlmRequest(request, requestLimits);
 
     if (requestValidationError) {
-      onFeedbackChange(requestValidationError);
+      onSystemNotice({
+        content: requestValidationError,
+        tone: 'error',
+      });
       return;
     }
 
     let receivedChunk = false;
     const requestId = createRequestId();
     const previousRequestId = activeRequestIdRef.current;
-    onFeedbackChange(null);
+    onSystemNotice(null);
     if (previousRequestId) {
       abortRequestHandles(previousRequestId);
     }

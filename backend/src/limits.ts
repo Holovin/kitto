@@ -8,6 +8,7 @@ export const DEFAULT_LLM_RATE_LIMIT_WINDOW_MS = 60_000;
 export const DEFAULT_OPENAI_REQUEST_TIMEOUT_MS = 120_000;
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 45_000;
 const RAW_REQUEST_MAX_BYTES_MULTIPLIER = 4;
+const RAW_STRUCTURED_OUTPUT_MAX_BYTES_MULTIPLIER = 2;
 const textEncoder = new TextEncoder();
 
 interface RuntimeConfigSource {
@@ -31,6 +32,10 @@ export function getByteLength(value: string) {
 
 export function getRawRequestMaxBytes(env: RawRequestLimitSource) {
   return env.LLM_REQUEST_MAX_BYTES * RAW_REQUEST_MAX_BYTES_MULTIPLIER;
+}
+
+export function getRawStructuredOutputMaxBytes(env: LlmOutputLimitSource) {
+  return env.LLM_OUTPUT_MAX_BYTES * RAW_STRUCTURED_OUTPUT_MAX_BYTES_MULTIPLIER;
 }
 
 export function getPublicRuntimeConfig(env: RuntimeConfigSource) {

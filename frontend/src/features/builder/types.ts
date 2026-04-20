@@ -13,6 +13,12 @@ export interface BuilderChatMessage {
   tone?: BuilderMessageTone;
 }
 
+export interface BuilderChatNotice {
+  content: string;
+  messageKey?: BuilderChatMessage['messageKey'];
+  tone?: BuilderChatMessage['tone'];
+}
+
 export type BuilderLlmChatMessageRole = Exclude<BuilderChatMessage['role'], 'system'>;
 
 export interface BuilderLlmChatMessage {

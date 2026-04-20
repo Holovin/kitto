@@ -21,6 +21,15 @@ describe('openui prompts', () => {
     expect(fs.existsSync(componentSpecPath)).toBe(true);
   });
 
+  it('uses a shorter structured-output prompt by default and keeps raw-only boilerplate only for plain-text fallback', () => {
+    const structuredPrompt = buildOpenUiSystemPrompt();
+    const plainTextPrompt = buildOpenUiSystemPrompt({ structuredOutput: false });
+
+    expect(structuredPrompt).not.toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
+    expect(plainTextPrompt).toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
+    expect(structuredPrompt.length).toBeLessThan(plainTextPrompt.length);
+  });
+
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
     const prompt = buildOpenUiSystemPrompt();
 
@@ -361,5 +370,23 @@ describe('openui prompts', () => {
     expect(prompt).toContain('<<<END RECENT_CHAT_CONTEXT_JSON>>>');
     expect(prompt).not.toContain('ignore this older system note');
     expect(prompt).not.toContain('SYSTEM:');
+    expect(prompt).toContain('Place the full updated OpenUI Lang program in the `source` field of the structured response.');
+    expect(prompt).not.toContain('Return the full updated OpenUI Lang program only.');
+  });
+
+  it('keeps the plain-text fallback user prompt instruction when structured output is disabled', () => {
+    const prompt = buildOpenUiUserPrompt(
+      {
+        prompt: 'make a todo app',
+        currentSource: 'root = AppShell([])',
+        chatHistory: [],
+      },
+      {
+        structuredOutput: false,
+      },
+    );
+
+    expect(prompt).toContain('Return the full updated OpenUI Lang program only.');
+    expect(prompt).not.toContain('Place the full updated OpenUI Lang program in the `source` field of the structured response.');
   });
 });

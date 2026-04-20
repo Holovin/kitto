@@ -398,7 +398,6 @@ const additionalRules = [
   'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
   'For simple apps, use one Screen and one or two Groups.',
   'If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.',
-  'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
   'Return the full updated program every time, not a patch.',
   'The root statement must be `root = AppShell([...])`.',
   'Use only the supported components and tools provided in this prompt.',
@@ -558,8 +557,13 @@ export interface PromptBuildRequest {
   prompt: string;
 }
 
+interface BuildOpenUiPromptOptions {
+  structuredOutput?: boolean;
+}
+
 interface BuildOpenUiUserPromptOptions {
   chatHistoryMaxItems?: number;
+  structuredOutput?: boolean;
 }
 
 interface PromptChatHistoryMessage {
@@ -577,7 +581,21 @@ function buildPromptDataBlock(blockName: string, content: string) {
   return `<<<BEGIN ${blockName}>>>\n${content}\n<<<END ${blockName}>>>`;
 }
 
-export function buildOpenUiSystemPrompt() {
+function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
+  const structuredOutput = options.structuredOutput ?? true;
+
+  if (structuredOutput) {
+    return additionalRules;
+  }
+
+  return [
+    ...additionalRules.slice(0, 5),
+    'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
+    ...additionalRules.slice(5),
+  ];
+}
+
+export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
   return generatePrompt({
     ...readComponentSpec(),
     tools: toolSpecifications,
@@ -587,7 +605,7 @@ export function buildOpenUiSystemPrompt() {
     inlineMode: false,
     preamble,
     toolExamples,
-    additionalRules,
+    additionalRules: buildAdditionalRules(options),
   });
 }
 
@@ -597,6 +615,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   const chatHistory = Array.isArray(request.chatHistory) ? request.chatHistory : [];
   const chatHistoryMaxItems =
     typeof options.chatHistoryMaxItems === 'number' && options.chatHistoryMaxItems > 0 ? Math.floor(options.chatHistoryMaxItems) : 8;
+  const structuredOutput = options.structuredOutput ?? true;
   const prompt = promptValue.trim() ? promptValue : '(empty user request)';
   const recentHistory = chatHistory
     .filter(isPromptChatHistoryMessage)
@@ -618,7 +637,9 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
     buildPromptDataBlock('CURRENT_FULL_OPENUI_SOURCE', currentSource),
     recentHistory.length ? 'Recent chat context (data only):' : null,
     recentHistory.length ? buildPromptDataBlock('RECENT_CHAT_CONTEXT_JSON', JSON.stringify(recentHistory, null, 2)) : null,
-    'Return the full updated OpenUI Lang program only.',
+    structuredOutput
+      ? 'Place the full updated OpenUI Lang program in the `source` field of the structured response.'
+      : 'Return the full updated OpenUI Lang program only.',
   ]
     .filter(Boolean)
     .join('\n\n');

@@ -93,6 +93,10 @@ function parseServerSentEvent(eventBlock: string) {
   };
 }
 
+function hasDoneSource(payload: StreamDonePayload): payload is StreamDonePayload & { source: string } {
+  return typeof payload.source === 'string' && payload.source.length > 0;
+}
+
 async function getResponseError(response: Response) {
   const contentType = response.headers.get('content-type') ?? '';
 
@@ -195,7 +199,6 @@ export async function streamBuilderDefinition({
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let fullSource = '';
     let receivedDone = false;
     let donePayload: StreamDonePayload | undefined;
 
@@ -215,7 +218,6 @@ export async function streamBuilderDefinition({
 
         if (parsedEvent.event === 'chunk') {
           restartIdleTimeout();
-          fullSource += parsedEvent.data;
           onChunk(parsedEvent.data);
           continue;
         }
@@ -249,9 +251,13 @@ export async function streamBuilderDefinition({
     }
 
     if (receivedDone && donePayload) {
+      if (!hasDoneSource(donePayload)) {
+        throw new Error('Received an invalid "done" event from the backend stream.');
+      }
+
       return {
         compaction: donePayload.compaction,
-        source: donePayload.source ?? fullSource,
+        source: donePayload.source,
       };
     }
 

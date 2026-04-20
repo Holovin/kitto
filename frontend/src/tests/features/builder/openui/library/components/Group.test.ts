@@ -39,7 +39,7 @@ describe('GroupComponent', () => {
     expect(html).not.toContain('pt-6');
   });
 
-  it('keeps horizontal direction classes for inline groups', () => {
+  it('keeps bottom alignment for horizontal inline groups by default', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Group("Filters", "horizontal", [], "inline")
@@ -49,5 +49,37 @@ describe('GroupComponent', () => {
     expect(html).toContain('md:flex-row');
     expect(html).toContain('md:flex-wrap');
     expect(html).toContain('md:items-end');
+    expect(html).not.toContain('md:items-start');
+  });
+
+  it('keeps bottom alignment for horizontal block groups by default', () => {
+    const html = renderOpenUi(`root = AppShell([
+  Screen("main", "Main", [
+    Group("Filters", "horizontal", [])
+  ])
+])`);
+
+    expect(html).toContain('md:flex-row');
+    expect(html).toContain('md:flex-wrap');
+    expect(html).toContain('md:items-end');
+    expect(html).not.toContain('md:items-start');
+  });
+
+  it('adds a targeted offset hook for buttons that follow stacked fields', () => {
+    const html = renderOpenUi(`$draft = ""
+
+root = AppShell([
+  Screen("main", "Main", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([]), false)
+    ], "inline")
+  ])
+])`);
+
+    expect(html).toContain('data-kitto-stacked-field="true"');
+    expect(html).toContain('data-kitto-button="true"');
+    expect(html).toContain('[&amp;&gt;[data-kitto-stacked-field]~[data-kitto-button]]:mt-[1.75rem]');
+    expect(html).toContain('[&amp;&gt;[data-kitto-stacked-field]~[data-kitto-button]]:self-start');
   });
 });

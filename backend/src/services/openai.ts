@@ -1,11 +1,36 @@
 import OpenAI, { APIUserAbortError } from 'openai';
-import type { ResponseInput } from 'openai/resources/responses/responses';
+import type { ResponseFormatTextJSONSchemaConfig, ResponseInput } from 'openai/resources/responses/responses';
+import { z } from 'zod';
 import type { AppEnv } from '../env.js';
 import { UpstreamFailureError } from '../errors/publicError.js';
-import { getByteLength } from '../limits.js';
+import { getByteLength, getRawStructuredOutputMaxBytes } from '../limits.js';
 import { buildOpenUiSystemPrompt, buildOpenUiUserPrompt, type PromptBuildRequest } from '../prompts/openui.js';
 
 let cachedClient: { apiKey: string; client: OpenAI } | null = null;
+
+export const OpenUiGenerationEnvelopeSchema = z
+  .object({
+    source: z.string().min(1),
+  })
+  .strict();
+
+export type OpenUiGenerationEnvelope = z.infer<typeof OpenUiGenerationEnvelopeSchema>;
+
+const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
+  type: 'json_schema',
+  name: 'kitto_openui_source',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['source'],
+    properties: {
+      source: {
+        type: 'string',
+      },
+    },
+  },
+};
 
 function getClient(env: AppEnv) {
   if (!env.OPENAI_API_KEY) {
@@ -28,13 +53,39 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
   return [
     {
       role: 'system',
-      content: [{ type: 'input_text', text: buildOpenUiSystemPrompt() }],
+      content: [{ type: 'input_text', text: buildOpenUiSystemPrompt({ structuredOutput: env.LLM_STRUCTURED_OUTPUT }) }],
     },
     {
       role: 'user',
-      content: [{ type: 'input_text', text: buildOpenUiUserPrompt(request, { chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS }) }],
+      content: [
+        {
+          type: 'input_text',
+          text: buildOpenUiUserPrompt(request, {
+            chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
+            structuredOutput: env.LLM_STRUCTURED_OUTPUT,
+          }),
+        },
+      ],
     },
   ];
+}
+
+function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
+  const baseRequest = {
+    model: env.OPENAI_MODEL,
+    input: buildResponseInput(env, request),
+  };
+
+  if (!env.LLM_STRUCTURED_OUTPUT) {
+    return baseRequest;
+  }
+
+  return {
+    ...baseRequest,
+    text: {
+      format: openUiEnvelopeFormat,
+    },
+  };
 }
 
 function extractResponseText(response: unknown) {
@@ -98,6 +149,58 @@ function normalizeOpenUiSource(rawSource: unknown) {
   return trimmedSource.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
 }
 
+function createRawStructuredOutputLimitError(outputSizeBytes: number, rawLimitBytes: number) {
+  return new UpstreamFailureError(
+    `Structured model output size ${outputSizeBytes} bytes exceeded the backend raw envelope limit of ${rawLimitBytes} bytes.`,
+  );
+}
+
+function assertRawStructuredOutputWithinLimit(rawOutput: string, env: AppEnv) {
+  const outputSizeBytes = getByteLength(rawOutput);
+  const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
+
+  if (outputSizeBytes > rawLimitBytes) {
+    throw createRawStructuredOutputLimitError(outputSizeBytes, rawLimitBytes);
+  }
+}
+
+function parseOpenUiGenerationEnvelope(rawEnvelopeText: string) {
+  const trimmedEnvelopeText = rawEnvelopeText.trim();
+
+  if (!trimmedEnvelopeText) {
+    throw new UpstreamFailureError('The model returned an empty structured response.');
+  }
+
+  let parsedEnvelope: unknown;
+
+  try {
+    parsedEnvelope = JSON.parse(trimmedEnvelopeText);
+  } catch {
+    throw new UpstreamFailureError('The model returned malformed structured output.');
+  }
+
+  const envelopeResult = OpenUiGenerationEnvelopeSchema.safeParse(parsedEnvelope);
+
+  if (!envelopeResult.success) {
+    throw new UpstreamFailureError('The model returned an invalid OpenUI response envelope.');
+  }
+
+  return envelopeResult.data;
+}
+
+function extractOpenUiSourceFromModelText(rawModelText: unknown, env: AppEnv) {
+  if (env.LLM_STRUCTURED_OUTPUT) {
+    if (typeof rawModelText !== 'string') {
+      throw new UpstreamFailureError('The model response did not include text output.');
+    }
+
+    assertRawStructuredOutputWithinLimit(rawModelText, env);
+    return parseOpenUiGenerationEnvelope(rawModelText).source;
+  }
+
+  return normalizeOpenUiSource(rawModelText);
+}
+
 function throwIfAborted(signal?: AbortSignal, stream?: { abort?: () => void }) {
   if (!signal?.aborted) {
     return;
@@ -120,17 +223,14 @@ function assertModelOutputWithinLimit(source: string, env: AppEnv) {
 export async function generateOpenUiSource(env: AppEnv, request: PromptBuildRequest, signal?: AbortSignal) {
   const client = getClient(env);
   const response = await client.responses.create(
-    {
-      model: env.OPENAI_MODEL,
-      input: buildResponseInput(env, request),
-    },
+    buildResponseRequest(env, request),
     {
       signal,
       timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
     },
   );
 
-  const source = normalizeOpenUiSource(extractResponseText(response));
+  const source = extractOpenUiSourceFromModelText(extractResponseText(response), env);
   assertModelOutputWithinLimit(source, env);
   return source;
 }
@@ -143,10 +243,7 @@ export async function streamOpenUiSource(
 ) {
   const client = getClient(env);
   const stream = client.responses.stream(
-    {
-      model: env.OPENAI_MODEL,
-      input: buildResponseInput(env, request),
-    },
+    buildResponseRequest(env, request),
     {
       signal,
       timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
@@ -181,7 +278,14 @@ export async function streamOpenUiSource(
       if (event.type === 'response.output_text.delta' && event.delta) {
         throwIfAborted(signal, { abort: abortStream });
         streamedTextBytes += getByteLength(event.delta);
-        if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
+        if (env.LLM_STRUCTURED_OUTPUT) {
+          const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
+
+          if (streamedTextBytes > rawLimitBytes) {
+            abortStream();
+            throw createRawStructuredOutputLimitError(streamedTextBytes, rawLimitBytes);
+          }
+        } else if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
           abortStream();
           throw new UpstreamFailureError(
             `Streamed model output exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
@@ -196,7 +300,7 @@ export async function streamOpenUiSource(
     throwIfAborted(signal, { abort: abortStream });
     const finalResponse = await stream.finalResponse();
     throwIfAborted(signal, { abort: abortStream });
-    const source = normalizeOpenUiSource(extractResponseText(finalResponse) ?? streamedText);
+    const source = extractOpenUiSourceFromModelText(streamedText || extractResponseText(finalResponse), env);
     assertModelOutputWithinLimit(source, env);
     return source;
   } finally {

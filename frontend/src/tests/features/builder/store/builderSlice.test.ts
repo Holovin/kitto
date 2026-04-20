@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { BACKEND_RECONNECTED_NOTICE } from '@features/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, normalizeBuilderState } from '@features/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
@@ -336,7 +337,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.appendChatMessage({
         content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-00-00.000Z.html).',
-        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
         role: 'system',
         tone: 'success',
       }),
@@ -346,7 +347,7 @@ describe('builderSlice', () => {
       withFirstDownload,
       builderActions.appendChatMessage({
         content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-30-00.000Z.html).',
-        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
         role: 'system',
         tone: 'success',
       }),
@@ -357,7 +358,41 @@ describe('builderSlice', () => {
       expect.objectContaining({
         content: 'Standalone HTML downloaded (kitto-app-2026-04-20T15-30-00.000Z.html).',
         id: firstDownloadMessageId,
-        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+  });
+
+  it('updates the existing backend connection status message instead of appending a duplicate', () => {
+    const withDisconnectNotice = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content:
+          'Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until /api/health recovers.',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+    const disconnectNoticeId = withDisconnectNotice.chatMessages.at(-1)?.id;
+    const withRecoveryNotice = builderReducer(
+      withDisconnectNotice,
+      builderActions.appendChatMessage({
+        content: BACKEND_RECONNECTED_NOTICE,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+
+    expect(withRecoveryNotice.chatMessages).toHaveLength(1);
+    expect(withRecoveryNotice.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: BACKEND_RECONNECTED_NOTICE,
+        id: disconnectNoticeId,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
         role: 'system',
         tone: 'success',
       }),

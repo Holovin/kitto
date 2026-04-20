@@ -22,6 +22,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 4. Open DevTools:
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/llm` to verify which interactions call the LLM.
+5. While a generation is streaming, it is acceptable for Definition to temporarily show the raw structured JSON envelope instead of bare OpenUI source; only the final committed result matters.
 
 ## MCP automation notes
 

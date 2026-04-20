@@ -7,24 +7,25 @@ import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissio
 import { useBackendConnectionState } from '@features/builder/hooks/useBuilderBootstrap';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
+import { resolveBackendConnectionNotice } from '@features/builder/components/chatNotices';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import { selectChatMessages, selectCommittedSource } from '@features/builder/store/selectors';
-import type { BuilderChatMessage } from '@features/builder/types';
+import type { BuilderChatMessage, BuilderChatNotice } from '@features/builder/types';
 import { useAppSelector } from '@store/hooks';
 
 interface ChatToolbarProps {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 interface ChatComposerProps {
   abortControllerRef: MutableRefObject<AbortController | null>;
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 interface ChatPanelProps {
-  feedback: string | null;
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 function getMessageBubbleClasses(message: BuilderChatMessage) {
@@ -43,7 +44,7 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
   return 'border-slate-200 bg-white text-slate-700';
 }
 
-function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarProps) {
+function ChatToolbar({ cancelActiveRequestRef, onSystemNotice }: ChatToolbarProps) {
   const {
     canRedo,
     canReset,
@@ -54,7 +55,7 @@ function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarPr
     historyVersionLabel,
   } = useBuilderHistoryControls({
     cancelActiveRequestRef,
-    onFeedbackChange,
+    onSystemNotice,
   });
   const toolbarButtonClassName =
     'h-7 rounded-lg border border-slate-200 bg-white/70 px-2 text-xs shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950';
@@ -106,36 +107,39 @@ function ChatToolbar({ cancelActiveRequestRef, onFeedbackChange }: ChatToolbarPr
   );
 }
 
-function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
+function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderChatNotice | null) => void }) {
   const chatMessages = useAppSelector(selectChatMessages);
   const { isError: isBackendDisconnected } = useBackendConnectionState();
+  const previousDisconnectedRef = useRef<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const showEmptyChatHint = !isBackendDisconnected && !feedback && chatMessages.length === 0;
+  const backendStatusMessage =
+    [...chatMessages].reverse().find((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus) ?? null;
+  const showEmptyChatHint = !isBackendDisconnected && chatMessages.length === 0;
   const scrollToLatestMessage = useEffectEvent(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   });
 
   useEffect(() => {
+    const nextNotice = resolveBackendConnectionNotice({
+      backendStatusContent: backendStatusMessage?.content ?? null,
+      isBackendDisconnected,
+      previouslyDisconnected: previousDisconnectedRef.current,
+    });
+
+    previousDisconnectedRef.current = isBackendDisconnected;
+
+    if (nextNotice) {
+      onSystemNotice(nextNotice);
+    }
+  }, [backendStatusMessage?.content, isBackendDisconnected, onSystemNotice]);
+
+  useEffect(() => {
     scrollToLatestMessage();
-  }, [chatMessages.length, feedback, isBackendDisconnected]);
+  }, [chatMessages]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
       <div className="space-y-3 pr-1" style={{ containIntrinsicSize: '720px', contentVisibility: 'auto' }}>
-        {isBackendDisconnected ? (
-          <article className="max-w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700">
-            Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until
-            <span className="font-semibold"> /api/health </span>
-            recovers.
-          </article>
-        ) : null}
-
-        {feedback ? (
-          <article className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-            {feedback}
-          </article>
-        ) : null}
-
         {showEmptyChatHint ? (
           <article className="max-w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
             Describe the app or change you want.
@@ -156,11 +160,11 @@ function ChatHistoryFeed({ feedback }: { feedback: string | null }) {
   );
 }
 
-function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: ChatComposerProps) {
+function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: ChatComposerProps) {
   const { draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } = useBuilderSubmission({
     abortControllerRef,
     cancelActiveRequestRef,
-    onFeedbackChange,
+    onSystemNotice,
   });
   const committedSource = useAppSelector(selectCommittedSource);
   const submitButtonState = getBuilderComposerSubmitState({
@@ -204,7 +208,7 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onFeedbackCh
   );
 }
 
-export function ChatPanel({ feedback, onFeedbackChange }: ChatPanelProps) {
+export function ChatPanel({ onSystemNotice }: ChatPanelProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const cancelActiveRequestRef = useRef<(() => void) | null>(null);
   const abortCurrentRequest = useEffectEvent(() => {
@@ -223,16 +227,16 @@ export function ChatPanel({ feedback, onFeedbackChange }: ChatPanelProps) {
         <CardTitle className="shrink-0 text-2xl">Chat</CardTitle>
         <ChatToolbar
           cancelActiveRequestRef={cancelActiveRequestRef}
-          onFeedbackChange={onFeedbackChange}
+          onSystemNotice={onSystemNotice}
         />
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-        <ChatHistoryFeed feedback={feedback} />
+        <ChatHistoryFeed onSystemNotice={onSystemNotice} />
         <ChatComposer
           abortControllerRef={abortControllerRef}
           cancelActiveRequestRef={cancelActiveRequestRef}
-          onFeedbackChange={onFeedbackChange}
+          onSystemNotice={onSystemNotice}
         />
       </CardContent>
     </Card>

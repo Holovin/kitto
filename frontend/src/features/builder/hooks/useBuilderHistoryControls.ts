@@ -19,12 +19,13 @@ import {
   selectIsStreaming,
   selectRedoHistory,
 } from '@features/builder/store/selectors';
+import type { BuilderChatNotice } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { resetAppState } from '@store/errorRecovery';
 
 interface UseBuilderHistoryControlsOptions {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
-  onFeedbackChange: (message: string | null) => void;
+  onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 let standaloneHtmlModulePromise: Promise<typeof import('@features/builder/standalone/createStandaloneHtml')> | null = null;
@@ -78,7 +79,7 @@ function preloadStandaloneHtmlModule() {
 
 export function useBuilderHistoryControls({
   cancelActiveRequestRef,
-  onFeedbackChange,
+  onSystemNotice,
 }: UseBuilderHistoryControlsOptions) {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,7 +104,7 @@ export function useBuilderHistoryControls({
   const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;
 
   function appendSuccessChatMessage(content: string, messageKey?: string) {
-    onFeedbackChange(null);
+    onSystemNotice(null);
     dispatch(
       builderActions.appendChatMessage({
         content,
@@ -115,7 +116,7 @@ export function useBuilderHistoryControls({
   }
 
   function appendErrorChatMessage(content: string) {
-    onFeedbackChange(null);
+    onSystemNotice(null);
     dispatch(
       builderActions.appendChatMessage({
         content,
@@ -158,7 +159,11 @@ export function useBuilderHistoryControls({
     if (!sourceValidation.isValid) {
       dispatch(builderActions.setActiveTab('definition'));
       dispatch(builderActions.setParseIssues(sourceValidation.issues));
-      onFeedbackChange('Standalone export failed: the committed OpenUI definition is invalid. Review the Definition tab.');
+      onSystemNotice({
+        content: 'Standalone export failed: the committed OpenUI definition is invalid. Review the Definition tab.',
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
+        tone: 'error',
+      });
       return;
     }
 
@@ -175,10 +180,14 @@ export function useBuilderHistoryControls({
       downloadStandaloneHtml(standaloneHtml, downloadFileName);
       appendSuccessChatMessage(
         createStandaloneDownloadSuccessMessage(downloadFileName),
-        SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadSuccess,
+        SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
       );
     } catch (error) {
-      onFeedbackChange(`Standalone export failed: ${getFeedbackMessage(error)}`);
+      onSystemNotice({
+        content: `Standalone export failed: ${getFeedbackMessage(error)}`,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.standaloneHtmlDownloadStatus,
+        tone: 'error',
+      });
     }
   }
 
@@ -225,7 +234,7 @@ export function useBuilderHistoryControls({
           note: createImportSuccessMessage(file.name),
         }),
       );
-      onFeedbackChange(null);
+      onSystemNotice(null);
     } catch (error) {
       appendErrorChatMessage(`Import failed: ${getFeedbackMessage(error)}`);
     } finally {
@@ -259,9 +268,13 @@ export function useBuilderHistoryControls({
     }
 
     cancelActiveRequestRef.current?.();
-    onFeedbackChange(null);
+    onSystemNotice(null);
     resetAppState();
-    onFeedbackChange('Cleared the local app state and reset the builder.');
+    onSystemNotice({
+      content: 'Cleared the local app state and reset the builder.',
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.builderResetStatus,
+      tone: 'info',
+    });
   }
 
   return {

@@ -236,8 +236,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
 
           void (async () => {
             try {
-              let streamedSource = '';
-              const finalSource = await streamOpenUiSource(
+              const source = await streamOpenUiSource(
                 env,
                 request,
                 (delta) => {
@@ -245,12 +244,10 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                     return;
                   }
 
-                  streamedSource += delta;
                   writeEvent('chunk', delta);
                 },
                 abortController.signal,
               );
-              const source = finalSource || streamedSource;
 
               if (abortController.signal.aborted) {
                 closeController();

@@ -1,10 +1,12 @@
 export const SYSTEM_CHAT_MESSAGE_KEYS = {
   appStateReset: 'app-state-reset',
+  backendConnectionStatus: 'backend-connection-status',
+  builderResetStatus: 'builder-reset-status',
   definitionExportSuccess: 'definition-export-success',
   definitionImportStatus: 'definition-import-status',
   demoLoadSuccess: 'demo-load-success',
   historyNavigation: 'history-navigation',
-  standaloneHtmlDownloadSuccess: 'standalone-html-download-success',
+  standaloneHtmlDownloadStatus: 'standalone-html-download-status',
 } as const;
 
 export type SystemChatMessageKey = (typeof SYSTEM_CHAT_MESSAGE_KEYS)[keyof typeof SYSTEM_CHAT_MESSAGE_KEYS];

@@ -134,6 +134,8 @@ Steps:
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
 - Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context
 - The backend user prompt must wrap `currentSource` and recent `chatHistory` in explicit data blocks; treat those blocks as quoted data, not instructions, and let only the latest user request define the task
+- When `LLM_STRUCTURED_OUTPUT=true` (default), the backend asks the OpenAI Responses API for a strict JSON envelope shaped like `{ "source": "..." }` and extracts `.source` before OpenUI validation, quality checks, repair, and commit
+- While a structured stream is in flight, Definition may temporarily show raw JSON envelope draft text from `chunk` events; only `done.source` is eligible for commit
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
 - Every generation must terminate in exactly one state: committed, failed, or cancelled; the frontend must not stay stuck in a streaming state forever
@@ -187,6 +189,7 @@ Steps:
 - Health/model status is exposed through `GET /api/health`
 - The backend rejects oversized raw request bodies before JSON parsing
 - The raw request hard limit is derived from `LLM_REQUEST_MAX_BYTES * 4`
+- Structured model output uses two backend limits: raw envelope bytes are capped at `LLM_OUTPUT_MAX_BYTES * 2`, and the extracted `.source` stays capped at `LLM_OUTPUT_MAX_BYTES`
 - The backend rejects model output above `LLM_OUTPUT_MAX_BYTES` before returning a non-stream response or finalizing an SSE stream
 - Public backend error codes are `validation_error`, `timeout_error`, `upstream_error`, and `internal_error`
 - Rate limiting is in-memory and process-local; do not treat it as distributed-safe production infrastructure

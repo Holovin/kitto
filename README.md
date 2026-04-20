@@ -5,7 +5,7 @@ Kitto OpenUI is a local-first playground for generating small browser apps from 
 ## 1. Overview
 
 - Generate small browser apps from chat prompts and follow-up edits.
-- Stream draft OpenUI into the Definition panel while keeping Preview on the last committed valid app.
+- Stream draft model output into the Definition panel while keeping Preview on the last committed valid app.
 - Support undo/redo, reset, versioned JSON import/export, standalone HTML export, and persisted runtime/domain state.
 - Include an `/elements` route for inspecting the supported OpenUI component and tool surface.
 
@@ -59,9 +59,11 @@ Notes:
 ## 5. AI usage note
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
+- By default, the backend requests a structured Responses API envelope shaped like `{"source":"..."}` and extracts `.source` before OpenUI validation, quality checks, repair, and commit.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; only chat submissions hit `/api/llm/*`.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
+- During streaming, Definition may temporarily show raw structured JSON draft chunks; commit still happens only from the final extracted `done.source`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 
@@ -126,7 +128,7 @@ The supported backend API lives under `/api/*` only.
 - `GET /api/health` returns backend status, configured model, timestamp, and OpenAI key presence.
 - `GET /api/config` returns frontend-safe request limits and stream timeout policy.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
-- `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events.
+- `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events. `chunk` can contain raw structured JSON draft text, while `done.source` carries the extracted OpenUI source used for commit.
 
 ## 10. Additional docs
 
