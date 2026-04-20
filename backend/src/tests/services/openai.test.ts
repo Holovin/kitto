@@ -83,8 +83,20 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
             additionalProperties: false,
             required: ['source'],
             properties: {
+              summary: {
+                type: 'string',
+                maxLength: 200,
+              },
               source: {
                 type: 'string',
+              },
+              notes: {
+                type: 'array',
+                maxItems: 5,
+                items: {
+                  type: 'string',
+                  maxLength: 200,
+                },
               },
             },
           },
@@ -106,11 +118,15 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
         source: 'root = AppShell([])',
       }),
     });
 
-    await expect(generateOpenUiSource(env, request)).resolves.toBe('root = AppShell([])');
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
 
     expect(responsesCreateMock).toHaveBeenCalledTimes(1);
     expectStructuredOutputRequest(responsesCreateMock.mock.calls[0]?.[0]);
@@ -122,15 +138,87 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        summary: 'Repairs the OpenUI document.',
         source: 'root = AppShell([])',
       }),
     });
 
-    await expect(generateOpenUiSource(env, repairRequest)).resolves.toBe('root = AppShell([])');
+    await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
+      summary: 'Repairs the OpenUI document.',
+      source: 'root = AppShell([])',
+    });
 
     expect(responsesCreateMock).toHaveBeenCalledTimes(1);
     expectStructuredOutputRequest(responsesCreateMock.mock.calls[0]?.[0], { temperature: 0.2 });
     expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('seed');
+  });
+
+  it('keeps the same cached system prefix and prompt cache key across initial and repair requests', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-cache',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+    await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(responsesCreateMock).toHaveBeenCalledTimes(2);
+
+    const initialCall = responsesCreateMock.mock.calls[0]?.[0];
+    const repairCall = responsesCreateMock.mock.calls[1]?.[0];
+    const initialSystemPrompt = initialCall?.input?.[0]?.content?.[0]?.text;
+    const repairSystemPrompt = repairCall?.input?.[0]?.content?.[0]?.text;
+
+    expect(initialSystemPrompt).toBe(repairSystemPrompt);
+    expect(initialCall?.prompt_cache_key).toBe(repairCall?.prompt_cache_key);
+    expect(initialCall?.temperature).toBe(0.6);
+    expect(repairCall?.temperature).toBe(0.2);
+  });
+
+  it('logs cached token usage from non-stream Responses API usage details', async () => {
+    const env = createTestEnv({
+      LOG_LEVEL: 'info',
+      OPENAI_API_KEY: 'test-key-usage-log',
+    });
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    responsesCreateMock.mockResolvedValue({
+      _request_id: 'req_usage_log',
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+      usage: {
+        input_tokens: 1800,
+        input_tokens_details: {
+          cached_tokens: 1536,
+        },
+        output_tokens: 42,
+        output_tokens_details: {
+          reasoning_tokens: 0,
+        },
+        total_tokens: 1842,
+      },
+    });
+
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[openai.responses.create] request_id=req_usage_log input_tokens=1800 cached_tokens=1536 output_tokens=42 total_tokens=1842',
+    );
   });
 
   it('rejects malformed structured JSON', async () => {
@@ -184,6 +272,25 @@ describe('generateOpenUiSource', () => {
     await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
   });
 
+  it('accepts optional summary and notes fields in structured envelopes', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-envelope-extra-fields',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        notes: ['Uses one screen only.', 'Keeps local state minimal.'],
+        source: 'root = AppShell([])',
+        summary: 'Builds a simple one-screen app.',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      notes: ['Uses one screen only.', 'Keeps local state minimal.'],
+      source: 'root = AppShell([])',
+      summary: 'Builds a simple one-screen app.',
+    });
+  });
+
   it('rejects raw structured responses above the raw envelope limit', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-6',
@@ -221,7 +328,9 @@ describe('generateOpenUiSource', () => {
       output_text: '```openui\nroot = AppShell([])\n```',
     });
 
-    await expect(generateOpenUiSource(env, request)).resolves.toBe('root = AppShell([])');
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      source: 'root = AppShell([])',
+    });
 
     expect(responsesCreateMock).toHaveBeenCalledTimes(1);
     expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('text');
@@ -297,17 +406,20 @@ describe('streamOpenUiSource', () => {
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream(
       [
-        { type: 'response.output_text.delta', delta: '{"source":"root = ' },
+        { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
         { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
       ],
-      { output_text: '{"source":"root = AppShell([])"}' },
+      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
     );
 
     responsesStreamMock.mockReturnValue(stream);
 
-    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toBe('root = AppShell([])');
+    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
 
-    expect(onTextDelta).toHaveBeenNthCalledWith(1, '{"source":"root = ');
+    expect(onTextDelta).toHaveBeenNthCalledWith(1, '{"summary":"Builds a blank app shell.","source":"root = ');
     expect(onTextDelta).toHaveBeenNthCalledWith(2, 'AppShell([])"}');
     expectStructuredOutputRequest(responsesStreamMock.mock.calls[0]?.[0]);
   });
@@ -402,9 +514,46 @@ describe('streamOpenUiSource', () => {
 
     responsesStreamMock.mockReturnValue(stream);
 
-    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toBe('root = AppShell([])');
+    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      source: 'root = AppShell([])',
+    });
 
     expect(onTextDelta).toHaveBeenCalledWith('```openui\nroot = AppShell([])\n```');
     expect(responsesStreamMock.mock.calls[0]?.[0]).not.toHaveProperty('text');
+  });
+
+  it('logs cached token usage from streamed Responses API usage details', async () => {
+    const env = createTestEnv({
+      LOG_LEVEL: 'info',
+      OPENAI_API_KEY: 'test-key-stream-usage',
+    });
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const onTextDelta = vi.fn();
+    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"source":"root = AppShell([])"}' }], {
+      _request_id: 'req_stream_usage',
+      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+      usage: {
+        input_tokens: 2000,
+        input_tokens_details: {
+          cached_tokens: 1600,
+        },
+        output_tokens: 25,
+        output_tokens_details: {
+          reasoning_tokens: 0,
+        },
+        total_tokens: 2025,
+      },
+    });
+
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[openai.responses.stream] request_id=req_stream_usage input_tokens=2000 cached_tokens=1600 output_tokens=25 total_tokens=2025',
+    );
   });
 });

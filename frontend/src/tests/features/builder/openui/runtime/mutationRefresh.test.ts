@@ -246,7 +246,10 @@ addItem = Mutation("append_state", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -265,7 +268,8 @@ root = AppShell([
       },
     });
     expect(harness.getQueryResult('items')).toEqual([{ title: 'Ship fix', completed: false }]);
-    expect(harness.getCheckboxLabels()).toContain('Ship fix');
+    expect(harness.getTextValues()).toContain('Ship fix');
+    expect(harness.getTextValues()).toContain('Open');
   });
 
   it('updates a visible text after write_computed_state reruns the matching read_state query', async () => {
@@ -304,7 +308,10 @@ addItem = Mutation("append_state", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -323,7 +330,7 @@ root = AppShell([
       },
     });
     expect(harness.getQueryResult('items')).not.toEqual([{ title: 'Stale item', completed: false }]);
-    expect(harness.getCheckboxLabels()).not.toContain('Stale item');
+    expect(harness.getTextValues()).not.toContain('Stale item');
   });
 
   it('surfaces mutation tool failures as runtime issues', async () => {
@@ -332,7 +339,10 @@ addItem = Mutation("append_state", {
   path: "   ",
   value: { title: "Broken", completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [

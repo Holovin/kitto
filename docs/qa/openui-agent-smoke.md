@@ -22,7 +22,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 4. Open DevTools:
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/llm` to verify which interactions call the LLM.
-5. While a generation is streaming, it is acceptable for Definition to temporarily show the raw structured JSON envelope instead of bare OpenUI source; only the final committed result matters.
+5. While a generation is streaming, Chat should surface a human-readable pending assistant summary such as `Building: ...`, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
+6. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no extra repair LLM request is sent.
 
 ## MCP automation notes
 
@@ -51,6 +52,7 @@ Create a todo list.
 ### Expected
 
 - The app commits successfully.
+- While the request is streaming, chat shows one human-readable pending assistant summary before commit.
 - The app has a simple todo UI:
   - task input;
   - add button;
@@ -73,6 +75,7 @@ Record:
 
 - pass/fail;
 - whether repair happened;
+- whether the pending summary appeared before commit;
 - whether the app was overcomplicated;
 - whether the missing-controls warning appeared;
 - whether add task worked.
@@ -116,6 +119,7 @@ Add a required checkbox confirmation before the result screen.
 - Existing quiz flow remains usable.
 - Checkbox appears before result/submit.
 - Checkbox affects the flow or validation.
+- The pre-commit chat summary stays readable and the committed assistant summary remains in chat after success.
 - Final committed source is valid.
 - If repair runs, final repaired app still works.
 - No broken actions or unresolved refs.
@@ -126,6 +130,7 @@ Record:
 
 - pass/fail;
 - whether repair happened;
+- whether the summary stayed in chat after commit;
 - whether existing flow survived.
 
 ## Scenario 4 — Theme / appearance / active theme button
@@ -227,8 +232,9 @@ Create a task list with completed status and a filter with All, Active and Compl
 ### Expected
 
 - User can add multiple items.
-- Completion may stay read-only for now; interactive persisted toggles are not required until action-mode lands.
+- Completion may stay read-only for now, for example as `Done` / `Open` text in each row; interactive persisted toggles are not required until action-mode lands.
 - If completion is interactive, it must use an explicit persisted mutation + refresh flow instead of assuming regular `Checkbox(...)` writes directly into `app.items`.
+- Any row action must reference top-level `Query(...)` / `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
 - Definition re-runs the visible `Query("read_state", ...)` after persisted add mutations, and after complete mutations only when interactive completion exists.
 - All filter shows all items.
 - Active filter shows incomplete items.
@@ -366,6 +372,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 ### Expected
 
 - If first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
+- Trivial parser issues with local `suggestion` patches may be fixed in the browser before repair; in that case no repair request should run.
 - If repair succeeds, final app is valid and usable.
 - If repair fails, previous Preview remains visible.
 - Partial or bad draft is not committed.
@@ -376,6 +383,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 Record:
 
 - pass/fail;
+- whether a local auto-fix happened before repair;
 - whether repair happened;
 - whether repair succeeded;
 - whether Preview stayed stable.

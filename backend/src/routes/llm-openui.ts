@@ -178,13 +178,13 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
   llmRoutes.post('/llm/generate', async (context) => {
     try {
       const { compaction, request } = await parseLlmRequest(context, env);
-      const source = await generateOpenUiSource(env, request, context.req.raw.signal);
-      assertModelOutputWithinLimit(source, env);
+      const responseEnvelope = await generateOpenUiSource(env, request, context.req.raw.signal);
+      assertModelOutputWithinLimit(responseEnvelope.source, env);
 
       return context.json({
         compaction,
         model: env.OPENAI_MODEL,
-        source,
+        ...responseEnvelope,
       });
     } catch (error) {
       logServerError(error, 'POST /api/llm/generate');
@@ -239,7 +239,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
 
           void (async () => {
             try {
-              const source = await streamOpenUiSource(
+              const responseEnvelope = await streamOpenUiSource(
                 env,
                 request,
                 (delta) => {
@@ -257,13 +257,13 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                 return;
               }
 
-              assertModelOutputWithinLimit(source, env);
+              assertModelOutputWithinLimit(responseEnvelope.source, env);
               writeEvent(
                 'done',
                 JSON.stringify({
                   compaction,
                   model: env.OPENAI_MODEL,
-                  source,
+                  ...responseEnvelope,
                 }),
               );
               closeController();

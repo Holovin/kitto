@@ -234,7 +234,7 @@ describe('createLlmOpenUiRoutes', () => {
     const { app } = createRouteApp({
       LLM_OUTPUT_MAX_BYTES: 12,
     });
-    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -313,7 +313,10 @@ describe('createLlmOpenUiRoutes', () => {
       { role: 'user' as const, content: 'recent user message' },
       { role: 'assistant' as const, content: 'most recent assistant reply' },
     ];
-    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
+    });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -338,6 +341,7 @@ describe('createLlmOpenUiRoutes', () => {
       },
       model: 'gpt-test-model',
       source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
     });
     expect(calledEnv).toBe(env);
     expect(calledRequest).toEqual({
@@ -354,7 +358,10 @@ describe('createLlmOpenUiRoutes', () => {
       LLM_CHAT_HISTORY_MAX_ITEMS: 2,
       OPENAI_MODEL: 'gpt-test-model',
     });
-    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
+    });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -385,6 +392,7 @@ describe('createLlmOpenUiRoutes', () => {
       },
       model: 'gpt-test-model',
       source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
     });
     expect(calledRequest).toEqual({
       prompt: 'build a compact app',
@@ -399,7 +407,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes through explicit repair mode to the OpenAI service request', async () => {
     const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -433,7 +441,7 @@ describe('createLlmOpenUiRoutes', () => {
       { role: 'assistant' as const, content: 'b'.repeat(120) },
       { role: 'user' as const, content: 'c'.repeat(120) },
     ];
-    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -475,9 +483,12 @@ describe('createLlmOpenUiRoutes', () => {
       OPENAI_MODEL: 'gpt-stream-model',
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
-      await onTextDelta('{"source":"root = ');
+      await onTextDelta('{"summary":"Builds a tiny app.","source":"root = ');
       await onTextDelta('AppShell([])"}');
-      return 'root = AppShell([])';
+      return {
+        source: 'root = AppShell([])',
+        summary: 'Builds a tiny app.',
+      };
     });
 
     const response = await app.request('/api/llm/generate/stream', {
@@ -507,12 +518,13 @@ describe('createLlmOpenUiRoutes', () => {
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(events).toHaveLength(3);
-    expect(events[0]).toEqual({ event: 'chunk', data: '{"source":"root = ' });
+    expect(events[0]).toEqual({ event: 'chunk', data: '{"summary":"Builds a tiny app.","source":"root = ' });
     expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])"}' });
     expect(events[2]?.event).toBe('done');
     expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
       model: 'gpt-stream-model',
       source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
     });
   });
 
@@ -538,6 +550,37 @@ describe('createLlmOpenUiRoutes', () => {
 
     expect(response.status).toBe(200);
     expect(events).toEqual([{ event: 'chunk', data: 'root = ' }]);
+  });
+
+  it('returns optional summary and notes fields from non-stream generation', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-test-model',
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      notes: ['Kept the existing layout.'],
+      source: 'root = AppShell([])',
+      summary: 'Adds a welcome screen.',
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'add a welcome screen',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      model: 'gpt-test-model',
+      notes: ['Kept the existing layout.'],
+      source: 'root = AppShell([])',
+      summary: 'Adds a welcome screen.',
+    });
   });
 
   it('emits an error SSE event when the backend stream hits the output limit', async () => {

@@ -14,7 +14,7 @@ import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from '@features/builder/h
 import { resolveBuilderComposerPrompt } from '@features/builder/hooks/submissionPrompt';
 import { createValidationFailureMessage } from '@features/builder/hooks/validationFailureMessage';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
   selectChatMessages,
   selectCommittedSource,
@@ -30,6 +30,7 @@ import type {
   BuilderLlmRequest,
   BuilderLlmRequestCompaction,
   BuilderLlmResponse,
+  BuilderParseIssue,
   BuilderRequestId,
 } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
@@ -87,6 +88,40 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+function getStreamingSummaryMessageKey(requestId: BuilderRequestId) {
+  return `generation-summary:${requestId}`;
+}
+
+function formatPendingSummary(summary: string) {
+  const trimmedSummary = summary.trim();
+
+  if (!trimmedSummary) {
+    return '';
+  }
+
+  return `Building: ${trimmedSummary}${trimmedSummary.endsWith('…') ? '' : '…'}`;
+}
+
+function normalizeCommittedSummary(messageContent: string) {
+  const trimmedContent = messageContent.trim();
+
+  if (!trimmedContent.startsWith('Building: ')) {
+    return trimmedContent;
+  }
+
+  const normalizedSummary = trimmedContent.slice('Building: '.length).trim();
+  return normalizedSummary.endsWith('…') ? normalizedSummary.slice(0, -1).trim() : normalizedSummary;
+}
+
+function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
+  if (appliedIssues.length === 0) {
+    return;
+  }
+
+  const appliedLabels = appliedIssues.map((issue) => `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}`);
+  console.info(`[builder.validation] auto-fixed locally: ${appliedLabels.join(', ')}`);
+}
+
 export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
@@ -130,6 +165,48 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     abortControllerRef.current = null;
   }
 
+  function clearStreamingSummaryMessage(requestId: BuilderRequestId) {
+    dispatch(
+      builderActions.removeChatMessageByKey({
+        messageKey: getStreamingSummaryMessageKey(requestId),
+      }),
+    );
+  }
+
+  function getCommittedSummary(requestId: BuilderRequestId, summary?: string) {
+    const trimmedSummary = typeof summary === 'string' ? summary.trim() : '';
+
+    if (trimmedSummary) {
+      return trimmedSummary;
+    }
+
+    const pendingSummaryMessage = store
+      .getState()
+      .builder.chatMessages.find((message) => message.messageKey === getStreamingSummaryMessageKey(requestId));
+
+    if (!pendingSummaryMessage) {
+      return '';
+    }
+
+    return normalizeCommittedSummary(pendingSummaryMessage.content);
+  }
+
+  function upsertStreamingSummaryMessage(requestId: BuilderRequestId, summary: string, options?: { pending?: boolean }) {
+    const trimmedSummary = summary.trim();
+
+    if (!trimmedSummary) {
+      return;
+    }
+
+    dispatch(
+      builderActions.appendChatMessage({
+        content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
+        messageKey: getStreamingSummaryMessageKey(requestId),
+        role: 'assistant',
+      }),
+    );
+  }
+
   function abortRequestHandles(requestId: BuilderRequestId) {
     if (activeRequestIdRef.current !== requestId) {
       return;
@@ -148,6 +225,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   function cancelRequest(requestId: BuilderRequestId, options?: { abort?: boolean }) {
+    clearStreamingSummaryMessage(requestId);
+
     if (options?.abort) {
       abortRequestHandles(requestId);
     } else {
@@ -159,6 +238,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
+    clearStreamingSummaryMessage(requestId);
+
     if (options?.abort) {
       abortRequestHandles(requestId);
     } else {
@@ -194,8 +275,16 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     });
   }
 
-  async function ensureValidGeneratedSource(initialSource: string, request: BuilderLlmRequest, requestId: BuilderRequestId) {
-    let candidateSource = initialSource;
+  async function ensureValidGeneratedSource(
+    initialResponse: Pick<BuilderLlmResponse, 'notes' | 'source' | 'summary'>,
+    request: BuilderLlmRequest,
+    requestId: BuilderRequestId,
+  ) {
+    let candidateResponse: Pick<BuilderLlmResponse, 'notes' | 'source' | 'summary'> = {
+      notes: initialResponse.notes,
+      source: initialResponse.source,
+      summary: initialResponse.summary,
+    };
     let parserRepairCount = 0;
     let qualityRepairCount = 0;
     let hasAnnouncedRepair = false;
@@ -222,7 +311,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         prompt: buildRepairPrompt({
           userPrompt: request.prompt,
           committedSource: request.currentSource,
-          invalidSource: candidateSource,
+          invalidSource: candidateResponse.source,
           issues,
           attemptNumber,
           promptMaxChars: requestLimits.promptMaxChars,
@@ -252,14 +341,31 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       const repairedResponse = await runGenerateRequest(requestId, repairRequest);
       throwIfInactiveRequest(requestId);
       hasCompletedRepairRequest = true;
-      candidateSource = repairedResponse.source;
+      candidateResponse = {
+        notes: repairedResponse.notes,
+        source: repairedResponse.source,
+        summary: repairedResponse.summary,
+      };
     }
 
     while (true) {
-      const validation = validateOpenUiSource(candidateSource);
+      const validation = validateOpenUiSource(candidateResponse.source);
+
+      if (!validation.isValid) {
+        const autoFixResult = applyOpenUiIssueSuggestions(candidateResponse.source, validation.issues);
+
+        if (autoFixResult.appliedIssues.length > 0 && autoFixResult.source !== candidateResponse.source) {
+          candidateResponse = {
+            ...candidateResponse,
+            source: autoFixResult.source,
+          };
+          logLocalAutoFix(autoFixResult.appliedIssues);
+          continue;
+        }
+      }
 
       if (validation.isValid) {
-        const qualityIssues = detectOpenUiQualityIssues(candidateSource, request.prompt);
+        const qualityIssues = detectOpenUiQualityIssues(candidateResponse.source, request.prompt);
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
         const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
         const qualityWarnings = qualityIssues
@@ -307,7 +413,9 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
         return {
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
-          source: candidateSource,
+          notes: candidateResponse.notes,
+          source: candidateResponse.source,
+          summary: candidateResponse.summary,
           warnings: qualityWarnings,
         };
       }
@@ -338,14 +446,19 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   async function commitGeneratedSource(
-    response: Pick<BuilderLlmResponse, 'compaction' | 'source'>,
+    response: Pick<BuilderLlmResponse, 'compaction' | 'notes' | 'source' | 'summary'>,
     request: BuilderLlmRequest,
     requestId: BuilderRequestId,
   ) {
     throwIfInactiveRequest(requestId);
-    const validatedResult = await ensureValidGeneratedSource(response.source, request, requestId);
+    const validatedResult = await ensureValidGeneratedSource(response, request, requestId);
     throwIfInactiveRequest(requestId);
     const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
+    const committedSummary = getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
+
+    if (committedSummary) {
+      upsertStreamingSummaryMessage(requestId, committedSummary);
+    }
 
     applyCompactionNotice(requestId, response.compaction);
     throwIfInactiveRequest(requestId);
@@ -355,6 +468,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         requestId,
         source: validatedResult.source,
         note: validatedResult.note,
+        skipDefaultAssistantMessage: Boolean(committedSummary),
         snapshot,
         warnings: validatedResult.warnings,
       }),
@@ -435,6 +549,13 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         onChunk: (chunk) => {
           receivedChunk = true;
           dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
+        },
+        onSummary: (summary) => {
+          if (!isActiveRequest(requestId)) {
+            return;
+          }
+
+          upsertStreamingSummaryMessage(requestId, summary, { pending: true });
         },
         onTimeout: (kind) => {
           handleStreamTimeout(requestId, kind, request.prompt);

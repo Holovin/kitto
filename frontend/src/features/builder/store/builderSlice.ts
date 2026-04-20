@@ -205,6 +205,18 @@ interface BuilderState {
   streamedSource: string;
 }
 
+function removeMessageByKey(messages: BuilderChatMessage[], messageKey: BuilderChatMessage['messageKey']) {
+  if (!messageKey) {
+    return;
+  }
+
+  const messageIndex = messages.findIndex((message) => message.messageKey === messageKey);
+
+  if (messageIndex >= 0) {
+    messages.splice(messageIndex, 1);
+  }
+}
+
 function isRejectedDefinitionState(
   state: Pick<BuilderState, 'committedSource' | 'isStreaming' | 'parseIssues' | 'streamedSource'>,
 ) {
@@ -328,6 +340,7 @@ export const builderSlice = createSlice({
       action: PayloadAction<{
         note?: string;
         requestId: BuilderRequestId;
+        skipDefaultAssistantMessage?: boolean;
         snapshot: BuilderSnapshot;
         source: string;
         warnings: BuilderParseIssue[];
@@ -348,16 +361,30 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
       state.redoHistory = [];
-      pushMessage(
-        state.chatMessages,
-        createMessage(
-          'assistant',
-          action.payload.note ?? 'Updated the app definition from the latest chat instruction.',
-          'success',
-          undefined,
-          true,
-        ),
-      );
+
+      if (action.payload.note) {
+        pushMessage(
+          state.chatMessages,
+          createMessage(
+            'assistant',
+            action.payload.note,
+            'success',
+            undefined,
+            true,
+          ),
+        );
+      } else if (!action.payload.skipDefaultAssistantMessage) {
+        pushMessage(
+          state.chatMessages,
+          createMessage(
+            'assistant',
+            'Updated the app definition from the latest chat instruction.',
+            'success',
+            undefined,
+            true,
+          ),
+        );
+      }
     },
     failStreaming(
       state,
@@ -437,6 +464,14 @@ export const builderSlice = createSlice({
           action.payload.excludeFromLlmContext,
         ),
       );
+    },
+    removeChatMessageByKey(
+      state,
+      action: PayloadAction<{
+        messageKey: BuilderChatMessage['messageKey'];
+      }>,
+    ) {
+      removeMessageByKey(state.chatMessages, action.payload.messageKey);
     },
     resetCurrentAppState(state) {
       const latestSnapshot = state.history.at(-1);

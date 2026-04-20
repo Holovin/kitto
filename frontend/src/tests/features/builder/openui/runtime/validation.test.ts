@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { detectOpenUiQualityIssues, detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import {
+  applyOpenUiIssueSuggestions,
+  detectOpenUiQualityIssues,
+  detectOpenUiQualityWarnings,
+  validateOpenUiSource,
+} from '@features/builder/openui/runtime/validation';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -317,6 +322,35 @@ root = AppShell([
     expect(result.issues.length).toBeGreaterThan(0);
   });
 
+  it('adds a local auto-fix suggestion for misordered Group direction and children arguments', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Group("Filters", [
+      Text("Pending", "body", "start")
+    ], "block")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-args',
+          message: expect.stringContaining('Group'),
+          suggestion: {
+            kind: 'replace-text',
+            from: `Group("Filters", [
+      Text("Pending", "body", "start")
+    ], "block")`,
+            to: `Group("Filters", "vertical", [
+      Text("Pending", "body", "start")
+    ], "block")`,
+          },
+        }),
+      ]),
+    );
+  });
+
   it('rejects invalid Input types', () => {
     const result = validateOpenUiSource(`$site = ""
 root = AppShell([
@@ -482,6 +516,28 @@ root = AppShell([
     );
   });
 
+  it('adds a local auto-fix suggestion for legacy appearance keys', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          suggestion: {
+            kind: 'replace-text',
+            from: `Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })`,
+            to: `Button("save", "Save", "default", Action([]), false, { contrastColor: "#FFFFFF", mainColor: "#111827" })`,
+          },
+        }),
+      ]),
+    );
+  });
+
   it('rejects unknown appearance keys', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
@@ -552,6 +608,47 @@ ${validSource}`);
       ]),
     );
   });
+
+  it('adds a local auto-fix suggestion for a Screen missing the required children array', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main")
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-args',
+          suggestion: {
+            kind: 'replace-text',
+            from: 'Screen("main", "Main")',
+            to: 'Screen("main", "Main", [])',
+          },
+        }),
+      ]),
+    );
+  });
+
+  it('can apply all local suggestion patches and make a trivial invalid draft valid again', () => {
+    const invalidSource = `root = AppShell({ mainColor: "#FFFFFF", contrastColor: "#111827" }, [
+  Screen("main", "Main", [
+    Group("Filters", [
+      Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
+    ], "block")
+  ]),
+  Screen("settings", "Settings")
+])`;
+    const validation = validateOpenUiSource(invalidSource);
+    const autoFixResult = applyOpenUiIssueSuggestions(invalidSource, validation.issues);
+    const fixedValidation = validateOpenUiSource(autoFixResult.source);
+
+    expect(validation.isValid).toBe(false);
+    expect(autoFixResult.appliedIssues.length).toBeGreaterThanOrEqual(4);
+    expect(fixedValidation).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
 });
 
 describe('detectOpenUiQualityWarnings', () => {
@@ -564,7 +661,8 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Checkbox(item.title, item.title, item.completed)
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
 ], "inline"))
 
 root = AppShell([
@@ -811,6 +909,44 @@ describe('detectOpenUiQualityIssues', () => {
     );
   });
 
+  it('rejects inline tool calls inside @Each row actions via parser or blocking quality issues', () => {
+    const source = `$selectedItemId = ""
+items = Query("read_state", { path: "app.items" }, [
+  { id: "a", title: "Alpha" }
+])
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Button("pick-item", "Pick", "default", Action([
+    @Set($selectedItemId, item.id),
+    @Run(Mutation("write_state", { path: "app.selectedItemId", value: $selectedItemId }))
+  ]), false)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Items", [
+    Repeater(rows, "No items yet.")
+  ])
+])`;
+
+    const validation = validateOpenUiSource(source);
+    const issues = detectOpenUiQualityIssues(source, 'Create an item browser with row actions.');
+    const parserCaughtInlineTool = validation.issues.some((issue) => issue.code === 'inline-reserved');
+    const qualityIssue = issues.find((issue) => issue.code === 'inline-tool-in-each');
+
+    expect(parserCaughtInlineTool || qualityIssue != null).toBe(true);
+
+    if (!parserCaughtInlineTool) {
+      expect(qualityIssue).toEqual(
+        expect.objectContaining({
+          code: 'inline-tool-in-each',
+          message: expect.stringContaining('must be top-level statements'),
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      );
+    }
+  });
+
   it('marks stale append_state refresh as blocking', () => {
     const issues = detectOpenUiQualityIssues(
       `$draft = ""
@@ -819,7 +955,10 @@ addItem = Mutation("append_state", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -853,7 +992,10 @@ addItem = Mutation("append_state", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -887,7 +1029,10 @@ toggleFirst = Mutation("merge_state", {
   path: "app.items.0",
   patch: { completed: true }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -951,7 +1096,10 @@ toggleFirst = Mutation("merge_state", {
   path: "app.items.0",
   patch: { completed: true }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [
@@ -1080,7 +1228,10 @@ addItem = Mutation("append_state", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
-rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Todo list", [

@@ -45,10 +45,17 @@ export interface BuilderDefinitionExport {
   history: BuilderSnapshot[];
 }
 
+export interface BuilderParseIssueSuggestion {
+  kind: 'replace-text';
+  from: string;
+  to: string;
+}
+
 export interface BuilderParseIssue {
   code: string;
   message: string;
   statementId?: string;
+  suggestion?: BuilderParseIssueSuggestion;
   source?: 'mutation' | 'parser' | 'quality' | 'query' | 'runtime';
 }
 
@@ -68,7 +75,9 @@ export interface BuilderLlmRequestCompaction {
 export interface BuilderLlmResponse {
   compaction?: BuilderLlmRequestCompaction;
   model: string;
+  notes?: string[];
   source: string;
+  summary?: string;
 }
 
 export interface BuilderConfigResponse {

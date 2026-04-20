@@ -119,8 +119,10 @@ vi.mock('react', async () => {
 
   return {
     ...actual,
-    useCallback: <Callback extends (...args: never[]) => unknown>(callback: Callback, _deps?: unknown[]) =>
-      getRuntime().useCallback(callback),
+    useCallback: <Callback extends (...args: never[]) => unknown>(callback: Callback, deps?: unknown[]) => {
+      void deps;
+      return getRuntime().useCallback(callback);
+    },
     useEffect: (effect: () => void | (() => void), deps?: unknown[]) => getRuntime().useEffect(effect, deps),
     useRef: <Value>(initialValue: Value) => getRuntime().useRef(initialValue),
   };
@@ -251,6 +253,24 @@ const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const AUTO_FIXABLE_SOURCE = `root = AppShell({ mainColor: "#FFFFFF", contrastColor: "#111827" }, [
+  Screen("main", "Main", [
+    Group("Filters", [
+      Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
+    ], "block")
+  ]),
+  Screen("settings", "Settings")
+])`;
+
+const AUTO_FIXED_SOURCE = `root = AppShell([
+  Screen("main", "Main", [
+    Group("Filters", "vertical", [
+      Button("save", "Save", "default", Action([]), false, { contrastColor: "#FFFFFF", mainColor: "#111827" })
+    ], "block")
+  ]),
+  Screen("settings", "Settings", [])
+], { mainColor: "#FFFFFF", contrastColor: "#111827" })`;
+
 const VALID_TODO_SOURCE = `$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
@@ -258,7 +278,8 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Checkbox(item.title, item.title, item.completed)
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
 ], "inline"))
 
 root = AppShell([
@@ -515,6 +536,49 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('shows a pending streamed summary in chat and keeps the final summary in LLM context after commit', async () => {
+    setDraftPrompt('Add a welcome screen.');
+    const submission = createSubmissionHarness();
+    const streamResult = createDeferred<{ source: string; summary: string }>();
+
+    testHarness.streamMock.mockImplementationOnce(
+      async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
+        onSummary?.('Adds a welcome screen');
+        return streamResult.promise;
+      },
+    );
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+    await flushMicrotasks();
+
+    expect(findChatMessage('Building: Adds a welcome screen…')).toEqual(
+      expect.objectContaining({
+        content: 'Building: Adds a welcome screen…',
+        role: 'assistant',
+      }),
+    );
+
+    streamResult.resolve({
+      source: VALID_STREAM_SOURCE,
+      summary: 'Adds a welcome screen',
+    });
+    await requestPromise;
+
+    expect(findChatMessage('Building: Adds a welcome screen…')).toBeUndefined();
+    expect(findChatMessage('Adds a welcome screen')).toEqual(
+      expect.objectContaining({
+        content: 'Adds a welcome screen',
+        excludeFromLlmContext: undefined,
+        role: 'assistant',
+      }),
+    );
+    expect(getBuilderState().chatMessages.some((message) => message.content === 'Updated the app definition from the latest chat instruction.')).toBe(
+      false,
+    );
+
+    submission.unmount();
+  });
+
   it('blocks an oversized request before sending it to the backend', async () => {
     seedCommittedSource('x'.repeat(512));
     setDraftPrompt('Build a small app.');
@@ -567,6 +631,27 @@ describe('useBuilderSubmission', () => {
       }),
     );
 
+    submission.unmount();
+  });
+
+  it('auto-fixes trivial validation issues locally before triggering repair', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+    const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    testHarness.streamMock.mockResolvedValue({
+      source: AUTO_FIXABLE_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(getBuilderState().committedSource).toBe(AUTO_FIXED_SOURCE);
+    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
+    expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('auto-fixed locally'));
+
+    consoleInfoSpy.mockRestore();
     submission.unmount();
   });
 
@@ -672,6 +757,26 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
     expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
+
+    submission.unmount();
+  });
+
+  it('removes the pending streamed summary when the request fails before commit', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockImplementationOnce(async ({ onChunk, onSummary }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void }) => {
+      onSummary?.('Creates a settings app');
+      onChunk('partial draft');
+      throw new Error('The model stream ended before it returned any OpenUI source.');
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+    expect(findChatMessage('Creates a settings app')).toBeUndefined();
+    expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
 
     submission.unmount();
   });

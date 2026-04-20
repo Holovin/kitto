@@ -76,13 +76,13 @@ describe('streamBuilderDefinition', () => {
     vi.useRealTimers();
   });
 
-  it('streams raw JSON chunk events across read boundaries and returns the extracted final source', async () => {
+  it('parses structured JSON chunk events into source deltas across read boundaries and returns the final envelope', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         createTextStream([
-          'event: chunk\ndata: {"source":"root = App',
+          'event: chunk\ndata: {"summary":"Builds a blank app shell.","source":"root = App',
           'Shell([])"}\n\n',
-          'event: done\ndata: {"source":"root = AppShell([])","compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
+          'event: done\ndata: {"summary":"Builds a blank app shell.","source":"root = AppShell([])","compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
         ]),
         {
           headers: {
@@ -98,7 +98,7 @@ describe('streamBuilderDefinition', () => {
     const result = await streamBuilderDefinition(createStreamRequestOptions({ onChunk }));
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/api/llm/generate/stream', expect.any(Object));
-    expect(onChunk).toHaveBeenNthCalledWith(1, '{"source":"root = AppShell([])"}');
+    expect(onChunk).toHaveBeenNthCalledWith(1, 'root = AppShell([])');
     expect(result).toEqual({
       compaction: {
         compactedByBytes: false,
@@ -106,6 +106,7 @@ describe('streamBuilderDefinition', () => {
         omittedChatMessages: 2,
       },
       source: 'root = AppShell([])',
+      summary: 'Builds a blank app shell.',
     });
   });
 
@@ -203,7 +204,7 @@ describe('streamBuilderDefinition', () => {
     ).rejects.toThrow('Received an invalid "done" event from the backend stream.');
   });
 
-  it('preserves meaningful leading spaces in chunk data', async () => {
+  it('preserves meaningful leading spaces in plain-text chunk data', async () => {
     const onChunk = vi.fn();
 
     vi.stubGlobal(
@@ -233,6 +234,44 @@ describe('streamBuilderDefinition', () => {
     });
 
     expect(onChunk).toHaveBeenCalledWith('  Text("hero", "Leading spaces matter")');
+  });
+
+  it('emits summary updates as soon as the structured envelope includes summary', async () => {
+    const onChunk = vi.fn();
+    const onSummary = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\ndata: {"summary":"Builds a\n\n',
+            'event: chunk\ndata:  todo list","source":"root = AppShell([])"}\n\n',
+            'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])","notes":["Keeps one screen only."]}\n\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        ...createStreamRequestOptions({ onChunk, onSummary }),
+      }),
+    ).resolves.toEqual({
+      notes: ['Keeps one screen only.'],
+      source: 'root = AppShell([])',
+      summary: 'Builds a todo list',
+    });
+
+    expect(onSummary).toHaveBeenCalledWith('Builds a');
+    expect(onSummary).toHaveBeenLastCalledWith('Builds a todo list');
+    expect(onChunk).toHaveBeenCalledWith('root = AppShell([])');
   });
 
   it('throws when the stream ends without a done event', async () => {

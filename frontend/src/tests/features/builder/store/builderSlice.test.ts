@@ -164,6 +164,48 @@ describe('builderSlice', () => {
     vi.useRealTimers();
   });
 
+  it('can skip the default assistant completion note when a streamed summary message already exists', () => {
+    const started = builderReducer(
+      createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Add a welcome screen',
+        requestId: 'request-summary',
+      }),
+    );
+    const withPendingSummary = builderReducer(
+      started,
+      builderActions.appendChatMessage({
+        content: 'Building: Adds a welcome screen…',
+        messageKey: 'generation-summary:request-summary',
+        role: 'assistant',
+      }),
+    );
+    const snapshot = createBuilderSnapshot(validSource, {}, {});
+    const completed = builderReducer(
+      withPendingSummary,
+      builderActions.completeStreaming({
+        requestId: 'request-summary',
+        skipDefaultAssistantMessage: true,
+        snapshot,
+        source: validSource,
+        warnings: [],
+      }),
+    );
+
+    expect(
+      completed.chatMessages.filter((message) => message.content === 'Updated the app definition from the latest chat instruction.'),
+    ).toHaveLength(0);
+    expect(completed.chatMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Building: Adds a welcome screen…',
+          messageKey: 'generation-summary:request-summary',
+          role: 'assistant',
+        }),
+      ]),
+    );
+  });
+
   it('stores generation quality warnings without rejecting the committed source', () => {
     const warning = {
       code: 'quality-too-many-screens',
@@ -282,6 +324,25 @@ describe('builderSlice', () => {
         tone: 'success',
       }),
     );
+  });
+
+  it('removes a chat message by message key', () => {
+    const withSummary = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content: 'Building: Adds a welcome screen…',
+        messageKey: 'generation-summary:request-remove',
+        role: 'assistant',
+      }),
+    );
+    const removed = builderReducer(
+      withSummary,
+      builderActions.removeChatMessageByKey({
+        messageKey: 'generation-summary:request-remove',
+      }),
+    );
+
+    expect(removed.chatMessages).toHaveLength(0);
   });
 
   it('appends successful import messages to the end of existing chat history', () => {

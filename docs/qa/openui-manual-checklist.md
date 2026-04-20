@@ -14,7 +14,7 @@ Guardrails:
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
 - frontend submit-time preflight must block requests whose serialized payload already exceeds `GET /api/config` `limits.requestMaxBytes`, show one clear builder error, and avoid sending that oversized request; the backend `413` limit remains the security boundary
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
-- when structured output is enabled, malformed JSON envelopes, missing `source`, empty `source`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
+- when structured output is enabled, malformed JSON envelopes, missing `source`, empty `source`, invalid optional `summary` / `notes`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
 
 ## Runtime invariants
@@ -22,11 +22,15 @@ Guardrails:
 - Preview renders committed source only.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
-- Definition may show streamed draft text while generation is still in progress. With structured output enabled, that draft may temporarily be the raw JSON envelope rather than bare OpenUI source.
+- Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
+- While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
+- After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.`.
+- Trivial parser issues that carry deterministic local `suggestion` patches may be auto-fixed in the builder before any repair request is sent.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
+- If local suggestion patches make the draft valid again, commit that locally fixed source directly and do not trigger the repair request path for those issues.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
 - That invalid-generation chat failure must end with: `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
@@ -217,7 +221,8 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start")
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
 ], "inline"))
 
 root = AppShell([
@@ -334,6 +339,8 @@ Do use:
 - `Query("read_state", ...)` with a sensible default when reading persisted data
 - persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
+- top-level `Query(...)` and `Mutation(...)` statements referenced later via named refs such as `@Run(saveItem)` or `savedItems`
+- for row-level actions, relay item context through local state first, for example `Action([@Set($targetId, item.id), @Run(saveItem), @Run(items)])`
 - after every persisted `Mutation(...)` that affects visible UI, re-run later in the same `Action(...)` at least one matching `Query("read_state", ...)`
 - treat a `Query("read_state", ...)` as matching when it reads the same path, a parent path, or a child path of the mutation path
 - if a persisted mutation affecting visible UI lacks that later refresh query, repair before commit instead of committing a stale visible flow
@@ -359,6 +366,7 @@ Do not use:
 - assuming regular `Checkbox(...)` writes back to persisted todo-row fields such as `item.completed`
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings
 - hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
+- inline `Query(...)` or `Mutation(...)` calls inside `@Each(...)`, `Repeater(...)` children, or component props
 - unresolved `@Run(ref)` calls or any other undefined identifiers
 
 ## Required generated app coverage

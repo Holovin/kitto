@@ -78,6 +78,10 @@ Steps:
 - Repeater collection guidance:
   - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
   - when the requested list is dynamic, derive rows from local arrays, runtime state, or `Query("read_state", ...)` data instead of hardcoding duplicate rows
+- Tool placement guidance:
+  - `Mutation(...)` and `Query(...)` must be top-level statements
+  - inline tool calls inside `@Each`, `Repeater` children, or component props are rejected
+  - for item-context mutations, use the relay-variable pattern: `Action([@Set($targetX, item.id), @Run(topLevelMutation), @Run(query)])`
 - Filtering guidance:
   - use `@Filter(collection, field, operator, value)` for derived filtered collections
   - keep ephemeral filter selection in local runtime state such as `$filter`

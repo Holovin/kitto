@@ -129,7 +129,8 @@ export function useBuilderHistoryControls({
     );
   }
 
-  function abortActiveGenerationIfAny(_reason: ExternalSnapshotChangeReason) {
+  function abortActiveGenerationIfAny(reason: ExternalSnapshotChangeReason) {
+    void reason;
     cancelActiveRequestRef.current?.();
   }
 

@@ -80,14 +80,14 @@ Accepts:
 }
 ```
 
-Returns a full JSON payload with `source`, `model`, and optional `compaction`.
+Returns a full JSON payload with `source`, `model`, optional `summary`, optional `notes`, and optional `compaction`.
 
 ### `POST /api/llm/generate/stream`
 
 Accepts the same request shape and streams Server-Sent Events:
 
-- `chunk` - incremental source delta
-- `done` - final JSON payload with `source`, `model`, and optional `compaction`
+- `chunk` - incremental raw model text; with structured output enabled this is a partial JSON envelope that the frontend parses into `summary` / `source`
+- `done` - final JSON payload with `source`, `model`, optional `summary`, optional `notes`, and optional `compaction`
 - `error` - terminal public error payload
 
 ## Current behavior

@@ -29,7 +29,6 @@ export function getBuilderHistoryVersionState({
   hasRedoSnapshot,
   hasUndoSnapshot,
   historyVersionCount,
-  isStreaming: _isStreaming,
   redoVersionCount,
 }: BuilderHistoryVersionStateInput): BuilderHistoryVersionState {
   const currentVersionNumber = committedSource.trim().length > 0 ? historyVersionCount : 0;
