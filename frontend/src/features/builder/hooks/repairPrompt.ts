@@ -13,8 +13,9 @@ const REPAIR_CRITICAL_RULES = [
   'The second Group argument is direction and must be "vertical" or "horizontal".',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put "block" or "inline" in the second Group argument.',
-  'Use appearance only as { textColor?: "#RRGGBB", bgColor?: "#RRGGBB" }.',
-  'Text supports only appearance.textColor. Do not pass appearance.bgColor to Text.',
+  'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
+  'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
+  'For Button default, contrastColor becomes the button background and mainColor becomes the button text.',
   'Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Use $currentScreen + @Set for screen navigation.',
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
@@ -173,13 +174,19 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
     }
 
     if (issue.message.includes('.appearance.') || issue.message.includes('.color') || issue.message.includes('.background')) {
-      hints.add('Use appearance.textColor and appearance.bgColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
-      hints.add('Use appearance only with textColor and bgColor keys. Do not use color/background prop names.');
+      hints.add('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
+      hints.add('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
       hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
+      hints.add('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
     }
 
-    if (issue.message.includes('Text.appearance.bgColor') || issue.message.includes('Text.background')) {
-      hints.add('Text supports only appearance.textColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.');
+    if (
+      issue.message.includes('Text.appearance.mainColor') ||
+      issue.message.includes('Text.appearance.textColor') ||
+      issue.message.includes('Text.appearance.bgColor') ||
+      issue.message.includes('Text.background')
+    ) {
+      hints.add('Text supports only appearance.contrastColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.');
     }
 
     if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {

@@ -24,7 +24,7 @@ function GroupRenderer({
   renderNode,
 }: {
   props: {
-    appearance?: { bgColor?: string; textColor?: string };
+    appearance?: { contrastColor?: string; mainColor?: string };
     children: unknown[];
     direction: 'horizontal' | 'vertical';
     title?: string | null;
@@ -36,16 +36,16 @@ function GroupRenderer({
 
   const titleStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
   if (props.variant === 'inline') {
     const inlineStyle = getAppearanceStyle({
       appearance: props.appearance,
-      applyTextColor: true,
-      applyBackgroundColor: Boolean(props.appearance?.bgColor),
-      hasInheritedTextColor: appearanceScope.hasTextColor,
+      textRole: 'contrast',
+      backgroundRole: props.appearance?.mainColor ? 'main' : undefined,
+      hasInheritedContrastColor: appearanceScope.hasContrastColor,
     });
 
     return (
@@ -64,10 +64,10 @@ function GroupRenderer({
 
   const blockStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (

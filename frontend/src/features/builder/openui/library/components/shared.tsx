@@ -5,35 +5,38 @@ export const nullableTextSchema = z.union([z.string(), z.null()]).optional();
 export const textValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]).optional();
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 export const hexColorSchema = z.string().regex(HEX_COLOR_PATTERN).optional();
-const appearanceTextColorProp = hexColorSchema.describe('Optional text color override as #RRGGBB.');
-const appearanceBackgroundColorProp = hexColorSchema.describe('Optional background color override as #RRGGBB.');
+const appearanceMainColorProp = hexColorSchema.describe('Optional main theme color override as #RRGGBB.');
+const appearanceContrastColorProp = hexColorSchema.describe('Optional contrast theme color override as #RRGGBB.');
 
-export const KITTO_TEXT_COLOR_VAR = '--kitto-text-color';
-export const KITTO_BG_COLOR_VAR = '--kitto-bg-color';
+export const KITTO_MAIN_COLOR_VAR = '--kitto-main-color';
+export const KITTO_CONTRAST_COLOR_VAR = '--kitto-contrast-color';
 
 export type KittoAppearance = {
-  bgColor?: string;
-  textColor?: string;
+  contrastColor?: string;
+  mainColor?: string;
 };
 
-export type KittoTextAppearance = Pick<KittoAppearance, 'textColor'>;
+export type KittoTextAppearance = {
+  contrastColor?: string;
+  mainColor?: never;
+};
 
 export const appearanceSchema = z
   .object({
-    textColor: appearanceTextColorProp,
-    bgColor: appearanceBackgroundColorProp,
+    mainColor: appearanceMainColorProp,
+    contrastColor: appearanceContrastColorProp,
   })
   .strict()
   .optional()
-  .describe('Optional appearance override with textColor and bgColor as #RRGGBB.');
+  .describe('Optional appearance override with mainColor and contrastColor as #RRGGBB.');
 
 export const textAppearanceSchema = z
   .object({
-    textColor: appearanceTextColorProp,
+    contrastColor: appearanceContrastColorProp,
   })
   .strict()
   .optional()
-  .describe('Optional appearance override with textColor as #RRGGBB.');
+  .describe('Optional appearance override with contrastColor as #RRGGBB.');
 
 export const choiceOptionSchema = z.object({
   label: z.string(),
@@ -41,13 +44,13 @@ export const choiceOptionSchema = z.object({
 });
 
 type KittoAppearanceScope = {
-  hasBgColor: boolean;
-  hasTextColor: boolean;
+  hasContrastColor: boolean;
+  hasMainColor: boolean;
 };
 
 const defaultKittoAppearanceScope: KittoAppearanceScope = {
-  hasBgColor: false,
-  hasTextColor: false,
+  hasContrastColor: false,
+  hasMainColor: false,
 };
 
 const KittoAppearanceContext = createContext<KittoAppearanceScope>(defaultKittoAppearanceScope);
@@ -62,10 +65,6 @@ export function asDisplayText(value: unknown) {
 
 export function isStrictHexColor(value: unknown): value is string {
   return typeof value === 'string' && HEX_COLOR_PATTERN.test(value);
-}
-
-function hasBackgroundColorProp(appearance?: KittoAppearance | KittoTextAppearance): appearance is KittoAppearance {
-  return typeof appearance === 'object' && appearance !== null && 'bgColor' in appearance;
 }
 
 function setCssVariable(style: CSSProperties, variableName: string, value: string) {
@@ -85,46 +84,63 @@ export function KittoAppearanceProvider({
 }) {
   const parentScope = useKittoAppearanceScope();
   const scope: KittoAppearanceScope = {
-    hasTextColor: parentScope.hasTextColor || isStrictHexColor(appearance?.textColor),
-    hasBgColor:
-      parentScope.hasBgColor || (hasBackgroundColorProp(appearance) && isStrictHexColor(appearance.bgColor)),
+    hasMainColor: parentScope.hasMainColor || isStrictHexColor(appearance?.mainColor),
+    hasContrastColor: parentScope.hasContrastColor || isStrictHexColor(appearance?.contrastColor),
   };
 
   return <KittoAppearanceContext.Provider value={scope}>{children}</KittoAppearanceContext.Provider>;
 }
 
+type AppearanceRole = 'contrast' | 'main';
+
+function getAppearanceRoleVarName(role: AppearanceRole) {
+  return role === 'main' ? KITTO_MAIN_COLOR_VAR : KITTO_CONTRAST_COLOR_VAR;
+}
+
+function hasRoleValue(appearance: KittoAppearance | KittoTextAppearance | undefined, role: AppearanceRole) {
+  const value = role === 'main' ? appearance?.mainColor : appearance?.contrastColor;
+
+  return isStrictHexColor(value);
+}
+
 export function getAppearanceStyle({
   appearance,
-  applyTextColor = false,
-  applyBackgroundColor = false,
-  hasInheritedTextColor = false,
-  hasInheritedBgColor = false,
+  backgroundRole,
+  hasInheritedContrastColor = false,
+  hasInheritedMainColor = false,
+  textRole,
 }: {
   appearance?: KittoAppearance | KittoTextAppearance;
-  applyTextColor?: boolean;
-  applyBackgroundColor?: boolean;
-  hasInheritedTextColor?: boolean;
-  hasInheritedBgColor?: boolean;
+  backgroundRole?: AppearanceRole;
+  hasInheritedContrastColor?: boolean;
+  hasInheritedMainColor?: boolean;
+  textRole?: AppearanceRole;
 }): CSSProperties | undefined {
   const style: CSSProperties = {};
-  const safeTextColor = isStrictHexColor(appearance?.textColor) ? appearance.textColor : undefined;
-  const safeBgColor =
-    hasBackgroundColorProp(appearance) && isStrictHexColor(appearance.bgColor) ? appearance.bgColor : undefined;
+  const safeMainColor = isStrictHexColor(appearance?.mainColor) ? appearance.mainColor : undefined;
+  const safeContrastColor = isStrictHexColor(appearance?.contrastColor) ? appearance.contrastColor : undefined;
 
-  if (safeTextColor) {
-    setCssVariable(style, KITTO_TEXT_COLOR_VAR, safeTextColor);
+  if (safeMainColor) {
+    setCssVariable(style, KITTO_MAIN_COLOR_VAR, safeMainColor);
   }
 
-  if (safeBgColor) {
-    setCssVariable(style, KITTO_BG_COLOR_VAR, safeBgColor);
+  if (safeContrastColor) {
+    setCssVariable(style, KITTO_CONTRAST_COLOR_VAR, safeContrastColor);
   }
 
-  if (applyTextColor && (safeTextColor || hasInheritedTextColor)) {
-    style.color = `var(${KITTO_TEXT_COLOR_VAR})`;
+  if (
+    textRole &&
+    (hasRoleValue(appearance, textRole) || (textRole === 'main' ? hasInheritedMainColor : hasInheritedContrastColor))
+  ) {
+    style.color = `var(${getAppearanceRoleVarName(textRole)})`;
   }
 
-  if (applyBackgroundColor && (safeBgColor || hasInheritedBgColor)) {
-    style.backgroundColor = `var(${KITTO_BG_COLOR_VAR})`;
+  if (
+    backgroundRole &&
+    (hasRoleValue(appearance, backgroundRole) ||
+      (backgroundRole === 'main' ? hasInheritedMainColor : hasInheritedContrastColor))
+  ) {
+    style.backgroundColor = `var(${getAppearanceRoleVarName(backgroundRole)})`;
   }
 
   return Object.keys(style).length > 0 ? style : undefined;

@@ -18,7 +18,7 @@ describe('buildRepairPrompt', () => {
     expect(prompt).toContain('The second Group argument is direction and must be "vertical" or "horizontal".');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put "block" or "inline" in the second Group argument.');
-    expect(prompt).toContain('Use appearance only as { textColor?: "#RRGGBB", bgColor?: "#RRGGBB" }.');
+    expect(prompt).toContain('Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.');
   });
 
   it('adds targeted hints when Group.direction fails validation', () => {
@@ -52,7 +52,7 @@ describe('buildRepairPrompt', () => {
     const issues: BuilderParseIssue[] = [
       {
         code: 'invalid-prop',
-        message: 'Text.appearance.textColor must be a #RRGGBB hex color.',
+        message: 'Text.appearance.contrastColor must be a #RRGGBB hex color.',
         source: 'parser',
         statementId: 'root',
       },
@@ -61,15 +61,16 @@ describe('buildRepairPrompt', () => {
     const prompt = buildRepairPrompt({
       userPrompt: 'Add dark mode.',
       committedSource: 'root = AppShell([])',
-      invalidSource: 'root = AppShell([Text("Hello", "body", "start", { textColor: "red" })])',
+      invalidSource: 'root = AppShell([Text("Hello", "body", "start", { contrastColor: "red" })])',
       issues,
       attemptNumber: 1,
       promptMaxChars: 4_000,
     });
 
-    expect(prompt).toContain('Use appearance.textColor and appearance.bgColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
-    expect(prompt).toContain('Use appearance only with textColor and bgColor keys. Do not use color/background prop names.');
+    expect(prompt).toContain('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
+    expect(prompt).toContain('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
+    expect(prompt).toContain('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
     expect(prompt).toContain('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
-    expect(prompt).toContain('invalid-prop in root: Text.appearance.textColor must be a #RRGGBB hex color.');
+    expect(prompt).toContain('invalid-prop in root: Text.appearance.contrastColor must be a #RRGGBB hex color.');
   });
 });

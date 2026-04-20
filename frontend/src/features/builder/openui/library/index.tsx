@@ -21,7 +21,8 @@ export const builderOpenUiLibrary = createLibrary({
       notes: [
         'Use Screen for major steps and Group for local layout.',
         'Use Group variant "block" for standalone visual sections and variant "inline" for nested groups, inline controls, and repeated rows.',
-        'Use AppShell.appearance for one shared theme, and use Screen/Group/Repeater appearance only when a subtree needs a local override.',
+        'Use AppShell.appearance for one shared theme pair, with mainColor as the main surface and contrastColor as the contrasting text/action color.',
+        'Use Screen/Group/Repeater appearance only when a subtree needs a local theme override.',
         'Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.',
       ],
     },
@@ -33,7 +34,7 @@ export const builderOpenUiLibrary = createLibrary({
     {
       name: 'Actions',
       components: ['Button', 'Link'],
-      notes: ['Use Button with Action([...]) for Query and Mutation flows.'],
+      notes: ['Use Button with Action([...]) for Query and Mutation flows. Default buttons invert the inherited theme pair automatically.'],
     },
   ],
   components: [

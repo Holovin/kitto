@@ -1,13 +1,13 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Button as ButtonUI } from '@components/ui/button';
 import { z } from 'zod';
-import { appearanceSchema, getAppearanceStyle } from './shared';
+import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 const variantSchema = z.enum(['default', 'secondary', 'destructive']).default('default');
 
 type ButtonRendererProps = ComponentRenderProps<{
   action?: unknown;
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   disabled?: StateField<boolean>;
   id: string;
   label: string;
@@ -18,13 +18,31 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const triggerAction = useTriggerAction();
   const isStreaming = useIsStreaming();
   const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
+  const appearanceScope = useKittoAppearanceScope();
+  const isThemeDrivenVariant = props.variant === 'default' || props.variant === 'secondary';
+  const isDestructiveAppearanceOverride = props.variant === 'destructive' && Boolean(props.appearance);
+  const shouldApplyButtonAppearance = isThemeDrivenVariant || isDestructiveAppearanceOverride;
+  const backgroundRole = shouldApplyButtonAppearance
+    ? props.variant === 'secondary'
+      ? 'main'
+      : 'contrast'
+    : undefined;
+  const textRole = shouldApplyButtonAppearance
+    ? props.variant === 'secondary'
+      ? 'contrast'
+      : 'main'
+    : undefined;
   const buttonStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyBackgroundColor: true,
+    backgroundRole,
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
+    textRole,
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (

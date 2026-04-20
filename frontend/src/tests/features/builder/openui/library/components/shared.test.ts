@@ -12,15 +12,15 @@ describe('hexColorSchema', () => {
 });
 
 describe('appearanceSchema', () => {
-  it('accepts textColor and bgColor appearance overrides', () => {
-    expect(appearanceSchema.safeParse({ textColor: '#FFFFFF', bgColor: '#111827' }).success).toBe(true);
+  it('accepts mainColor and contrastColor appearance overrides', () => {
+    expect(appearanceSchema.safeParse({ mainColor: '#111827', contrastColor: '#FFFFFF' }).success).toBe(true);
   });
 
   it('rejects unknown appearance keys', () => {
     expect(appearanceSchema.safeParse({ color: '#FFFFFF' }).success).toBe(false);
   });
 
-  it('rejects bgColor on Text appearance objects', () => {
-    expect(textAppearanceSchema.safeParse({ textColor: '#FFFFFF', bgColor: '#111827' }).success).toBe(false);
+  it('rejects mainColor on Text appearance objects', () => {
+    expect(textAppearanceSchema.safeParse({ mainColor: '#111827', contrastColor: '#FFFFFF' }).success).toBe(false);
   });
 });

@@ -7,17 +7,17 @@ function RepeaterRenderer({
   props,
   renderNode,
 }: {
-  props: { appearance?: { bgColor?: string; textColor?: string }; children: unknown[]; emptyText?: string | null };
+  props: { appearance?: { contrastColor?: string; mainColor?: string }; children: unknown[]; emptyText?: string | null };
   renderNode: (value: unknown) => ReactNode;
 }) {
   const appearanceScope = useKittoAppearanceScope();
   const renderedChildren = Children.toArray(renderNode(props.children));
   const repeaterStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   const content =

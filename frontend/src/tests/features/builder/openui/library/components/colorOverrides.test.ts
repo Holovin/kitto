@@ -19,23 +19,23 @@ describe('OpenUI appearance inheritance', () => {
   Screen("main", "Main", [
     Text("Hello", "body", "start")
   ])
-], { textColor: "#F9FAFB", bgColor: "#111827" })`);
+], { mainColor: "#111827", contrastColor: "#F9FAFB" })`);
 
     expect(html).toMatch(/data-app-shell="true"/i);
-    expect(html).toMatch(/--kitto-text-color:#F9FAFB/i);
-    expect(html).toMatch(/--kitto-bg-color:#111827/i);
+    expect(html).toMatch(/--kitto-main-color:#111827/i);
+    expect(html).toMatch(/--kitto-contrast-color:#F9FAFB/i);
   });
 
   it('lets Screen override inherited colors for its subtree', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
-  ], true, { textColor: "#F9FAFB", bgColor: "#0F172A" })
-], { textColor: "#111827", bgColor: "#FFFFFF" })`);
+  ], true, { mainColor: "#0F172A", contrastColor: "#F9FAFB" })
+], { mainColor: "#FFFFFF", contrastColor: "#111827" })`);
 
-    expect(html).toMatch(/data-screen="main"[^>]+--kitto-text-color:#F9FAFB/i);
-    expect(html).toMatch(/data-screen="main"[^>]+--kitto-bg-color:#0F172A/i);
-    expect(html).toMatch(/data-screen="main"[^>]+background-color:var\(--kitto-bg-color\)/i);
+    expect(html).toMatch(/data-screen="main"[^>]+--kitto-main-color:#0F172A/i);
+    expect(html).toMatch(/data-screen="main"[^>]+--kitto-contrast-color:#F9FAFB/i);
+    expect(html).toMatch(/data-screen="main"[^>]+background-color:var\(--kitto-main-color\)/i);
   });
 
   it('lets Group override inherited colors for nested content', () => {
@@ -43,13 +43,13 @@ describe('OpenUI appearance inheritance', () => {
   Screen("main", "Main", [
     Group("Welcome", "vertical", [
       Text("This is a dark interface.", "body", "start")
-    ], "block", { textColor: "#F9FAFB", bgColor: "#111827" })
+    ], "block", { mainColor: "#111827", contrastColor: "#F9FAFB" })
   ])
 ])`);
 
-    expect(html).toMatch(/--kitto-text-color:#F9FAFB/i);
-    expect(html).toMatch(/--kitto-bg-color:#111827/i);
-    expect(html).toMatch(/background-color:var\(--kitto-bg-color\)/i);
+    expect(html).toMatch(/--kitto-main-color:#111827/i);
+    expect(html).toMatch(/--kitto-contrast-color:#F9FAFB/i);
+    expect(html).toMatch(/background-color:var\(--kitto-main-color\)/i);
   });
 
   it('keeps Repeater empty states on the inherited theme surface', () => {
@@ -57,15 +57,15 @@ describe('OpenUI appearance inheritance', () => {
   Screen("main", "Main", [
     Repeater([], "Nothing to show yet.")
   ])
-], { textColor: "#F9FAFB", bgColor: "#111827" })`);
+], { mainColor: "#111827", contrastColor: "#F9FAFB" })`);
 
     expect(html).toContain('Nothing to show yet.');
     expect(html).toMatch(/Nothing to show yet\.<\/div><\/div>/i);
-    expect(html).toMatch(/color:var\(--kitto-text-color\)/i);
-    expect(html).toMatch(/background-color:var\(--kitto-bg-color\)/i);
+    expect(html).toMatch(/color:var\(--kitto-contrast-color\)/i);
+    expect(html).toMatch(/background-color:var\(--kitto-main-color\)/i);
   });
 
-  it('lets shared-theme controls inherit AppShell colors while buttons keep their variant colors', () => {
+  it('lets shared-theme controls inherit AppShell colors and maps button variants through the theme pair', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Input("todoText", "New todo", $todoText, "What needs to be done?"),
@@ -74,37 +74,40 @@ describe('OpenUI appearance inheritance', () => {
       { label: "Active", value: "active" }
     ]),
     Button("submit-button", "Submit", "default", Action([]), false),
+    Button("cancel-button", "Cancel", "secondary", Action([]), false),
+    Button("delete-button", "Delete", "destructive", Action([]), false),
     Link("Docs", "https://example.com", true)
   ])
-], { textColor: "#F9FAFB", bgColor: "#111827" })
+], { mainColor: "#111827", contrastColor: "#F9FAFB" })
 
 $todoText = ""
 $filter = "all"`);
 
-    expect(html).toMatch(/input[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
-    expect(html).toMatch(/button[^>]+role="combobox"[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
-    expect(html).toMatch(/<button class="[^"]*bg-slate-950[^"]*"><span>Submit<\/span><\/button>/i);
-    expect(html).not.toMatch(/<button[^>]+style="[^"]*"[^>]*><span>Submit<\/span><\/button>/i);
-    expect(html).not.toMatch(/<button[^>]*><span style="[^"]*">Submit<\/span><\/button>/i);
-    expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
+    expect(html).toMatch(/input[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
+    expect(html).toMatch(/button[^>]+role="combobox"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
+    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-contrast-color\)[^"]*"[^>]*><span style="color:var\(--kitto-main-color\)">Submit<\/span><\/button>/i);
+    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Cancel<\/span><\/button>/i);
+    expect(html).toMatch(/<button class="[^"]*bg-rose-600[^"]*"><span>Delete<\/span><\/button>/i);
+    expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
   });
 
   it('lets local appearance override inherited colors', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
-    Button("publish", "Publish", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
+    Button("publish", "Publish", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
   ])
-], { textColor: "#111827", bgColor: "#FFFFFF" })`);
+], { mainColor: "#111827", contrastColor: "#FFFFFF" })`);
 
-    expect(html).toMatch(/--kitto-text-color:#FFFFFF/i);
-    expect(html).toMatch(/--kitto-bg-color:#2563EB/i);
-    expect(html).toMatch(/background-color:var\(--kitto-bg-color\)/i);
+    expect(html).toMatch(/--kitto-main-color:#FFFFFF/i);
+    expect(html).toMatch(/--kitto-contrast-color:#2563EB/i);
+    expect(html).toMatch(/background-color:var\(--kitto-contrast-color\)/i);
+    expect(html).toMatch(/<span style="[^"]*color:var\(--kitto-main-color\)[^"]*">Publish<\/span>/i);
   });
 
-  it('accepts appearance props on supported components and rejects bgColor on Text', () => {
+  it('accepts appearance props on supported components and rejects mainColor on Text', () => {
     const appearance = {
-      bgColor: '#111827',
-      textColor: '#F9FAFB',
+      mainColor: '#111827',
+      contrastColor: '#F9FAFB',
     };
 
     expect(ScreenComponent.props.safeParse({ id: 'main', title: 'Main', children: [], isActive: true, appearance }).success).toBe(true);
@@ -119,7 +122,7 @@ $filter = "all"`);
       }).success,
     ).toBe(true);
     expect(ButtonComponent.props.safeParse({ id: 'save', label: 'Save', variant: 'default', disabled: false, appearance }).success).toBe(true);
-    expect(TextComponent.props.safeParse({ value: 'Hello', variant: 'body', align: 'start', appearance: { textColor: '#F9FAFB' } }).success).toBe(true);
+    expect(TextComponent.props.safeParse({ value: 'Hello', variant: 'body', align: 'start', appearance: { contrastColor: '#F9FAFB' } }).success).toBe(true);
     expect(TextComponent.props.safeParse({ value: 'Hello', variant: 'body', align: 'start', appearance }).success).toBe(false);
   });
 });

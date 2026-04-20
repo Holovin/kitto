@@ -225,11 +225,12 @@ Prompt:
 Сделай приложение со всеми контролами что ты знаешь. Сделай сверху отдельную группу с двумя кнопками: светлая и тёмная темы. Нужно показывать активную тему КРАСНОЙ кнопкой с белым текстом.
 
 Expected:
-- generated source sets `AppShell(..., appearance?)` from a theme variable
-- the active theme button uses conditional `appearance` with red background and white text
+- generated source defines `lightTheme`, `darkTheme`, and `appTheme`, then passes `appTheme` into `AppShell(..., appearance?)`
+- the active theme button uses conditional `appearance` with `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }`
 - inactive theme buttons are not red
 - clicks on the theme buttons update local runtime state only and do not trigger `/api/llm/*`
 - the rendered UI changes together across screens, groups, and controls through inherited appearance
+- default theme buttons stay readable because they invert the inherited theme pair automatically
 - no raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or `url()` appears in generated source
 
 Follow-up prompt:
@@ -237,9 +238,10 @@ Follow-up prompt:
 Сделай чтобы кнопки переключали тему. Тема должна влиять на все элементы, включая блок темы.
 
 Expected:
-- generated source keeps the shared theme on `AppShell(..., appearance?)`
+- generated source keeps the shared theme pair on `AppShell(..., appearance?)`
 - nested elements inherit colors automatically instead of repeating the same `appearance` object on every control
 - the theme button block also follows the same inherited theme
+- theme buttons remain readable because `Button(..., "default", ...)` inverts the pair
 - local `appearance` is only used where a control intentionally overrides the inherited colors
 - no arbitrary CSS or style-object syntax appears in generated source
 
@@ -249,8 +251,9 @@ Follow-up prompt:
 
 Expected:
 - the rendered app looks dark and readable
-- generated source uses `AppShell(..., appearance?)` with a dark background and light text
+- generated source uses `darkTheme = { mainColor: dark, contrastColor: light }` and applies it through `AppShell(..., appearance?)`
 - controls inherit the dark theme unless a local override is needed
+- default buttons remain readable through the built-in theme-pair inversion
 - no arbitrary CSS or style-object syntax appears in generated source
 
 ## Scenario 12 — Safe compute tools

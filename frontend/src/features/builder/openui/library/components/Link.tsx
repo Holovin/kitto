@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 type LinkRendererProps = ComponentRenderProps<{
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   label: string;
   newTab: boolean;
   url: string;
@@ -15,10 +15,10 @@ function OpenUiLinkRenderer({ props }: LinkRendererProps) {
   const appearanceScope = useKittoAppearanceScope();
   const linkStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   if (!safeUrl) {

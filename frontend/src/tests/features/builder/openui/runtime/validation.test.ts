@@ -213,13 +213,13 @@ root = AppShell([
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
     Group("Section", "vertical", [
-      Text("Hello", "body", "start", { textColor: "#000000" }),
-      Input("name", "Name", $name, "Ada", { textColor: "#000000", bgColor: "#FFFFFF" }),
-      Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" }),
-      Repeater([], "Empty state", { textColor: "#000000", bgColor: "#FFFFFF" })
-    ], "block", { textColor: "#000000", bgColor: "#FFFFFF" })
-  ], true, { textColor: "#111827", bgColor: "#FFFFFF" })
-], { textColor: "#111827", bgColor: "#FFFFFF" })
+      Text("Hello", "body", "start", { contrastColor: "#000000" }),
+      Input("name", "Name", $name, "Ada", { mainColor: "#FFFFFF", contrastColor: "#000000" }),
+      Button("save", "Save", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#111827" }),
+      Repeater([], "Empty state", { mainColor: "#FFFFFF", contrastColor: "#000000" })
+    ], "block", { mainColor: "#FFFFFF", contrastColor: "#000000" })
+  ], true, { mainColor: "#FFFFFF", contrastColor: "#111827" })
+], { mainColor: "#FFFFFF", contrastColor: "#111827" })
 
 $name = "Ada"`);
 
@@ -235,7 +235,7 @@ root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
   ])
-], $currentTheme == "dark" ? { textColor: "#F9FAFB", bgColor: "#111827" } : { textColor: "#111827", bgColor: "#FFFFFF" })`);
+], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`);
 
     expect(result).toEqual({
       isValid: true,
@@ -243,10 +243,10 @@ root = AppShell([
     });
   });
 
-  it('rejects Text appearance.bgColor because the component only supports textColor', () => {
+  it('rejects Text appearance.mainColor because the component only supports contrastColor', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
-    Text("Hello", "body", "start", { textColor: "#000000", bgColor: "#111827" })
+    Text("Hello", "body", "start", { contrastColor: "#000000", mainColor: "#111827" })
   ])
 ])`);
 
@@ -255,7 +255,7 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Text.appearance.bgColor is not allowed.',
+          message: 'Text.appearance.mainColor is not allowed.',
         }),
       ]),
     );
@@ -294,7 +294,7 @@ root = AppShell([
   ])('rejects invalid visual color prop %s', (invalidColor) => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
-    Text("Hello", "body", "start", { textColor: "${invalidColor}" })
+    Text("Hello", "body", "start", { contrastColor: "${invalidColor}" })
   ])
 ])`);
 
@@ -303,17 +303,17 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Text.appearance.textColor must be a #RRGGBB hex color.',
+          message: 'Text.appearance.contrastColor must be a #RRGGBB hex color.',
         }),
       ]),
     );
   });
 
-  it('rejects invalid Screen appearance colors', () => {
+  it('rejects invalid Screen appearance contrast colors', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
-  ], true, { textColor: "red", bgColor: "#111827" })
+  ], true, { mainColor: "#111827", contrastColor: "red" })
 ])`);
 
     expect(result.isValid).toBe(false);
@@ -321,17 +321,17 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Screen.appearance.textColor must be a #RRGGBB hex color.',
+          message: 'Screen.appearance.contrastColor must be a #RRGGBB hex color.',
         }),
       ]),
     );
   });
 
-  it('rejects invalid Screen appearance background colors', () => {
+  it('rejects invalid Screen appearance main colors', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
     Text("Hello", "body", "start")
-  ], true, { textColor: "#F9FAFB", bgColor: "red" })
+  ], true, { mainColor: "red", contrastColor: "#F9FAFB" })
 ])`);
 
     expect(result.isValid).toBe(false);
@@ -339,7 +339,29 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'invalid-prop',
-          message: 'Screen.appearance.bgColor must be a #RRGGBB hex color.',
+          message: 'Screen.appearance.mainColor must be a #RRGGBB hex color.',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects legacy textColor and bgColor appearance keys after the theme-pair migration', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Button.appearance.textColor is not allowed.',
+        }),
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Button.appearance.bgColor is not allowed.',
         }),
       ]),
     );

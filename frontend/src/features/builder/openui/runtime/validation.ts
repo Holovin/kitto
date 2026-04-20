@@ -226,7 +226,7 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
   }
 
   if (isLiteralObjectValue(appearanceValue)) {
-    const allowedAppearanceKeys = value.typeName === 'Text' ? new Set(['textColor']) : new Set(['textColor', 'bgColor']);
+    const allowedAppearanceKeys = value.typeName === 'Text' ? new Set(['contrastColor']) : new Set(['mainColor', 'contrastColor']);
 
     for (const [appearanceKey, appearancePropValue] of Object.entries(appearanceValue)) {
       if (!allowedAppearanceKeys.has(appearanceKey)) {

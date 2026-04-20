@@ -24,7 +24,7 @@ function TextRenderer({
 }: {
   props: {
     align: 'center' | 'end' | 'start';
-    appearance?: { textColor?: string };
+    appearance?: { contrastColor?: string };
     value?: string | number | boolean | null;
     variant: 'body' | 'code' | 'muted' | 'title';
   };
@@ -32,8 +32,8 @@ function TextRenderer({
   const appearanceScope = useKittoAppearanceScope();
   const textStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
   return (

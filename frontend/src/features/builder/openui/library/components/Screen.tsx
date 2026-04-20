@@ -8,7 +8,7 @@ function ScreenRenderer({
   props,
   renderNode,
 }: {
-  props: { appearance?: { bgColor?: string; textColor?: string }; children: unknown[]; id: string; isActive?: boolean; title: string };
+  props: { appearance?: { contrastColor?: string; mainColor?: string }; children: unknown[]; id: string; isActive?: boolean; title: string };
   renderNode: (value: unknown) => ReactNode;
 }) {
   const appearanceScope = useKittoAppearanceScope();
@@ -19,15 +19,15 @@ function ScreenRenderer({
 
   const screenStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
   const titleStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
   return (

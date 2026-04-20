@@ -2,51 +2,51 @@
   "root": "AppShell",
   "components": {
     "AppShell": {
-      "signature": "AppShell(children?: any[], appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "AppShell(children?: any[], appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Technical root wrapper for the generated app. Use it once as root; optional appearance sets the global theme for all nested content."
     },
     "Screen": {
-      "signature": "Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility. Optional appearance overrides theme colors for the whole screen subtree."
     },
     "Group": {
-      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[], variant?: \"block\" | \"inline\", appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[], variant?: \"block\" | \"inline\", appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Local layout container for related controls or content. Use variant \"block\" for standalone sections and variant \"inline\" for lightweight nested groups, repeated rows, or inline controls. Optional appearance overrides theme colors for the group subtree."
     },
     "Repeater": {
-      "signature": "Repeater(children?: any[], emptyText?: string | any, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Repeater(children?: any[], emptyText?: string | any, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, \"item\", rowNode) to build rows from local arrays, runtime state, or Query(\"read_state\", ...) results. Do not hardcode repeated rows when the user asked for dynamic data."
     },
     "Text": {
-      "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\", appearance?: {textColor?: string})",
+      "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\", appearance?: {contrastColor?: string})",
       "description": "Generic text node for headings, helper copy, code-style snippets, and status lines."
     },
     "Input": {
-      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Single-line text input. Bind the value to a $variable for two-way state."
     },
     "TextArea": {
-      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Multi-line text input for longer descriptions, prompts, or notes."
     },
     "Checkbox": {
-      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Boolean toggle. Bind checked to a $variable when the user should control visibility or confirmation state."
     },
     "RadioGroup": {
-      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Single-choice list of options. Good for quizzes, steps, and mode switches."
     },
     "Select": {
-      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Dropdown selector for choosing one item from a short list of label/value pairs."
     },
     "Button": {
-      "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps."
     },
     "Link": {
-      "signature": "Link(label: string, url: string, newTab?: boolean, appearance?: {textColor?: string, bgColor?: string})",
+      "signature": "Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string})",
       "description": "Text link for navigation to an external URL or a known browser route."
     }
   },
@@ -63,7 +63,8 @@
       "notes": [
         "Use Screen for major steps and Group for local layout.",
         "Use Group variant \"block\" for standalone visual sections and variant \"inline\" for nested groups, inline controls, and repeated rows.",
-        "Use AppShell.appearance for one shared theme, and use Screen/Group/Repeater appearance only when a subtree needs a local override.",
+        "Use AppShell.appearance for one shared theme pair, with mainColor as the main surface and contrastColor as the contrasting text/action color.",
+        "Use Screen/Group/Repeater appearance only when a subtree needs a local theme override.",
         "Use Repeater with rows built by @Each(collection, \"item\", ...). Read persisted collections with Query(\"read_state\", ...) before repeating them."
       ]
     },
@@ -87,7 +88,7 @@
         "Link"
       ],
       "notes": [
-        "Use Button with Action([...]) for Query and Mutation flows."
+        "Use Button with Action([...]) for Query and Mutation flows. Default buttons invert the inherited theme pair automatically."
       ]
     }
   ]

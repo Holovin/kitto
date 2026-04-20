@@ -65,10 +65,14 @@ Steps:
 - Safe visual color guidance:
 - `AppShell(children, appearance?)` accepts optional inherited theme colors for the whole app
   - `Screen(id, title, children, isActive?, appearance?)`, `Group(...)`, and `Repeater(children, emptyText?, appearance?)` can override inherited subtree colors
-  - `appearance` supports only `textColor` and `bgColor`
-  - `Text(...)` accepts only `appearance.textColor`
-  - `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept `appearance.textColor` and `appearance.bgColor`
-  - `appearance.textColor` and `appearance.bgColor` must be strict `#RRGGBB` hex strings only
+  - `appearance` supports only `mainColor` and `contrastColor`
+  - `appearance.mainColor` is the main surface/background color
+  - `appearance.contrastColor` is the contrasting text or primary action color
+  - `Text(...)` accepts only `appearance.contrastColor`
+  - `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept `appearance.mainColor` and `appearance.contrastColor`
+  - `appearance.mainColor` and `appearance.contrastColor` must be strict `#RRGGBB` hex strings only
+  - `Button(..., "default", ...)` inverts the pair so background uses `contrastColor` and text uses `mainColor`
+  - `Button(..., "secondary", ...)` uses the pair as-is
   - parent `AppShell`, `Screen`, `Group`, and `Repeater` appearance values recolor nested controls automatically unless a child sets its own local appearance
   - use existing variants first when enough, and never expose or generate `style`, `className`, CSS strings, named colors, `rgb()`, `hsl()`, `var()`, or layout props
 - Repeater collection guidance:

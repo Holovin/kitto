@@ -227,15 +227,16 @@ const toolExamples = [
 $name = "Ada"
 $email = "ada@example.com"
 
-appAppearance = $currentTheme == "dark" ? { textColor: "#F9FAFB", bgColor: "#0F172A" } : { textColor: "#111827", bgColor: "#FFFFFF" }
-inactiveThemeButton = { textColor: "#111827", bgColor: "#E5E7EB" }
-activeThemeButton = { textColor: "#FFFFFF", bgColor: "#DC2626" }
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
+appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }
 
 root = AppShell([
   Screen("main", "Profile form", [
     Group("Theme", "horizontal", [
-      Button("theme-light", "Light", "secondary", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton),
-      Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
+      Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : appTheme),
+      Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : appTheme)
     ], "inline"),
     Group("Profile", "vertical", [
       Text("Review your profile details below.", "body", "start"),
@@ -245,7 +246,7 @@ root = AppShell([
       ], "inline")
     ])
   ], true)
-], appAppearance)`,
+], appTheme)`,
   `$email = ""
 $priority = "normal"
 
@@ -254,7 +255,7 @@ priorityOptions = [
   { label: "Normal", value: "normal" },
   { label: "High", value: "high" }
 ]
-warningAppearance = { textColor: "#92400E", bgColor: "#FEF3C7" }
+warningAppearance = { mainColor: "#FEF3C7", contrastColor: "#92400E" }
 
 root = AppShell([
   Screen("main", "Dark app", [
@@ -262,12 +263,12 @@ root = AppShell([
       Text("This is a dark interface.", "body", "start"),
       Input("email", "Email", $email, "ada@example.com"),
       RadioGroup("priority", "Priority", $priority, priorityOptions),
-      Button("submit-button", "Submit", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
+      Button("submit-button", "Submit", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
     ], "block"),
     Group("Warning", "vertical", [
       Text("Double-check the selected priority before submit.", "body", "start")
     ], "inline", warningAppearance)
-  ], true, { textColor: "#F9FAFB", bgColor: "#111827" })
+  ], true, { mainColor: "#111827", contrastColor: "#F9FAFB" })
 ])`,
   `items = [
   { label: "First", value: "first" },
@@ -404,17 +405,23 @@ const additionalRules = [
   'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
   'Do not over-nest block Groups.',
   'Use `appearance` for visual color changes.',
-  'appearance.textColor is the text or foreground color.',
-  'appearance.bgColor is the background or surface color.',
-  'Text supports only `appearance.textColor`. Do not pass `appearance.bgColor` to Text.',
+  'Use `appearance.mainColor` and `appearance.contrastColor` only.',
+  'appearance.mainColor is the main theme surface color, usually the background for containers.',
+  'appearance.contrastColor is the contrasting text or primary action color.',
+  'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
   'Only use #RRGGBB colors.',
-  'For dark-looking UI, use dark background colors like #111827 and light text like #F9FAFB.',
+  'For dark-looking UI, use a dark mainColor like #111827 and a light contrastColor like #F9FAFB.',
+  'For light-looking UI, use a light mainColor like #FFFFFF and a dark contrastColor like #111827.',
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
-  'Use `AppShell(..., appearance)` first for global theme switching.',
-  'Children inherit appearance colors from parent AppShell, Screen, Group, or Repeater containers.',
-  'Do not pass the same appearance object to every control when the user asked for one shared theme.',
+  'Use `AppShell(..., appTheme)` first for global theme switching.',
+  'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
+  'Do not pass the same appearance object to every control when the user asked for one shared theme. Prefer one shared parent theme pair.',
   'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
-  'appearance overrides variant colors.',
+  'For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.',
+  'For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.',
+  'For an active red theme button, use `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }`.',
+  'destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
+  'Local appearance overrides inherited theme colors, and buttons still map the theme pair according to their variant.',
   'Variants are fallback styles, not the primary mechanism for theme switching.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',

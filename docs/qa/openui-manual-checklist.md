@@ -114,7 +114,7 @@ block
 Safe color overrides:
 
 ```txt
-appearance = { textColor?: "#RRGGBB", bgColor?: "#RRGGBB" }
+appearance = { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }
 Text(value, variant, align, appearance?)
 Input(name, label, value?, placeholder?, appearance?)
 TextArea(name, label, value?, placeholder?, appearance?)
@@ -189,10 +189,13 @@ Do use:
 - `Group(..., "inline")` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
 - `AppShell(..., appearance?)` first when the request is about one shared theme or dark mode
 - `Screen(...)`, `Group(...)`, and `Repeater(...)` appearance overrides when a subtree needs different inherited colors
-- `appearance.textColor` for text or foreground color
-- `appearance.bgColor` for background or surface color
+- `appearance.mainColor` for the main surface or background color
+- `appearance.contrastColor` for text or the contrasting action color
 - only strict `#RRGGBB` values such as `#111827`, `#F9FAFB`, or `#2563EB` inside `appearance`
-- `Text(...)` only with `appearance.textColor`; never `Text(..., { bgColor: ... })`
+- `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
+- `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
+- `Button(..., "secondary", ...)` when the button should stay on the normal theme pair
+- conditional `appearance` such as `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for an active red theme toggle
 - local control `appearance` only when a specific control must override the inherited theme
 - conditional `appearance` for active buttons or selected theme toggles
 - existing variants first when they already express the requested visual treatment
@@ -215,7 +218,7 @@ Do not use:
 - `Screen(..., null, ...)` for the required title argument
 - persisted tools for internal screen navigation
 - raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, `url()`, or arbitrary layout styling props
-- `color`, `background`, `surface`, `border`, `accent`, `primaryColor`, or other invented appearance keys
+- `textColor`, `bgColor`, `color`, `background`, `surface`, `border`, `accent`, `primaryColor`, or other invented appearance keys
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings

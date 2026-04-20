@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { appearanceSchema, getAppearanceStyle, nullableTextSchema, useKittoAppearanceScope } from './shared';
 
 type TextAreaRendererProps = ComponentRenderProps<{
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   label: string;
   name: string;
   placeholder?: string | null;
@@ -17,15 +17,15 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
   const textAreaStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (

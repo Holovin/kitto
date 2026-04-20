@@ -8,22 +8,22 @@ function AppShellRenderer({
   props,
   renderNode,
 }: {
-  props: { appearance?: { bgColor?: string; textColor?: string }; children: unknown[] };
+  props: { appearance?: { contrastColor?: string; mainColor?: string }; children: unknown[] };
   renderNode: (value: unknown) => ReactNode;
 }) {
   const appearanceScope = useKittoAppearanceScope();
   const shellStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (
     <KittoAppearanceProvider appearance={props.appearance}>
       <div
-        className={cn('flex min-h-full flex-col gap-6', props.appearance?.bgColor ? 'rounded-[1.75rem] p-4' : '')}
+        className={cn('flex min-h-full flex-col gap-6', props.appearance?.mainColor ? 'rounded-[1.75rem] p-4' : '')}
         data-app-shell="true"
         style={shellStyle}
       >

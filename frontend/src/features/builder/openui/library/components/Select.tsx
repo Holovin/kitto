@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { appearanceSchema, choiceOptionSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 type SelectRendererProps = ComponentRenderProps<{
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
@@ -17,20 +17,20 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
   const selectStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
   const itemStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
   return (

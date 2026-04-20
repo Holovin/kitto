@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 type CheckboxRendererProps = ComponentRenderProps<{
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   checked: StateField<boolean | undefined>;
   label: string;
   name: string;
@@ -17,15 +17,15 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const appearanceScope = useKittoAppearanceScope();
   const checkboxStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
   if (!hasLabel) {

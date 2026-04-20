@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { appearanceSchema, getAppearanceStyle, nullableTextSchema, useKittoAppearanceScope } from './shared';
 
 type InputRendererProps = ComponentRenderProps<{
-  appearance?: { bgColor?: string; textColor?: string };
+  appearance?: { contrastColor?: string; mainColor?: string };
   label: string;
   name: string;
   placeholder?: string | null;
@@ -18,15 +18,15 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
+    textRole: 'contrast',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
   const inputStyle = getAppearanceStyle({
     appearance: props.appearance,
-    applyTextColor: true,
-    applyBackgroundColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
+    textRole: 'contrast',
+    backgroundRole: 'main',
+    hasInheritedContrastColor: appearanceScope.hasContrastColor,
+    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (

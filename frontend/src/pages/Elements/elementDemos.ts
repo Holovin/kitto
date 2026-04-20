@@ -9,13 +9,16 @@ export const ELEMENT_DEMO_DEFINITIONS: Record<string, ElementDemoDefinition> = {
     source: `$currentScreen = "overview"
 $theme = "light"
 
-appAppearance = $theme == "dark" ? { textColor: "#F9FAFB", bgColor: "#0F172A" } : { textColor: "#111827", bgColor: "#FFFFFF" }
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#0F172A", contrastColor: "#F9FAFB" }
+appTheme = $theme == "dark" ? darkTheme : lightTheme
+activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }
 
 root = AppShell([
   Screen("overview", "Overview", [
     Group("Theme", "horizontal", [
-      Button("theme-light", "Light", "secondary", Action([@Set($theme, "light")]), false),
-      Button("theme-dark", "Dark", "secondary", Action([@Set($theme, "dark")]), false)
+      Button("theme-light", "Light", "default", Action([@Set($theme, "light")]), false, $theme == "light" ? activeThemeButton : appTheme),
+      Button("theme-dark", "Dark", "default", Action([@Set($theme, "dark")]), false, $theme == "dark" ? activeThemeButton : appTheme)
     ], "inline"),
     Group("Root shell", "vertical", [
       Text("AppShell can also set the inherited theme for everything below it.", "body", "start"),
@@ -28,13 +31,13 @@ root = AppShell([
       Button("show-overview", "Show overview", "secondary", Action([@Set($currentScreen, "overview")]), false)
     ])
   ], $currentScreen == "details")
-], appAppearance)`,
+], appTheme)`,
   },
   Screen: {
     source: `$currentScreen = "alpha"
 
-alphaAppearance = { textColor: "#0F172A", bgColor: "#F8FAFC" }
-betaAppearance = { textColor: "#0F172A", bgColor: "#E0F2FE" }
+alphaAppearance = { mainColor: "#F8FAFC", contrastColor: "#0F172A" }
+betaAppearance = { mainColor: "#E0F2FE", contrastColor: "#0F172A" }
 
 root = AppShell([
   Screen("alpha", "Alpha", [
@@ -85,8 +88,8 @@ root = AppShell([
     ]),
     Group("Dark section", "vertical", [
       Text("Appearance overrides support dark-looking sections without exposing raw CSS.", "body", "start"),
-      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
-    ], "block", { textColor: "#F9FAFB", bgColor: "#111827" })
+      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
+    ], "block", { mainColor: "#111827", contrastColor: "#F9FAFB" })
   ])
 ])`,
   },
@@ -131,7 +134,7 @@ root = AppShell([
         Button("append-item", "Append item", "default", Action([@Run(appendSavedItem), @Run(savedItems), @Reset($draft)]), $draft == ""),
         Button("remove-first", "Remove first", "secondary", Action([@Run(removeFirstSavedItem), @Run(savedItems)]), @Count(savedItems) == 0)
       ], "inline"),
-      Repeater(savedRows, "No saved items yet.", { textColor: "#F9FAFB", bgColor: "#111827" })
+      Repeater(savedRows, "No saved items yet.", { mainColor: "#111827", contrastColor: "#F9FAFB" })
     ])
   ])
 ])`,
@@ -150,7 +153,7 @@ root = AppShell([
       ], "inline"),
       Group("Warning surface", "vertical", [
         Text("Please complete all fields.", "body", "start")
-      ], "inline", { textColor: "#92400E", bgColor: "#FEF3C7" }),
+      ], "inline", { mainColor: "#FEF3C7", contrastColor: "#92400E" }),
       Text("variant=body: Centered text", "body", "center"),
       Text("variant=body: Right-aligned text", "body", "end")
     ])
@@ -270,7 +273,7 @@ root = AppShell([
         Button("increment", "Increment", "default", Action([@Set($count, $count + 1), @Set($lastModifier, "+")]), false),
         Button("decrease", "Decrease", "secondary", Action([@Set($count, $count - 1), @Set($lastModifier, "-")]), false),
         Button("reset-count", "Reset", "destructive", Action([@Set($count, 0)]), false),
-        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, { textColor: "#FFFFFF", bgColor: "#2563EB" })
+        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
       ], "inline")
     ])
   ])

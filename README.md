@@ -101,9 +101,11 @@ Notes:
 
 Notes:
 
-- `AppShell(children, appearance?)` can set the global inherited theme with `appearance.textColor` and `appearance.bgColor`.
+- `AppShell(children, appearance?)` can set the global inherited theme with `appearance.mainColor` and `appearance.contrastColor`.
 - `Screen(id, title, children, isActive?, appearance?)`, `Group(title, direction, children, variant?, appearance?)`, and `Repeater(children, emptyText?, appearance?)` can override the inherited theme for a subtree.
-- `Text(value, variant?, align?, appearance?)` accepts only `appearance.textColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.textColor` and `appearance.bgColor`.
+- `appearance.mainColor` is the main surface/background color, and `appearance.contrastColor` is the contrasting text/action color.
+- `Text(value, variant?, align?, appearance?)` accepts only `appearance.contrastColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.mainColor` and `appearance.contrastColor`.
+- `Button(..., "default", ...)` inverts the pair so background uses `contrastColor` and text uses `mainColor`; `Button(..., "secondary", ...)` uses the pair as-is.
 - Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
