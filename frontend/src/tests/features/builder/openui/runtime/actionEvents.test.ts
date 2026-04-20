@@ -1,6 +1,12 @@
 import { BuiltinActionType, type ActionEvent } from '@openuidev/react-lang';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
+import { parseSafeUrl } from '@features/builder/openui/runtime/safeUrl';
+import {
+  allowedUrlCases,
+  fileRuntimeRejectedUrlCases,
+  rejectedUrlCases,
+} from '@src/tests/features/builder/openui/runtime/safeUrlTestCases';
 
 function createOpenUrlEvent(url: unknown): ActionEvent {
   return {
@@ -17,6 +23,46 @@ describe('handleOpenUiActionEvent', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
+
+  it.each([...allowedUrlCases, ...rejectedUrlCases])(
+    'uses parseSafeUrl to decide whether $label can open',
+    ({ value }) => {
+      const open = vi.fn();
+      const expectedSafeUrl = parseSafeUrl(value);
+      let result = false;
+
+      vi.stubGlobal('window', { open });
+
+      expect(() => {
+        result = handleOpenUiActionEvent(createOpenUrlEvent(value));
+      }).not.toThrow();
+      expect(result).toBe(expectedSafeUrl !== null);
+
+      if (expectedSafeUrl) {
+        expect(open).toHaveBeenCalledWith(expectedSafeUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      expect(open).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(fileRuntimeRejectedUrlCases)(
+    'rejects $label when parseSafeUrl blocks file runtime navigation',
+    ({ value }) => {
+      const open = vi.fn();
+      let result = true;
+
+      vi.stubGlobal('window', { open });
+      vi.stubGlobal('location', { protocol: 'file:' });
+
+      expect(() => {
+        result = handleOpenUiActionEvent(createOpenUrlEvent(value));
+      }).not.toThrow();
+      expect(result).toBe(false);
+      expect(open).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects unsafe URLs', () => {
     const open = vi.fn();
@@ -48,7 +94,7 @@ describe('handleOpenUiActionEvent', () => {
     vi.stubGlobal('window', { open });
     vi.stubGlobal('location', { protocol: 'file:' });
 
-    expect(handleOpenUiActionEvent(createOpenUrlEvent('#details'))).toBe(false);
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('#section'))).toBe(false);
     expect(open).not.toHaveBeenCalled();
   });
 

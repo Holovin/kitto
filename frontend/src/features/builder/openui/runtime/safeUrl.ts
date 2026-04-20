@@ -14,7 +14,7 @@ export function parseSafeUrl(value: unknown): string | null {
 
   const trimmedValue = value.trim();
 
-  if (!trimmedValue || /\s/.test(trimmedValue)) {
+  if (value !== trimmedValue || !trimmedValue || /\s/.test(trimmedValue)) {
     return null;
   }
 

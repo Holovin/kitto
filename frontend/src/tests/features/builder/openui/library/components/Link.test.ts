@@ -2,8 +2,13 @@ import type { ReactElement } from 'react';
 import { isValidElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LinkComponent } from '@features/builder/openui/library/components/Link';
+import { parseSafeUrl } from '@features/builder/openui/runtime/safeUrl';
+import {
+  allowedUrlCases,
+  rejectedUrlCases,
+} from '@src/tests/features/builder/openui/runtime/safeUrlTestCases';
 
-function renderLink(props: { label: string; newTab: boolean; url: string }) {
+function renderLink(props: { label: string; newTab: boolean; url: unknown }) {
   const element = LinkComponent.component({ props } as never);
 
   expect(isValidElement(element)).toBe(true);
@@ -20,6 +25,40 @@ describe('LinkComponent', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
+
+  it.each([...allowedUrlCases, ...rejectedUrlCases])(
+    'uses parseSafeUrl to decide whether $label renders as an active anchor',
+    ({ label, value }) => {
+      let element: ReactElement<Record<string, unknown>> | undefined;
+
+      expect(() => {
+        element = renderLink({
+          label,
+          newTab: false,
+          url: value,
+        });
+      }).not.toThrow();
+
+      if (!element) {
+        throw new Error('Link component did not return a React element.');
+      }
+
+      const safeUrl = parseSafeUrl(value);
+
+      if (safeUrl) {
+        expect(element.type).toBe('a');
+        expect(element.props.href).toBe(safeUrl);
+        expect(element.props.target).toBeUndefined();
+        expect(element.props.rel).toBeUndefined();
+        return;
+      }
+
+      expect(element.type).toBe('span');
+      expect(element.props['aria-disabled']).toBe('true');
+      expect(element.props.href).toBeUndefined();
+      expect(element.props.children).toBe(label);
+    },
+  );
 
   it('rejects javascript: URLs', () => {
     const element = renderLink({
@@ -98,13 +137,13 @@ describe('LinkComponent', () => {
     vi.stubGlobal('location', { protocol: 'file:' });
 
     const element = renderLink({
-      label: 'Details',
+      label: 'Section',
       newTab: true,
-      url: '#details',
+      url: '#section',
     });
 
     expect(element.type).toBe('span');
     expect(element.props['aria-disabled']).toBe('true');
-    expect(element.props.children).toBe('Details');
+    expect(element.props.children).toBe('Section');
   });
 });
