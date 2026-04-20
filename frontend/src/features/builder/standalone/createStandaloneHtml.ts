@@ -1,10 +1,4 @@
-import {
-  STANDALONE_PAYLOAD_ELEMENT_ID,
-  STANDALONE_PLAYER_CSS_PUBLIC_PATH,
-  STANDALONE_PLAYER_JS_PUBLIC_PATH,
-  STANDALONE_ROOT_ELEMENT_ID,
-} from './constants';
-import { STANDALONE_PLAYER_CSS, STANDALONE_PLAYER_JS } from './playerAssets.generated';
+import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from './constants';
 import type { KittoStandalonePayload } from './types';
 
 type StandalonePlayerAssets = {
@@ -14,11 +8,12 @@ type StandalonePlayerAssets = {
 
 let standalonePlayerAssetsPromise: Promise<StandalonePlayerAssets> | null = null;
 
-function getGeneratedStandalonePlayerAssets(): StandalonePlayerAssets {
-  return {
-    css: STANDALONE_PLAYER_CSS,
-    js: STANDALONE_PLAYER_JS,
-  };
+function validateStandalonePlayerAsset(value: string, label: string) {
+  if (!value.trim()) {
+    throw new Error(`Embedded standalone player ${label} was empty.`);
+  }
+
+  return value;
 }
 
 function escapeHtmlText(value: string) {
@@ -34,46 +29,16 @@ function escapeInlineTagContent(value: string, tagName: 'script' | 'style') {
   return value.replace(new RegExp(`</${tagName}`, 'gi'), `<\\/${tagName}`);
 }
 
-function getPublicAssetUrl(fileName: string) {
-  const baseUrl = import.meta.env.BASE_URL || '/';
-  return `${baseUrl.replace(/\/?$/, '/')}${fileName}`;
-}
-
-async function readTextAsset(url: string, label: string) {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Unable to load standalone player ${label} from ${url}.`);
-  }
-
-  const text = await response.text();
-  const normalizedText = text.trimStart();
-
-  if (!normalizedText) {
-    throw new Error(`Standalone player ${label} at ${url} was empty.`);
-  }
-
-  // In Vite dev, a missing public asset can fall through to the SPA HTML shell
-  // with a 200 response. Detect that case so we do not inline broken HTML.
-  if (/^(<!doctype html>|<html[\s>]|<head[\s>]|<body[\s>])/i.test(normalizedText)) {
-    throw new Error(`Standalone player ${label} at ${url} resolved to HTML instead of a text asset.`);
-  }
-
-  return text;
-}
-
 async function loadStandalonePlayerAssets() {
   if (!standalonePlayerAssetsPromise) {
-    standalonePlayerAssetsPromise = Promise.all([
-      readTextAsset(getPublicAssetUrl(STANDALONE_PLAYER_JS_PUBLIC_PATH), 'JavaScript bundle'),
-      readTextAsset(getPublicAssetUrl(STANDALONE_PLAYER_CSS_PUBLIC_PATH), 'CSS bundle'),
-    ])
-      .then(([js, css]) => ({
-        css,
-        js,
+    standalonePlayerAssetsPromise = import('./playerAssets.generated')
+      .then(({ STANDALONE_PLAYER_CSS, STANDALONE_PLAYER_JS }) => ({
+        css: validateStandalonePlayerAsset(STANDALONE_PLAYER_CSS, 'CSS bundle'),
+        js: validateStandalonePlayerAsset(STANDALONE_PLAYER_JS, 'JavaScript bundle'),
       }))
-      .catch(() => {
-        return getGeneratedStandalonePlayerAssets();
+      .catch((error) => {
+        standalonePlayerAssetsPromise = null;
+        throw error;
       });
   }
 

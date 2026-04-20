@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  STANDALONE_PAYLOAD_ELEMENT_ID,
-  STANDALONE_PLAYER_CSS_PUBLIC_PATH,
-  STANDALONE_PLAYER_JS_PUBLIC_PATH,
-  STANDALONE_ROOT_ELEMENT_ID,
-} from '@features/builder/standalone/constants';
+import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@features/builder/standalone/constants';
 import type { KittoStandalonePayload } from '@features/builder/standalone/types';
 
 const standalonePlayerJs = 'console.log("standalone player ready");';
@@ -37,41 +32,20 @@ function extractEmbeddedPayloadJson(html: string) {
     .trim();
 }
 
-function mockStandalonePlayerFetch({
+function mockStandalonePlayerModule({
   css = standalonePlayerCss,
   js = standalonePlayerJs,
 }: {
   css?: string;
   js?: string;
 } = {}) {
-  const fetchMock = vi.fn((input: string | URL | Request) => {
-    const url = String(input);
+  const moduleFactory = vi.fn(() => ({
+    STANDALONE_PLAYER_CSS: css,
+    STANDALONE_PLAYER_JS: js,
+  }));
 
-    if (url.endsWith(STANDALONE_PLAYER_JS_PUBLIC_PATH)) {
-      return Promise.resolve(
-        new Response(js, {
-          status: 200,
-        }),
-      );
-    }
-
-    if (url.endsWith(STANDALONE_PLAYER_CSS_PUBLIC_PATH)) {
-      return Promise.resolve(
-        new Response(css, {
-          status: 200,
-        }),
-      );
-    }
-
-    return Promise.resolve(
-      new Response('missing', {
-        status: 404,
-      }),
-    );
-  });
-
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
+  vi.doMock('@features/builder/standalone/playerAssets.generated', moduleFactory);
+  return moduleFactory;
 }
 
 describe('createStandaloneHtml', () => {
@@ -81,8 +55,8 @@ describe('createStandaloneHtml', () => {
     vi.resetModules();
   });
 
-  it('embeds the payload and the mirrored inline player assets', async () => {
-    mockStandalonePlayerFetch();
+  it('embeds the payload and the inline player assets from the generated module', async () => {
+    mockStandalonePlayerModule();
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
     const html = await createStandaloneHtml(createPayload());
 
@@ -96,7 +70,7 @@ describe('createStandaloneHtml', () => {
   });
 
   it('places the inert payload script before the inline player script', async () => {
-    mockStandalonePlayerFetch();
+    mockStandalonePlayerModule();
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
     const html = await createStandaloneHtml(createPayload());
     const payloadScriptStart = html.indexOf(`<script id="${STANDALONE_PAYLOAD_ELEMENT_ID}" type="application/json">`);
@@ -108,7 +82,7 @@ describe('createStandaloneHtml', () => {
   });
 
   it('escapes dangerous payload characters so inline data cannot break the script tag', async () => {
-    mockStandalonePlayerFetch();
+    mockStandalonePlayerModule();
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
     const html = await createStandaloneHtml(
       createPayload({
@@ -121,7 +95,7 @@ describe('createStandaloneHtml', () => {
   });
 
   it('serializes only the standalone app definition fields and excludes chat/history metadata', async () => {
-    mockStandalonePlayerFetch();
+    mockStandalonePlayerModule();
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
     const html = await createStandaloneHtml({
       ...createPayload(),
@@ -147,7 +121,7 @@ describe('createStandaloneHtml', () => {
   });
 
   it('escapes closing style and script tags inside inline player assets', async () => {
-    mockStandalonePlayerFetch({
+    mockStandalonePlayerModule({
       js: 'console.log("</script><script>boom</script>");',
       css: 'body::after{content:"</style><script>boom</script>";}',
     });
@@ -161,69 +135,35 @@ describe('createStandaloneHtml', () => {
     expect(html).not.toContain('</script><script>boom</script>');
   });
 
-  it('reuses the same fetched standalone player assets across exports', async () => {
-    const fetchMock = mockStandalonePlayerFetch();
+  it('reuses the same loaded standalone player assets across exports', async () => {
+    const moduleFactory = mockStandalonePlayerModule();
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
 
     await createStandaloneHtml(createPayload());
     await createStandaloneHtml(createPayload({ exportId: 'v1-test5678', storageKey: 'kitto:standalone:v1-test5678' }));
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(moduleFactory).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to embedded generated assets when the public standalone files are unavailable', async () => {
-    vi.doMock('@features/builder/standalone/playerAssets.generated', () => ({
-      STANDALONE_PLAYER_CSS: 'body{background:#fafaf9;}',
-      STANDALONE_PLAYER_JS: 'console.log("generated player");',
-    }));
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve(
-          new Response('missing', {
-            status: 404,
-          }),
-        ),
-      ),
-    );
-
+  it('does not touch fetch when exporting standalone html', async () => {
+    const fetchMock = vi.fn();
+    mockStandalonePlayerModule();
+    vi.stubGlobal('fetch', fetchMock);
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
     const html = await createStandaloneHtml(createPayload());
 
-    expect(html).toContain('console.log("generated player");');
-    expect(html).toContain('body{background:#fafaf9;}');
+    expect(html).toContain(standalonePlayerJs);
+    expect(html).toContain(standalonePlayerCss);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to embedded generated assets when a public asset resolves to the SPA HTML shell', async () => {
-    vi.doMock('@features/builder/standalone/playerAssets.generated', () => ({
-      STANDALONE_PLAYER_CSS: 'body{color:#111827;}',
-      STANDALONE_PLAYER_JS: 'console.log("generated fallback");',
-    }));
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: string | URL | Request) => {
-        const url = String(input);
-
-        if (url.endsWith(STANDALONE_PLAYER_JS_PUBLIC_PATH) || url.endsWith(STANDALONE_PLAYER_CSS_PUBLIC_PATH)) {
-          return Promise.resolve(
-            new Response('<!doctype html><html><body>fallback</body></html>', {
-              status: 200,
-            }),
-          );
-        }
-
-        return Promise.resolve(
-          new Response('missing', {
-            status: 404,
-          }),
-        );
-      }),
-    );
-
+  it('fails when the generated standalone player module is empty', async () => {
+    mockStandalonePlayerModule({
+      css: '   ',
+      js: '',
+    });
     const { createStandaloneHtml } = await import('@features/builder/standalone/createStandaloneHtml');
-    const html = await createStandaloneHtml(createPayload());
 
-    expect(html).toContain('console.log("generated fallback");');
-    expect(html).not.toContain('<!doctype html><html><body>fallback</body></html>');
+    await expect(createStandaloneHtml(createPayload())).rejects.toThrow('Embedded standalone player CSS bundle was empty.');
   });
 });

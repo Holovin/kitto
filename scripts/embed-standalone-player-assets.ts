@@ -1,11 +1,7 @@
 import { existsSync, unwatchFile, watchFile } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  STANDALONE_PLAYER_CSS_PUBLIC_PATH,
-  STANDALONE_PLAYER_JS_PUBLIC_PATH,
-} from '../frontend/src/features/builder/standalone/constants';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(currentDirectory, '..');
@@ -13,9 +9,10 @@ const standalonePlayerDirectory = path.resolve(repositoryRoot, 'frontend/dist-st
 const standalonePlayerJsPath = path.resolve(standalonePlayerDirectory, 'player.js');
 const standalonePlayerCssPath = path.resolve(standalonePlayerDirectory, 'style.css');
 const generatedModulePath = path.resolve(repositoryRoot, 'frontend/src/features/builder/standalone/playerAssets.generated.ts');
-const publicDirectory = path.resolve(repositoryRoot, 'frontend/public');
-const mirroredStandalonePlayerJsPath = path.resolve(publicDirectory, STANDALONE_PLAYER_JS_PUBLIC_PATH);
-const mirroredStandalonePlayerCssPath = path.resolve(publicDirectory, STANDALONE_PLAYER_CSS_PUBLIC_PATH);
+const legacyPublicStandalonePlayerPaths = [
+  path.resolve(repositoryRoot, 'frontend/public/kitto-standalone-player.js'),
+  path.resolve(repositoryRoot, 'frontend/public/kitto-standalone-player.css'),
+] as const;
 const watchMode = process.argv.includes('--watch');
 const watchedBundlePaths = [standalonePlayerJsPath, standalonePlayerCssPath] as const;
 
@@ -52,7 +49,7 @@ async function readStandaloneBundle({ allowMissing = false } = {}) {
   };
 }
 
-async function mirrorBundleFile(filePath: string, content: string) {
+async function writeOutputFile(filePath: string, content: string) {
   const currentContent = existsSync(filePath) ? await readFile(filePath, 'utf8') : null;
 
   if (currentContent === content) {
@@ -76,28 +73,44 @@ export const STANDALONE_PLAYER_CSS = ${JSON.stringify(standalonePlayerCss)};
 `;
 }
 
-async function writeMirroredAssets({ allowMissing = false } = {}) {
+async function deleteLegacyPublicStandaloneAssets() {
+  const removedPaths = await Promise.all(
+    legacyPublicStandalonePlayerPaths.map(async (filePath) => {
+      if (!existsSync(filePath)) {
+        return null;
+      }
+
+      await rm(filePath, { force: true });
+      return path.relative(repositoryRoot, filePath);
+    }),
+  );
+  const deletedPaths = removedPaths.filter((filePath) => filePath !== null);
+
+  if (deletedPaths.length === 0) {
+    return false;
+  }
+
+  console.log(`[standalone] removed legacy public standalone assets -> ${deletedPaths.join(', ')}`);
+  return true;
+}
+
+async function writeGeneratedModule({ allowMissing = false } = {}) {
   const bundle = await readStandaloneBundle({ allowMissing });
+  const didDeleteLegacyPublicAssets = await deleteLegacyPublicStandaloneAssets();
 
   if (!bundle) {
+    return didDeleteLegacyPublicAssets;
+  }
+
+  await mkdir(path.dirname(generatedModulePath), { recursive: true });
+
+  const didUpdateGeneratedModule = await writeOutputFile(generatedModulePath, createGeneratedModuleContent(bundle));
+
+  if (!didUpdateGeneratedModule && !didDeleteLegacyPublicAssets) {
     return false;
   }
 
-  await mkdir(publicDirectory, { recursive: true });
-
-  const [didUpdateJs, didUpdateCss, didUpdateGeneratedModule] = await Promise.all([
-    mirrorBundleFile(mirroredStandalonePlayerJsPath, bundle.standalonePlayerJs),
-    mirrorBundleFile(mirroredStandalonePlayerCssPath, bundle.standalonePlayerCss),
-    mirrorBundleFile(generatedModulePath, createGeneratedModuleContent(bundle)),
-  ]);
-
-  if (!didUpdateJs && !didUpdateCss && !didUpdateGeneratedModule) {
-    return false;
-  }
-
-  console.log(
-    `[standalone] updated standalone assets -> ${path.relative(repositoryRoot, mirroredStandalonePlayerJsPath)}, ${path.relative(repositoryRoot, mirroredStandalonePlayerCssPath)}, ${path.relative(repositoryRoot, generatedModulePath)}`,
-  );
+  console.log(`[standalone] updated generated standalone assets -> ${path.relative(repositoryRoot, generatedModulePath)}`);
   return true;
 }
 
@@ -114,9 +127,9 @@ function watchGeneratedModule() {
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
 
-      void writeMirroredAssets({ allowMissing: true }).catch((error) => {
+      void writeGeneratedModule({ allowMissing: true }).catch((error) => {
         console.error(
-          `[standalone] failed to mirror standalone assets: ${error instanceof Error ? error.message : 'Unknown error.'}`,
+          `[standalone] failed to update generated standalone assets: ${error instanceof Error ? error.message : 'Unknown error.'}`,
         );
       });
     }, 75);
@@ -154,7 +167,7 @@ async function main() {
     return;
   }
 
-  await writeMirroredAssets();
+  await writeGeneratedModule();
 }
 
 void main().catch((error) => {

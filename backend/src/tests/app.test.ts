@@ -113,7 +113,7 @@ describe('createApp', () => {
 
     try {
       fs.writeFileSync(path.join(frontendDistDir, 'index.html'), '<!doctype html><html><body><div id="root">Kitto</div></body></html>');
-      fs.writeFileSync(path.join(frontendDistDir, 'kitto-standalone-player.js'), 'console.log("standalone");');
+      fs.writeFileSync(path.join(frontendDistDir, 'robots.txt'), 'User-agent: *');
 
       const app = createApp(
         createTestEnv({
@@ -121,10 +121,10 @@ describe('createApp', () => {
         }),
       );
 
-      const response = await app.request('/kitto-standalone-player.js');
+      const response = await app.request('/robots.txt');
 
       expect(response.status).toBe(200);
-      expect(await response.text()).toContain('console.log("standalone");');
+      expect(await response.text()).toContain('User-agent: *');
     } finally {
       fs.rmSync(frontendDistDir, { force: true, recursive: true });
     }

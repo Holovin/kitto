@@ -167,8 +167,7 @@ Steps:
   - `frontend/src/standalone/StandaloneApp.tsx`
   - `frontend/src/features/builder/standalone/createStandaloneHtml.ts`
   - `frontend/src/features/builder/standalone/constants.ts`
-  - `frontend/public/kitto-standalone-player.js`
-  - `frontend/public/kitto-standalone-player.css`
+  - `frontend/src/features/builder/standalone/playerAssets.generated.ts`
   - `frontend/vite.standalone.config.ts`
   - `scripts/embed-standalone-player-assets.ts`
 - The `/elements` page reads both `builderOpenUiLibrary.toSpec()` and `builderOpenUiLibrary.toJSONSchema()`, so library changes directly affect that explorer
