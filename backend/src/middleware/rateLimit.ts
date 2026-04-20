@@ -53,6 +53,20 @@ export function trimRateLimitEntries(
   }
 }
 
+export function shouldCleanupRateLimitEntries({
+  cleanupIntervalRequests,
+  maxEntries,
+  requestCount,
+  size,
+}: {
+  cleanupIntervalRequests: number;
+  maxEntries: number;
+  requestCount: number;
+  size: number;
+}) {
+  return requestCount >= cleanupIntervalRequests || size > maxEntries;
+}
+
 function getRateLimitKey(context: Context) {
   const forwardedFor = context.req.header('x-forwarded-for');
   const realIp = context.req.header('x-real-ip');
@@ -79,7 +93,14 @@ export function createInMemoryRateLimitMiddleware({
     const key = getRateLimitKey(context);
     requestsSinceCleanup += 1;
 
-    if (requestsSinceCleanup >= cleanupInterval || entries.size > maxEntries) {
+    if (
+      shouldCleanupRateLimitEntries({
+        cleanupIntervalRequests: cleanupInterval,
+        maxEntries,
+        requestCount: requestsSinceCleanup,
+        size: entries.size,
+      })
+    ) {
       trimRateLimitEntries(entries, { maxEntries, now, protectedKey: key });
       requestsSinceCleanup = 0;
     }

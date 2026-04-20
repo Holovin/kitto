@@ -9,6 +9,15 @@ This app is deployed as one compiled Node process behind a reverse proxy:
 
 The backend serves both the frontend routes and `/api/*`. No separate frontend server is required.
 
+## Reverse proxy buffering
+
+Disable proxy buffering for the SSE endpoint `/api/llm/generate/stream`.
+
+- Nginx: add `proxy_buffering off;` for that location.
+- Nginx Proxy Manager: add the same `proxy_buffering off;` directive in the proxy host advanced config for the stream endpoint.
+
+The backend also sends `X-Accel-Buffering: no`, but proxy-side buffering still needs to be disabled so stream chunks flush promptly.
+
 ## Prerequisites
 
 - Node.js 22+

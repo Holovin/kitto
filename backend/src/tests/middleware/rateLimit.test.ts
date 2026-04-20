@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createInMemoryRateLimitMiddleware,
   pruneExpiredRateLimitEntries,
+  shouldCleanupRateLimitEntries,
   trimRateLimitEntries,
 } from '../../middleware/rateLimit.js';
 
@@ -90,6 +91,36 @@ describe('rate limit middleware', () => {
         ],
       ]),
     );
+  });
+
+  it('schedules cleanup after the configured number of requests', () => {
+    expect(
+      shouldCleanupRateLimitEntries({
+        cleanupIntervalRequests: 3,
+        maxEntries: 10,
+        requestCount: 3,
+        size: 2,
+      }),
+    ).toBe(true);
+    expect(
+      shouldCleanupRateLimitEntries({
+        cleanupIntervalRequests: 3,
+        maxEntries: 10,
+        requestCount: 2,
+        size: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('schedules cleanup when the tracked client map exceeds the configured cap', () => {
+    expect(
+      shouldCleanupRateLimitEntries({
+        cleanupIntervalRequests: 100,
+        maxEntries: 2,
+        requestCount: 1,
+        size: 3,
+      }),
+    ).toBe(true);
   });
 
   it('evicts the oldest non-expired entries when the map exceeds the configured cap', () => {

@@ -257,9 +257,10 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not leak sensitive OpenAI SDK error messages to the client', async () => {
+  it('sanitizes OpenAI SDK errors that contain a fake API key before responding to clients', async () => {
     const { app } = createRouteApp();
-    const sensitiveMessage = 'sk-live-secret-key should never reach the browser';
+    const fakeApiKey = 'sk-live-test-1234567890abcdef';
+    const sensitiveMessage = `OpenAI upstream failed while using ${fakeApiKey}`;
 
     generateOpenUiSourceMock.mockRejectedValue(
       new APIError(
@@ -284,7 +285,11 @@ describe('createLlmOpenUiRoutes', () => {
         chatHistory: [],
       }),
     });
-    const payload = await response.json();
+    const payload = (await response.json()) as {
+      code: string;
+      error: string;
+      status: number;
+    };
 
     expect(response.status).toBe(502);
     expect(payload).toEqual({
@@ -292,7 +297,9 @@ describe('createLlmOpenUiRoutes', () => {
       error: 'The model service could not complete the request.',
       status: 502,
     });
+    expect(payload.code).toBe('upstream_error');
     expect(JSON.stringify(payload)).not.toContain(sensitiveMessage);
+    expect(JSON.stringify(payload)).not.toContain(fakeApiKey);
   });
 
   it('compacts chat history by item limit before generation', async () => {
@@ -461,6 +468,7 @@ describe('createLlmOpenUiRoutes', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(response.headers.get('x-accel-buffering')).toBe('no');
     expect(calledEnv).toBe(env);
     expect(calledRequest).toEqual({
       prompt: 'stream a tiny app',

@@ -291,6 +291,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
           'Cache-Control': 'no-cache, no-transform',
           Connection: 'keep-alive',
           'Content-Type': 'text/event-stream; charset=utf-8',
+          'X-Accel-Buffering': 'no',
         },
       });
     } catch (error) {
