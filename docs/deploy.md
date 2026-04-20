@@ -13,9 +13,7 @@ The backend serves both the frontend routes and `/api/*`. No separate frontend s
 
 - Node.js 22+
 - npm 10+
-- PM2 installed on the VPS
-- a public domain already pointed at the VPS
-- Nginx Proxy Manager running on the VPS
+- PM2 installed on the
 
 ## Environment
 
@@ -56,13 +54,6 @@ pm2 start ecosystem.config.cjs --env production
 pm2 save
 ```
 
-Notes:
-
-- `npm run build` is the only required build command. It regenerates the OpenUI component spec, rebuilds the standalone player assets, and builds both workspaces.
-- `ecosystem.config.cjs` uses one process in `fork` mode on purpose. Do not switch to cluster mode or `instances: max` because the current rate limiting is in-memory and process-local.
-- PM2 includes a `kill_timeout` slightly longer than the app's 10 second shutdown window so reloads do not cut off graceful shutdown early.
-- `backend/.env.example` is production-oriented. For local development, override it back to `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555`.
-
 ## Update deploy
 
 ```bash
@@ -89,19 +80,6 @@ Expected results:
 - `/api/health` returns `200` JSON
 - `/`, `/chat`, and `/elements` return HTML
 - `/missing` returns the JSON `404` contract
-
-## Nginx Proxy Manager
-
-Create one proxy host for the public domain with these settings:
-
-- Forward Hostname / IP: `127.0.0.1`
-- Forward Port: `8888`
-- Websockets Support: optional, not required for the current app but safe to enable
-- Block Common Exploits: enabled
-- SSL: request a certificate
-- Force SSL: enabled
-
-No custom location routing is required. Nginx Proxy Manager should proxy the whole origin to the single PM2 process.
 
 ## Path requirements
 

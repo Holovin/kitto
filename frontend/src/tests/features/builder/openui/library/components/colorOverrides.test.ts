@@ -65,7 +65,7 @@ describe('OpenUI appearance inheritance', () => {
     expect(html).toMatch(/background-color:var\(--kitto-bg-color\)/i);
   });
 
-  it('lets controls inherit AppShell colors without local appearance props', () => {
+  it('lets shared-theme controls inherit AppShell colors while buttons keep their variant colors', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Input("todoText", "New todo", $todoText, "What needs to be done?"),
@@ -83,8 +83,9 @@ $filter = "all"`);
 
     expect(html).toMatch(/input[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
     expect(html).toMatch(/button[^>]+role="combobox"[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
-    expect(html).toMatch(/>Submit<\/span><\/button>/i);
-    expect(html).toMatch(/<span style="color:var\(--kitto-text-color\)">Submit<\/span>/i);
+    expect(html).toMatch(/<button class="[^"]*bg-slate-950[^"]*"><span>Submit<\/span><\/button>/i);
+    expect(html).not.toMatch(/<button[^>]+style="[^"]*"[^>]*><span>Submit<\/span><\/button>/i);
+    expect(html).not.toMatch(/<button[^>]*><span style="[^"]*">Submit<\/span><\/button>/i);
     expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-text-color\);background-color:var\(--kitto-bg-color\)/i);
   });
 

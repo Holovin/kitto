@@ -1,7 +1,7 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Button as ButtonUI } from '@components/ui/button';
 import { z } from 'zod';
-import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
+import { appearanceSchema, getAppearanceStyle } from './shared';
 
 const variantSchema = z.enum(['default', 'secondary', 'destructive']).default('default');
 
@@ -18,16 +18,13 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const triggerAction = useTriggerAction();
   const isStreaming = useIsStreaming();
   const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
-  const appearanceScope = useKittoAppearanceScope();
   const buttonStyle = getAppearanceStyle({
     appearance: props.appearance,
     applyBackgroundColor: true,
-    hasInheritedBgColor: appearanceScope.hasBgColor,
   });
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
     applyTextColor: true,
-    hasInheritedTextColor: appearanceScope.hasTextColor,
   });
 
   return (
