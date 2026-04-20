@@ -20,16 +20,19 @@ function resolveStandaloneTitle(title?: string) {
   return trimmedTitle || DEFAULT_STANDALONE_APP_TITLE;
 }
 
-function createStandaloneAppId(source: string) {
-  const hashInput = `${KITTO_STANDALONE_PAYLOAD_KIND}:${KITTO_STANDALONE_PAYLOAD_VERSION}:${source}`;
-  let hash = 0x811c9dc5;
+function createStandaloneExportId() {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
 
-  for (let index = 0; index < hashInput.length; index += 1) {
-    hash ^= hashInput.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
+  if (typeof randomUuid === 'string' && randomUuid.length > 0) {
+    return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${randomUuid}`;
   }
 
-  return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+  const timestampPart = Date.now().toString(36);
+  const randomPart = Math.floor(Math.random() * 0x1_0000_0000)
+    .toString(16)
+    .padStart(8, '0');
+
+  return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${timestampPart}-${randomPart}`;
 }
 
 function getLatestCommittedSnapshotForSource(source: string, history: BuilderSnapshot[]) {
@@ -56,17 +59,18 @@ export function createStandalonePayload({
   }
 
   const baselineSnapshot = getLatestCommittedSnapshotForSource(committedSource, history);
-  const appId = createStandaloneAppId(committedSource);
+  const exportId = createStandaloneExportId();
+  const createdAt = new Date().toISOString();
 
   return {
     version: KITTO_STANDALONE_PAYLOAD_VERSION,
     kind: KITTO_STANDALONE_PAYLOAD_KIND,
-    appId,
+    exportId,
     title: resolveStandaloneTitle(title),
-    createdAt: new Date().toISOString(),
+    createdAt,
     source: committedSource,
     initialRuntimeState: baselineSnapshot ? normalizeStandaloneRuntimeState(baselineSnapshot.initialRuntimeState) : {},
     initialDomainData: baselineSnapshot ? normalizeStandaloneDomainData(baselineSnapshot.initialDomainData) : {},
-    storageKey: `kitto:standalone:${appId}`,
+    storageKey: `kitto:standalone:${exportId}`,
   };
 }

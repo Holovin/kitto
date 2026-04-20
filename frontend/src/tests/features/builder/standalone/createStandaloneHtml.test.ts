@@ -8,7 +8,7 @@ function createPayload(overrides: Partial<KittoStandalonePayload> = {}): KittoSt
   return {
     version: 1,
     kind: 'kitto-standalone-openui-app',
-    appId: 'v1-test1234',
+    exportId: 'v1-test1234',
     title: 'Standalone Quiz',
     createdAt: '2026-04-19T08:15:00.000Z',
     source: 'root = AppShell([])',
@@ -74,6 +74,7 @@ describe('createStandaloneHtml', () => {
   it('serializes only the standalone app definition fields and excludes chat/history metadata', () => {
     const html = createStandaloneHtml({
       ...createPayload(),
+      appId: 'legacy-test1234',
       chatHistory: [{ role: 'user', content: 'secret' }],
       history: [{ source: 'draft' }],
       redoHistory: [{ source: 'redo' }],
@@ -83,6 +84,8 @@ describe('createStandaloneHtml', () => {
     const embeddedPayloadJson = extractEmbeddedPayloadJson(html);
 
     expect(embeddedPayloadJson).toContain('"source":"root = AppShell([])"');
+    expect(embeddedPayloadJson).toContain('"exportId":"v1-test1234"');
+    expect(embeddedPayloadJson).not.toContain('"appId"');
     expect(embeddedPayloadJson).not.toContain('chatHistory');
     expect(embeddedPayloadJson).not.toContain('"history"');
     expect(embeddedPayloadJson).not.toContain('redoHistory');

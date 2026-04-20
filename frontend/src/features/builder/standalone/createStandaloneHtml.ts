@@ -28,7 +28,7 @@ function createStandaloneHtmlPayload(payload: KittoStandalonePayload): KittoStan
   return {
     version: payload.version,
     kind: payload.kind,
-    appId: payload.appId,
+    exportId: payload.exportId,
     title: payload.title,
     createdAt: payload.createdAt,
     source: payload.source,

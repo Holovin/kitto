@@ -1,6 +1,6 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import { HEX_COLOR_PATTERN } from '@features/builder/openui/library/components/shared';
+import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue } from '@features/builder/types';
 import {
   ALLOWED_TOOLS,
@@ -249,6 +249,30 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
           }),
         );
       }
+    }
+  }
+
+  if (
+    value.typeName === 'Input' ||
+    value.typeName === 'TextArea' ||
+    value.typeName === 'Select' ||
+    value.typeName === 'RadioGroup' ||
+    value.typeName === 'Checkbox'
+  ) {
+    const validationIssues = inspectValidationConfig({
+      componentType: value.typeName,
+      inputType: value.typeName === 'Input' ? value.props.type : undefined,
+      validation: value.props.validation,
+    });
+
+    for (const validationIssue of validationIssues) {
+      issues.push(
+        createParserIssue({
+          code: 'invalid-prop',
+          message: validationIssue.message,
+          statementId,
+        }),
+      );
     }
   }
 

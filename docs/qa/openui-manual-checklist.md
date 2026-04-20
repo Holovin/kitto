@@ -31,6 +31,10 @@ Guardrails:
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
 - Rejected imported source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
+- Input-like components validate locally on change and blur.
+- Validation error text renders below the relevant control and overrides helper text while the error is visible.
+- Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
+- Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
@@ -46,6 +50,7 @@ Guardrails:
 - Standalone HTML export always uses the committed source and the committed snapshot baseline runtime/domain state, not the builder’s current live clicked state.
 - Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.
 - Standalone HTML files persist their own runtime/domain state in localStorage and can reset back to the embedded baseline state.
+- Each standalone HTML export gets its own localStorage namespace, even when two downloads use the same committed source.
 - When a standalone HTML file is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` must be treated as invalid/inert instead of attempting local filesystem navigation.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `remove_state`, and `write_computed_state`.
@@ -116,14 +121,52 @@ Safe color overrides:
 ```txt
 appearance = { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }
 Text(value, variant, align, appearance?)
-Input(name, label, value?, placeholder?, appearance?)
-TextArea(name, label, value?, placeholder?, appearance?)
-Checkbox(name, label, checked?, appearance?)
-RadioGroup(name, label, value?, options?, appearance?)
-Select(name, label, value?, options?, appearance?)
+Input(name, label, value?, placeholder?, helper?, type?, validation?, appearance?)
+TextArea(name, label, value?, placeholder?, helper?, validation?, appearance?)
+Checkbox(name, label, checked?, helper?, validation?, appearance?)
+RadioGroup(name, label, value?, options?, helper?, validation?, appearance?)
+Select(name, label, value?, options?, helper?, validation?, appearance?)
 Link(label, url, newTab?, appearance?)
 Repeater(children, emptyText?, appearance?)
 ```
+
+Typed inputs and declarative validation:
+
+```txt
+Input type values: text | email | number | date | time | url | tel | password
+Input default type: text
+Input values always stay strings
+date values use YYYY-MM-DD
+time values use browser HH:mm strings
+number values remain strings unless a tool converts them explicitly
+
+validation = [
+  { type: "required", message?: string },
+  { type: "minLength", value: number, message?: string },
+  { type: "maxLength", value: number, message?: string },
+  { type: "minNumber", value: number, message?: string },
+  { type: "maxNumber", value: number, message?: string },
+  { type: "dateOnOrAfter", value: "YYYY-MM-DD", message?: string },
+  { type: "dateOnOrBefore", value: "YYYY-MM-DD", message?: string },
+  { type: "email", message?: string },
+  { type: "url", message?: string }
+]
+```
+
+Validation applicability:
+
+- `Input(type="text")`: `required`, `minLength`, `maxLength`
+- `Input(type="email")`: `required`, `minLength`, `maxLength`, `email`
+- `Input(type="number")`: `required`, `minNumber`, `maxNumber`
+- `Input(type="date")`: `required`, `dateOnOrAfter`, `dateOnOrBefore`
+- `Input(type="time")`: `required`
+- `Input(type="url")`: `required`, `url`, optional `minLength`, `maxLength`
+- `Input(type="tel")`: `required`, `minLength`, `maxLength`
+- `Input(type="password")`: `required`, `minLength`, `maxLength`
+- `TextArea`: `required`, `minLength`, `maxLength`
+- `Select`: `required`
+- `RadioGroup`: `required`
+- `Checkbox`: `required` only, and `required` means checked must be `true`
 
 Navigation:
 
@@ -193,6 +236,12 @@ Do use:
 - `appearance.mainColor` for the main surface or background color
 - `appearance.contrastColor` for text or the contrasting action color
 - only strict `#RRGGBB` values such as `#111827`, `#F9FAFB`, or `#2563EB` inside `appearance`
+- `Input(..., ..., ..., ..., ..., "date", validation)` for due dates, deadlines, birthdays, and scheduled dates
+- `Input(..., ..., ..., ..., ..., "number", validation)` for numeric quantities while keeping the runtime value as a string
+- `Input(..., ..., ..., ..., ..., "email", validation)` for email fields
+- `Input(..., ..., ..., ..., ..., "url", validation)` for website fields
+- `Input(..., ..., ..., ..., ..., "tel", validation)` for phone numbers
+- declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
 - `Button(..., "secondary", ...)` when the button should stay on the normal theme pair
@@ -221,6 +270,8 @@ Do not use:
 - persisted tools for internal screen navigation
 - raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, `url()`, or arbitrary layout styling props
 - `textColor`, `bgColor`, `color`, `background`, `surface`, `border`, `accent`, `primaryColor`, or other invented appearance keys
+- custom `DateInput` or other custom field components when `Input(..., type, validation)` already covers the request
+- JavaScript validators, regex validators, `eval`, `Function(...)`, or script-like validation logic
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings
@@ -232,7 +283,9 @@ Do not use:
 Generated app behaviors that should stay supported:
 
 - text input
+- typed `Input(...)` fields for semantic cases such as email, quantity, due date, URL, phone, password, or time
 - textarea, select, radio group, or checkbox when the prompt calls for longer input or choices
+- declarative local validation on supported input-like components
 - buttons with `Action([...])`
 - collection rendering via `Repeater`
 - dynamic collection rows derived from state, query data, or local arrays instead of hardcoded duplicate content

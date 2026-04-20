@@ -1,19 +1,46 @@
+import { useId, useState } from 'react';
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { z } from 'zod';
-import { appearanceSchema, choiceOptionSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
+import {
+  appearanceSchema,
+  choiceOptionSchema,
+  evaluateValidationRules,
+  getAppearanceStyle,
+  nullableTextSchema,
+  sanitizeValidationRules,
+  useKittoAppearanceScope,
+  validationRulesSchema,
+  type ValidationRuleConfig,
+} from './shared';
 
 type SelectRendererProps = ComponentRenderProps<{
   appearance?: { contrastColor?: string; mainColor?: string };
+  helper?: string | null;
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
+  validation?: ValidationRuleConfig[];
   value: StateField<string | undefined>;
 }>;
 
 function OpenUiSelectRenderer({ props }: SelectRendererProps) {
+  const feedbackId = useId();
+  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  const validationTarget = { componentType: 'Select' as const };
+  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
+  const validationError = touched
+    ? evaluateValidationRules({
+        rules: validationRules,
+        target: validationTarget,
+        value: field.value ?? '',
+      })
+    : undefined;
+  const hasVisibleError = validationError !== undefined;
+  const helperText =
+    validationError ?? (typeof props.helper === 'string' && props.helper.trim().length > 0 ? props.helper : undefined);
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -38,8 +65,23 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
       <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
         {props.label}
       </span>
-      <SelectUI disabled={isStreaming} name={props.name} value={field.value ?? ''} onValueChange={field.setValue}>
-        <SelectTrigger aria-label={props.label} style={selectStyle}>
+      <SelectUI
+        disabled={isStreaming}
+        name={props.name}
+        value={field.value ?? ''}
+        onValueChange={(nextValue: string) => {
+          setTouched(true);
+          field.setValue(nextValue);
+        }}
+      >
+        <SelectTrigger
+          aria-describedby={helperText ? feedbackId : undefined}
+          aria-invalid={hasVisibleError}
+          aria-label={props.label}
+          className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
+          style={selectStyle}
+          onBlur={() => setTouched(true)}
+        >
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
         <SelectContent style={selectStyle}>
@@ -50,18 +92,28 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
           ))}
         </SelectContent>
       </SelectUI>
+      {helperText ? (
+        <p
+          className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
+          id={feedbackId}
+        >
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 export const SelectComponent = defineComponent({
   name: 'Select',
-  description: 'Dropdown selector for choosing one item from a short list of label/value pairs.',
+  description: 'Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs.',
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label for the select field.'),
     value: reactive(z.string().optional().describe('Currently selected value, often bound to a $variable.')),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
+    helper: nullableTextSchema.describe('Optional helper text shown below the control when there is no validation error.'),
+    validation: validationRulesSchema,
     appearance: appearanceSchema,
   }),
   component: OpenUiSelectRenderer,

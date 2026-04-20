@@ -165,6 +165,7 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
 export function createLlmOpenUiRoutes(env: AppEnv) {
   const llmRoutes = new Hono();
   const rateLimitMiddleware = createInMemoryRateLimitMiddleware({
+    maxEntries: env.LLM_RATE_LIMIT_MAX_ENTRIES,
     maxRequests: env.LLM_RATE_LIMIT_MAX_REQUESTS,
     windowMs: env.LLM_RATE_LIMIT_WINDOW_MS,
   });

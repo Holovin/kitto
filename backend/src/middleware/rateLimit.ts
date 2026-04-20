@@ -1,8 +1,12 @@
 import type { Context, Next } from 'hono';
 
+const DEFAULT_RATE_LIMIT_CLEANUP_INTERVAL_REQUESTS = 100;
+
 interface RateLimitOptions {
+  maxEntries?: number;
   maxRequests: number;
   windowMs: number;
+  cleanupIntervalRequests?: number;
 }
 
 interface RateLimitEntry {
@@ -18,6 +22,37 @@ export function pruneExpiredRateLimitEntries(entries: Map<string, RateLimitEntry
   }
 }
 
+export function trimRateLimitEntries(
+  entries: Map<string, RateLimitEntry>,
+  {
+    maxEntries,
+    now,
+    protectedKey,
+  }: {
+    maxEntries: number;
+    now: number;
+    protectedKey?: string;
+  },
+) {
+  pruneExpiredRateLimitEntries(entries, now);
+
+  if (entries.size <= maxEntries) {
+    return;
+  }
+
+  for (const key of entries.keys()) {
+    if (key === protectedKey) {
+      continue;
+    }
+
+    entries.delete(key);
+
+    if (entries.size <= maxEntries) {
+      return;
+    }
+  }
+}
+
 function getRateLimitKey(context: Context) {
   const forwardedFor = context.req.header('x-forwarded-for');
   const realIp = context.req.header('x-real-ip');
@@ -29,20 +64,42 @@ function getRateLimitKey(context: Context) {
   return realIp?.trim() || 'local';
 }
 
-export function createInMemoryRateLimitMiddleware({ maxRequests, windowMs }: RateLimitOptions) {
+export function createInMemoryRateLimitMiddleware({
+  maxEntries = Number.POSITIVE_INFINITY,
+  maxRequests,
+  windowMs,
+  cleanupIntervalRequests = DEFAULT_RATE_LIMIT_CLEANUP_INTERVAL_REQUESTS,
+}: RateLimitOptions) {
   const entries = new Map<string, RateLimitEntry>();
+  const cleanupInterval = Math.max(1, cleanupIntervalRequests);
+  let requestsSinceCleanup = 0;
 
   return async function rateLimitMiddleware(context: Context, next: Next) {
     const now = Date.now();
-    pruneExpiredRateLimitEntries(entries, now);
     const key = getRateLimitKey(context);
+    requestsSinceCleanup += 1;
+
+    if (requestsSinceCleanup >= cleanupInterval || entries.size > maxEntries) {
+      trimRateLimitEntries(entries, { maxEntries, now, protectedKey: key });
+      requestsSinceCleanup = 0;
+    }
+
     const existingEntry = entries.get(key);
 
     if (!existingEntry || existingEntry.resetAt <= now) {
+      if (existingEntry) {
+        entries.delete(key);
+      }
+
       entries.set(key, {
         count: 1,
         resetAt: now + windowMs,
       });
+
+      if (entries.size > maxEntries) {
+        trimRateLimitEntries(entries, { maxEntries, now, protectedKey: key });
+      }
+
       await next();
       return;
     }

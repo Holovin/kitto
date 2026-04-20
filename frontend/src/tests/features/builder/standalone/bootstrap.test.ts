@@ -5,7 +5,7 @@ import { STANDALONE_PAYLOAD_ELEMENT_ID } from '@features/builder/standalone/cons
 const validPayloadJson = JSON.stringify({
   version: 1,
   kind: 'kitto-standalone-openui-app',
-  appId: 'v1-test1234',
+  exportId: 'v1-test1234',
   title: 'Standalone Quiz',
   createdAt: '2026-04-20T09:00:00.000Z',
   source: 'root = AppShell([])',
@@ -19,7 +19,7 @@ describe('standalone bootstrap payload helpers', () => {
     expect(parseEmbeddedStandalonePayload(validPayloadJson)).toEqual({
       version: 1,
       kind: 'kitto-standalone-openui-app',
-      appId: 'v1-test1234',
+      exportId: 'v1-test1234',
       title: 'Standalone Quiz',
       createdAt: '2026-04-20T09:00:00.000Z',
       source: 'root = AppShell([])',
@@ -32,6 +32,21 @@ describe('standalone bootstrap payload helpers', () => {
   it('returns null for invalid embedded payload JSON', () => {
     expect(parseEmbeddedStandalonePayload('{not-json')).toBeNull();
     expect(parseEmbeddedStandalonePayload(JSON.stringify({ version: 1 }))).toBeNull();
+    expect(
+      parseEmbeddedStandalonePayload(
+        JSON.stringify({
+          version: 1,
+          kind: 'kitto-standalone-openui-app',
+          appId: 'v1-legacy1234',
+          title: 'Standalone Quiz',
+          createdAt: '2026-04-20T09:00:00.000Z',
+          source: 'root = AppShell([])',
+          initialRuntimeState: {},
+          initialDomainData: {},
+          storageKey: 'kitto:standalone:v1-legacy1234',
+        }),
+      ),
+    ).toBeNull();
     expect(parseEmbeddedStandalonePayload('')).toBeNull();
   });
 
@@ -49,7 +64,7 @@ describe('standalone bootstrap payload helpers', () => {
     expect(readEmbeddedStandalonePayload(standaloneDocument)).toEqual({
       version: 1,
       kind: 'kitto-standalone-openui-app',
-      appId: 'v1-test1234',
+      exportId: 'v1-test1234',
       title: 'Standalone Quiz',
       createdAt: '2026-04-20T09:00:00.000Z',
       source: 'root = AppShell([])',

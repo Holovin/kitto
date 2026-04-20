@@ -127,11 +127,51 @@ Expected:
   - `textarea` for description
   - `checkbox` for agreement
 - Required validation is visible for required fields.
+- Validation error text appears below the affected control after change or blur.
+- Helper text is replaced by the validation error while the field is invalid.
 - Email validation works for an invalid email.
 - Number validation works for quantity if the prompt asks for `min/max`.
 - Due date is stored as `YYYY-MM-DD`.
 - Validation works locally without LLM requests.
+- Buttons are not auto-disabled globally just because validation exists.
 - Generated source does not contain arbitrary JS validators, `eval`, `Function`, regex-code, or script-like strings.
+
+Focused prompt:
+
+```txt
+Add due dates to tasks.
+```
+
+Expected:
+
+- Generated source uses `Input(..., "date", ...)` for the due date field.
+- The stored value stays a `YYYY-MM-DD` string.
+- The app does not introduce a custom `DateInput` component.
+
+Focused prompt:
+
+```txt
+Add a required email field and a required agreement checkbox.
+```
+
+Expected:
+
+- The email field uses `Input(..., "email", ...)`.
+- The email field uses declarative `required` and `email` validation rules.
+- The agreement checkbox uses declarative `required` validation.
+- The generated source does not contain arbitrary JavaScript validation code.
+
+Focused prompt:
+
+```txt
+Add a number input for quantity with minimum 1 and maximum 10.
+```
+
+Expected:
+
+- The quantity field uses `Input(..., "number", ...)`.
+- The validation uses `minNumber` and `maxNumber`.
+- The runtime value remains a string unless some later tool explicitly converts it.
 
 ## Scenario 5 — Collection, Repeater and filtering
 
@@ -222,8 +262,9 @@ Expected:
 ### Standalone HTML export
 
 1. Generate an app.
-2. Click `Download standalone HTML`.
-3. Open the downloaded `.html` file directly.
+2. Click `Download standalone HTML` and open the downloaded `.html` file directly.
+3. Change some state inside the standalone file, then reload it.
+4. Without changing the committed source in Kitto, click `Download standalone HTML` again and open the second downloaded file.
 
 Expected:
 
@@ -234,6 +275,8 @@ Expected:
 - There are no `/api/*` or `/api/llm/*` requests.
 - Internal clicks work.
 - After changing state and reloading the standalone file, it restores its own `localStorage` state.
+- A second standalone download of the same committed source starts from its own embedded baseline instead of reusing the first file's saved local state.
+- Two standalone exports of the same committed source do not share a `localStorage` namespace.
 - `Reset local data` returns the standalone app to the embedded baseline.
 
 ## Scenario 8 — Cancel, timeout and stale request safety

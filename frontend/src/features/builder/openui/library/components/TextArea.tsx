@@ -1,19 +1,45 @@
+import { useId, useState } from 'react';
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Textarea as TextareaUI } from '@components/ui/textarea';
 import { z } from 'zod';
-import { appearanceSchema, getAppearanceStyle, nullableTextSchema, useKittoAppearanceScope } from './shared';
+import {
+  appearanceSchema,
+  evaluateValidationRules,
+  getAppearanceStyle,
+  nullableTextSchema,
+  sanitizeValidationRules,
+  useKittoAppearanceScope,
+  validationRulesSchema,
+  type ValidationRuleConfig,
+} from './shared';
 
 type TextAreaRendererProps = ComponentRenderProps<{
   appearance?: { contrastColor?: string; mainColor?: string };
+  helper?: string | null;
   label: string;
   name: string;
   placeholder?: string | null;
+  validation?: ValidationRuleConfig[];
   value: StateField<string | undefined>;
 }>;
 
 function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
+  const feedbackId = useId();
+  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  const validationTarget = { componentType: 'TextArea' as const };
+  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
+  const validationError = touched
+    ? evaluateValidationRules({
+        rules: validationRules,
+        target: validationTarget,
+        value: field.value ?? '',
+      })
+    : undefined;
+  const hasVisibleError = validationError !== undefined;
+  const helperText =
+    validationError ?? (typeof props.helper === 'string' && props.helper.trim().length > 0 ? props.helper : undefined);
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -34,25 +60,42 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
         {props.label}
       </span>
       <TextareaUI
+        aria-describedby={helperText ? feedbackId : undefined}
+        aria-invalid={hasVisibleError}
+        className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
         disabled={isStreaming}
         name={props.name}
         placeholder={props.placeholder ?? undefined}
         style={textAreaStyle}
         value={field.value ?? ''}
-        onChange={(event) => field.setValue(event.target.value)}
+        onBlur={() => setTouched(true)}
+        onChange={(event) => {
+          setTouched(true);
+          field.setValue(event.target.value);
+        }}
       />
+      {helperText ? (
+        <p
+          className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
+          id={feedbackId}
+        >
+          {helperText}
+        </p>
+      ) : null}
     </label>
   );
 }
 
 export const TextAreaComponent = defineComponent({
   name: 'TextArea',
-  description: 'Multi-line text input for longer descriptions, prompts, or notes.',
+  description: 'Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes.',
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label for the field.'),
     value: reactive(z.string().optional().describe('Current value, often bound to a $variable.')),
     placeholder: nullableTextSchema.describe('Placeholder text shown when empty.'),
+    helper: nullableTextSchema.describe('Optional helper text shown below the control when there is no validation error.'),
+    validation: validationRulesSchema,
     appearance: appearanceSchema,
   }),
   component: OpenUiTextAreaRenderer,

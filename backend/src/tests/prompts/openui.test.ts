@@ -84,12 +84,58 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton)',
     );
-    expect(prompt).toContain('RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)');
+    expect(prompt).toContain(
+      'RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions, null, [{ type: "required", message: "Choose a contact method" }])',
+    );
     expect(prompt).not.toContain('warningAppearance = { mainColor: "#FEF3C7", contrastColor: "#92400E" }');
     expect(prompt).not.toContain('Screen("main", "Dark app", [');
     expect(prompt).not.toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
     expect(prompt).not.toContain('textColor');
     expect(prompt).not.toContain('bgColor');
+  });
+
+  it('documents typed inputs and declarative validation rules in the component spec and system prompt', () => {
+    const prompt = buildOpenUiSystemPrompt();
+    const inputSpec = componentSpec.components.Input;
+    const textAreaSpec = componentSpec.components.TextArea;
+    const checkboxSpec = componentSpec.components.Checkbox;
+    const radioGroupSpec = componentSpec.components.RadioGroup;
+    const selectSpec = componentSpec.components.Select;
+
+    expect(inputSpec).toBeDefined();
+    expect(textAreaSpec).toBeDefined();
+    expect(checkboxSpec).toBeDefined();
+    expect(radioGroupSpec).toBeDefined();
+    expect(selectSpec).toBeDefined();
+
+    expect(inputSpec?.signature).toContain('helper?:');
+    expect(inputSpec?.signature).toContain('type?: "text" | "email" | "number" | "date" | "time" | "url" | "tel" | "password"');
+    expect(inputSpec?.signature).toContain('validation?: {');
+    expect(textAreaSpec?.signature).toContain('helper?:');
+    expect(textAreaSpec?.signature).toContain('validation?: {');
+    expect(checkboxSpec?.signature).toContain('helper?:');
+    expect(checkboxSpec?.signature).toContain('validation?: {');
+    expect(radioGroupSpec?.signature).toContain('helper?:');
+    expect(radioGroupSpec?.signature).toContain('validation?: {');
+    expect(selectSpec?.signature).toContain('helper?:');
+    expect(selectSpec?.signature).toContain('validation?: {');
+
+    expect(prompt).toContain('Input supports these HTML types only:');
+    expect(prompt).toContain('Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)`');
+    expect(prompt).toContain('Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.');
+    expect(prompt).toContain('Use `Input` type `"number"` for numeric quantities.');
+    expect(prompt).toContain('Use `Input` type `"email"` for email fields.');
+    expect(prompt).toContain('Use `Input` type `"url"` for website fields.');
+    expect(prompt).toContain('Use `Input` type `"tel"` for phone numbers.');
+    expect(prompt).toContain('Use declarative validation rules only: `[{ type: "required", message: "..." }]`.');
+    expect(prompt).toContain('Supported validation rules are `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, `email`, and `url`.');
+    expect(prompt).toContain('Only use validation rules that match the component and input type.');
+    expect(prompt).toContain('For checkboxes, `required` means the checkbox must be checked.');
+    expect(prompt).toContain(
+      'Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [{ type: "required", message: "Choose a due date" }])',
+    );
+    expect(prompt).toContain('Input("email", "Email", $email, "ada@example.com", "Enter email", "email", [');
+    expect(prompt).toContain('Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }])');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {

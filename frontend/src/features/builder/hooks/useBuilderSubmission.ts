@@ -1,8 +1,8 @@
 import { nanoid } from '@reduxjs/toolkit';
 import { useCallback, useEffect, useRef, type FormEvent, type MutableRefObject } from 'react';
-import { useConfigQuery, useGenerateAppMutation } from '@api/apiSlice';
+import { useConfigQuery } from '@api/apiSlice';
+import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
-import { unwrapAbortableRequestWithTimeout } from '@features/builder/api/requestTimeout';
 import {
   BuilderStreamTimeoutError,
   streamBuilderDefinition,
@@ -84,7 +84,6 @@ function isAbortError(error: unknown) {
 export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onFeedbackChange }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
-  const activeMutationAbortRef = useRef<(() => void) | null>(null);
   const handleCancelRef = useRef<() => void>(() => {});
   const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
@@ -99,13 +98,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   });
   const requestLimits = getBuilderRequestLimits(configState.data);
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
-  const [generateApp] = useGenerateAppMutation();
   const isSubmitting = isStreaming;
 
   useEffect(() => {
     return () => {
       activeRequestIdRef.current = null;
-      activeMutationAbortRef.current = null;
     };
   }, []);
 
@@ -125,7 +122,6 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     }
 
     abortControllerRef.current = null;
-    activeMutationAbortRef.current = null;
   }
 
   function abortRequestHandles(requestId: BuilderRequestId) {
@@ -134,12 +130,9 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     }
 
     const abortController = abortControllerRef.current;
-    const abortMutation = activeMutationAbortRef.current;
 
     abortControllerRef.current = null;
-    activeMutationAbortRef.current = null;
     abortController?.abort();
-    abortMutation?.();
   }
 
   function throwIfInactiveRequest(requestId: BuilderRequestId) {
@@ -185,20 +178,14 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   async function runGenerateRequest(requestId: BuilderRequestId, request: BuilderLlmRequest) {
-    const generateRequest = generateApp(request);
-    const abortGenerateRequest = () => generateRequest.abort();
+    throwIfInactiveRequest(requestId);
 
-    if (isActiveRequest(requestId)) {
-      activeMutationAbortRef.current = abortGenerateRequest;
-    }
-
-    try {
-      return await unwrapAbortableRequestWithTimeout(generateRequest, streamTimeouts.streamMaxDurationMs);
-    } finally {
-      if (activeRequestIdRef.current === requestId && activeMutationAbortRef.current === abortGenerateRequest) {
-        activeMutationAbortRef.current = null;
-      }
-    }
+    return generateBuilderDefinition({
+      apiBaseUrl: getBackendApiBaseUrl(),
+      request,
+      signal: abortControllerRef.current?.signal,
+      timeoutMs: streamTimeouts.streamMaxDurationMs,
+    });
   }
 
   async function ensureValidGeneratedSource(initialSource: string, request: BuilderLlmRequest, requestId: BuilderRequestId) {

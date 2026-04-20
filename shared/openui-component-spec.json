@@ -22,24 +22,24 @@
       "description": "Generic text node for headings, helper copy, code-style snippets, and status lines."
     },
     "Input": {
-      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Single-line text input. Bind the value to a $variable for two-way state."
+      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, type?: \"text\" | \"email\" | \"number\" | \"date\" | \"time\" | \"url\" | \"tel\" | \"password\", validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\" | \"url\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Single-line input with HTML type support, optional helper text, and declarative validation. Values always stay strings, including number, date, and time inputs."
     },
     "TextArea": {
-      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Multi-line text input for longer descriptions, prompts, or notes."
+      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\" | \"url\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes."
     },
     "Checkbox": {
-      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Boolean toggle. Bind checked to a $variable when the user should control visibility or confirmation state."
+      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\" | \"url\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Boolean toggle with optional helper text and declarative validation. Required validation means the checkbox must be checked."
     },
     "RadioGroup": {
-      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Single-choice list of options. Good for quizzes, steps, and mode switches."
+      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\" | \"url\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Single-choice list of options with optional helper text and declarative validation. Good for quizzes, steps, and mode switches."
     },
     "Select": {
-      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Dropdown selector for choosing one item from a short list of label/value pairs."
+      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\" | \"url\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs."
     },
     "Button": {
       "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",

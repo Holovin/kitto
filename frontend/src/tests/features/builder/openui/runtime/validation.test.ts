@@ -72,6 +72,38 @@ describe('validateOpenUiSource', () => {
     });
   });
 
+  it('accepts typed inputs and declarative validation examples', () => {
+    const result = validateOpenUiSource(`$dueDate = ""
+$email = ""
+$quantity = ""
+$agreement = false
+
+root = AppShell([
+  Screen("main", "Main", [
+    Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [
+      { type: "required", message: "Choose a due date" }
+    ]),
+    Input("email", "Email", $email, "name@example.com", "Enter email", "email", [
+      { type: "required", message: "Email is required" },
+      { type: "email", message: "Enter a valid email" }
+    ]),
+    Input("quantity", "Quantity", $quantity, "1", "Enter quantity", "number", [
+      { type: "required", message: "Quantity is required" },
+      { type: "minNumber", value: 1, message: "Must be at least 1" },
+      { type: "maxNumber", value: 10, message: "Must be no more than 10" }
+    ]),
+    Checkbox("agreement", "I agree to continue", $agreement, null, [
+      { type: "required", message: "You must agree before continuing" }
+    ])
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
   it('accepts filtered collections, counts, and @Each templates over derived rows', () => {
     const result = validateOpenUiSource(`items = [
   { title: "Write tests", completed: true },
@@ -214,7 +246,7 @@ root = AppShell([
   Screen("main", "Main", [
     Group("Section", "vertical", [
       Text("Hello", "body", "start", { contrastColor: "#000000" }),
-      Input("name", "Name", $name, "Ada", { mainColor: "#FFFFFF", contrastColor: "#000000" }),
+      Input("name", "Name", $name, "Ada", null, "text", [], { mainColor: "#FFFFFF", contrastColor: "#000000" }),
       Button("save", "Save", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#111827" }),
       Repeater([], "Empty state", { mainColor: "#FFFFFF", contrastColor: "#000000" })
     ], "block", { mainColor: "#FFFFFF", contrastColor: "#000000" })
@@ -283,6 +315,89 @@ root = AppShell([
 
     expect(result.isValid).toBe(false);
     expect(result.issues.length).toBeGreaterThan(0);
+  });
+
+  it('rejects invalid Input types', () => {
+    const result = validateOpenUiSource(`$site = ""
+root = AppShell([
+  Screen("main", "Main", [
+    Input("site", "Site", $site, "https://example.com", null, "color")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Input.type must be one of "text", "email", "number", "date", "time", "url", "tel", "password".',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects unsupported validation rules for an Input type', () => {
+    const result = validateOpenUiSource(`$name = ""
+root = AppShell([
+  Screen("main", "Main", [
+    Input("name", "Name", $name, "Ada", "Enter your name", "text", [
+      { type: "minNumber", value: 1, message: "Wrong rule" }
+    ])
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Input type "text" does not support validation rule "minNumber".',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid date validation rule values', () => {
+    const result = validateOpenUiSource(`$dueDate = ""
+root = AppShell([
+  Screen("main", "Main", [
+    Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [
+      { type: "dateOnOrAfter", value: "2026-02-30", message: "Invalid rule value" }
+    ])
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Validation rule "dateOnOrAfter" requires a valid YYYY-MM-DD calendar date.',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid validation rule types', () => {
+    const result = validateOpenUiSource(`$email = ""
+root = AppShell([
+  Screen("main", "Main", [
+    Input("email", "Email", $email, "name@example.com", "Enter email", "email", [
+      { type: "pattern", value: ".*" }
+    ])
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message:
+            'validation[0].type must be one of "required", "minLength", "maxLength", "minNumber", "maxNumber", "dateOnOrAfter", "dateOnOrBefore", "email", "url".',
+        }),
+      ]),
+    );
   });
 
   it.each([

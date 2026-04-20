@@ -209,11 +209,11 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
                 title={parsedPayload.title || 'Standalone app crashed'}
               />
             )}
-            resetKeys={[parsedPayload.appId, resetVersion]}
+            resetKeys={[parsedPayload.exportId, resetVersion]}
           >
             <div className="min-h-full overflow-y-auto rounded-[1.75rem] bg-transparent p-1 sm:p-2">
               <Renderer
-                key={`${parsedPayload.appId}:${resetVersion}`}
+                key={`${parsedPayload.exportId}:${resetVersion}`}
                 initialState={runtimeState}
                 library={builderOpenUiLibrary}
                 onAction={handleOpenUiActionEvent}

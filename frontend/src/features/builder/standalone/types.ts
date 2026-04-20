@@ -8,7 +8,7 @@ export const DEFAULT_STANDALONE_APP_TITLE = 'Kitto OpenUI App';
 export type KittoStandalonePayload = {
   version: 1;
   kind: 'kitto-standalone-openui-app';
-  appId: string;
+  exportId: string;
   title: string;
   createdAt: string;
   source: string;
@@ -55,7 +55,7 @@ export function parseStandalonePayload(value: unknown): KittoStandalonePayload |
   }
 
   if (
-    typeof value.appId !== 'string' ||
+    typeof value.exportId !== 'string' ||
     typeof value.title !== 'string' ||
     typeof value.createdAt !== 'string' ||
     typeof value.source !== 'string' ||
@@ -68,7 +68,7 @@ export function parseStandalonePayload(value: unknown): KittoStandalonePayload |
     return {
       version: KITTO_STANDALONE_PAYLOAD_VERSION,
       kind: KITTO_STANDALONE_PAYLOAD_KIND,
-      appId: value.appId,
+      exportId: value.exportId,
       title: value.title,
       createdAt: value.createdAt,
       source: value.source,

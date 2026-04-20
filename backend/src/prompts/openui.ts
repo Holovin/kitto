@@ -245,8 +245,8 @@ root = AppShell([
       Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
     ], "inline"),
     Group("Profile", "vertical", [
-      Input("name", "Name", $name, "Ada"),
-      RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)
+      Input("name", "Name", $name, "Ada", "Enter your full name", "text", [{ type: "required", message: "Name is required" }]),
+      RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions, null, [{ type: "required", message: "Choose a contact method" }])
     ])
   ], true)
 ], appTheme)`,
@@ -262,8 +262,11 @@ priorityOptions = [
 root = AppShell([
   Screen("main", "Request form", [
     Group("Details", "vertical", [
-      Input("email", "Email", $email, "ada@example.com"),
-      Select("priority", "Priority", $priority, priorityOptions),
+      Input("email", "Email", $email, "ada@example.com", "Enter email", "email", [
+        { type: "required", message: "Email is required" },
+        { type: "email", message: "Enter a valid email" }
+      ]),
+      Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }]),
       Button("submit-button", "Submit", "default", Action([]), false)
     ])
   ], true)
@@ -303,7 +306,7 @@ answerRows = @Each(selectedAnswers, "answer", Group(null, "vertical", [
 root = AppShell([
   Screen("question", "Question", [
     RadioGroup("preferredContact", "Preferred contact", $preferredContact, answerOptions),
-    Input("notes", "Notes", $notes, "Optional"),
+    Input("notes", "Notes", $notes, "Optional", "Share any extra context"),
     Button("show-result", "Show result", "default", Action([@Set($currentScreen, "result")]), false)
   ], $currentScreen == "question"),
   Screen("result", "Result", [
@@ -381,7 +384,7 @@ isOverdue = Query("compute_value", {
 
 root = AppShell([
   Screen("main", "Deadlines", [
-    Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD"),
+    Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [{ type: "required", message: "Choose a due date" }]),
     Text($dueDate == "" ? "Add a due date." : isOverdue.value ? "This task is overdue." : "This task is not overdue.", "body", "start")
   ])
 ])`,
@@ -433,6 +436,27 @@ const additionalRules = [
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
   'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
+  'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"url"`, `"tel"`, `"password"`.',
+  'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
+  'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
+  'Use `Input` type `"number"` for numeric quantities.',
+  'Use `Input` type `"email"` for email fields.',
+  'Use `Input` type `"url"` for website fields.',
+  'Use `Input` type `"tel"` for phone numbers.',
+  'Input values always stay strings. Number inputs must stay strings in runtime state unless a tool explicitly converts them.',
+  'Date inputs store strict `YYYY-MM-DD` strings, and time inputs store browser-style `HH:mm` strings.',
+  'For due dates, store values as `YYYY-MM-DD` strings.',
+  'Use declarative validation rules only: `[{ type: "required", message: "..." }]`.',
+  'Supported validation rules are `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, `email`, and `url`.',
+  'Never generate JavaScript validators, regex validators, Function constructors, eval, or script-like validation code.',
+  'Only use validation rules that match the component and input type.',
+  'For text, textarea, tel, and password fields, use only `required`, `minLength`, and `maxLength`.',
+  'For email fields, use only `required`, `minLength`, `maxLength`, and `email`.',
+  'For number inputs, use only `required`, `minNumber`, and `maxNumber`.',
+  'For date inputs, use only `required`, `dateOnOrAfter`, and `dateOnOrBefore`, and rule values must be literal `YYYY-MM-DD` strings.',
+  'For time inputs, selects, and radio groups, use only `required`.',
+  'For URL inputs, use `required`, `url`, and optional `minLength` or `maxLength` when needed.',
+  'For checkboxes, `required` means the checkbox must be checked.',
   'Screen signature is `Screen(id, title, children, isActive?, appearance?)`.',
   'Use `Screen(id, title, children, isActive?, appearance?)` when you need screen-level sections.',
   'Repeater signature is `Repeater(children, emptyText?, appearance?)`.',

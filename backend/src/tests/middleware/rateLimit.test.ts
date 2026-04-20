@@ -1,8 +1,17 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createInMemoryRateLimitMiddleware, pruneExpiredRateLimitEntries } from '../../middleware/rateLimit.js';
+import {
+  createInMemoryRateLimitMiddleware,
+  pruneExpiredRateLimitEntries,
+  trimRateLimitEntries,
+} from '../../middleware/rateLimit.js';
 
-function createRateLimitedApp(options: { maxRequests: number; windowMs: number }) {
+function createRateLimitedApp(options: {
+  cleanupIntervalRequests?: number;
+  maxEntries?: number;
+  maxRequests: number;
+  windowMs: number;
+}) {
   const app = new Hono();
 
   app.use('*', createInMemoryRateLimitMiddleware(options));
@@ -81,5 +90,113 @@ describe('rate limit middleware', () => {
         ],
       ]),
     );
+  });
+
+  it('evicts the oldest non-expired entries when the map exceeds the configured cap', () => {
+    const entries = new Map([
+      [
+        '198.51.100.10',
+        {
+          count: 1,
+          resetAt: 500,
+        },
+      ],
+      [
+        '198.51.100.11',
+        {
+          count: 1,
+          resetAt: 600,
+        },
+      ],
+      [
+        '198.51.100.12',
+        {
+          count: 1,
+          resetAt: 700,
+        },
+      ],
+    ]);
+
+    trimRateLimitEntries(entries, {
+      maxEntries: 2,
+      now: 200,
+    });
+
+    expect([...entries.keys()]).toEqual(['198.51.100.11', '198.51.100.12']);
+  });
+
+  it('preserves the active requester when trimming overflow entries', () => {
+    const entries = new Map([
+      [
+        '198.51.100.10',
+        {
+          count: 1,
+          resetAt: 500,
+        },
+      ],
+      [
+        '198.51.100.11',
+        {
+          count: 1,
+          resetAt: 600,
+        },
+      ],
+      [
+        '198.51.100.12',
+        {
+          count: 1,
+          resetAt: 700,
+        },
+      ],
+    ]);
+
+    trimRateLimitEntries(entries, {
+      maxEntries: 2,
+      now: 200,
+      protectedKey: '198.51.100.10',
+    });
+
+    expect([...entries.keys()]).toEqual(['198.51.100.10', '198.51.100.12']);
+  });
+
+  it('drops the oldest tracked client once the middleware entry cap is exceeded', async () => {
+    const app = createRateLimitedApp({
+      cleanupIntervalRequests: 100,
+      maxEntries: 2,
+      maxRequests: 1,
+      windowMs: 60_000,
+    });
+
+    const firstClient = await app.request('/limited', {
+      headers: {
+        'x-forwarded-for': '198.51.100.10',
+      },
+    });
+    const secondClient = await app.request('/limited', {
+      headers: {
+        'x-forwarded-for': '198.51.100.11',
+      },
+    });
+    const thirdClient = await app.request('/limited', {
+      headers: {
+        'x-forwarded-for': '198.51.100.12',
+      },
+    });
+    const secondClientRetry = await app.request('/limited', {
+      headers: {
+        'x-forwarded-for': '198.51.100.11',
+      },
+    });
+    const firstClientRetry = await app.request('/limited', {
+      headers: {
+        'x-forwarded-for': '198.51.100.10',
+      },
+    });
+
+    expect(firstClient.status).toBe(200);
+    expect(secondClient.status).toBe(200);
+    expect(thirdClient.status).toBe(200);
+    expect(secondClientRetry.status).toBe(429);
+    expect(firstClientRetry.status).toBe(200);
   });
 });

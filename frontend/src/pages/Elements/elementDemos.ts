@@ -163,17 +163,32 @@ root = AppShell([
   Input: {
     source: `$name = "Ada Lovelace"
 $email = "ada@example.com"
+$dueDate = "2026-04-25"
+$quantity = "2"
 
 root = AppShell([
   Screen("main", "Main", [
-    Group("Bound fields", "vertical", [
+    Group("Typed inputs", "vertical", [
       Group("Inline profile row", "horizontal", [
-        Input("name", "Name", $name, "Ada Lovelace"),
-        Input("email", "Email", $email, "ada@example.com")
+        Input("name", "Name", $name, "Ada Lovelace", "Required text input", "text", [{ type: "required", message: "Name is required" }]),
+        Input("email", "Email", $email, "ada@example.com", "Email input with validation", "email", [
+          { type: "required", message: "Email is required" },
+          { type: "email", message: "Enter a valid email" }
+        ])
+      ], "inline"),
+      Group("Inline scheduling row", "horizontal", [
+        Input("dueDate", "Due date", $dueDate, "", "Stores YYYY-MM-DD", "date", [{ type: "required", message: "Choose a due date" }]),
+        Input("quantity", "Quantity", $quantity, "1", "Stays a string in runtime state", "number", [
+          { type: "required", message: "Quantity is required" },
+          { type: "minNumber", value: 1, message: "Must be at least 1" },
+          { type: "maxNumber", value: 10, message: "Must be no more than 10" }
+        ])
       ], "inline"),
       Group("Current values", "horizontal", [
         Text("Name: " + $name, "body", "start"),
-        Text("Email: " + $email, "body", "start")
+        Text("Email: " + $email, "body", "start"),
+        Text("Due: " + $dueDate, "body", "start"),
+        Text("Qty: " + $quantity, "body", "start")
       ], "inline")
     ])
   ])
@@ -185,7 +200,10 @@ root = AppShell([
 root = AppShell([
   Screen("main", "Main", [
     Group("Long-form input", "vertical", [
-      TextArea("notes", "Notes", $notes, "Write something longer"),
+      TextArea("notes", "Notes", $notes, "Write something longer", "Keep it under 120 characters", [
+        { type: "required", message: "Notes are required" },
+        { type: "maxLength", value: 120, message: "Keep notes under 120 characters" }
+      ]),
       Group("Inline metadata", "horizontal", [
         Text($notes == "" ? "Empty draft" : "Draft ready", "body", "start"),
         Text("Stored in local runtime state", "muted", "start")
@@ -200,7 +218,9 @@ root = AppShell([
 root = AppShell([
   Screen("main", "Main", [
     Group("Toggle", "vertical", [
-      Checkbox("accepted", "I accept the agreement", $accepted),
+      Checkbox("accepted", "I accept the agreement", $accepted, "Required to continue", [
+        { type: "required", message: "You must accept the agreement" }
+      ]),
       Group("Inline status", "horizontal", [
         Text($accepted ? "Accepted" : "Pending", "body", "start"),
         Text($accepted ? "Ready to continue" : "Review before continuing", "muted", "start")
@@ -221,7 +241,7 @@ planOptions = [
 root = AppShell([
   Screen("main", "Main", [
     Group("Single choice", "vertical", [
-      RadioGroup("plan", "Plan", $plan, planOptions),
+      RadioGroup("plan", "Plan", $plan, planOptions, "Choose one plan", [{ type: "required", message: "Pick a plan" }]),
       Group("Inline summary", "horizontal", [
         Text("Selected: " + $plan, "body", "start"),
         Text($plan == "enterprise" ? "High-touch rollout" : "Self-serve setup", "muted", "start")
@@ -249,8 +269,12 @@ root = AppShell([
   Screen("main", "Main", [
     Group("Dropdowns", "vertical", [
       Group("Inline scheduling controls", "horizontal", [
-        Select("frequency", "Frequency", $frequency, frequencyOptions),
-        Select("window", "Reminder window", $window, windowOptions)
+        Select("frequency", "Frequency", $frequency, frequencyOptions, "Choose how often to send updates", [
+          { type: "required", message: "Choose a frequency" }
+        ]),
+        Select("window", "Reminder window", $window, windowOptions, "Choose the time of day", [
+          { type: "required", message: "Choose a reminder window" }
+        ])
       ], "inline"),
       Group("Current values", "horizontal", [
         Text("Frequency: " + $frequency, "body", "start"),

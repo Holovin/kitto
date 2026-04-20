@@ -62,7 +62,23 @@ describe('createStandalonePayload', () => {
 
     expect(payload.initialRuntimeState).toEqual({});
     expect(payload.initialDomainData).toEqual({});
-    expect(payload.storageKey).toBe(`kitto:standalone:${payload.appId}`);
+    expect(payload.exportId).toMatch(/^v1-/);
+    expect(payload.storageKey).toBe(`kitto:standalone:${payload.exportId}`);
+  });
+
+  it('creates a unique storage identity for each export of the same committed source', () => {
+    const firstPayload = createStandalonePayload({
+      committedSource: validSource,
+      history: [],
+    });
+    const secondPayload = createStandalonePayload({
+      committedSource: validSource,
+      history: [],
+    });
+
+    expect(firstPayload.source).toBe(secondPayload.source);
+    expect(firstPayload.exportId).not.toBe(secondPayload.exportId);
+    expect(firstPayload.storageKey).not.toBe(secondPayload.storageKey);
   });
 
   it('rejects invalid committed source before export', () => {

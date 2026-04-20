@@ -134,9 +134,14 @@ rows = @Each(submissions, "submission", Group(null, "vertical", [
 root = AppShell([
   Screen("main", "Signup", [
     Group("Form", "vertical", [
-      Input("name", "Full name", $name, "Alex Johnson"),
-      Input("email", "Email", $email, "alex@example.com"),
-      Checkbox("accepted", "I agree to the terms before submit.", $accepted),
+      Input("name", "Full name", $name, "Alex Johnson", "Required", "text", [{ type: "required", message: "Name is required" }]),
+      Input("email", "Email", $email, "alex@example.com", "Required email", "email", [
+        { type: "required", message: "Email is required" },
+        { type: "email", message: "Enter a valid email" }
+      ]),
+      Checkbox("accepted", "I agree to the terms before submit.", $accepted, "Required agreement", [
+        { type: "required", message: "You must accept the agreement" }
+      ]),
       Group(null, "horizontal", [
         Button("submit-form", "Submit", "default", Action([@Run(createSubmission), @Run(submissions), @Reset($name, $email, $accepted)]), !$accepted || $name == "" || $email == ""),
         Link("Privacy policy", "https://platform.openai.com/docs", true)
