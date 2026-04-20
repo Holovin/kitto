@@ -87,7 +87,7 @@ $filter = "all"`);
     expect(html).toMatch(/button[^>]+role="combobox"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
     expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-contrast-color\)[^"]*"[^>]*><span style="color:var\(--kitto-main-color\)">Submit<\/span><\/button>/i);
     expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Cancel<\/span><\/button>/i);
-    expect(html).toMatch(/<button class="[^"]*bg-rose-600[^"]*"><span>Delete<\/span><\/button>/i);
+    expect(html).toMatch(/<button class="[^"]*bg-rose-600[^"]*"[^>]*><span>Delete<\/span><\/button>/i);
     expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
   });
 

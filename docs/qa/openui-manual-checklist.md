@@ -42,7 +42,7 @@ Guardrails:
 - Rejected imported source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
 - Input-like components validate locally on change, blur, and submit-like primary button interactions.
-- Validation error text renders below the relevant control and overrides helper text while the error is visible.
+- Validation sets `aria-invalid` and error styling on the relevant control without rendering inline error text below it; helper text remains helper-only.
 - Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
@@ -216,14 +216,21 @@ Simple todo recipe:
 
 ```txt
 $draft = ""
+$targetItemId = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_item", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
+toggleItem = Mutation("toggle_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
 rows = @Each(items, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
 ], "inline"))
 
 root = AppShell([
@@ -239,13 +246,14 @@ root = AppShell([
 
 Todo request guardrails:
 
-- For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_item", { path: "app.items", value: ... })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
+- For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, `$targetItemId`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_item", { path: "app.items", value: ... })`, `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, an action-mode checkbox row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
 - Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
 - If a simple todo request misses that minimum structure, repair before commit instead of committing the placeholder draft.
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
 - `Checkbox(...)` supports two modes: use a writable `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.
 - Do not combine checkbox action mode with a writable `$binding<boolean>` on the same control.
 - Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.
+- For canonical interactive todo rows, prefer an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)`.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
 - Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.

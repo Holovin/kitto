@@ -170,13 +170,19 @@ describe('openui prompts', () => {
 
     expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
     expect(prompt).toContain('Text(item.title, "body", "start")');
-    expect(prompt).toContain('Text(item.completed ? "Done" : "Open", "muted", "end")');
+    expect(prompt).toContain('Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
     expect(prompt).toContain('Repeater(rows, "No tasks yet.")');
+    expect(prompt).toContain('- `$targetItemId = ""`');
+    expect(prompt).toContain('- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`');
+    expect(prompt).toContain('- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`');
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
     expect(prompt).toContain('Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.');
     expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(prompt).toContain(
+      'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
+    );
     expect(prompt).toContain(
       'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
     );
@@ -288,16 +294,22 @@ describe('openui prompts', () => {
     expect(prompt).toContain('TODO / TASK LIST RECIPE:');
     expect(prompt).toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
     expect(prompt).toContain('- `$draft`');
+    expect(prompt).toContain('- `$targetItemId = ""`');
     expect(prompt).toContain('- an `Input` for the new task');
     expect(prompt).toContain('- `Query("read_state", { path: "app.items" }, [])`');
     expect(prompt).toContain('- `Mutation("append_item", { path: "app.items", value: ... })`');
+    expect(prompt).toContain('- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`');
     expect(prompt).toContain('- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`');
+    expect(prompt).toContain('- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`');
     expect(prompt).toContain('- `@Each(items, "item", ...)`');
     expect(prompt).toContain('- `Repeater(rows, "No tasks yet.")`');
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
     expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(prompt).toContain(
+      'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
+    );
     expect(prompt).toContain(
       'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
     );

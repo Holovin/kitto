@@ -584,7 +584,7 @@ export function getValidationFeedback(args: {
 
   return {
     hasVisibleError: validationError !== undefined,
-    helperText: validationError ?? getNormalizedHelperText(helper),
+    helperText: getNormalizedHelperText(helper),
     validationError,
   };
 }

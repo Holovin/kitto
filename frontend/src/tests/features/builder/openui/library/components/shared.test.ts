@@ -78,7 +78,7 @@ describe('validation helpers', () => {
     expect(evaluateValidationRules({ target: { componentType: 'Checkbox' }, rules, value: true })).toBeUndefined();
   });
 
-  it('shows a checkbox error after a submit-like interaction and hides helper text while invalid', () => {
+  it('shows a checkbox error after a submit-like interaction and keeps helper text separate', () => {
     const rules = sanitizeValidationRules(
       { componentType: 'Checkbox' },
       [{ type: 'required', message: 'You must accept the agreement' }],
@@ -110,7 +110,7 @@ describe('validation helpers', () => {
       }),
     ).toEqual({
       hasVisibleError: true,
-      helperText: 'You must accept the agreement',
+      helperText: 'Required agreement',
       validationError: 'You must accept the agreement',
     });
   });

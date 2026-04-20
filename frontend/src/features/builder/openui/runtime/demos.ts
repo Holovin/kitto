@@ -8,16 +8,23 @@ interface BuilderDemoPreset {
 
 const todoDemoSource = `$taskTitle = ""
 $filter = "all"
+$targetTaskId = ""
 
 tasks = Query("read_state", { path: "app.tasks" }, [])
 visibleTasks = $filter == "completed" ? @Filter(tasks, "completed", "==", true) : $filter == "active" ? @Filter(tasks, "completed", "==", false) : tasks
-createTask = Mutation("append_state", {
+createTask = Mutation("append_item", {
   path: "app.tasks",
   value: { title: $taskTitle, completed: false }
 })
-taskRows = @Each(visibleTasks, "task", Group(null, "vertical", [
-  Text(task.title, "title"),
-  Checkbox("completed-" + task.title, "Completed", task.completed)
+toggleTask = Mutation("toggle_item_field", {
+  path: "app.tasks",
+  idField: "id",
+  id: $targetTaskId,
+  field: "completed"
+})
+taskRows = @Each(visibleTasks, "task", Group(null, "horizontal", [
+  Text(task.title, "title", "start"),
+  Checkbox("completed-" + task.id, "", task.completed, null, null, Action([@Set($targetTaskId, task.id), @Run(toggleTask), @Run(tasks)]))
 ], "inline"))
 filterOptions = [
   { value: "all", label: "All tasks" },
@@ -164,10 +171,12 @@ export const BUILDER_DEMO_PRESETS: BuilderDemoPreset[] = [
       app: {
         tasks: [
           {
+            id: 'task-1',
             title: 'Draft the onboarding flow',
             completed: false,
           },
           {
+            id: 'task-2',
             title: 'Review the launch checklist',
             completed: true,
           },

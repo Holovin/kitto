@@ -205,7 +205,7 @@ Create a form with name, email, quantity, due date, description and required agr
 - Description uses textarea.
 - Agreement uses checkbox.
 - Required validation is visible.
-- Agreement checkbox error text appears directly below the checkbox row when invalid and uses the same error treatment as other fields.
+- Validation marks invalid controls with error styling and `aria-invalid` without inserting inline error text that shifts layout.
 - Email validation works.
 - Number validation works if min/max is generated.
 - Due date stores a `YYYY-MM-DD` value.
@@ -232,7 +232,7 @@ Create a task list with completed status and a filter with All, Active and Compl
 ### Expected
 
 - User can add multiple items.
-- Completion should be interactive through an explicit persisted mutation + refresh flow, either via action-mode `Checkbox(..., item.completed, ..., Action([...]))` or an equivalent row action, instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
+- Completion should be interactive through an explicit persisted mutation + refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggle_item_field)`, and `@Run(read_state)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
 - Row actions should use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
 - Any row action must reference top-level `Query(...)` / `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
 - Definition re-runs the visible `Query("read_state", ...)` after persisted add and complete mutations.

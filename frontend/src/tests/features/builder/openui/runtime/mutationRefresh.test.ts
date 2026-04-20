@@ -374,9 +374,9 @@ root = AppShell([
       }),
     );
     expect(harness.getTextValues()).toContain('Smoke row');
-    expect(harness.getTextValues().filter((value) => value === 'Done')).toHaveLength(1);
+    expect(harness.getCheckboxChecked(`toggle-${appendedItem?.id as string}`)).toBe(false);
 
-    await harness.clickButton(`toggle-${appendedItem?.id as string}`);
+    await harness.clickCheckbox(`toggle-${appendedItem?.id as string}`);
 
     expect(harness.getDomainData()).toEqual({
       demo: {
@@ -389,6 +389,7 @@ root = AppShell([
         ]),
       },
     });
+    expect(harness.getCheckboxChecked(`toggle-${appendedItem?.id as string}`)).toBe(true);
     expect(harness.getQueryResult('savedItems')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -398,7 +399,6 @@ root = AppShell([
         }),
       ]),
     );
-    expect(harness.getTextValues().filter((value) => value === 'Done')).toHaveLength(2);
   });
 
   it('keeps the /elements Checkbox demo in sync after an action-mode toggle_item_field mutation', async () => {

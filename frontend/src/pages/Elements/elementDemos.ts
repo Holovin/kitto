@@ -132,13 +132,10 @@ featuredRows = @Each(featuredItems, "item", Group(null, "vertical", [
 savedRows = @Each(savedItems, "item", Group(null, "vertical", [
   Group(null, "horizontal", [
     Text(item.label, "body", "start"),
-    Text(item.completed ? "Done" : "Open", "muted", "start")
+    Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetSavedItemId, item.id), @Run(toggleSavedItem), @Run(savedItems)]))
   ], "inline"),
   Text(item.note, "muted", "start"),
-  Group(null, "horizontal", [
-    Button("toggle-" + item.id, item.completed ? "Mark open" : "Mark done", "secondary", Action([@Set($targetSavedItemId, item.id), @Run(toggleSavedItem), @Run(savedItems)]), false),
-    Button("remove-" + item.id, "Remove", "destructive", Action([@Set($targetSavedItemId, item.id), @Run(removeSavedItem), @Run(savedItems)]), false)
-  ], "inline")
+  Button("remove-" + item.id, "Remove", "destructive", Action([@Set($targetSavedItemId, item.id), @Run(removeSavedItem), @Run(savedItems)]), false)
 ], "inline"))
 
 root = AppShell([

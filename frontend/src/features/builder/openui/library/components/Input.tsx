@@ -85,12 +85,7 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
         }}
       />
       {helperText ? (
-        <p
-          aria-live={hasVisibleError ? 'polite' : undefined}
-          className={hasVisibleError ? 'text-sm leading-6 text-rose-600' : 'text-sm leading-6 text-slate-500'}
-          id={feedbackId}
-          role={hasVisibleError ? 'alert' : undefined}
-        >
+        <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
           {helperText}
         </p>
       ) : null}

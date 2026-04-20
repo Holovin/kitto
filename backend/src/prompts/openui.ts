@@ -345,14 +345,22 @@ const preamble =
 
 const toolExamples = [
   `$draft = ""
+$targetItemId = ""
+
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_item", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
+toggleItem = Mutation("toggle_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
 rows = @Each(items, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
 ], "inline"))
 
 root = AppShell([
@@ -552,10 +560,13 @@ const additionalRules = [
   'TODO / TASK LIST RECIPE:',
   'For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:',
   '- `$draft`',
+  '- `$targetItemId = ""`',
   '- an `Input` for the new task',
   '- `Query("read_state", { path: "app.items" }, [])`',
   '- `Mutation("append_item", { path: "app.items", value: ... })`',
+  '- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`',
   '- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`',
+  '- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`',
   '- `@Each(items, "item", ...)`',
   '- `Repeater(rows, "No tasks yet.")`',
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
@@ -563,6 +574,7 @@ const additionalRules = [
   'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
   'Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.',
   'Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.',
+  'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
   'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
