@@ -85,6 +85,28 @@ export function validateDomainPath(path: string, options: { allowEmpty?: boolean
   return getSegments(path, options).join('.');
 }
 
+export function validateDomainFieldName(fieldName: string, label = 'Field name') {
+  const trimmedFieldName = fieldName.trim();
+
+  if (!trimmedFieldName) {
+    throw createPathError(`${label} must be a non-empty field name.`);
+  }
+
+  if (trimmedFieldName.includes('.')) {
+    throw createPathError(`${label} "${fieldName}" must not contain dots.`);
+  }
+
+  if (!PATH_SEGMENT_PATTERN.test(trimmedFieldName)) {
+    throw createPathError(`${label} "${fieldName}" contains an invalid segment "${trimmedFieldName}".`);
+  }
+
+  if (FORBIDDEN_PATH_SEGMENTS.has(trimmedFieldName)) {
+    throw createPathError(`${label} "${fieldName}" contains the forbidden segment "${trimmedFieldName}".`);
+  }
+
+  return trimmedFieldName;
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;

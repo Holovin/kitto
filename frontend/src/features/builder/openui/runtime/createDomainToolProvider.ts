@@ -1,11 +1,23 @@
-import { appendPathValue, clonePlainObject, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
+import { nanoid } from '@reduxjs/toolkit';
+import { appendPathValue, clonePlainObject, DomainStateError, isPlainObject, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
 import { computeValue } from './computeTools';
-import { getRequiredToolIndex, getRequiredToolPatch, getRequiredToolPath, getRequiredToolValue, wrapToolError } from './toolArguments';
+import {
+  getRequiredToolFieldName,
+  getRequiredToolIndex,
+  getRequiredToolItemId,
+  getRequiredToolObject,
+  getRequiredToolPatch,
+  getRequiredToolPath,
+  getRequiredToolValue,
+  wrapToolError,
+} from './toolArguments';
 
 export type DomainToolAdapter = {
   readDomainData: () => Record<string, unknown>;
   replaceDomainData: (nextData: Record<string, unknown>) => void;
 };
+
+type ToolItemId = number | string;
 
 async function runTool<T>(toolName: string, callback: () => T | Promise<T>) {
   try {
@@ -17,6 +29,46 @@ async function runTool<T>(toolName: string, callback: () => T | Promise<T>) {
 
 function readDomainSnapshot(adapter: DomainToolAdapter) {
   return clonePlainObject(adapter.readDomainData(), 'Domain data must be a plain object.');
+}
+
+function generateStableId() {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+
+  return typeof randomUuid === 'string' && randomUuid.trim().length > 0 ? randomUuid : nanoid();
+}
+
+function readArrayOrEmpty(state: Record<string, unknown>, path: string) {
+  const currentValue = readPath(state, path);
+
+  if (currentValue == null) {
+    return [];
+  }
+
+  if (!Array.isArray(currentValue)) {
+    throw new DomainStateError(`State path "${path}" does not contain an array value.`);
+  }
+
+  return currentValue;
+}
+
+function readArrayOrThrow(state: Record<string, unknown>, path: string) {
+  const currentValue = readPath(state, path);
+
+  if (!Array.isArray(currentValue)) {
+    throw new DomainStateError(`State path "${path}" does not contain an array value.`);
+  }
+
+  return currentValue;
+}
+
+function findMatchingItemIndex(items: unknown[], path: string, idField: string, id: ToolItemId) {
+  const matchingIndex = items.findIndex((item) => isPlainObject(item) && item[idField] === id);
+
+  if (matchingIndex === -1) {
+    throw new DomainStateError(`State path "${path}" does not contain an item with ${idField}=${JSON.stringify(id)}.`);
+  }
+
+  return matchingIndex;
 }
 
 export function createDomainToolProvider(adapter: DomainToolAdapter) {
@@ -53,6 +105,74 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const value = getRequiredToolValue('append_state', args.value);
         const nextData = appendPathValue(readDomainSnapshot(adapter), path, value);
 
+        adapter.replaceDomainData(nextData);
+        return structuredClone(readPath(nextData, path) ?? null);
+      });
+    },
+    append_item: async (args: Record<string, unknown>) => {
+      return runTool('append_item', () => {
+        const path = getRequiredToolPath('append_item', args.path);
+        const value = getRequiredToolObject('append_item', args.value);
+        const nextData = readDomainSnapshot(adapter);
+        const currentItems = readArrayOrEmpty(nextData, path);
+        const itemId = typeof value.id === 'string' || typeof value.id === 'number' ? value.id : generateStableId();
+        const nextItems = [...currentItems, { ...value, id: itemId }];
+
+        writePathValue(nextData, path, nextItems);
+        adapter.replaceDomainData(nextData);
+        return structuredClone(readPath(nextData, path) ?? null);
+      });
+    },
+    toggle_item_field: async (args: Record<string, unknown>) => {
+      return runTool('toggle_item_field', () => {
+        const path = getRequiredToolPath('toggle_item_field', args.path);
+        const idField = getRequiredToolFieldName('toggle_item_field', args.idField, 'idField');
+        const id = getRequiredToolItemId('toggle_item_field', args.id);
+        const field = getRequiredToolFieldName('toggle_item_field', args.field, 'field');
+        const nextData = readDomainSnapshot(adapter);
+        const currentItems = readArrayOrThrow(nextData, path);
+        const matchingIndex = findMatchingItemIndex(currentItems, path, idField, id);
+        const matchingItem = currentItems[matchingIndex] as Record<string, unknown>;
+        const nextItems = currentItems.map((item, index) =>
+          index === matchingIndex ? { ...matchingItem, [field]: !matchingItem[field] } : item,
+        );
+
+        writePathValue(nextData, path, nextItems);
+        adapter.replaceDomainData(nextData);
+        return structuredClone(readPath(nextData, path) ?? null);
+      });
+    },
+    update_item_field: async (args: Record<string, unknown>) => {
+      return runTool('update_item_field', () => {
+        const path = getRequiredToolPath('update_item_field', args.path);
+        const idField = getRequiredToolFieldName('update_item_field', args.idField, 'idField');
+        const id = getRequiredToolItemId('update_item_field', args.id);
+        const field = getRequiredToolFieldName('update_item_field', args.field, 'field');
+        const value = getRequiredToolValue('update_item_field', args.value);
+        const nextData = readDomainSnapshot(adapter);
+        const currentItems = readArrayOrThrow(nextData, path);
+        const matchingIndex = findMatchingItemIndex(currentItems, path, idField, id);
+        const matchingItem = currentItems[matchingIndex] as Record<string, unknown>;
+        const nextItems = currentItems.map((item, index) =>
+          index === matchingIndex ? { ...matchingItem, [field]: value } : item,
+        );
+
+        writePathValue(nextData, path, nextItems);
+        adapter.replaceDomainData(nextData);
+        return structuredClone(readPath(nextData, path) ?? null);
+      });
+    },
+    remove_item: async (args: Record<string, unknown>) => {
+      return runTool('remove_item', () => {
+        const path = getRequiredToolPath('remove_item', args.path);
+        const idField = getRequiredToolFieldName('remove_item', args.idField, 'idField');
+        const id = getRequiredToolItemId('remove_item', args.id);
+        const nextData = readDomainSnapshot(adapter);
+        const currentItems = readArrayOrThrow(nextData, path);
+        const matchingIndex = findMatchingItemIndex(currentItems, path, idField, id);
+        const nextItems = currentItems.filter((_, index) => index !== matchingIndex);
+
+        writePathValue(nextData, path, nextItems);
         adapter.replaceDomainData(nextData);
         return structuredClone(readPath(nextData, path) ?? null);
       });

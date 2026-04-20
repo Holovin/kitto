@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import {
   clearStandaloneStoredState,
   readStandaloneStoredState,
@@ -97,5 +98,63 @@ describe('standalone storage helpers', () => {
 
     expect(clearStandaloneStoredState('kitto:standalone:test', storage)).toBe(true);
     expect(storage.values.size).toBe(0);
+  });
+
+  it('persists append_item updates through standalone storage for offline exports', async () => {
+    const storage = createMemoryStorage();
+    const runtimeState = { currentScreen: 'main' };
+    let domainData = restoreStandaloneState('kitto:standalone:test', runtimeState, { app: { tasks: [] as Array<Record<string, unknown>> } }, storage)
+      .domainData;
+
+    const standaloneToolProvider = createDomainToolProvider({
+      readDomainData: () => domainData,
+      replaceDomainData: (nextDomainData) => {
+        domainData = structuredClone(nextDomainData);
+        writeStandaloneStoredState('kitto:standalone:test', runtimeState, domainData, storage);
+      },
+    });
+
+    const appendedTasks = (await standaloneToolProvider.append_item({
+      path: 'app.tasks',
+      value: { title: 'Offline task', completed: false },
+    })) as Array<Record<string, unknown>>;
+
+    expect(appendedTasks).toEqual([
+      expect.objectContaining({
+        id: expect.any(String),
+        title: 'Offline task',
+        completed: false,
+      }),
+    ]);
+    expect(readStandaloneStoredState('kitto:standalone:test', storage)).toMatchObject({
+      domainData: {
+        app: {
+          tasks: [
+            {
+              id: appendedTasks[0]?.id,
+              title: 'Offline task',
+              completed: false,
+            },
+          ],
+        },
+      },
+      runtimeState,
+      version: 1,
+    });
+
+    const restoredState = restoreStandaloneState('kitto:standalone:test', runtimeState, { app: { tasks: [] as Array<Record<string, unknown>> } }, storage);
+
+    expect(restoredState.restoredFromStorage).toBe(true);
+    expect(restoredState.domainData).toEqual({
+      app: {
+        tasks: [
+          {
+            id: appendedTasks[0]?.id,
+            title: 'Offline task',
+            completed: false,
+          },
+        ],
+      },
+    });
   });
 });

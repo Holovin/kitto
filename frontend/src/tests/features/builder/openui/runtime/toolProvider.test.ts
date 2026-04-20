@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { domainActions, domainReducer } from '@features/builder/store/domainSlice';
 
 type MockState = {
@@ -32,9 +32,28 @@ function seedDomainData(data: Record<string, unknown>) {
   mockStore.dispatch(domainActions.replaceData(data));
 }
 
+function createTaskRows() {
+  return [
+    {
+      id: 'task-1',
+      title: 'Draft tests',
+      completed: false,
+    },
+    {
+      id: 'task-2',
+      title: 'Ship fix',
+      completed: true,
+    },
+  ];
+}
+
 describe('builderToolProvider', () => {
   beforeAll(async () => {
     ({ builderToolProvider } = await import('@features/builder/openui/runtime/toolProvider'));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   beforeEach(() => {
@@ -205,6 +224,374 @@ describe('builderToolProvider', () => {
         tasks: [{ title: 'Draft tests' }, { title: 'Ship fix' }],
       },
     });
+  });
+
+  it('append_item appends plain-object rows and generates stable ids', async () => {
+    vi.stubGlobal('crypto', {
+      randomUUID: () => 'generated-item-id',
+    });
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { title: 'Review docs', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'generated-item-id', title: 'Review docs', completed: false },
+    ]);
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Review docs', completed: false }],
+      },
+    });
+  });
+
+  it('append_item falls back to nanoid when crypto.randomUUID is unavailable', async () => {
+    vi.stubGlobal('crypto', {});
+
+    const result = (await builderToolProvider.append_item({
+      path: 'app.tasks',
+      value: { title: 'Offline-safe row', completed: false },
+    })) as Array<Record<string, unknown>>;
+
+    expect(result).toHaveLength(1);
+    expect(typeof result[0]?.id).toBe('string');
+    expect((result[0]?.id as string).length).toBeGreaterThan(0);
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [
+          {
+            id: result[0]?.id,
+            title: 'Offline-safe row',
+            completed: false,
+          },
+        ],
+      },
+    });
+  });
+
+  it('rejects append_item when the value is not a plain object', async () => {
+    await expect(builderToolProvider.append_item({ path: 'app.tasks', value: ['broken'] })).rejects.toThrow(
+      'append_item: value must be a plain object.',
+    );
+    expect(mockState.domain.data).toEqual({});
+  });
+
+  it('rejects append_item when the target path is not an array', async () => {
+    seedDomainData({
+      app: {
+        tasks: {
+          broken: true,
+        },
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { title: 'Broken', completed: false },
+      }),
+    ).rejects.toThrow('append_item: State path "app.tasks" does not contain an array value.');
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: {
+          broken: true,
+        },
+      },
+    });
+  });
+
+  it('toggle_item_field toggles one matched row field by id', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: 'completed',
+      }),
+    ).resolves.toEqual([
+      { id: 'task-1', title: 'Draft tests', completed: true },
+      { id: 'task-2', title: 'Ship fix', completed: true },
+    ]);
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [
+          { id: 'task-1', title: 'Draft tests', completed: true },
+          { id: 'task-2', title: 'Ship fix', completed: true },
+        ],
+      },
+    });
+  });
+
+  it('rejects toggle_item_field when idField is unsafe', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: '__proto__',
+        id: 'task-1',
+        field: 'completed',
+      }),
+    ).rejects.toThrow('toggle_item_field: idField "__proto__" contains the forbidden segment "__proto__".');
+
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects toggle_item_field when field is unsafe', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: '__proto__',
+      }),
+    ).rejects.toThrow('toggle_item_field: field "__proto__" contains the forbidden segment "__proto__".');
+
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects toggle_item_field when the target path is not an array', async () => {
+    seedDomainData({
+      app: {
+        tasks: {
+          broken: true,
+        },
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: 'completed',
+      }),
+    ).rejects.toThrow('toggle_item_field: State path "app.tasks" does not contain an array value.');
+  });
+
+  it('rejects toggle_item_field when the target id is missing', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'missing-task',
+        field: 'completed',
+      }),
+    ).rejects.toThrow('toggle_item_field: State path "app.tasks" does not contain an item with id="missing-task".');
+  });
+
+  it('update_item_field replaces one matched row field by id', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.update_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: 'title',
+        value: 'Review specs',
+      }),
+    ).resolves.toEqual([
+      { id: 'task-1', title: 'Review specs', completed: false },
+      { id: 'task-2', title: 'Ship fix', completed: true },
+    ]);
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [
+          { id: 'task-1', title: 'Review specs', completed: false },
+          { id: 'task-2', title: 'Ship fix', completed: true },
+        ],
+      },
+    });
+  });
+
+  it('rejects update_item_field when idField is unsafe', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.update_item_field({
+        path: 'app.tasks',
+        idField: '__proto__',
+        id: 'task-1',
+        field: 'title',
+        value: 'Broken',
+      }),
+    ).rejects.toThrow('update_item_field: idField "__proto__" contains the forbidden segment "__proto__".');
+
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects update_item_field when field is unsafe', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.update_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: '__proto__',
+        value: 'Broken',
+      }),
+    ).rejects.toThrow('update_item_field: field "__proto__" contains the forbidden segment "__proto__".');
+
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects update_item_field when the target path is not an array', async () => {
+    seedDomainData({
+      app: {
+        tasks: {
+          broken: true,
+        },
+      },
+    });
+
+    await expect(
+      builderToolProvider.update_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+        field: 'title',
+        value: 'Broken',
+      }),
+    ).rejects.toThrow('update_item_field: State path "app.tasks" does not contain an array value.');
+  });
+
+  it('rejects update_item_field when the target id is missing', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.update_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'missing-task',
+        field: 'title',
+        value: 'Broken',
+      }),
+    ).rejects.toThrow('update_item_field: State path "app.tasks" does not contain an item with id="missing-task".');
+  });
+
+  it('remove_item deletes one matched row by id', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.remove_item({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+      }),
+    ).resolves.toEqual([{ id: 'task-2', title: 'Ship fix', completed: true }]);
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [{ id: 'task-2', title: 'Ship fix', completed: true }],
+      },
+    });
+  });
+
+  it('rejects remove_item when idField is unsafe', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.remove_item({
+        path: 'app.tasks',
+        idField: '__proto__',
+        id: 'task-1',
+      }),
+    ).rejects.toThrow('remove_item: idField "__proto__" contains the forbidden segment "__proto__".');
+
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects remove_item when the target path is not an array', async () => {
+    seedDomainData({
+      app: {
+        tasks: {
+          broken: true,
+        },
+      },
+    });
+
+    await expect(
+      builderToolProvider.remove_item({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'task-1',
+      }),
+    ).rejects.toThrow('remove_item: State path "app.tasks" does not contain an array value.');
+  });
+
+  it('rejects remove_item when the target id is missing', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.remove_item({
+        path: 'app.tasks',
+        idField: 'id',
+        id: 'missing-task',
+      }),
+    ).rejects.toThrow('remove_item: State path "app.tasks" does not contain an item with id="missing-task".');
   });
 
   it('exposes compute tools and returns { value } for read-only computations', async () => {

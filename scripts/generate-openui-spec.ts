@@ -10,13 +10,13 @@ const libraryEntryPath = path.resolve(repositoryRoot, 'frontend/src/features/bui
 const frontendTsconfigPath = path.resolve(repositoryRoot, 'frontend/tsconfig.app.json');
 
 async function main() {
-  const { builderOpenUiLibrary } = await tsImport(pathToFileURL(libraryEntryPath).href, {
+  const { getBuilderOpenUiSpec } = await tsImport(pathToFileURL(libraryEntryPath).href, {
     parentURL: import.meta.url,
     tsconfig: frontendTsconfigPath,
   });
 
   await mkdir(path.dirname(componentSpecPath), { recursive: true });
-  await writeFile(componentSpecPath, `${JSON.stringify(builderOpenUiLibrary.toSpec(), null, 2)}\n`, 'utf8');
+  await writeFile(componentSpecPath, `${JSON.stringify(getBuilderOpenUiSpec(), null, 2)}\n`, 'utf8');
 }
 
 void main().catch((error) => {

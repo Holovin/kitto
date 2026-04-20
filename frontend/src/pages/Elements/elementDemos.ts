@@ -97,30 +97,48 @@ root = AppShell([
     initialDomainData: {
       demo: {
         savedItems: [
-          { label: 'Saved item A', note: 'Persisted row from read_state' },
-          { label: 'Saved item B', note: 'Persisted row from read_state' },
+          { id: 'saved-a', label: 'Saved item A', note: 'Persisted row from read_state', completed: false },
+          { id: 'saved-b', label: 'Saved item B', note: 'Persisted row from read_state', completed: true },
         ],
       },
     },
     source: `$draft = ""
+$targetSavedItemId = ""
 
 featuredItems = [
   { label: "Starter card", note: "Local array row" },
   { label: "Second card", note: "Local array row" }
 ]
 savedItems = Query("read_state", { path: "demo.savedItems" }, [])
-appendSavedItem = Mutation("append_state", {
+appendSavedItem = Mutation("append_item", {
   path: "demo.savedItems",
-  value: { label: $draft, note: "Persisted row from read_state" }
+  value: { label: $draft, note: "Persisted row from read_state", completed: false }
 })
-removeFirstSavedItem = Mutation("remove_state", { path: "demo.savedItems", index: 0 })
+toggleSavedItem = Mutation("toggle_item_field", {
+  path: "demo.savedItems",
+  idField: "id",
+  id: $targetSavedItemId,
+  field: "completed"
+})
+removeSavedItem = Mutation("remove_item", {
+  path: "demo.savedItems",
+  idField: "id",
+  id: $targetSavedItemId
+})
 featuredRows = @Each(featuredItems, "item", Group(null, "vertical", [
   Text(item.label, "body", "start"),
   Text(item.note, "muted", "start")
 ], "inline"))
 savedRows = @Each(savedItems, "item", Group(null, "vertical", [
-  Text(item.label, "body", "start"),
-  Text(item.note, "muted", "start")
+  Group(null, "horizontal", [
+    Text(item.label, "body", "start"),
+    Text(item.completed ? "Done" : "Open", "muted", "start")
+  ], "inline"),
+  Text(item.note, "muted", "start"),
+  Group(null, "horizontal", [
+    Button("toggle-" + item.id, item.completed ? "Mark open" : "Mark done", "secondary", Action([@Set($targetSavedItemId, item.id), @Run(toggleSavedItem), @Run(savedItems)]), false),
+    Button("remove-" + item.id, "Remove", "destructive", Action([@Set($targetSavedItemId, item.id), @Run(removeSavedItem), @Run(savedItems)]), false)
+  ], "inline")
 ], "inline"))
 
 root = AppShell([
@@ -132,7 +150,7 @@ root = AppShell([
       Input("draft", "New item", $draft, "Add saved item"),
       Group(null, "horizontal", [
         Button("append-item", "Append item", "default", Action([@Run(appendSavedItem), @Run(savedItems), @Reset($draft)]), $draft == ""),
-        Button("remove-first", "Remove first", "secondary", Action([@Run(removeFirstSavedItem), @Run(savedItems)]), @Count(savedItems) == 0)
+        Text("Toggle and remove use top-level item tools plus query refresh.", "muted", "start")
       ], "inline"),
       Repeater(savedRows, "No saved items yet.", { mainColor: "#111827", contrastColor: "#F9FAFB" })
     ])
@@ -213,11 +231,35 @@ root = AppShell([
 ])`,
   },
   Checkbox: {
+    initialDomainData: {
+      demo: {
+        checkboxItems: [
+          { id: 'checkbox-a', label: 'Draft tests', completed: false },
+          { id: 'checkbox-b', label: 'Ship fix', completed: false },
+          { id: 'checkbox-c', label: 'Review docs', completed: false },
+          { id: 'checkbox-d', label: 'Verify /elements', completed: false },
+          { id: 'checkbox-e', label: 'Publish release', completed: false },
+        ],
+      },
+    },
     source: `$accepted = false
+$targetCheckboxItemId = ""
+
+savedItems = Query("read_state", { path: "demo.checkboxItems" }, [])
+toggleSavedItem = Mutation("toggle_item_field", {
+  path: "demo.checkboxItems",
+  idField: "id",
+  id: $targetCheckboxItemId,
+  field: "completed"
+})
+savedRows = @Each(savedItems, "item", Group(null, "vertical", [
+  Checkbox("toggle-" + item.id, item.label, item.completed, item.completed ? "Persisted row is complete" : "Persisted row is open", null, Action([@Set($targetCheckboxItemId, item.id), @Run(toggleSavedItem), @Run(savedItems)])),
+  Text(item.completed ? "Done" : "Open", "muted", "start")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Main", [
-    Group("Toggle", "vertical", [
+    Group("Form mode", "vertical", [
       Checkbox("accepted", "I accept the agreement", $accepted, "Required to continue", [
         { type: "required", message: "You must accept the agreement" }
       ]),
@@ -225,11 +267,22 @@ root = AppShell([
         Text($accepted ? "Accepted" : "Pending", "body", "start"),
         Text($accepted ? "Ready to continue" : "Review before continuing", "muted", "start")
       ], "inline")
+    ]),
+    Group("Action mode", "vertical", [
+      Text("These rows use display-only checked booleans plus explicit Action([...]) flows.", "muted", "start"),
+      Repeater(savedRows, "No persisted checkbox rows.")
     ])
   ])
 ])`,
   },
   RadioGroup: {
+    initialDomainData: {
+      demo: {
+        radioSettings: {
+          plan: 'pro',
+        },
+      },
+    },
     source: `$plan = "pro"
 
 planOptions = [
@@ -237,20 +290,37 @@ planOptions = [
   { label: "Pro", value: "pro" },
   { label: "Enterprise", value: "enterprise" }
 ]
+savedPlan = Query("read_state", { path: "demo.radioSettings.plan" }, "pro")
+savePlan = Mutation("write_state", {
+  path: "demo.radioSettings.plan",
+  value: $lastChoice
+})
 
 root = AppShell([
   Screen("main", "Main", [
-    Group("Single choice", "vertical", [
+    Group("Form mode", "vertical", [
       RadioGroup("plan", "Plan", $plan, planOptions, "Choose one plan", [{ type: "required", message: "Pick a plan" }]),
       Group("Inline summary", "horizontal", [
         Text("Selected: " + $plan, "body", "start"),
         Text($plan == "enterprise" ? "High-touch rollout" : "Self-serve setup", "muted", "start")
       ], "inline")
+    ]),
+    Group("Action mode", "vertical", [
+      Text("This radio group persists the newly selected option through runtime-managed $lastChoice.", "muted", "start"),
+      RadioGroup("saved-plan", "Persisted plan", savedPlan, planOptions, "Writes the choice through $lastChoice", [], Action([@Run(savePlan), @Run(savedPlan)])),
+      Text("Persisted plan: " + savedPlan, "body", "start")
     ])
   ])
 ])`,
   },
   Select: {
+    initialDomainData: {
+      demo: {
+        selectUi: {
+          filter: 'all',
+        },
+      },
+    },
     source: `$frequency = "weekly"
 $window = "morning"
 
@@ -264,10 +334,34 @@ windowOptions = [
   { label: "Afternoon", value: "afternoon" },
   { label: "Evening", value: "evening" }
 ]
+filterOptions = [
+  { label: "All tasks", value: "all" },
+  { label: "Active tasks", value: "active" },
+  { label: "Completed tasks", value: "completed" }
+]
+savedFilter = Query("read_state", { path: "demo.selectUi.filter" }, "all")
+saveFilter = Mutation("write_state", {
+  path: "demo.selectUi.filter",
+  value: $lastChoice
+})
+taskCards = [
+  { title: "Draft spec", completed: false },
+  { title: "Run tests", completed: true },
+  { title: "Update docs", completed: false }
+]
+visibleTaskCards = savedFilter == "completed"
+  ? @Filter(taskCards, "completed", "==", true)
+  : savedFilter == "active"
+    ? @Filter(taskCards, "completed", "==", false)
+    : taskCards
+taskRows = @Each(visibleTaskCards, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Completed" : "Active", "muted", "start")
+], "inline"))
 
 root = AppShell([
   Screen("main", "Main", [
-    Group("Dropdowns", "vertical", [
+    Group("Form mode", "vertical", [
       Group("Inline scheduling controls", "horizontal", [
         Select("frequency", "Frequency", $frequency, frequencyOptions, "Choose how often to send updates", [
           { type: "required", message: "Choose a frequency" }
@@ -280,6 +374,12 @@ root = AppShell([
         Text("Frequency: " + $frequency, "body", "start"),
         Text("Window: " + $window, "body", "start")
       ], "inline")
+    ]),
+    Group("Action mode", "vertical", [
+      Text("This select writes the new option into reserved runtime state $lastChoice before the persisted mutation runs.", "muted", "start"),
+      Select("saved-filter", "Show", savedFilter, filterOptions, "Persists the filter through $lastChoice", [], Action([@Run(saveFilter), @Run(savedFilter)])),
+      Text("Persisted filter: " + savedFilter, "body", "start"),
+      Repeater(taskRows, "No matching tasks.")
     ])
   ])
 ])`,

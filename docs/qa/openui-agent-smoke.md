@@ -232,10 +232,11 @@ Create a task list with completed status and a filter with All, Active and Compl
 ### Expected
 
 - User can add multiple items.
-- Completion may stay read-only for now, for example as `Done` / `Open` text in each row; interactive persisted toggles are not required until action-mode lands.
-- If completion is interactive, it must use an explicit persisted mutation + refresh flow instead of assuming regular `Checkbox(...)` writes directly into `app.items`.
+- Completion should be interactive through an explicit persisted mutation + refresh flow, either via action-mode `Checkbox(..., item.completed, ..., Action([...]))` or an equivalent row action, instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
+- Row actions should use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
 - Any row action must reference top-level `Query(...)` / `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
-- Definition re-runs the visible `Query("read_state", ...)` after persisted add mutations, and after complete mutations only when interactive completion exists.
+- Definition re-runs the visible `Query("read_state", ...)` after persisted add and complete mutations.
+- If the filter is implemented with action-mode `Select(...)`, the source should route the newly selected option through runtime-managed `$lastChoice` into a top-level persisted mutation instead of assuming direct binding write-back.
 - All filter shows all items.
 - Active filter shows incomplete items.
 - Completed filter shows completed items.
@@ -248,7 +249,7 @@ Record:
 
 - pass/fail;
 - whether add/filter worked;
-- whether completion was read-only or interactive;
+- whether completion toggled interactively and refreshed the visible query;
 - whether any LLM request happened during local filter interactions.
 
 ## Scenario 7 — Safe compute tools

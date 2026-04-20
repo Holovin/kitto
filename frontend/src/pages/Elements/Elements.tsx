@@ -5,7 +5,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
-import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { builderOpenUiLibrary, getBuilderOpenUiSpec } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
@@ -35,7 +35,7 @@ type ScopedRuntimeIssues = {
 };
 
 const librarySchema = builderOpenUiLibrary.toJSONSchema();
-const librarySpec = builderOpenUiLibrary.toSpec();
+const librarySpec = getBuilderOpenUiSpec();
 const groupByComponent = new Map(
   (builderOpenUiLibrary.componentGroups ?? []).flatMap((group) => group.components.map((componentName) => [componentName, group.name] as const)),
 );

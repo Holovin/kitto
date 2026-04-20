@@ -66,11 +66,12 @@ Guardrails:
 - Each standalone HTML export gets its own localStorage namespace, even when two downloads use the same committed source.
 - When a standalone HTML file is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` must be treated as invalid/inert instead of attempting local filesystem navigation.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
-- Allowed tool names are `read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `remove_state`, and `write_computed_state`.
+- Allowed tool names are `read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `append_item`, `toggle_item_field`, `update_item_field`, `remove_item`, `remove_state`, and `write_computed_state`.
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
 - Persisted path segments may use only letters, numbers, `_`, or `-`, and must reject `__proto__`, `prototype`, and `constructor`.
 - Numeric path segments are valid only when they address array indexes.
-- `write_state` and `append_state` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
+- `write_state` and `append_state` values must stay JSON-compatible, `append_item` values must be plain objects, `update_item_field` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
+- Collection-item tool field names such as `idField` and `field` must be safe single keys only and must reject `__proto__`, `prototype`, and `constructor`.
 - `compute_value` and `write_computed_state` must return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access before reaching for compute tools.
 - `write_computed_state` must validate the target persisted path using the same hardened rules as other persisted state tools.
@@ -162,9 +163,9 @@ appearance = { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }
 Text(value, variant, align, appearance?)
 Input(name, label, value?, placeholder?, helper?, type?, validation?, appearance?)
 TextArea(name, label, value?, placeholder?, helper?, validation?, appearance?)
-Checkbox(name, label, checked?, helper?, validation?, appearance?)
-RadioGroup(name, label, value?, options?, helper?, validation?, appearance?)
-Select(name, label, value?, options?, helper?, validation?, appearance?)
+Checkbox(name, label, checked?, helper?, validation?, action?, appearance?)
+RadioGroup(name, label, value?, options?, helper?, validation?, action?, appearance?)
+Select(name, label, value?, options?, helper?, validation?, action?, appearance?)
 Link(label, url, newTab?, appearance?)
 Repeater(children, emptyText?, appearance?)
 ```
@@ -216,7 +217,7 @@ Simple todo recipe:
 ```txt
 $draft = ""
 items = Query("read_state", { path: "app.items" }, [])
-addItem = Mutation("append_state", {
+addItem = Mutation("append_item", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
@@ -238,13 +239,17 @@ root = AppShell([
 
 Todo request guardrails:
 
-- For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_state", { path: "app.items", value: ... })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
+- For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_item", { path: "app.items", value: ... })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
 - Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
 - If a simple todo request misses that minimum structure, repair before commit instead of committing the placeholder draft.
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
-- Regular `Checkbox(...)` is for local form state and `$variables`.
-- Do not use `Checkbox(item.completed)` as if it writes back to persisted collections.
-- Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.
+- `Checkbox(...)` supports two modes: use a writable `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.
+- Do not combine checkbox action mode with a writable `$binding<boolean>` on the same control.
+- Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.
+- `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
+- In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
+- Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.
+- For persisted collection row actions, define top-level `Mutation(...)` statements such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row `Action(...)`.
 
 Derived filtering:
 
@@ -258,6 +263,14 @@ rows = @Each(visibleItems, "item", Group(null, "horizontal", [
 ], "inline"))
 Text("Visible: " + @Count(visibleItems), "muted", "start")
 Repeater(rows, "Empty state")
+```
+
+Action-mode choice recipe:
+
+```txt
+savedFilter = Query("read_state", { path: "ui.filter" }, "all")
+setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })
+Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))
 ```
 
 Safe compute tools:
@@ -317,7 +330,8 @@ Do use:
 - `Input(..., ..., ..., ..., ..., "date", validation)` for due dates, deadlines, birthdays, and scheduled dates
 - `Input(..., ..., ..., ..., ..., "number", validation)` for quantity, count, amount, and other numeric fields while keeping the runtime value as a string
 - `Input(..., ..., ..., ..., ..., "email", validation)` for email fields, together with `email` validation when the field must contain a valid address
-- `Checkbox(..., validation)` with `required` for agreement, confirmation, consent, and acknowledgement fields
+- `Checkbox(..., validation)` with a writable `$binding<boolean>` and `required` for agreement, confirmation, consent, and acknowledgement fields
+- `Checkbox(..., item.completed, ..., Action([...]))` for persisted row toggles when the checkbox itself should trigger the mutation flow
 - declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
@@ -338,7 +352,7 @@ Do use:
 - local arrays for runtime-only collections such as selected answers, and `Query("read_state", ...)` for persisted collections
 - `Query("read_state", ...)` with a sensible default when reading persisted data
 - persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions
-- `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
+- `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `append_item`, `toggle_item_field`, `update_item_field`, `remove_item`, `remove_state`, or `write_computed_state` for exportable persistent data
 - top-level `Query(...)` and `Mutation(...)` statements referenced later via named refs such as `@Run(saveItem)` or `savedItems`
 - for row-level actions, relay item context through local state first, for example `Action([@Set($targetId, item.id), @Run(saveItem), @Run(items)])`
 - after every persisted `Mutation(...)` that affects visible UI, re-run later in the same `Action(...)` at least one matching `Query("read_state", ...)`
@@ -363,7 +377,7 @@ Do not use:
 - JavaScript validators, regex validators, `eval`, `Function(...)`, or script-like validation logic
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
-- assuming regular `Checkbox(...)` writes back to persisted todo-row fields such as `item.completed`
+- assuming display-only `Checkbox(item.completed)` writes back to persisted todo-row fields without an explicit `Action([...])`
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings
 - hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
 - inline `Query(...)` or `Mutation(...)` calls inside `@Each(...)`, `Repeater(...)` children, or component props

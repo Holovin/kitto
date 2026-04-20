@@ -1,6 +1,6 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
+import { ACTION_MODE_LAST_CHOICE_STATE, HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue, BuilderParseIssueSuggestion } from '@features/builder/types';
 import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from './qualityIntents';
 import {
@@ -53,8 +53,12 @@ const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
 const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
   'append_state',
+  'append_item',
   'merge_state',
+  'remove_item',
   'remove_state',
+  'toggle_item_field',
+  'update_item_field',
   'write_computed_state',
   'write_state',
 ]);
@@ -75,6 +79,12 @@ type ActionRunRef = {
   statementId: string;
 };
 
+type OwnedActionRunRefGroup = {
+  ownerStatementId?: string;
+  ownerTypeName?: string;
+  runRefs: ActionRunRef[];
+};
+
 type PersistedPathStatementRef = {
   path: string;
   statementId: string;
@@ -87,6 +97,7 @@ export interface OpenUiQualityIssue extends BuilderParseIssue {
 }
 
 const THEME_CONTAINER_TYPE_NAMES = new Set(['AppShell', 'Group', 'Repeater', 'Screen']);
+const ACTION_MODE_CHOICE_COMPONENT_NAMES = new Set(['RadioGroup', 'Select']);
 
 function normalizeSourceForValidation(source: string) {
   return source.trim();
@@ -760,6 +771,10 @@ function isLiteralObjectValue(value: unknown): value is Record<string, unknown> 
   return prototype === Object.prototype || prototype === null;
 }
 
+function isWritableBindingValue(value: unknown) {
+  return isAstNode(value) && value.k === 'StateRef';
+}
+
 function inspectQualityNode(value: unknown, metrics: OpenUiQualityMetrics) {
   if (Array.isArray(value)) {
     for (const entry of value) {
@@ -905,6 +920,209 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
   return issues;
 }
 
+function detectControlActionBindingConflicts(value: unknown, inheritedStatementId?: string): OpenUiQualityIssue[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => detectControlActionBindingConflicts(entry, inheritedStatementId));
+  }
+
+  if (!isElementNode(value)) {
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).flatMap((entry) => detectControlActionBindingConflicts(entry, inheritedStatementId));
+    }
+
+    return [];
+  }
+
+  const statementId = value.statementId ?? inheritedStatementId;
+  const issues: OpenUiQualityIssue[] = [];
+
+  if (
+    value.props.action != null &&
+    ((value.typeName === 'Checkbox' && isWritableBindingValue(value.props.checked)) ||
+      ((value.typeName === 'RadioGroup' || value.typeName === 'Select') && isWritableBindingValue(value.props.value)))
+  ) {
+    issues.push(
+      createOpenUiQualityIssue('fatal-quality', {
+        code: 'control-action-and-binding',
+        message:
+          'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
+        statementId,
+      }),
+    );
+  }
+
+  for (const nestedValue of Object.values(value.props)) {
+    issues.push(...detectControlActionBindingConflicts(nestedValue, statementId));
+  }
+
+  return issues;
+}
+
+function hasStateRefNamed(value: unknown, stateName: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasStateRefNamed(entry, stateName));
+  }
+
+  if (isAstNode(value)) {
+    if (value.k === 'StateRef' && value.n === stateName) {
+      return true;
+    }
+
+    return Object.values(value).some((entry) => hasStateRefNamed(entry, stateName));
+  }
+
+  if (isElementNode(value)) {
+    return Object.values(value.props).some((entry) => hasStateRefNamed(entry, stateName));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((entry) => hasStateRefNamed(entry, stateName));
+  }
+
+  return false;
+}
+
+function createReservedLastChoiceIssue(statementId?: string): OpenUiQualityIssue {
+  return createOpenUiQualityIssue('fatal-quality', {
+    code: 'reserved-last-choice-outside-action-mode',
+    message:
+      '`$lastChoice` is reserved for Select/RadioGroup action mode. Use it only inside those Action([...]) flows or the top-level Mutation(...) / Query(...) statements they run.',
+    statementId,
+  });
+}
+
+function detectReservedLastChoiceRootIssues(
+  value: unknown,
+  inheritedStatementId?: string,
+  allowLastChoice = false,
+  seenIssueKeys: Set<string> = new Set(),
+): OpenUiQualityIssue[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) =>
+      detectReservedLastChoiceRootIssues(entry, inheritedStatementId, allowLastChoice, seenIssueKeys),
+    );
+  }
+
+  if (isElementNode(value)) {
+    const statementId = value.statementId ?? inheritedStatementId;
+    const isActionModeChoiceComponent = ACTION_MODE_CHOICE_COMPONENT_NAMES.has(value.typeName) && value.props.action != null;
+
+    return Object.entries(value.props).flatMap(([propName, propValue]) =>
+      detectReservedLastChoiceRootIssues(
+        propValue,
+        statementId,
+        propName === 'action' && isActionModeChoiceComponent,
+        seenIssueKeys,
+      ),
+    );
+  }
+
+  if (isAstNode(value)) {
+    if (value.k === 'StateRef' && value.n === ACTION_MODE_LAST_CHOICE_STATE && !allowLastChoice) {
+      const issueKey = inheritedStatementId ?? 'root';
+
+      if (seenIssueKeys.has(issueKey)) {
+        return [];
+      }
+
+      seenIssueKeys.add(issueKey);
+      return [createReservedLastChoiceIssue(inheritedStatementId)];
+    }
+
+    return Object.values(value).flatMap((entry) =>
+      detectReservedLastChoiceRootIssues(entry, inheritedStatementId, allowLastChoice, seenIssueKeys),
+    );
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).flatMap((entry) =>
+      detectReservedLastChoiceRootIssues(entry, inheritedStatementId, allowLastChoice, seenIssueKeys),
+    );
+  }
+
+  return [];
+}
+
+function detectReservedLastChoiceStatementIssues(source: string, result: ParseResult): OpenUiQualityIssue[] {
+  const issues: OpenUiQualityIssue[] = [];
+  const seenIssueKeys = new Set<string>();
+  const actionGroups = collectOwnedActionRunRefGroups(result.root);
+  const maskedSource = maskStringLiterals(source);
+  const ownerTypesByStatementId = new Map<string, Set<string>>();
+  const knownStatementIds = new Set<string>([
+    'root',
+    ...result.queryStatements.map((statement) => statement.statementId),
+    ...result.mutationStatements.map((statement) => statement.statementId),
+  ]);
+
+  for (const actionGroup of actionGroups) {
+    for (const runRef of actionGroup.runRefs) {
+      const ownerTypes = ownerTypesByStatementId.get(runRef.statementId) ?? new Set<string>();
+
+      if (typeof actionGroup.ownerTypeName === 'string') {
+        ownerTypes.add(actionGroup.ownerTypeName);
+      }
+
+      ownerTypesByStatementId.set(runRef.statementId, ownerTypes);
+    }
+  }
+
+  const statementsToCheck = [
+    ...result.queryStatements.map((statement) => ({
+      statementId: statement.statementId,
+      value: [statement.toolAST, statement.argsAST, statement.defaultsAST, statement.refreshAST],
+    })),
+    ...result.mutationStatements.map((statement) => ({
+      statementId: statement.statementId,
+      value: [statement.toolAST, statement.argsAST],
+    })),
+  ];
+
+  for (const statement of statementsToCheck) {
+    if (!hasStateRefNamed(statement.value, ACTION_MODE_LAST_CHOICE_STATE)) {
+      continue;
+    }
+
+    const ownerTypes = ownerTypesByStatementId.get(statement.statementId) ?? new Set<string>();
+    const hasAllowedOwner = [...ownerTypes].some((ownerType) => ACTION_MODE_CHOICE_COMPONENT_NAMES.has(ownerType));
+    const hasDisallowedOwner = [...ownerTypes].some((ownerType) => !ACTION_MODE_CHOICE_COMPONENT_NAMES.has(ownerType));
+
+    if (hasAllowedOwner && !hasDisallowedOwner) {
+      continue;
+    }
+
+    if (seenIssueKeys.has(statement.statementId)) {
+      continue;
+    }
+
+    seenIssueKeys.add(statement.statementId);
+    issues.push(createReservedLastChoiceIssue(statement.statementId));
+  }
+
+  const topLevelAssignmentPattern = /(^|\n)(\$?[A-Za-z_][\w$]*)\s*=\s*([\s\S]*?)(?=\n(?:\$?[A-Za-z_][\w$]*\s*=|root\s*=)|$)/g;
+  let match = topLevelAssignmentPattern.exec(maskedSource);
+
+  while (match) {
+    const statementId = match[2];
+    const statementValueSource = match[3] ?? '';
+
+    if (
+      !statementValueSource.includes(ACTION_MODE_LAST_CHOICE_STATE) ||
+      knownStatementIds.has(statementId) ||
+      seenIssueKeys.has(statementId)
+    ) {
+      match = topLevelAssignmentPattern.exec(maskedSource);
+      continue;
+    }
+
+    seenIssueKeys.add(statementId);
+    issues.push(createReservedLastChoiceIssue(statementId));
+    match = topLevelAssignmentPattern.exec(maskedSource);
+  }
+
+  return issues;
+}
+
 function validateQueryTools(result: ParseResult): BuilderParseIssue[] {
   return result.queryStatements.flatMap((query) => {
     const toolName = extractStringLiteral(query.toolAST);
@@ -1032,7 +1250,7 @@ function hasRequiredTodoControls(result: ParseResult, source: string) {
     hasElementType(result.root, 'Repeater') &&
     /@Each\s*\(/.test(source) &&
     result.queryStatements.some((statement) => extractStringLiteral(statement.toolAST) === 'read_state') &&
-    hasMutationTool(result, 'append_state')
+    (hasMutationTool(result, 'append_state') || hasMutationTool(result, 'append_item'))
   );
 }
 
@@ -1277,6 +1495,53 @@ function collectActionRunRefGroups(value: unknown): ActionRunRef[][] {
   return actionGroups;
 }
 
+function collectOwnedActionRunRefGroups(value: unknown): OwnedActionRunRefGroup[] {
+  const actionGroups: OwnedActionRunRefGroup[] = [];
+
+  function visit(
+    node: unknown,
+    owner?: {
+      statementId?: string;
+      typeName: string;
+    },
+  ) {
+    if (Array.isArray(node)) {
+      node.forEach((entry) => visit(entry, owner));
+      return;
+    }
+
+    if (isElementNode(node)) {
+      const nextOwner = {
+        statementId: node.statementId ?? owner?.statementId,
+        typeName: node.typeName,
+      };
+
+      Object.values(node.props).forEach((entry) => visit(entry, nextOwner));
+      return;
+    }
+
+    if (isAstNode(node)) {
+      if (node.k === 'Comp' && node.name === 'Action') {
+        actionGroups.push({
+          ownerStatementId: owner?.statementId,
+          ownerTypeName: owner?.typeName,
+          runRefs: collectActionRunRefsFromActionAst(node),
+        });
+      }
+
+      Object.values(node).forEach((entry) => visit(entry, owner));
+      return;
+    }
+
+    if (typeof node === 'object' && node !== null) {
+      Object.values(node).forEach((entry) => visit(entry, owner));
+    }
+  }
+
+  visit(value);
+  return actionGroups;
+}
+
 function detectInlineToolCallIssues(result: ParseResult): BuilderParseIssue[] {
   if (result.meta.incomplete || !result.root) {
     return [];
@@ -1502,7 +1767,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
 
-  if (!trimmedSource || !trimmedPrompt) {
+  if (!trimmedSource) {
     return [];
   }
 
@@ -1515,8 +1780,13 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   const issues: OpenUiQualityIssue[] = [];
   const maskedSource = maskStringLiterals(trimmedSource);
   const metrics = collectQualityMetrics(result.root);
+  const hasPromptContext = trimmedPrompt.length > 0;
 
-  if (isSimplePrompt(trimmedPrompt) && metrics.screenCount > 1) {
+  issues.push(...detectControlActionBindingConflicts(result.root));
+  issues.push(...detectReservedLastChoiceRootIssues(result.root));
+  issues.push(...detectReservedLastChoiceStatementIssues(trimmedSource, result));
+
+  if (hasPromptContext && isSimplePrompt(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-too-many-screens',
@@ -1525,7 +1795,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (isSimplePrompt(trimmedPrompt) && metrics.blockGroupCount > MAX_SIMPLE_PROMPT_BLOCK_GROUPS) {
+  if (hasPromptContext && isSimplePrompt(trimmedPrompt) && metrics.blockGroupCount > MAX_SIMPLE_PROMPT_BLOCK_GROUPS) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-too-many-block-groups',
@@ -1534,7 +1804,11 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (!promptRequestsTheme(trimmedPrompt) && (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))) {
+  if (
+    hasPromptContext &&
+    !promptRequestsTheme(trimmedPrompt) &&
+    (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))
+  ) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-theme',
@@ -1543,7 +1817,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (!promptRequestsCompute(trimmedPrompt) && hasComputeTools(result)) {
+  if (hasPromptContext && !promptRequestsCompute(trimmedPrompt) && hasComputeTools(result)) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-compute',
@@ -1552,7 +1826,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (!promptRequestsFiltering(trimmedPrompt) && /@Filter\s*\(/.test(maskedSource)) {
+  if (hasPromptContext && !promptRequestsFiltering(trimmedPrompt) && /@Filter\s*\(/.test(maskedSource)) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-filter',
@@ -1561,7 +1835,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (!promptRequestsValidation(trimmedPrompt) && metrics.hasValidationRules) {
+  if (hasPromptContext && !promptRequestsValidation(trimmedPrompt) && metrics.hasValidationRules) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-validation',
@@ -1570,7 +1844,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (promptRequestsTodo(trimmedPrompt) && !hasRequiredTodoControls(result, maskedSource)) {
+  if (hasPromptContext && promptRequestsTodo(trimmedPrompt) && !hasRequiredTodoControls(result, maskedSource)) {
     issues.push(
       createOpenUiQualityIssue(promptHasSimpleTodoIntent(trimmedPrompt) ? 'blocking-quality' : 'soft-warning', {
         code: 'quality-missing-todo-controls',
@@ -1593,7 +1867,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     })),
   );
 
-  if (promptRequestsRandom(trimmedPrompt)) {
+  if (hasPromptContext && promptRequestsRandom(trimmedPrompt)) {
     issues.push(
       ...detectRandomResultVisibilityIssues(result).map((issue) => ({
         ...issue,
@@ -1602,7 +1876,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (promptRequestsTheme(trimmedPrompt)) {
+  if (hasPromptContext && promptRequestsTheme(trimmedPrompt)) {
     issues.push(
       ...detectThemeAppearanceIssues(trimmedSource, result).map((issue) => ({
         ...issue,

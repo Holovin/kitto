@@ -99,7 +99,7 @@ Notes:
 
 ### Supported tools exposed through `Query(...)` and `Mutation(...)`
 
-`read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `remove_state`, `write_computed_state`
+`read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `append_item`, `toggle_item_field`, `update_item_field`, `remove_item`, `remove_state`, `write_computed_state`
 
 Notes:
 
@@ -107,6 +107,7 @@ Notes:
 - `Screen(id, title, children, isActive?, appearance?)`, `Group(title, direction, children, variant?, appearance?)`, and `Repeater(children, emptyText?, appearance?)` can override the inherited theme for a subtree.
 - `appearance.mainColor` is the main surface/background color, and `appearance.contrastColor` is the contrasting text/action color.
 - `Text(value, variant?, align?, appearance?)` accepts only `appearance.contrastColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.mainColor` and `appearance.contrastColor`.
+- `Checkbox` supports both local form bindings and explicit action-mode toggles: use a writable `$binding<boolean>` for form state, or a display-only boolean plus `Action([...])` for persisted row updates.
 - `Button(..., "default", ...)` inverts the pair so background uses `contrastColor` and text uses `mainColor`; `Button(..., "secondary", ...)` uses the pair as-is.
 - Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
@@ -115,6 +116,9 @@ Notes:
 - Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
 - Collection filtering should use `@Filter(collection, field, operator, value)` with a field string and comparison operator, not predicate-style callbacks.
 - Keep ephemeral filter selection in local `$variables` such as `$filter`; switching filters should stay local and must not hit `/api/llm/*`.
+- For persisted collections of object rows, prefer `append_item` so new rows get a stable `id` automatically.
+- Plain `Checkbox(item.completed)` stays display-only; add an explicit `Action([...])` when the checkbox itself should persist a row toggle.
+- Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions, and relay `item.id` through local state before `@Run(...)`.
 - `compute_value` and `write_computed_state` both return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - `write_computed_state` computes a safe primitive and writes it into persisted state at the validated path.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.

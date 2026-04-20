@@ -2,8 +2,10 @@ import { createQueryManager, createStore, evaluate, evaluateElementProps } from 
 import { createParser, type OpenUIError } from '@openuidev/react-lang';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { mapOpenUiErrorsToIssues } from '@features/builder/openui/runtime/issues';
+import { ELEMENT_DEMO_DEFINITIONS } from '@pages/Elements/elementDemos';
 
 type OpenUiElementNode = {
   props: Record<string, unknown>;
@@ -28,6 +30,7 @@ type ActionStep =
     };
 
 const parser = createParser(builderOpenUiLibrary.toJSONSchema());
+type ActionPlan = { steps: ActionStep[] };
 
 function unwrapFieldValue(value: unknown) {
   if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
@@ -144,58 +147,123 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
     return evaluatedRoot;
   }
 
-  function getButtonAction(buttonId: string): { steps: ActionStep[] } {
-    let action: { steps: ActionStep[] } | null = null;
+  function getElementAction(
+    typeName: OpenUiElementNode['typeName'],
+    predicate: (node: OpenUiElementNode) => boolean,
+    missingActionMessage: string,
+  ): ActionPlan {
+    let action: ActionPlan | null = null;
 
     visitElements(getEvaluatedRoot(), (node) => {
-      if (node.typeName === 'Button' && node.props.id === buttonId && node.props.action && typeof node.props.action === 'object') {
-        action = node.props.action as { steps: ActionStep[] };
+      if (node.typeName === typeName && predicate(node) && node.props.action && typeof node.props.action === 'object') {
+        action = node.props.action as ActionPlan;
       }
     });
 
     expect(action).not.toBeNull();
     if (!action) {
-      throw new Error(`Button "${buttonId}" action was not found.`);
+      throw new Error(missingActionMessage);
     }
 
     return action;
   }
 
-  return {
-    async clickButton(buttonId: string) {
-      const action = getButtonAction(buttonId);
+  async function runAction(action: ActionPlan) {
+    for (const step of action.steps) {
+      if (step.type === 'run') {
+        if (step.refType === 'mutation') {
+          const mutation = parseResult.mutationStatements.find((entry) => entry.statementId === step.statementId);
+          const evaluatedArgs = mutation?.argsAST ? (evaluate(mutation.argsAST, evaluationContext) as Record<string, unknown>) : {};
+          const didSucceed = await queryManager.fireMutation(step.statementId, evaluatedArgs);
 
-      for (const step of action.steps) {
-        if (step.type === 'run') {
-          if (step.refType === 'mutation') {
-            const mutation = parseResult.mutationStatements.find((entry) => entry.statementId === step.statementId);
-            const evaluatedArgs = mutation?.argsAST ? (evaluate(mutation.argsAST, evaluationContext) as Record<string, unknown>) : {};
-            const didSucceed = await queryManager.fireMutation(step.statementId, evaluatedArgs);
-
-            if (!didSucceed) {
-              return;
-            }
-
-            continue;
+          if (!didSucceed) {
+            return;
           }
 
-          queryManager.invalidate([step.statementId]);
           continue;
         }
 
-        if (step.type === 'set') {
-          store.set(step.target, evaluate(step.valueAST as never, evaluationContext));
-          continue;
-        }
-
-        if (step.type === 'reset') {
-          for (const target of step.targets) {
-            store.set(target, parseResult.stateDeclarations?.[target] ?? null);
-          }
-        }
+        queryManager.invalidate([step.statementId]);
+        continue;
       }
 
-      await waitForQuerySettles(queryManager);
+      if (step.type === 'set') {
+        store.set(step.target, evaluate(step.valueAST as never, evaluationContext));
+        continue;
+      }
+
+      if (step.type === 'reset') {
+        for (const target of step.targets) {
+          store.set(target, parseResult.stateDeclarations?.[target] ?? null);
+        }
+      }
+    }
+
+    await waitForQuerySettles(queryManager);
+  }
+
+  let checkboxActionQueue: Promise<void> = Promise.resolve();
+  let choiceActionQueue: Promise<void> = Promise.resolve();
+
+  return {
+    async clickButton(buttonId: string) {
+      await runAction(
+        getElementAction('Button', (node) => node.props.id === buttonId, `Button "${buttonId}" action was not found.`),
+      );
+    },
+    async clickCheckbox(checkboxName: string) {
+      const action = getElementAction(
+        'Checkbox',
+        (node) => node.props.name === checkboxName,
+        `Checkbox "${checkboxName}" action was not found.`,
+      );
+      const nextAction = checkboxActionQueue.then(() => runAction(action), () => runAction(action));
+
+      checkboxActionQueue = nextAction.catch(() => undefined);
+      await nextAction;
+    },
+    async chooseRadioGroupValue(radioGroupName: string, nextValue: string) {
+      const action = getElementAction(
+        'RadioGroup',
+        (node) => node.props.name === radioGroupName,
+        `RadioGroup "${radioGroupName}" action was not found.`,
+      );
+      const nextAction = choiceActionQueue.then(
+        () => {
+          store.set(ACTION_MODE_LAST_CHOICE_STATE, nextValue);
+          return runAction(action);
+        },
+        () => {
+          store.set(ACTION_MODE_LAST_CHOICE_STATE, nextValue);
+          return runAction(action);
+        },
+      );
+
+      choiceActionQueue = nextAction.catch(() => undefined);
+      await nextAction;
+    },
+    async chooseSelectValue(selectName: string, nextValue: string) {
+      const action = getElementAction(
+        'Select',
+        (node) => node.props.name === selectName,
+        `Select "${selectName}" action was not found.`,
+      );
+      const nextAction = choiceActionQueue.then(
+        () => {
+          store.set(ACTION_MODE_LAST_CHOICE_STATE, nextValue);
+          return runAction(action);
+        },
+        () => {
+          store.set(ACTION_MODE_LAST_CHOICE_STATE, nextValue);
+          return runAction(action);
+        },
+      );
+
+      choiceActionQueue = nextAction.catch(() => undefined);
+      await nextAction;
+    },
+    getBinding(name: string) {
+      return unwrapFieldValue(store.get(name));
     },
     getCheckboxLabels() {
       const labels: string[] = [];
@@ -207,6 +275,21 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
       });
 
       return labels;
+    },
+    getCheckboxChecked(checkboxName: string) {
+      let checkedValue: boolean | undefined;
+
+      visitElements(getEvaluatedRoot(), (node) => {
+        if (node.typeName === 'Checkbox' && node.props.name === checkboxName && typeof node.props.checked === 'boolean') {
+          checkedValue = node.props.checked;
+        }
+      });
+
+      if (typeof checkedValue !== 'boolean') {
+        throw new Error(`Checkbox "${checkboxName}" checked state was not found.`);
+      }
+
+      return checkedValue;
     },
     getDomainData() {
       return structuredClone(domainData);
@@ -270,6 +353,139 @@ root = AppShell([
     expect(harness.getQueryResult('items')).toEqual([{ title: 'Ship fix', completed: false }]);
     expect(harness.getTextValues()).toContain('Ship fix');
     expect(harness.getTextValues()).toContain('Open');
+  });
+
+  it('keeps the /elements Repeater demo in sync after append_item then toggle_item_field', async () => {
+    const repeaterDemo = ELEMENT_DEMO_DEFINITIONS.Repeater;
+    const harness = await createMutationRefreshHarness(repeaterDemo.source, repeaterDemo.initialDomainData);
+
+    harness.setBinding('$draft', 'Smoke row');
+    await harness.clickButton('append-item');
+
+    const savedItemsAfterAppend = harness.getQueryResult('savedItems') as Array<Record<string, unknown>>;
+    const appendedItem = savedItemsAfterAppend.find((item) => item.label === 'Smoke row');
+
+    expect(appendedItem).toBeDefined();
+    expect(appendedItem).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        completed: false,
+        label: 'Smoke row',
+      }),
+    );
+    expect(harness.getTextValues()).toContain('Smoke row');
+    expect(harness.getTextValues().filter((value) => value === 'Done')).toHaveLength(1);
+
+    await harness.clickButton(`toggle-${appendedItem?.id as string}`);
+
+    expect(harness.getDomainData()).toEqual({
+      demo: {
+        savedItems: expect.arrayContaining([
+          expect.objectContaining({
+            id: appendedItem?.id,
+            completed: true,
+            label: 'Smoke row',
+          }),
+        ]),
+      },
+    });
+    expect(harness.getQueryResult('savedItems')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: appendedItem?.id,
+          completed: true,
+          label: 'Smoke row',
+        }),
+      ]),
+    );
+    expect(harness.getTextValues().filter((value) => value === 'Done')).toHaveLength(2);
+  });
+
+  it('keeps the /elements Checkbox demo in sync after an action-mode toggle_item_field mutation', async () => {
+    const checkboxDemo = ELEMENT_DEMO_DEFINITIONS.Checkbox;
+    const harness = await createMutationRefreshHarness(checkboxDemo.source, checkboxDemo.initialDomainData);
+
+    expect(harness.getCheckboxChecked('toggle-checkbox-a')).toBe(false);
+
+    await harness.clickCheckbox('toggle-checkbox-a');
+
+    expect(harness.getDomainData()).toEqual({
+      demo: {
+        checkboxItems: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'checkbox-a',
+            completed: true,
+            label: 'Draft tests',
+          }),
+        ]),
+      },
+    });
+    expect(harness.getQueryResult('savedItems')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'checkbox-a',
+          completed: true,
+          label: 'Draft tests',
+        }),
+      ]),
+    );
+    expect(harness.getCheckboxChecked('toggle-checkbox-a')).toBe(true);
+    expect(harness.getTextValues().filter((value) => value === 'Done')).toHaveLength(1);
+  });
+
+  it('keeps checkbox row toggles isolated across rapid action-mode clicks on different rows', async () => {
+    const checkboxDemo = ELEMENT_DEMO_DEFINITIONS.Checkbox;
+    const harness = await createMutationRefreshHarness(checkboxDemo.source, checkboxDemo.initialDomainData);
+    const rowIds = ['checkbox-a', 'checkbox-b', 'checkbox-c', 'checkbox-d', 'checkbox-e'];
+
+    await Promise.all(rowIds.map((rowId) => harness.clickCheckbox(`toggle-${rowId}`)));
+
+    expect(harness.getQueryResult('savedItems')).toEqual(
+      expect.arrayContaining(
+        rowIds.map((rowId) =>
+          expect.objectContaining({
+            id: rowId,
+            completed: true,
+          }),
+        ),
+      ),
+    );
+    expect(harness.getDomainData()).toEqual({
+      demo: {
+        checkboxItems: expect.arrayContaining(
+          rowIds.map((rowId) =>
+            expect.objectContaining({
+              id: rowId,
+              completed: true,
+            }),
+          ),
+        ),
+      },
+    });
+    expect(rowIds.map((rowId) => harness.getCheckboxChecked(`toggle-${rowId}`))).toEqual([true, true, true, true, true]);
+  });
+
+  it('keeps the /elements Select demo in sync after an action-mode write_state mutation fed by $lastChoice', async () => {
+    const selectDemo = ELEMENT_DEMO_DEFINITIONS.Select;
+    const harness = await createMutationRefreshHarness(selectDemo.source, selectDemo.initialDomainData);
+
+    expect(harness.getQueryResult('savedFilter')).toBe('all');
+
+    await harness.chooseSelectValue('saved-filter', 'completed');
+
+    expect(harness.getBinding(ACTION_MODE_LAST_CHOICE_STATE)).toBe('completed');
+    expect(harness.getDomainData()).toEqual({
+      demo: {
+        selectUi: {
+          filter: 'completed',
+        },
+      },
+    });
+    expect(harness.getQueryResult('savedFilter')).toBe('completed');
+    expect(harness.getTextValues()).toContain('Persisted filter: completed');
+    expect(harness.getTextValues()).toContain('Run tests');
+    expect(harness.getTextValues()).not.toContain('Draft spec');
+    expect(harness.getTextValues()).not.toContain('Update docs');
   });
 
   it('updates a visible text after write_computed_state reruns the matching read_state query', async () => {

@@ -29,7 +29,11 @@ export const builderOpenUiLibrary = createLibrary({
     {
       name: 'Inputs',
       components: ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select'],
-      notes: ['Bind interactive values to $variables when the user should control them.'],
+      notes: [
+        'Bind interactive values to $variables when the user should control them.',
+        'Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).',
+        'RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.',
+      ],
     },
     {
       name: 'Actions',
@@ -52,3 +56,41 @@ export const builderOpenUiLibrary = createLibrary({
     LinkComponent,
   ],
 });
+
+export function getBuilderOpenUiSpec() {
+  const spec = builderOpenUiLibrary.toSpec();
+  const checkboxSpec = spec.components.Checkbox;
+  const radioGroupSpec = spec.components.RadioGroup;
+  const selectSpec = spec.components.Select;
+
+  return {
+    ...spec,
+    components: {
+      ...spec.components,
+      ...(checkboxSpec
+        ? {
+            Checkbox: {
+              ...checkboxSpec,
+              signature: checkboxSpec.signature.replace('checked?: $binding<boolean>', 'checked?: $binding<boolean> | boolean'),
+            },
+          }
+        : {}),
+      ...(radioGroupSpec
+        ? {
+            RadioGroup: {
+              ...radioGroupSpec,
+              signature: radioGroupSpec.signature.replace('value?: $binding<string>', 'value?: $binding<string> | string'),
+            },
+          }
+        : {}),
+      ...(selectSpec
+        ? {
+            Select: {
+              ...selectSpec,
+              signature: selectSpec.signature.replace('value?: $binding<string>', 'value?: $binding<string> | string'),
+            },
+          }
+        : {}),
+    },
+  };
+}

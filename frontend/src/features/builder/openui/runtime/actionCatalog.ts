@@ -212,7 +212,8 @@ addTask = Mutation("append_state", {
 Button("add-task", "Add task", "default", Action([@Run(addTask), @Run(tasks)]), false)`,
     documentation: {
       summary: 'Appends a new item to the array stored at a non-empty state path.',
-      useWhen: 'Use this for list-style data such as todos, cart items, messages, or comments. The path must already point at an array or an empty slot where an array can be created.',
+      useWhen:
+        'Use this for generic arrays, including primitive arrays or object arrays that do not need stable generated ids. Use `append_item` when the array stores plain-object rows that will need id-based row actions later.',
       returns: 'Returns the updated array value after the new item is appended.',
     },
     name: 'append_state',
@@ -229,6 +230,182 @@ Button("add-task", "Add task", "default", Action([@Run(addTask), @Run(tasks)]), 
         value: {},
       },
       required: ['path', 'value'],
+    },
+  },
+  {
+    demoExample: `// Append a plain-object row and ensure it has a stable id.
+tasks = Query("read_state", { path: "app.tasks" }, [])
+addTask = Mutation("append_item", {
+  path: "app.tasks",
+  value: { title: $taskTitle, completed: false }
+})
+
+// Append the item, then refresh the visible query.
+Button("add-task", "Add", "default", Action([@Run(addTask), @Run(tasks), @Reset($taskTitle)]), $taskTitle == "")`,
+    documentation: {
+      summary: 'Appends one plain-object item to the array at a validated path and guarantees the appended row has an `id`.',
+      useWhen:
+        'Use this for persisted collections of object rows such as todos, cards, answers, or records that will need stable row actions later. If `value.id` is missing, the tool generates one automatically.',
+      returns: 'Returns the updated array value after the object row is appended.',
+    },
+    name: 'append_item',
+    shortDescription: 'Append object row',
+    signature: 'append_item(path, value)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
+        },
+        value: {
+          type: 'object',
+          additionalProperties: true,
+          description: 'Plain object row to append. The tool keeps a provided string/number `id` or generates one when missing.',
+        },
+      },
+      required: ['path', 'value'],
+    },
+  },
+  {
+    demoExample: `// Relay the current row id through local state, then toggle a persisted boolean field.
+$targetTaskId = ""
+tasks = Query("read_state", { path: "app.tasks" }, [])
+toggleTask = Mutation("toggle_item_field", {
+  path: "app.tasks",
+  idField: "id",
+  id: $targetTaskId,
+  field: "completed"
+})
+
+rows = @Each(tasks, "task", Group(null, "horizontal", [
+  Text(task.title, "body", "start"),
+  Button("toggle-" + task.id, task.completed ? "Mark open" : "Mark done", "secondary", Action([@Set($targetTaskId, task.id), @Run(toggleTask), @Run(tasks)]), false)
+], "inline"))`,
+    documentation: {
+      summary: 'Finds one object row inside a persisted array by id and toggles the target field with safe key validation.',
+      useWhen:
+        'Use this for booleans such as `completed`, `done`, `selected`, or `archived` on persisted object rows. Keep the Mutation top-level and relay the current row id through local state inside the row action.',
+      returns: 'Returns the updated array value after the matched row field is toggled.',
+    },
+    name: 'toggle_item_field',
+    shortDescription: 'Toggle row field',
+    signature: 'toggle_item_field(path, idField, id, field)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+        field: {
+          type: 'string',
+          description: 'Safe object field name to toggle, such as `completed`.',
+        },
+      },
+      required: ['path', 'idField', 'id', 'field'],
+    },
+  },
+  {
+    demoExample: `// Update one field on a persisted row matched by id.
+$targetTaskId = ""
+tasks = Query("read_state", { path: "app.tasks" }, [])
+renameTask = Mutation("update_item_field", {
+  path: "app.tasks",
+  idField: "id",
+  id: $targetTaskId,
+  field: "title",
+  value: $taskTitle
+})
+
+Button("rename-task", "Rename", "secondary", Action([@Run(renameTask), @Run(tasks)]), $taskTitle == "")`,
+    documentation: {
+      summary: 'Finds one object row inside a persisted array by id and replaces one safe field with a JSON-compatible value.',
+      useWhen:
+        'Use this for direct row edits such as renaming a task, changing a note, updating a status string, or writing a new scalar/object field value onto one matched item.',
+      returns: 'Returns the updated array value after the matched row field is replaced.',
+    },
+    name: 'update_item_field',
+    shortDescription: 'Update row field',
+    signature: 'update_item_field(path, idField, id, field, value)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+        field: {
+          type: 'string',
+          description: 'Safe object field name to replace on the matched row.',
+        },
+        value: {
+          description: 'JSON-compatible replacement value for the target field.',
+        },
+      },
+      required: ['path', 'idField', 'id', 'field', 'value'],
+    },
+  },
+  {
+    demoExample: `// Remove one persisted row by id instead of by array index.
+$targetTaskId = ""
+tasks = Query("read_state", { path: "app.tasks" }, [])
+removeTask = Mutation("remove_item", {
+  path: "app.tasks",
+  idField: "id",
+  id: $targetTaskId
+})
+
+rows = @Each(tasks, "task", Group(null, "horizontal", [
+  Text(task.title, "body", "start"),
+  Button("remove-" + task.id, "Remove", "destructive", Action([@Set($targetTaskId, task.id), @Run(removeTask), @Run(tasks)]), false)
+], "inline"))`,
+    documentation: {
+      summary: 'Removes one object row from a persisted array by matching `idField` against the provided `id`.',
+      useWhen:
+        'Use this for id-based row deletion when the array stores object rows and index-based removal would be fragile or unclear.',
+      returns: 'Returns the updated array value after the matched row is removed.',
+    },
+    name: 'remove_item',
+    shortDescription: 'Remove row by id',
+    signature: 'remove_item(path, idField, id)',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+      },
+      required: ['path', 'idField', 'id'],
     },
   },
   {

@@ -55,6 +55,11 @@ Steps:
 
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
+- Action-mode controls:
+  - `Checkbox` can use a display-only boolean plus `action` for persisted toggles instead of a writable `$binding<boolean>`
+  - `RadioGroup` and `Select` can use a display-only string plus `action` for persisted choice updates instead of a writable `$binding<string>`
+  - `RadioGroup` / `Select` action mode writes the newly selected option to reserved runtime state `$lastChoice` before the action runs
+  - use `$lastChoice` only inside those action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements they run, never in arbitrary UI or unrelated state expressions
 - Group layout guidance:
   - `Group(title, direction, children, variant?, appearance?)` supports `block | inline`
   - the second `Group` argument is always `direction`, and `variant` belongs in the optional fourth argument

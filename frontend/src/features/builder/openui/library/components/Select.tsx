@@ -1,10 +1,21 @@
-import { useId, useState } from 'react';
-import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
+import { useId, useRef, useState } from 'react';
+import {
+  defineComponent,
+  reactive,
+  useIsStreaming,
+  useSetFieldValue,
+  useStateField,
+  useTriggerAction,
+  type ComponentRenderProps,
+  type StateField,
+} from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { z } from 'zod';
 import {
+  ACTION_MODE_LAST_CHOICE_STATE,
   appearanceSchema,
   choiceOptionSchema,
+  enqueueChoiceAction,
   getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
@@ -16,31 +27,44 @@ import {
 } from './shared';
 
 type SelectRendererProps = ComponentRenderProps<{
+  action?: unknown;
   appearance?: { contrastColor?: string; mainColor?: string };
   helper?: string | null;
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
   validation?: ValidationRuleConfig[];
-  value: StateField<string | undefined>;
+  value: StateField<string | undefined> | string | undefined;
 }>;
 
 function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   const feedbackId = useId();
   const [touched, setTouched] = useState(false);
+  const [isPending, setPending] = useState(false);
+  const pendingActionRef = useRef(false);
   const isStreaming = useIsStreaming();
+  const triggerAction = useTriggerAction();
+  const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
+  const isActionMode = props.action != null;
   const { submitLikeInteractionCount } = useKittoValidationInteraction();
   const validationTarget = { componentType: 'Select' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const { hasVisibleError, helperText } = getValidationFeedback({
-    helper: props.helper,
-    rules: validationRules,
-    submitLikeInteractionCount,
-    target: validationTarget,
-    touched,
-    value: field.value ?? '',
-  });
+  const selectedValue = isActionMode ? (typeof props.value === 'string' ? props.value : '') : (field.value ?? '');
+  const validationFeedback = isActionMode
+    ? {
+        hasVisibleError: false,
+        helperText: props.helper ?? undefined,
+      }
+    : getValidationFeedback({
+        helper: props.helper,
+        rules: validationRules,
+        submitLikeInteractionCount,
+        target: validationTarget,
+        touched,
+        value: selectedValue,
+      });
+  const { hasVisibleError, helperText } = validationFeedback;
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -60,16 +84,40 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
+  async function handleActionSelect(nextValue: string) {
+    if (isStreaming || pendingActionRef.current) {
+      return;
+    }
+
+    pendingActionRef.current = true;
+    setPending(true);
+
+    try {
+      await enqueueChoiceAction(async () => {
+        setFieldValue(undefined, undefined, ACTION_MODE_LAST_CHOICE_STATE, nextValue, false);
+        await triggerAction(props.name || 'select', undefined, props.action as never);
+      });
+    } finally {
+      pendingActionRef.current = false;
+      setPending(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2" data-kitto-stacked-field="true">
       <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
         {props.label}
       </span>
       <SelectUI
-        disabled={isStreaming}
+        disabled={isActionMode ? isStreaming || isPending : isStreaming}
         name={props.name}
-        value={field.value ?? ''}
+        value={selectedValue}
         onValueChange={(nextValue: string) => {
+          if (isActionMode) {
+            void handleActionSelect(nextValue);
+            return;
+          }
+
           setTouched(true);
           field.setValue(nextValue);
         }}
@@ -108,14 +156,24 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
 
 export const SelectComponent = defineComponent({
   name: 'Select',
-  description: 'Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs.',
+  description:
+    'Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs. Use a $binding<string> for form state, or a display-only string plus action for persisted updates. In action mode, the runtime writes the new option to `$lastChoice` before Action([...]) runs.',
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label for the select field.'),
-    value: reactive(z.string().optional().describe('Currently selected value, often bound to a $variable.')),
+    value: reactive(
+      z
+        .string()
+        .optional()
+        .describe('Writable $binding<string> for form state, or a display-only string when action mode runs an explicit Action([...]).'),
+    ),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
     helper: nullableTextSchema.describe('Optional helper text shown below the control when there is no validation error.'),
     validation: validationRulesSchema,
+    action: z
+      .unknown()
+      .optional()
+      .describe('Optional Action([...]) for persisted choice updates. Action mode writes the selected option to `$lastChoice` before the action runs.'),
     appearance: appearanceSchema,
   }),
   component: OpenUiSelectRenderer,

@@ -154,7 +154,8 @@ const toolSpecifications: ToolSpec[] = [
   },
   {
     name: 'append_state',
-    description: 'Append a value to an array stored at a non-empty dot-path.',
+    description:
+      'Append a JSON-compatible value to an array stored at a non-empty dot-path. Prefer `append_item` when the array stores plain-object rows that need stable ids for later row actions.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -169,6 +170,122 @@ const toolSpecifications: ToolSpec[] = [
     },
     outputSchema: {
       description: 'The updated array stored at the path.',
+    },
+  },
+  {
+    name: 'append_item',
+    description:
+      'Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided string/number `id` or generates a stable `id` automatically when missing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        value: {
+          type: 'object',
+          additionalProperties: true,
+          description: 'Plain object row to append.',
+        },
+      },
+      required: ['path', 'value'],
+    },
+    outputSchema: {
+      description: 'The updated array stored at the path, including the appended row with a stable `id`.',
+    },
+  },
+  {
+    name: 'toggle_item_field',
+    description:
+      'Find one plain-object row inside an array by id and toggle one safe field. Use it for booleans such as completed, done, selected, or archived.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+        field: {
+          type: 'string',
+          description: 'Safe object field name to toggle, such as `completed`.',
+        },
+      },
+      required: ['path', 'idField', 'id', 'field'],
+    },
+    outputSchema: {
+      description: 'The updated array stored at the path after the matched row field is toggled.',
+    },
+  },
+  {
+    name: 'update_item_field',
+    description:
+      'Find one plain-object row inside an array by id and replace one safe field with a JSON-compatible value.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+        field: {
+          type: 'string',
+          description: 'Safe object field name to replace on the matched row.',
+        },
+        value: {
+          description: 'JSON-compatible replacement value for the target field.',
+        },
+      },
+      required: ['path', 'idField', 'id', 'field', 'value'],
+    },
+    outputSchema: {
+      description: 'The updated array stored at the path after the matched row field is replaced.',
+    },
+  },
+  {
+    name: 'remove_item',
+    description:
+      'Remove one plain-object row from an array by matching an item id field. Prefer it over index-based deletion when the collection stores object rows.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
+        },
+        idField: {
+          type: 'string',
+          description: 'Safe object field name used to match the target row, such as `id`.',
+        },
+        id: {
+          oneOf: [{ type: 'string' }, { type: 'number' }],
+          description: 'Item id to match against `idField`.',
+        },
+      },
+      required: ['path', 'idField', 'id'],
+    },
+    outputSchema: {
+      description: 'The updated array stored at the path after the matched row is removed.',
     },
   },
   {
@@ -229,7 +346,7 @@ const preamble =
 const toolExamples = [
   `$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
-addItem = Mutation("append_state", {
+addItem = Mutation("append_item", {
   path: "app.items",
   value: { title: $draft, completed: false }
 })
@@ -274,10 +391,13 @@ root = AppShell([
     ])
   ], true)
 ], appTheme)`,
-  `$filter = "all"
-
+  `savedFilter = Query("read_state", { path: "ui.filter" }, "all")
+setFilter = Mutation("write_state", {
+  path: "ui.filter",
+  value: $lastChoice
+})
 items = Query("read_state", { path: "app.items" }, [])
-visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
+visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items
 visibleCount = @Count(visibleItems)
 filterOptions = [
   { label: "All items", value: "all" },
@@ -291,7 +411,7 @@ itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [
 
 root = AppShell([
   Screen("main", "Filtered items", [
-    Select("filter", "Filter", $filter, filterOptions),
+    Select("filter", "Filter", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)])),
     Text("Visible items: " + visibleCount, "muted", "start"),
     Repeater(itemRows, "No matching items.")
   ])
@@ -360,14 +480,31 @@ root = AppShell([
   ], $currentScreen == "result")
 ])`,
   `$draftCard = ""
+$targetCardId = ""
 savedCards = Query("read_state", { path: "app.savedCards" }, [])
-saveCard = Mutation("append_state", {
+saveCard = Mutation("append_item", {
   path: "app.savedCards",
-  value: { title: $draftCard, summary: "Saved from the builder" }
+  value: { title: $draftCard, summary: "Saved from the builder", completed: false }
+})
+toggleCard = Mutation("toggle_item_field", {
+  path: "app.savedCards",
+  idField: "id",
+  id: $targetCardId,
+  field: "completed"
+})
+removeCard = Mutation("remove_item", {
+  path: "app.savedCards",
+  idField: "id",
+  id: $targetCardId
 })
 cardRows = @Each(savedCards, "card", Group(null, "vertical", [
   Text(card.title, "title", "start"),
-  Text(card.summary, "muted", "start")
+  Text(card.completed ? "Completed" : "Active", "muted", "start"),
+  Text(card.summary, "muted", "start"),
+  Group(null, "horizontal", [
+    Button("toggle-" + card.id, card.completed ? "Mark active" : "Mark complete", "secondary", Action([@Set($targetCardId, card.id), @Run(toggleCard), @Run(savedCards)]), false),
+    Button("remove-" + card.id, "Remove", "destructive", Action([@Set($targetCardId, card.id), @Run(removeCard), @Run(savedCards)]), false)
+  ], "inline")
 ]))
 
 root = AppShell([
@@ -417,15 +554,22 @@ const additionalRules = [
   '- `$draft`',
   '- an `Input` for the new task',
   '- `Query("read_state", { path: "app.items" }, [])`',
-  '- `Mutation("append_state", { path: "app.items", value: ... })`',
+  '- `Mutation("append_item", { path: "app.items", value: ... })`',
   '- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`',
   '- `@Each(items, "item", ...)`',
   '- `Repeater(rows, "No tasks yet.")`',
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
   'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
-  'Regular Checkbox is for local form state and $variables.',
-  'Do not use Checkbox(item.completed) as if it writes back to persisted collections.',
-  'Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.',
+  'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
+  'Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.',
+  'Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.',
+  'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
+  'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
+  'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
+  'Do not read `$lastChoice` directly in Text(...), disabled expressions, or unrelated statements.',
+  'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
+  'Collection-item relay recipe: `$targetItemId = ""`, `toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`, then inside `@Each(...)` use `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.',
+  'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`, `setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })`, then `Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))`.',
   'LAYOUT RULES:',
   'Use Screen for top-level app sections.',
   'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
@@ -445,6 +589,8 @@ const additionalRules = [
   'TOOL MINIMALITY:',
   'Use $variables for ephemeral UI state.',
   'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
+  'For persisted collections of plain-object rows that will need row actions later, prefer `append_item` so each row has a stable `id`.',
+  'Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions on persisted object collections instead of rebuilding whole arrays manually.',
   'Compute tools are opt-in. Do not use `compute_value` or `write_computed_state` unless the requested task needs them.',
   'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
   'Use compute tools only when the user asks for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
@@ -483,8 +629,15 @@ const additionalRules = [
   'Expressions are allowed inside the source argument to `@Each(...)`, so you may pass either a named derived collection or an inline filtered expression.',
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
   'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
+  'For persisted collections of object rows, prefer `append_item` over `append_state` so new rows always have a stable `id`.',
+  'Use `toggle_item_field` for booleans such as `completed`, `done`, `selected`, or `archived` on persisted rows.',
+  'Use `update_item_field` for direct row edits such as renaming a task or updating one note/status field.',
+  'Use `remove_item` for id-based deletion of persisted object rows.',
+  'For row-level persisted actions inside `@Each(...)`, keep the Mutation top-level and relay `item.id` through local state before `@Run(...)`.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
-  'Use `Checkbox(label=...)` for agreement or other local form checklists backed by $variables.',
+  'Use `Checkbox(..., validation)` with a writable `$binding<boolean>` for agreement, consent, confirmation, or acknowledgement fields backed by local form state.',
+  'Use Checkbox action mode with a display-only boolean plus `Action([...])` when the checkbox itself should trigger a persisted row toggle.',
+  'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
   'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"password"`.',
   'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
   'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
@@ -532,18 +685,20 @@ const additionalRules = [
   'Do not rely on `mutationRef.data.value` to refresh visible text for persisted compute flows; the canonical path is state write plus `Query("read_state", ...)` re-read.',
   'Date compute operations only accept strict YYYY-MM-DD strings.',
   'Use `random_int` only with integer min/max options.',
-  'Use write_state, merge_state, append_state, remove_state, and write_computed_state for exportable persistent data.',
+  'Use write_state, merge_state, append_state, append_item, toggle_item_field, update_item_field, remove_item, remove_state, and write_computed_state for exportable persistent data.',
   'Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.',
   'Each persisted path segment may only use letters, numbers, `_`, or `-`. Numeric segments are array indexes only.',
   'Never use path segments named `__proto__`, `prototype`, or `constructor`.',
-  'write_state and append_state values must stay JSON-compatible, and merge_state patches must be plain objects.',
+  'Item tool field names such as `idField` and `field` must be safe single keys only and must reject `__proto__`, `prototype`, and `constructor`.',
+  'write_state and append_state values must stay JSON-compatible, `append_item` values must be plain objects, `update_item_field` values must stay JSON-compatible, and merge_state patches must be plain objects.',
   'remove_state requires an explicit non-negative integer index and only works on existing arrays.',
   'Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.',
   'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',
   'Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.',
   'Random example: `Action([@Run(roll), @Run(rollValue)])`.',
-  'Remove example: `Action([@Run(removeItem), @Run(items)])`.',
-  'Update example: `Action([@Run(updateItem), @Run(items)])`.',
+  'Toggle example: `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.',
+  'Remove example: `Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)])`.',
+  'Update example: `Action([@Set($targetItemId, item.id), @Run(updateItem), @Run(items)])`.',
   'Every `@Run(ref)` must reference a defined Query or Mutation statement.',
   'Every Button must start with a stable id string so button state and actions stay deterministic.',
   'Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.',

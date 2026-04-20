@@ -14,7 +14,19 @@ interface ComponentSpec {
 
 const componentSpecPath = new URL('../../../../shared/openui-component-spec.json', import.meta.url);
 const componentSpec = JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as ComponentSpec;
-const supportedToolNames = ['read_state', 'compute_value', 'write_state', 'merge_state', 'append_state', 'remove_state', 'write_computed_state'];
+const supportedToolNames = [
+  'read_state',
+  'compute_value',
+  'write_state',
+  'merge_state',
+  'append_state',
+  'append_item',
+  'toggle_item_field',
+  'update_item_field',
+  'remove_item',
+  'remove_state',
+  'write_computed_state',
+];
 
 describe('openui prompts', () => {
   it('keeps the generated component spec artifact committed in the repository', () => {
@@ -120,7 +132,7 @@ describe('openui prompts', () => {
     const prompt = buildOpenUiSystemPrompt();
     const todoIndex = prompt.indexOf('$draft = ""');
     const themeIndex = prompt.indexOf('$currentTheme = "light"');
-    const filterIndex = prompt.indexOf('$filter = "all"');
+    const filterIndex = prompt.indexOf('savedFilter = Query("read_state", { path: "ui.filter" }, "all")');
     const validationIndex = prompt.indexOf('$email = ""');
     const computeIndex = prompt.indexOf('roll = Mutation("write_computed_state", {');
 
@@ -160,9 +172,27 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Text(item.title, "body", "start")');
     expect(prompt).toContain('Text(item.completed ? "Done" : "Open", "muted", "end")');
     expect(prompt).toContain('Repeater(rows, "No tasks yet.")');
-    expect(prompt).toContain('Regular Checkbox is for local form state and $variables.');
-    expect(prompt).toContain('Do not use Checkbox(item.completed) as if it writes back to persisted collections.');
-    expect(prompt).toContain('Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.');
+    expect(prompt).toContain(
+      'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
+    );
+    expect(prompt).toContain('Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.');
+    expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(prompt).toContain(
+      'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
+    );
+    expect(prompt).toContain(
+      'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
+    );
+    expect(prompt).toContain(
+      'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
+    );
+    expect(prompt).toContain(
+      'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
+    );
+    expect(prompt).toContain('Collection-item relay recipe: `$targetItemId = ""`');
+    expect(prompt).toContain(
+      'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`',
+    );
 
     expect(todoIndex).toBeGreaterThan(-1);
     expect(themeIndex).toBeGreaterThan(-1);
@@ -195,11 +225,17 @@ describe('openui prompts', () => {
     expect(textAreaSpec?.signature).toContain('helper?:');
     expect(textAreaSpec?.signature).toContain('validation?: {');
     expect(checkboxSpec?.signature).toContain('helper?:');
+    expect(checkboxSpec?.signature).toContain('checked?: $binding<boolean> | boolean');
     expect(checkboxSpec?.signature).toContain('validation?: {');
+    expect(checkboxSpec?.signature).toContain('action?: any');
+    expect(radioGroupSpec?.signature).toContain('value?: $binding<string> | string');
     expect(radioGroupSpec?.signature).toContain('helper?:');
     expect(radioGroupSpec?.signature).toContain('validation?: {');
+    expect(radioGroupSpec?.signature).toContain('action?: any');
+    expect(selectSpec?.signature).toContain('value?: $binding<string> | string');
     expect(selectSpec?.signature).toContain('helper?:');
     expect(selectSpec?.signature).toContain('validation?: {');
+    expect(selectSpec?.signature).toContain('action?: any');
 
     expect(prompt).toContain('Input supports these HTML types only:');
     expect(prompt).toContain('Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)`');
@@ -208,6 +244,13 @@ describe('openui prompts', () => {
     expect(prompt).toContain('When the user gives numeric bounds such as minimums or maximums, add matching `minNumber` and `maxNumber` validation rules.');
     expect(prompt).toContain(
       'Use `Input` type `"email"` for email fields and pair it with `email` validation when the field must contain a valid email address.',
+    );
+    expect(prompt).toContain(
+      'Use `Checkbox(..., validation)` with a writable `$binding<boolean>` for agreement, consent, confirmation, or acknowledgement fields backed by local form state.',
+    );
+    expect(prompt).toContain('Use Checkbox action mode with a display-only boolean plus `Action([...])` when the checkbox itself should trigger a persisted row toggle.');
+    expect(prompt).toContain(
+      'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
     );
     expect(prompt).toContain(
       'Use `Checkbox(..., validation)` with a `required` rule for agreement, consent, confirmation, or acknowledgement fields.',
@@ -224,6 +267,7 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain('Input("email", "Email", $email, "ada@example.com", "Enter email", "email", [');
     expect(prompt).toContain('Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }])');
+    expect(prompt).toContain('value: $lastChoice');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {
@@ -246,13 +290,17 @@ describe('openui prompts', () => {
     expect(prompt).toContain('- `$draft`');
     expect(prompt).toContain('- an `Input` for the new task');
     expect(prompt).toContain('- `Query("read_state", { path: "app.items" }, [])`');
-    expect(prompt).toContain('- `Mutation("append_state", { path: "app.items", value: ... })`');
+    expect(prompt).toContain('- `Mutation("append_item", { path: "app.items", value: ... })`');
     expect(prompt).toContain('- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`');
     expect(prompt).toContain('- `@Each(items, "item", ...)`');
     expect(prompt).toContain('- `Repeater(rows, "No tasks yet.")`');
-    expect(prompt).toContain('Regular Checkbox is for local form state and $variables.');
-    expect(prompt).toContain('Do not use Checkbox(item.completed) as if it writes back to persisted collections.');
-    expect(prompt).toContain('Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.');
+    expect(prompt).toContain(
+      'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
+    );
+    expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(prompt).toContain(
+      'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
+    );
     expect(prompt).toContain(
       'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
     );
@@ -267,7 +315,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.');
     expect(prompt).toContain('Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.');
     expect(prompt).toContain('Use `@Filter(collection, field, operator, value)` with a field string and comparison operator; do not invent predicate-form filters or JavaScript callbacks.');
-    expect(prompt).toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(prompt).toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(prompt).toContain('visibleCount = @Count(visibleItems)');
     expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');
   });
@@ -304,8 +352,9 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
     expect(prompt).toContain('Random example: `Action([@Run(roll), @Run(rollValue)])`.');
-    expect(prompt).toContain('Remove example: `Action([@Run(removeItem), @Run(items)])`.');
-    expect(prompt).toContain('Update example: `Action([@Run(updateItem), @Run(items)])`.');
+    expect(prompt).toContain('Toggle example: `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.');
+    expect(prompt).toContain('Remove example: `Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)])`.');
+    expect(prompt).toContain('Update example: `Action([@Set($targetItemId, item.id), @Run(updateItem), @Run(items)])`.');
     expect(prompt).toContain('roll = Mutation("write_computed_state", {');
     expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)');
     expect(prompt).toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');

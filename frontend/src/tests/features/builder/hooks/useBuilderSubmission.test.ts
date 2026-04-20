@@ -253,6 +253,14 @@ const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const FATAL_QUALITY_SOURCE = `$accepted = false
+
+root = AppShell([
+  Screen("main", "Main", [
+    Checkbox("accepted", "Persist acceptance", $accepted, "Persists acceptance", [], Action([]))
+  ])
+])`;
+
 const AUTO_FIXABLE_SOURCE = `root = AppShell({ mainColor: "#FFFFFF", contrastColor: "#111827" }, [
   Screen("main", "Main", [
     Group("Filters", [
@@ -736,6 +744,34 @@ describe('useBuilderSubmission', () => {
         tone: 'error',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('fails fast on fatal quality issues without sending a repair request', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a checkbox that saves persisted acceptance.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: FATAL_QUALITY_SOURCE,
+    });
+    testHarness.generateMock.mockResolvedValue({
+      source: FATAL_QUALITY_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(
+      testHarness.generateMock.mock.calls.filter(
+        ([requestOptions]) => (requestOptions as { request: { mode?: string } }).request.mode === 'repair',
+      ),
+    ).toHaveLength(0);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().retryPrompt).toBe('Create a checkbox that saves persisted acceptance.');
+    expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
+    expect(getBuilderState().streamError).toContain('control-action-and-binding');
+    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
 
     submission.unmount();
   });

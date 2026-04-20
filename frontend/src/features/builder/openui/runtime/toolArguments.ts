@@ -1,4 +1,4 @@
-import { cloneJsonCompatibleValue, clonePlainObject, DomainStateError, validateDomainPath } from '@features/builder/store/path';
+import { cloneJsonCompatibleValue, clonePlainObject, DomainStateError, validateDomainFieldName, validateDomainPath } from '@features/builder/store/path';
 
 function createToolError(toolName: string, message: string) {
   return new DomainStateError(`${toolName}: ${message}`);
@@ -58,4 +58,36 @@ export function getRequiredToolIndex(toolName: string, index: unknown) {
   }
 
   return index;
+}
+
+export function getRequiredToolObject(toolName: string, value: unknown, argName = 'value') {
+  if (value === undefined) {
+    throw createToolError(toolName, `${argName} must be a plain object.`);
+  }
+
+  try {
+    return clonePlainObject(value, `${argName} must be a plain object.`);
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
+}
+
+export function getRequiredToolFieldName(toolName: string, fieldName: unknown, argName = 'field') {
+  if (typeof fieldName !== 'string') {
+    throw createToolError(toolName, `${argName} must be a string.`);
+  }
+
+  try {
+    return validateDomainFieldName(fieldName, argName);
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
+}
+
+export function getRequiredToolItemId(toolName: string, id: unknown) {
+  if (typeof id !== 'string' && typeof id !== 'number') {
+    throw createToolError(toolName, 'id must be a string or number.');
+  }
+
+  return id;
 }

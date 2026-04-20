@@ -30,16 +30,16 @@
       "description": "Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes."
     },
     "Checkbox": {
-      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Boolean toggle with optional helper text and declarative validation. Required validation means the checkbox must be checked."
+      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean> | boolean, helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Boolean toggle for either local form state or explicit action flows. Use a $binding<boolean> for form state, or a display-only boolean plus action for persisted row toggles. Required validation means the checkbox must be checked."
     },
     "RadioGroup": {
-      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Single-choice list of options with optional helper text and declarative validation. Good for quizzes, steps, and mode switches."
+      "signature": "RadioGroup(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Single-choice list of options with optional helper text and declarative validation. Use a $binding<string> for form state, or a display-only string plus action for persisted choice updates. In action mode, the runtime writes the new option to `$lastChoice` before Action([...]) runs."
     },
     "Select": {
-      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs."
+      "signature": "Select(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: \"required\" | \"minLength\" | \"maxLength\" | \"minNumber\" | \"maxNumber\" | \"dateOnOrAfter\" | \"dateOnOrBefore\" | \"email\", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})",
+      "description": "Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs. Use a $binding<string> for form state, or a display-only string plus action for persisted updates. In action mode, the runtime writes the new option to `$lastChoice` before Action([...]) runs."
     },
     "Button": {
       "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",
@@ -78,7 +78,9 @@
         "Select"
       ],
       "notes": [
-        "Bind interactive values to $variables when the user should control them."
+        "Bind interactive values to $variables when the user should control them.",
+        "Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).",
+        "RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs."
       ]
     },
     {

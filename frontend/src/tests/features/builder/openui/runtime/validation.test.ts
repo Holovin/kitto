@@ -197,6 +197,54 @@ root = AppShell([
     });
   });
 
+  it('accepts collection-item tools with relay-variable row actions', () => {
+    const result = validateOpenUiSource(`$draft = ""
+$targetItemId = ""
+
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+toggleItem = Mutation("toggle_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
+updateItem = Mutation("update_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "title",
+  value: $draft
+})
+removeItem = Mutation("remove_item", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end"),
+  Button("toggle-" + item.id, "Toggle", "secondary", Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]), false),
+  Button("remove-" + item.id, "Remove", "destructive", Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)]), false)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Input("draft", "Task", $draft, "New task"),
+    Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == ""),
+    Repeater(rows, "No tasks yet.")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
   it('rejects bare mutation refs used as display values', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Roll", [
@@ -680,6 +728,34 @@ root = AppShell([
     expect(warnings).toEqual([]);
   });
 
+  it('does not warn for a simple todo request that uses append_item', () => {
+    const warnings = detectOpenUiQualityWarnings(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(warnings).toEqual([]);
+  });
+
   it('warns when a simple todo request generates multiple screens', () => {
     const warnings = detectOpenUiQualityWarnings(
       `root = AppShell([
@@ -909,6 +985,127 @@ describe('detectOpenUiQualityIssues', () => {
     );
   });
 
+  it('marks Checkbox action mode plus writable binding as fatal quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$accepted = false
+
+root = AppShell([
+  Screen("main", "Main", [
+    Checkbox("accepted", "Persist acceptance", $accepted, "Persists acceptance", [], Action([]))
+  ])
+])`,
+      'Create a checkbox that saves persisted acceptance.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'control-action-and-binding',
+          message:
+            'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('marks RadioGroup and Select action mode plus writable binding as fatal quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$plan = "pro"
+$filter = "all"
+planOptions = [
+  { label: "Starter", value: "starter" },
+  { label: "Pro", value: "pro" }
+]
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Completed", value: "completed" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("plan", "Plan", $plan, planOptions, null, [], Action([])),
+    Select("filter", "Filter", $filter, filterOptions, null, [], Action([]))
+  ])
+])`,
+      'Create persisted choice controls.',
+    );
+
+    expect(issues.filter((issue) => issue.code === 'control-action-and-binding')).toHaveLength(2);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'control-action-and-binding',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('allows RadioGroup and Select action mode to route the chosen value through $lastChoice', () => {
+    const source = `savedPlan = Query("read_state", { path: "demo.plan" }, "pro")
+savePlan = Mutation("write_state", {
+  path: "demo.plan",
+  value: $lastChoice
+})
+savedFilter = Query("read_state", { path: "demo.filter" }, "all")
+saveFilter = Mutation("write_state", {
+  path: "demo.filter",
+  value: $lastChoice
+})
+planOptions = [
+  { label: "Starter", value: "starter" },
+  { label: "Pro", value: "pro" }
+]
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Completed", value: "completed" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("saved-plan", "Persisted plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)])),
+    Select("saved-filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(saveFilter), @Run(savedFilter)]))
+  ])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(detectOpenUiQualityIssues(source, 'Create persisted choice controls.')).toEqual([]);
+  });
+
+  it('marks $lastChoice outside Select/RadioGroup action mode flows as fatal quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `setFilter = Mutation("write_state", {
+  path: "demo.filter",
+  value: $lastChoice
+})
+
+root = AppShell([
+  Screen("main", "Main", [
+    Button("apply-filter", "Apply", "default", Action([@Run(setFilter)]), false),
+    Text("Last choice: " + $lastChoice, "body", "start")
+  ])
+])`,
+      'Create a saved filter control.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'reserved-last-choice-outside-action-mode',
+          message: expect.stringContaining('reserved for Select/RadioGroup action mode'),
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('rejects inline tool calls inside @Each row actions via parser or blocking quality issues', () => {
     const source = `$selectedItemId = ""
 items = Query("read_state", { path: "app.items" }, [
@@ -979,6 +1176,44 @@ root = AppShell([
           severity: 'blocking-quality',
           source: 'quality',
           statementId: 'addItem',
+        }),
+      ]),
+    );
+  });
+
+  it('marks stale toggle_item_field refresh as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$targetItemId = ""
+items = Query("read_state", { path: "app.items" }, [])
+toggleItem = Mutation("toggle_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Button("toggle-first", "Toggle first", "default", Action([@Set($targetItemId, "task-1"), @Run(toggleItem)]), false),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(toggleItem), also run @Run(items) later in the same Action for affected path "app.items".',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'toggleItem',
         }),
       ]),
     );

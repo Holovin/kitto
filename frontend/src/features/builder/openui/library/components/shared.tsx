@@ -11,6 +11,7 @@ const appearanceContrastColorProp = hexColorSchema.describe('Optional contrast t
 
 export const KITTO_MAIN_COLOR_VAR = '--kitto-main-color';
 export const KITTO_CONTRAST_COLOR_VAR = '--kitto-contrast-color';
+export const ACTION_MODE_LAST_CHOICE_STATE = '$lastChoice';
 export const INPUT_TYPES = ['text', 'email', 'number', 'date', 'time', 'password'] as const;
 export const VALIDATION_RULE_TYPES = [
   'required',
@@ -143,6 +144,13 @@ const KittoAppearanceContext = createContext<KittoAppearanceScope>(defaultKittoA
 const KittoValidationInteractionContext = createContext<KittoValidationInteractionContextValue>(
   defaultKittoValidationInteractionContext,
 );
+let choiceActionQueue: Promise<void> = Promise.resolve();
+
+export function enqueueChoiceAction(runAction: () => Promise<void>) {
+  const nextAction = choiceActionQueue.then(runAction, runAction);
+  choiceActionQueue = nextAction.catch(() => undefined);
+  return nextAction;
+}
 
 export function asDisplayText(value: unknown) {
   if (value == null) {

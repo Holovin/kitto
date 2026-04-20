@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
+import { useId, useRef, useState } from 'react';
+import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
 import { z } from 'zod';
 import {
@@ -15,31 +15,51 @@ import {
 } from './shared';
 
 type CheckboxRendererProps = ComponentRenderProps<{
+  action?: unknown;
   appearance?: { contrastColor?: string; mainColor?: string };
-  checked: StateField<boolean | undefined>;
+  checked?: StateField<boolean> | boolean;
   helper?: string | null;
   label: string;
   name: string;
   validation?: ValidationRuleConfig[];
 }>;
 
+let checkboxActionQueue: Promise<void> = Promise.resolve();
+
+function enqueueCheckboxAction(runAction: () => Promise<void>) {
+  const nextAction = checkboxActionQueue.then(runAction, runAction);
+  checkboxActionQueue = nextAction.catch(() => undefined);
+  return nextAction;
+}
+
 function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const feedbackId = useId();
   const [touched, setTouched] = useState(false);
+  const [isPending, setPending] = useState(false);
+  const pendingActionRef = useRef(false);
   const isStreaming = useIsStreaming();
+  const triggerAction = useTriggerAction();
   const field = useStateField(props.name, props.checked);
+  const isActionMode = props.action != null;
   const { submitLikeInteractionCount } = useKittoValidationInteraction();
   const hasLabel = props.label.trim().length > 0;
   const validationTarget = { componentType: 'Checkbox' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const { hasVisibleError, helperText } = getValidationFeedback({
-    helper: props.helper,
-    rules: validationRules,
-    submitLikeInteractionCount,
-    target: validationTarget,
-    touched,
-    value: Boolean(field.value),
-  });
+  const checkedValue = isActionMode ? Boolean(props.checked) : Boolean(field.value);
+  const validationFeedback = isActionMode
+    ? {
+        hasVisibleError: false,
+        helperText: props.helper ?? undefined,
+      }
+    : getValidationFeedback({
+        helper: props.helper,
+        rules: validationRules,
+        submitLikeInteractionCount,
+        target: validationTarget,
+        touched,
+        value: checkedValue,
+      });
+  const { hasVisibleError, helperText } = validationFeedback;
   const appearanceScope = useKittoAppearanceScope();
   const checkboxStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -53,19 +73,44 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
     textRole: 'contrast',
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
+
+  async function handleActionToggle() {
+    if (isStreaming || pendingActionRef.current) {
+      return;
+    }
+
+    pendingActionRef.current = true;
+    setPending(true);
+
+    try {
+      await enqueueCheckboxAction(async () => {
+        await triggerAction(props.name || 'checkbox', undefined, props.action as never);
+      });
+    } finally {
+      pendingActionRef.current = false;
+      setPending(false);
+    }
+  }
+
   const checkboxControl = (
     <CheckboxUI
       aria-describedby={helperText ? feedbackId : undefined}
       aria-invalid={hasVisibleError}
-      checked={Boolean(field.value)}
+      checked={checkedValue}
       className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
-      disabled={isStreaming}
+      disabled={isActionMode ? isStreaming || isPending : isStreaming}
       style={checkboxStyle}
-      onBlur={() => setTouched(true)}
-      onCheckedChange={(checked: boolean | 'indeterminate') => {
-        setTouched(true);
-        field.setValue(Boolean(checked));
-      }}
+      onBlur={isActionMode ? undefined : () => setTouched(true)}
+      onCheckedChange={
+        isActionMode
+          ? () => {
+              void handleActionToggle();
+            }
+          : (checked: boolean | 'indeterminate') => {
+              setTouched(true);
+              field.setValue(Boolean(checked));
+            }
+      }
     />
   );
 
@@ -119,13 +164,19 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
 export const CheckboxComponent = defineComponent({
   name: 'Checkbox',
   description:
-    'Boolean toggle with optional helper text and declarative validation. Required validation means the checkbox must be checked.',
+    'Boolean toggle for either local form state or explicit action flows. Use a $binding<boolean> for form state, or a display-only boolean plus action for persisted row toggles. Required validation means the checkbox must be checked.',
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label shown next to the checkbox.'),
-    checked: reactive(z.boolean().optional().describe('Current checked state, often bound to a $variable.')),
+    checked: reactive(
+      z
+        .boolean()
+        .optional()
+        .describe('Writable $binding<boolean> for form state, or a display-only boolean when action mode runs an explicit Action([...]).'),
+    ),
     helper: nullableTextSchema.describe('Optional helper text shown below the control when there is no validation error.'),
     validation: validationRulesSchema,
+    action: z.unknown().optional().describe('Optional Action([...]) for persisted row toggles or other explicit checkbox-triggered flows.'),
     appearance: appearanceSchema,
   }),
   component: OpenUiCheckboxRenderer,
