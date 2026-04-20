@@ -32,6 +32,7 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         ...existingMessage,
         content: message.content,
         createdAt: message.createdAt,
+        excludeFromLlmContext: message.excludeFromLlmContext,
         role: message.role,
         tone: message.tone,
       });
@@ -56,6 +57,7 @@ function createMessage(
   content: string,
   tone: BuilderChatMessage['tone'] = 'default',
   messageKey?: BuilderChatMessage['messageKey'],
+  excludeFromLlmContext?: BuilderChatMessage['excludeFromLlmContext'],
 ): BuilderChatMessage {
   return {
     id: nanoid(),
@@ -63,6 +65,7 @@ function createMessage(
     content,
     tone,
     createdAt: new Date().toISOString(),
+    excludeFromLlmContext,
     messageKey,
   };
 }
@@ -90,6 +93,7 @@ function normalizeChatMessages(value: unknown) {
         id: typeof message.id === 'string' ? message.id : nanoid(),
         role: message.role as BuilderChatMessage['role'],
         content: message.content,
+        excludeFromLlmContext: message.excludeFromLlmContext === true ? true : undefined,
         messageKey: typeof message.messageKey === 'string' ? message.messageKey : undefined,
         tone: typeof message.tone === 'string' ? (message.tone as BuilderChatMessage['tone']) : 'default',
         createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
@@ -346,7 +350,13 @@ export const builderSlice = createSlice({
       state.redoHistory = [];
       pushMessage(
         state.chatMessages,
-        createMessage('assistant', action.payload.note ?? 'Updated the app definition from the latest chat instruction.', 'success'),
+        createMessage(
+          'assistant',
+          action.payload.note ?? 'Updated the app definition from the latest chat instruction.',
+          'success',
+          undefined,
+          true,
+        ),
       );
     },
     failStreaming(
@@ -411,6 +421,7 @@ export const builderSlice = createSlice({
       state,
       action: PayloadAction<{
         content: string;
+        excludeFromLlmContext?: BuilderChatMessage['excludeFromLlmContext'];
         messageKey?: BuilderChatMessage['messageKey'];
         role: BuilderChatMessage['role'];
         tone?: BuilderChatMessage['tone'];
@@ -418,7 +429,13 @@ export const builderSlice = createSlice({
     ) {
       pushMessage(
         state.chatMessages,
-        createMessage(action.payload.role, action.payload.content, action.payload.tone, action.payload.messageKey),
+        createMessage(
+          action.payload.role,
+          action.payload.content,
+          action.payload.tone,
+          action.payload.messageKey,
+          action.payload.excludeFromLlmContext,
+        ),
       );
     },
     resetCurrentAppState(state) {

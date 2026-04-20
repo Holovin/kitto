@@ -228,6 +228,7 @@ Create a task list with checkboxes for completed items and a filter with All, Ac
 
 - User can add multiple items.
 - User can mark items completed.
+- Completion uses an explicit persisted mutation + refresh flow instead of assuming `Checkbox`, `RadioGroup`, or `Select` writes directly into `app.items`.
 - Definition re-runs the visible `Query("read_state", ...)` after persisted add/complete mutations, including parent/child path refresh cases such as `app.items` and `app.items.0.completed`.
 - All filter shows all items.
 - Active filter shows incomplete items.
@@ -327,6 +328,7 @@ Expected:
 
 - App restores.
 - Preview and Definition are consistent.
+- If import starts while a generation is still running, the generation is cancelled and a late response does not overwrite the imported app.
 - No parser/runtime errors.
 
 ### Invalid import
@@ -351,7 +353,7 @@ Record:
 - whether valid import worked;
 - whether invalid import was safely rejected.
 
-## Scenario 10 — Invalid draft and auto-repair
+## Scenario 10 — Draft issues and auto-repair
 
 ### Prompt
 
@@ -361,10 +363,10 @@ Create a complex app with two screens, filtering, a random number button, valida
 
 ### Expected
 
-- If first draft is invalid, one repair attempt may run.
+- If first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
 - If repair succeeds, final app is valid and usable.
 - If repair fails, previous Preview remains visible.
-- Partial invalid draft is not committed.
+- Partial or bad draft is not committed.
 - UI does not get stuck in loading/generating state.
 
 ### Report notes

@@ -155,6 +155,7 @@ describe('builderSlice', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'Committed the streamed definition.',
+        excludeFromLlmContext: true,
         tone: 'success',
         createdAt: '2026-04-19T10:00:00.000Z',
       }),
@@ -190,6 +191,30 @@ describe('builderSlice', () => {
     expect(completed.hasRejectedDefinition).toBe(false);
     expect(completed.parseIssues).toEqual([]);
     expect(completed.definitionWarnings).toEqual([warning]);
+  });
+
+  it('preserves excludeFromLlmContext when normalizing persisted chat messages', () => {
+    const state = normalizeBuilderState({
+      chatMessages: [
+        {
+          id: 'assistant-summary',
+          role: 'assistant',
+          content: 'Updated the app definition from the latest chat instruction.',
+          excludeFromLlmContext: true,
+          tone: 'success',
+          createdAt: '2026-04-19T10:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(state.chatMessages).toEqual([
+      expect.objectContaining({
+        id: 'assistant-summary',
+        role: 'assistant',
+        content: 'Updated the app definition from the latest chat instruction.',
+        excludeFromLlmContext: true,
+      }),
+    ]);
   });
 
   it('appends export success messages with the file name to the end of chat history', () => {

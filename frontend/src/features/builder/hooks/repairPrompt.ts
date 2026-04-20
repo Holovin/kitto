@@ -2,6 +2,8 @@ import type { BuilderParseIssue } from '@features/builder/types';
 
 export const MAX_AUTO_REPAIR_ATTEMPTS = 1;
 
+type RepairIssueMode = 'mixed' | 'parser' | 'quality';
+
 const REPAIR_CRITICAL_RULES = [
   'Return only raw OpenUI Lang.',
   'Return the full updated program.',
@@ -239,6 +241,67 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
   return [...hints];
 }
 
+function getRepairIssueMode(issues: BuilderParseIssue[]): RepairIssueMode {
+  const hasQualityIssues = issues.some((issue) => issue.source === 'quality');
+  const hasNonQualityIssues = issues.some((issue) => issue.source !== 'quality');
+
+  if (hasQualityIssues && hasNonQualityIssues) {
+    return 'mixed';
+  }
+
+  return hasQualityIssues ? 'quality' : 'parser';
+}
+
+function buildRepairIntroSection(mode: RepairIssueMode, attemptNumber: number) {
+  const introLines = [`The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`];
+
+  if (mode === 'quality') {
+    introLines.push('The draft is syntactically valid but fails a product-quality check.');
+    introLines.push('Use the current committed valid OpenUI source only as fallback context.');
+    introLines.push('Stay close to the model draft below and fix only the listed quality issues with the smallest possible diff.');
+    introLines.push('Do not rewrite unrelated parts, change unflagged behavior, or introduce new features.');
+    introLines.push('Return a complete corrected program.');
+
+    return introLines.join('\n');
+  }
+
+  if (mode === 'mixed') {
+    introLines.push('The draft has validation issues and product-quality issues.');
+    introLines.push('Use the current committed valid OpenUI source as the baseline for this request.');
+    introLines.push('Stay close to the model draft below where possible, and fix only the listed issues.');
+    introLines.push('Do not rewrite unrelated parts or introduce new features.');
+    introLines.push('Return a complete corrected program.');
+
+    return introLines.join('\n');
+  }
+
+  introLines.push('Use the current committed valid OpenUI source as the baseline for this request.');
+  introLines.push('Carry forward the intended changes from the invalid model draft only when they can be expressed as valid OpenUI.');
+  introLines.push('Fix every issue below and return a complete corrected program.');
+
+  return introLines.join('\n');
+}
+
+function getRepairDraftSectionTitle(mode: RepairIssueMode) {
+  return mode === 'parser' ? 'Invalid model draft' : 'Model draft to repair';
+}
+
+function getRepairDraftSectionFallback(mode: RepairIssueMode) {
+  return mode === 'parser' ? '(the invalid draft was empty)' : '(the draft to repair was empty)';
+}
+
+function getRepairIssuesSectionTitle(mode: RepairIssueMode) {
+  if (mode === 'quality') {
+    return 'Quality issues';
+  }
+
+  if (mode === 'mixed') {
+    return 'Validation and quality issues';
+  }
+
+  return 'Validation issues';
+}
+
 export function buildRepairPrompt(args: {
   userPrompt: string;
   committedSource: string;
@@ -248,20 +311,19 @@ export function buildRepairPrompt(args: {
   promptMaxChars: number;
 }) {
   const { attemptNumber, committedSource, invalidSource, issues, promptMaxChars, userPrompt } = args;
+  const issueMode = getRepairIssueMode(issues);
   const repairHints = buildRepairHints(issues);
-  const introSection = [
-    `The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`,
-    'Use the current committed valid OpenUI source as the baseline for this request.',
-    'Carry forward the intended changes from the invalid model draft only when they can be expressed as valid OpenUI.',
-    'Fix every issue below and return a complete corrected program.',
-  ].join('\n');
+  const introSection = buildRepairIntroSection(issueMode, attemptNumber);
+  const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
+  const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
+  const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
   const rulesSection = REPAIR_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
   const hintsSection = repairHints.map((hint) => `- ${hint}`).join('\n');
   const sectionHeaders = [
     'Original user request:',
     'Current committed valid OpenUI source:',
-    'Invalid model draft:',
-    'Validation issues:',
+    `${draftSectionTitle}:`,
+    `${issuesSectionTitle}:`,
     ...(repairHints.length > 0 ? ['Targeted repair hints:'] : []),
     'Current critical syntax rules:',
   ];
@@ -281,8 +343,8 @@ export function buildRepairPrompt(args: {
         'Current committed valid OpenUI source',
         buildRepairSourceSectionContent(committedSource, budgets.committedSource, '(blank canvas, no committed OpenUI source yet)'),
       ),
-      buildRepairSection('Invalid model draft', buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, '(the invalid draft was empty)')),
-      buildRepairSection('Validation issues', buildRepairIssueSection(issues, budgets.issues)),
+      buildRepairSection(draftSectionTitle, buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback)),
+      buildRepairSection(issuesSectionTitle, buildRepairIssueSection(issues, budgets.issues)),
       repairHints.length > 0 ? buildRepairSection('Targeted repair hints', hintsSection) : null,
       buildRepairSection('Current critical syntax rules', rulesSection),
     ]

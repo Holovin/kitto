@@ -198,6 +198,8 @@ export function useBuilderHistoryControls({
       return;
     }
 
+    cancelActiveRequestRef.current?.();
+
     try {
       const rawValue = await file.text();
       const importedDefinitionResult = resolveImportedDefinition(rawValue);

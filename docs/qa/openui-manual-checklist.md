@@ -25,6 +25,7 @@ Guardrails:
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.`.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
+- Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
 - That invalid-generation chat failure must end with: `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
@@ -41,6 +42,7 @@ Guardrails:
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
+- Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
@@ -213,7 +215,8 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Checkbox(item.title, item.title, item.completed)
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
 ], "inline"))
 
 root = AppShell([
@@ -233,6 +236,8 @@ Todo request guardrails:
 - Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
 - If a simple todo request misses that minimum structure, repair before commit instead of committing the placeholder draft.
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
+- `Checkbox(...)`, `RadioGroup(...)`, and `Select(...)` bind to local `$variables` for form state and do not write into persisted collections such as `app.items`.
+- For persisted collection toggles, use the explicit action-mode recipe from the persisted mutation examples instead of binding those controls directly to persisted fields.
 
 Derived filtering:
 
@@ -349,6 +354,7 @@ Do not use:
 - JavaScript validators, regex validators, `eval`, `Function(...)`, or script-like validation logic
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
+- direct checkbox/radio/select binding to persisted todo-row fields such as `item.completed`
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings
 - hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
 - unresolved `@Run(ref)` calls or any other undefined identifiers

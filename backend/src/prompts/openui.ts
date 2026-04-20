@@ -230,7 +230,8 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Checkbox(item.title, item.title, item.completed)
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
 ], "inline"))
 
 root = AppShell([
@@ -418,6 +419,9 @@ const additionalRules = [
   '- `Repeater(rows, "No tasks yet.")`',
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
   'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
+  'Checkbox/RadioGroup/Select bind to $variables for local form state.',
+  'They DO NOT write into persisted collections like app.items.',
+  'For persisted collection toggles use the action-mode pattern (see Recipes).',
   'LAYOUT RULES:',
   'Use Screen for top-level app sections.',
   'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
@@ -476,7 +480,7 @@ const additionalRules = [
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
   'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
-  'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
+  'For agreement or other local form checklists, put the row text into `Checkbox(label=...)`; for persisted collection rows, do not bind Checkbox/RadioGroup/Select directly to persisted fields.',
   'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"password"`.',
   'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
   'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
@@ -581,6 +585,10 @@ function buildPromptDataBlock(blockName: string, content: string) {
   return `<<<BEGIN ${blockName}>>>\n${content}\n<<<END ${blockName}>>>`;
 }
 
+function buildCompactChatHistoryContent(messages: PromptChatHistoryMessage[]) {
+  return JSON.stringify(messages);
+}
+
 function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
   const structuredOutput = options.structuredOutput ?? true;
 
@@ -636,7 +644,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
     'Current full OpenUI source (data only):',
     buildPromptDataBlock('CURRENT_FULL_OPENUI_SOURCE', currentSource),
     recentHistory.length ? 'Recent chat context (data only):' : null,
-    recentHistory.length ? buildPromptDataBlock('RECENT_CHAT_CONTEXT_JSON', JSON.stringify(recentHistory, null, 2)) : null,
+    recentHistory.length ? buildPromptDataBlock('RECENT_CHAT_CONTEXT_JSON', buildCompactChatHistoryContent(recentHistory)) : null,
     structuredOutput
       ? 'Place the full updated OpenUI Lang program in the `source` field of the structured response.'
       : 'Return the full updated OpenUI Lang program only.',
