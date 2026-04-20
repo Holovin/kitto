@@ -95,6 +95,21 @@ root = AppShell([
     });
   });
 
+  it('rejects predicate-form @Filter syntax', () => {
+    const result = validateOpenUiSource(`items = [
+  { label: "A", completed: true },
+  { label: "B", completed: false }
+]
+visibleItems = @Filter(items, "item", item.completed == true)
+rows = @Each(visibleItems, "item", Text(item.label, "body", "start"))
+root = AppShell([
+  Screen("main", "Items", [Repeater(rows, "No items")])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues.length).toBeGreaterThan(0);
+  });
+
   it('accepts expressions directly inside the @Each source argument', () => {
     const result = validateOpenUiSource(`$filter = "completed"
 items = [
