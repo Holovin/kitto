@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
@@ -54,36 +55,79 @@ function createScopedReactCompilerPreset(rootDir: string) {
   return preset;
 }
 
-// https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    tailwindcss(),
-    react(),
-    babel({ presets: [createScopedReactCompilerPreset(__dirname)] }),
-  ],
-  resolve: {
-    alias: {
-      '@api': path.resolve(__dirname, 'src/api'),
-      '@components': path.resolve(__dirname, 'src/components'),
-      '@features': path.resolve(__dirname, 'src/features'),
-      '@helpers': path.resolve(__dirname, 'src/helpers'),
-      '@layouts': path.resolve(__dirname, 'src/layouts'),
-      '@lib': path.resolve(__dirname, 'src/lib'),
-      '@pages': path.resolve(__dirname, 'src/pages'),
-      '@router': path.resolve(__dirname, 'src/router'),
-      '@src': path.resolve(__dirname, 'src'),
-      '@store': path.resolve(__dirname, 'src/store'),
-      '@types': path.resolve(__dirname, 'src/types'),
+function readAppVersionPrefix(packageJsonPath: string) {
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { version?: string };
+    const [major = '0'] = (packageJson.version ?? '0.0.0').split('.');
+    return major;
+  } catch {
+    return '0';
+  }
+}
+
+function readGitCommitCount(rootDir: string) {
+  try {
+    return execSync('git rev-list --count HEAD', {
+      cwd: rootDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim() || '0';
+  } catch {
+    return '0';
+  }
+}
+
+function createAppTitle(rootDir: string, packageJsonPath: string) {
+  const versionPrefix = readAppVersionPrefix(packageJsonPath);
+  const commitCount = readGitCommitCount(rootDir);
+  return `Kitto (${versionPrefix}.${commitCount})`;
+}
+
+function versionedTitlePlugin(rootDir: string, packageJsonPath: string) {
+  return {
+    name: 'kitto-versioned-title',
+    transformIndexHtml(html: string) {
+      return html.replace(/%KITTO_APP_TITLE%/g, createAppTitle(rootDir, packageJsonPath));
     },
-  },
-  server: {
-    port: 5555,
-    strictPort: true,
-    proxy: {
-      '/api': {
-        target: getDevApiTarget(mode),
-        changeOrigin: true,
+  };
+}
+
+// https://vite.dev/config/
+export default defineConfig(({ mode }) => {
+  const repoRoot = path.resolve(__dirname, '..');
+  const packageJsonPath = path.resolve(__dirname, 'package.json');
+
+  return {
+    plugins: [
+      versionedTitlePlugin(repoRoot, packageJsonPath),
+      tailwindcss(),
+      react(),
+      babel({ presets: [createScopedReactCompilerPreset(__dirname)] }),
+    ],
+    resolve: {
+      alias: {
+        '@api': path.resolve(__dirname, 'src/api'),
+        '@components': path.resolve(__dirname, 'src/components'),
+        '@features': path.resolve(__dirname, 'src/features'),
+        '@helpers': path.resolve(__dirname, 'src/helpers'),
+        '@layouts': path.resolve(__dirname, 'src/layouts'),
+        '@lib': path.resolve(__dirname, 'src/lib'),
+        '@pages': path.resolve(__dirname, 'src/pages'),
+        '@router': path.resolve(__dirname, 'src/router'),
+        '@src': path.resolve(__dirname, 'src'),
+        '@store': path.resolve(__dirname, 'src/store'),
+        '@types': path.resolve(__dirname, 'src/types'),
       },
     },
-  },
-}));
+    server: {
+      port: 5555,
+      strictPort: true,
+      proxy: {
+        '/api': {
+          target: getDevApiTarget(mode),
+          changeOrigin: true,
+        },
+      },
+    },
+  };
+});
