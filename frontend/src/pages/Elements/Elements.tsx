@@ -1,18 +1,27 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Renderer } from '@openuidev/react-lang';
-import { RotateCcw } from 'lucide-react';
+import { ArrowUp, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { builderOpenUiLibrary, getBuilderOpenUiSpec } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
-import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
 import type { BuilderParseIssue } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
+import {
+  ACTION_REFERENCE_GROUPS,
+  ACTION_REFERENCE_ITEMS,
+  ELEMENT_REFERENCE_GROUPS,
+  ELEMENT_REFERENCE_ITEMS,
+  type ReferenceGroup,
+  resolveReferenceTargetFromHash,
+  type ReferenceTabId,
+} from './referenceNavigation';
 
 type ComponentSchema = {
   properties?: Record<string, unknown>;
@@ -39,6 +48,9 @@ const librarySpec = getBuilderOpenUiSpec();
 const groupByComponent = new Map(
   (builderOpenUiLibrary.componentGroups ?? []).flatMap((group) => group.components.map((componentName) => [componentName, group.name] as const)),
 );
+const elementReferenceIdByName = new Map(ELEMENT_REFERENCE_ITEMS.map(({ id, label }) => [label, id] as const));
+const actionReferenceIdByName = new Map(ACTION_REFERENCE_ITEMS.map(({ id, label }) => [label, id] as const));
+const actionDefinitionByName = new Map(OPENUI_ACTION_DEFINITIONS.map((action) => [action.name, action] as const));
 
 function cloneRecord(value?: Record<string, unknown>) {
   return structuredClone(value ?? {});
@@ -53,7 +65,7 @@ function getComponentSchema(componentName: string): ComponentSchema {
 }
 
 function getOpenUiSchema(componentName: string, schema: ComponentSchema) {
-  const spec = librarySpec.components[componentName];
+  const spec = (librarySpec.components as Record<string, { description?: string; signature?: string } | undefined>)[componentName];
   const required = new Set(schema.required ?? []);
   const propertyLines = Object.entries(schema.properties ?? {}).map(([name, property]) => {
     const description =
@@ -206,6 +218,87 @@ function ActionDocumentationPanel({
   );
 }
 
+function getInitialReferenceTab(): ReferenceTabId {
+  if (typeof window === 'undefined') {
+    return 'elements';
+  }
+
+  return resolveReferenceTargetFromHash(window.location.hash)?.tab ?? 'elements';
+}
+
+function getInitialReferenceTargetId() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return resolveReferenceTargetFromHash(window.location.hash)?.id ?? null;
+}
+
+function ReferenceTableOfContents({ items }: { items: ReactNode[] }) {
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">Contents</p>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+        {items}
+      </div>
+    </div>
+  );
+}
+
+function ReferenceTableOfContentsGroup({ group }: { group: ReferenceGroup }) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-white p-4">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">{group.label}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {group.items.map((item) => (
+          <a
+            key={item.id}
+            className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950"
+            href={`#${item.id}`}
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReferenceContentGroup({
+  children,
+  group,
+}: {
+  children: ReactNode;
+  group: ReferenceGroup;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/40 p-4 sm:p-5">
+      <div className="flex min-h-7 items-center">
+        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-slate-500">{group.label}</p>
+      </div>
+      <div className="mt-4 grid min-w-0 gap-4">{children}</div>
+    </div>
+  );
+}
+
+function BackToTopButton() {
+  return (
+    <Button
+      aria-label="Scroll to top of page"
+      className="h-7 w-7 rounded-lg border border-slate-200 p-0 shadow-none"
+      size="icon"
+      title="Back to top"
+      type="button"
+      variant="secondary"
+      onClick={() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }}
+    >
+      <ArrowUp className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
+
 function ElementSandbox({ componentName, source, initialDomainData, initialRuntimeState }: ElementSandboxProps) {
   const [initialDomainDataSnapshot] = useState<Record<string, unknown>>(() => cloneRecord(initialDomainData));
   const [initialRuntimeStateSnapshot] = useState<Record<string, unknown>>(() => cloneRecord(initialRuntimeState));
@@ -355,73 +448,167 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 }
 
 export default function ElementsPage() {
+  const [activeTab, setActiveTab] = useState<ReferenceTabId>(() => getInitialReferenceTab());
+  const [hashTargetId, setHashTargetId] = useState<string | null>(() => getInitialReferenceTargetId());
+
+  useEffect(() => {
+    const rootElement = document.documentElement;
+    const previousScrollBehavior = rootElement.style.scrollBehavior;
+    rootElement.style.scrollBehavior = 'smooth';
+
+    return () => {
+      rootElement.style.scrollBehavior = previousScrollBehavior;
+    };
+  }, []);
+
+  useEffect(() => {
+    function syncNavigationFromHash() {
+      const target = resolveReferenceTargetFromHash(window.location.hash);
+      setHashTargetId(target?.id ?? null);
+
+      if (target) {
+        setActiveTab(target.tab);
+      }
+    }
+
+    syncNavigationFromHash();
+    window.addEventListener('hashchange', syncNavigationFromHash);
+
+    return () => {
+      window.removeEventListener('hashchange', syncNavigationFromHash);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hashTargetId) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      document.getElementById(hashTargetId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [activeTab, hashTargetId]);
+
   return (
-    <section className="w-full min-w-0 space-y-6">
-      <Card className="min-w-0 border-white/70 bg-white/92">
-        <CardHeader className="border-b border-slate-200/70 pb-4">
-          <CardTitle className="text-2xl">Elements</CardTitle>
-        </CardHeader>
-        <CardContent className="grid min-w-0 gap-4 pt-6">
-          {OPENUI_SUPPORTED_COMPONENTS.map((componentName) => {
-            const schema = getComponentSchema(componentName);
-            const groupName = groupByComponent.get(componentName) ?? 'Components';
-            const demoDefinition = ELEMENT_DEMO_DEFINITIONS[componentName];
+    <section className="w-full min-w-0">
+      <Tabs className="space-y-4" value={activeTab} onValueChange={(value: string) => setActiveTab(value as ReferenceTabId)}>
+        <div className="flex justify-start">
+          <TabsList>
+            <TabsTrigger value="elements">Elements</TabsTrigger>
+            <TabsTrigger value="actions">Actions</TabsTrigger>
+          </TabsList>
+        </div>
 
-            return (
-              <Card key={componentName} className="min-w-0 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none">
-                <CardHeader className="border-b border-slate-200/70 pb-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <CardTitle className="break-words text-lg">{componentName}</CardTitle>
-                    <Badge variant="muted">{groupName}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="min-w-0 space-y-5 pt-6">
-                  {demoDefinition ? (
-                    <ElementSandbox
-                      componentName={componentName}
-                      initialDomainData={demoDefinition.initialDomainData}
-                      initialRuntimeState={demoDefinition.initialRuntimeState}
-                      source={demoDefinition.source}
-                    />
-                  ) : (
-                    <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white/80 p-4 text-sm text-slate-500">
-                      Demo is not configured yet.
-                    </div>
-                  )}
+        <TabsContent value="elements" className="mt-0">
+          <Card className="min-w-0 border-white/70 bg-white/92">
+            <CardHeader className="border-b border-slate-200/70 pb-4">
+              <CardTitle className="text-2xl">Elements</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <ReferenceTableOfContents items={ELEMENT_REFERENCE_GROUPS.map((group) => <ReferenceTableOfContentsGroup key={group.id} group={group} />)} />
+              <div className="grid min-w-0 gap-5">
+                {ELEMENT_REFERENCE_GROUPS.map((group) => (
+                  <ReferenceContentGroup key={group.id} group={group}>
+                    {group.items.map(({ label: componentName }) => {
+                      const schema = getComponentSchema(componentName);
+                      const groupName = groupByComponent.get(componentName) ?? 'Components';
+                      const demoDefinition = ELEMENT_DEMO_DEFINITIONS[componentName];
 
-                  <ElementSchemaPanel componentName={componentName} demoSource={demoDefinition?.source ?? ''} schema={schema} />
-                </CardContent>
-              </Card>
-            );
-          })}
-        </CardContent>
-      </Card>
+                      return (
+                        <Card
+                          key={componentName}
+                          id={elementReferenceIdByName.get(componentName)}
+                          className="min-w-0 scroll-mt-24 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none"
+                        >
+                          <CardHeader className="border-b border-slate-200/70 pb-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <BackToTopButton />
+                                <CardTitle className="min-w-0 break-words text-lg">{componentName}</CardTitle>
+                              </div>
+                              <Badge variant="muted">{groupName}</Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="min-w-0 space-y-5 pt-6">
+                            {demoDefinition ? (
+                              <ElementSandbox
+                                componentName={componentName}
+                                initialDomainData={demoDefinition.initialDomainData}
+                                initialRuntimeState={demoDefinition.initialRuntimeState}
+                                source={demoDefinition.source}
+                              />
+                            ) : (
+                              <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white/80 p-4 text-sm text-slate-500">
+                                Demo is not configured yet.
+                              </div>
+                            )}
 
-      <Card className="min-w-0 border-white/70 bg-white/92">
-        <CardHeader className="border-b border-slate-200/70 pb-4">
-          <CardTitle className="text-2xl">Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid min-w-0 gap-4 pt-6">
-          {OPENUI_ACTION_DEFINITIONS.map((action) => (
-            <Card key={action.name} className="min-w-0 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none">
-              <CardHeader className="border-b border-slate-200/70 pb-4">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <CardTitle className="break-words text-lg">{action.signature}</CardTitle>
-                  <p className="text-sm font-medium text-slate-500">{action.shortDescription}</p>
-                </div>
-              </CardHeader>
-              <CardContent className="grid min-w-0 gap-4 pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.92fr)]">
-                <ActionSchemaPanel demoExample={action.demoExample} inputSchema={action.inputSchema} />
-                <ActionDocumentationPanel
-                  returns={action.documentation.returns}
-                  summary={action.documentation.summary}
-                  useWhen={action.documentation.useWhen}
-                />
-              </CardContent>
-            </Card>
-          ))}
-        </CardContent>
-      </Card>
+                            <ElementSchemaPanel componentName={componentName} demoSource={demoDefinition?.source ?? ''} schema={schema} />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </ReferenceContentGroup>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="actions" className="mt-0">
+          <Card className="min-w-0 border-white/70 bg-white/92">
+            <CardHeader className="border-b border-slate-200/70 pb-4">
+              <CardTitle className="text-2xl">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <ReferenceTableOfContents items={ACTION_REFERENCE_GROUPS.map((group) => <ReferenceTableOfContentsGroup key={group.id} group={group} />)} />
+              <div className="grid min-w-0 gap-5">
+                {ACTION_REFERENCE_GROUPS.map((group) => (
+                  <ReferenceContentGroup key={group.id} group={group}>
+                    {group.items.map(({ label: actionName }) => {
+                      const action = actionDefinitionByName.get(actionName);
+
+                      if (!action) {
+                        return null;
+                      }
+
+                      return (
+                        <Card
+                          key={action.name}
+                          id={actionReferenceIdByName.get(action.name)}
+                          className="min-w-0 scroll-mt-24 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none"
+                        >
+                          <CardHeader className="border-b border-slate-200/70 pb-4">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <BackToTopButton />
+                                <CardTitle className="min-w-0 break-words text-lg">{action.signature}</CardTitle>
+                              </div>
+                              <p className="text-sm font-medium text-slate-500">{action.shortDescription}</p>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="grid min-w-0 gap-4 pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.92fr)]">
+                            <ActionSchemaPanel demoExample={action.demoExample} inputSchema={action.inputSchema} />
+                            <ActionDocumentationPanel
+                              returns={action.documentation.returns}
+                              summary={action.documentation.summary}
+                              useWhen={action.documentation.useWhen}
+                            />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </ReferenceContentGroup>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
