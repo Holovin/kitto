@@ -12,6 +12,7 @@ Supported API:
 Guardrails:
 
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
+- frontend submit-time preflight must block requests whose serialized payload already exceeds `GET /api/config` `limits.requestMaxBytes`, show one clear builder error, and avoid sending that oversized request; the backend `413` limit remains the security boundary
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
 - when structured output is enabled, malformed JSON envelopes, missing `source`, empty `source`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
@@ -43,6 +44,7 @@ Guardrails:
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
+- Undo, redo, and builder reset also stay available during generation; each must abort the active request first, apply the requested snapshot change, and ignore any late response from the cancelled run.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
@@ -215,8 +217,7 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
+  Text(item.title, "body", "start")
 ], "inline"))
 
 root = AppShell([
@@ -236,8 +237,9 @@ Todo request guardrails:
 - Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
 - If a simple todo request misses that minimum structure, repair before commit instead of committing the placeholder draft.
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
-- `Checkbox(...)`, `RadioGroup(...)`, and `Select(...)` bind to local `$variables` for form state and do not write into persisted collections such as `app.items`.
-- For persisted collection toggles, use the explicit action-mode recipe from the persisted mutation examples instead of binding those controls directly to persisted fields.
+- Regular `Checkbox(...)` is for local form state and `$variables`.
+- Do not use `Checkbox(item.completed)` as if it writes back to persisted collections.
+- Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.
 
 Derived filtering:
 
@@ -354,7 +356,7 @@ Do not use:
 - JavaScript validators, regex validators, `eval`, `Function(...)`, or script-like validation logic
 - invented filtering tools or todo-specific filter APIs when built-in functions already cover the request
 - predicate-form `@Filter(items, "item", item.completed == true)` or any other callback-style filter syntax
-- direct checkbox/radio/select binding to persisted todo-row fields such as `item.completed`
+- assuming regular `Checkbox(...)` writes back to persisted todo-row fields such as `item.completed`
 - JavaScript functions, `eval`, `Function(...)`, regex code, script tags, or user-provided code strings
 - hardcoded repeated answer rows or card rows when the prompt asks for dynamic list data
 - unresolved `@Run(ref)` calls or any other undefined identifiers

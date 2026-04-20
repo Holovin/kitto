@@ -6,6 +6,7 @@ const request: BuilderLlmRequest = {
   prompt: 'Build a todo app',
   currentSource: '',
   chatHistory: [],
+  mode: 'initial',
 };
 
 function createTextStream(chunks: string[]) {

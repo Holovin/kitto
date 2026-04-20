@@ -230,8 +230,7 @@ addItem = Mutation("append_state", {
   value: { title: $draft, completed: false }
 })
 rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
+  Text(item.title, "body", "start")
 ], "inline"))
 
 root = AppShell([
@@ -419,9 +418,9 @@ const additionalRules = [
   '- `Repeater(rows, "No tasks yet.")`',
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
   'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
-  'Checkbox/RadioGroup/Select bind to $variables for local form state.',
-  'They DO NOT write into persisted collections like app.items.',
-  'For persisted collection toggles use the action-mode pattern (see Recipes).',
+  'Regular Checkbox is for local form state and $variables.',
+  'Do not use Checkbox(item.completed) as if it writes back to persisted collections.',
+  'Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.',
   'LAYOUT RULES:',
   'Use Screen for top-level app sections.',
   'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
@@ -480,7 +479,7 @@ const additionalRules = [
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
   'Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
-  'For agreement or other local form checklists, put the row text into `Checkbox(label=...)`; for persisted collection rows, do not bind Checkbox/RadioGroup/Select directly to persisted fields.',
+  'Use `Checkbox(label=...)` for agreement or other local form checklists backed by $variables.',
   'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"password"`.',
   'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
   'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
@@ -558,6 +557,7 @@ export interface PromptBuildRequest {
     role: 'assistant' | 'system' | 'user';
   }>;
   currentSource: string;
+  mode: 'initial' | 'repair';
   prompt: string;
 }
 

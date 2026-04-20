@@ -1,5 +1,7 @@
 import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
 
+const textEncoder = new TextEncoder();
+
 function parsePositiveInteger(value: unknown, fallback: number) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
     return fallback;
@@ -22,7 +24,7 @@ const DEFAULT_BUILDER_STREAM_TIMEOUTS = {
   streamMaxDurationMs: 120_000,
 };
 
-interface BuilderRequestLimits {
+export interface BuilderRequestLimits {
   chatHistoryMaxItems: number;
   promptMaxChars: number;
   requestMaxBytes: number;
@@ -54,9 +56,19 @@ export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): Builde
   };
 }
 
+export function getApproximateBuilderRequestSizeBytes(request: BuilderLlmRequest) {
+  return textEncoder.encode(JSON.stringify(request)).byteLength;
+}
+
 export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: BuilderRequestLimits) {
   if (request.prompt.length > limits.promptMaxChars) {
     return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
+  }
+
+  const approximateRequestSizeBytes = getApproximateBuilderRequestSizeBytes(request);
+
+  if (approximateRequestSizeBytes > limits.requestMaxBytes) {
+    return `The request is too large to send as-is. Limit: ${formatLimitValue(limits.requestMaxBytes)} bytes for the full request payload. Shorten the prompt or reduce recent context and try again.`;
   }
 
   return null;

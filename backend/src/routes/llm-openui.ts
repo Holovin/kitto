@@ -19,6 +19,7 @@ interface ParsedLlmRequest {
     role: 'assistant' | 'user';
   }>;
   currentSource: string;
+  mode: 'initial' | 'repair';
   prompt: string;
 }
 
@@ -28,6 +29,7 @@ interface RawParsedLlmRequest {
     role: 'assistant' | 'system' | 'user';
   }>;
   currentSource: string;
+  mode: 'initial' | 'repair';
   prompt: string;
 }
 
@@ -43,6 +45,7 @@ function createLlmRequestSchema(env: AppEnv) {
       .min(1, 'Prompt must not be empty.')
       .max(env.LLM_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_PROMPT_MAX_CHARS} characters.`),
     currentSource: z.string().default(''),
+    mode: z.enum(['initial', 'repair']).default('initial'),
     chatHistory: z
       .array(
         z.object({

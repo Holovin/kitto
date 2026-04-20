@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -49,6 +50,7 @@ type ScopedRuntimeIssues = {
 };
 
 interface PreviewTabsProps {
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
@@ -75,7 +77,7 @@ function formatByteCount(bytes: number) {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
 }
 
-export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
+export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data }) => ({
@@ -143,7 +145,6 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     previewSource: string;
   } | null>(null);
   const fileMenuRef = useRef<HTMLDivElement>(null);
-  const inactiveCancelRequestRef = useRef<(() => void) | null>(null);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const {
     canExport,
@@ -154,7 +155,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     handleExport,
     handleImport,
   } = useBuilderHistoryControls({
-    cancelActiveRequestRef: inactiveCancelRequestRef,
+    cancelActiveRequestRef,
     onSystemNotice,
   });
   const toolbarButtonClassName =

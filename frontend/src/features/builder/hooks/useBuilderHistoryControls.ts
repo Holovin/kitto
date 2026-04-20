@@ -28,6 +28,8 @@ interface UseBuilderHistoryControlsOptions {
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
+type ExternalSnapshotChangeReason = 'import' | 'redo' | 'reset-to-empty' | 'undo';
+
 let standaloneHtmlModulePromise: Promise<typeof import('@features/builder/standalone/createStandaloneHtml')> | null = null;
 
 function createDownloadFileName() {
@@ -127,6 +129,10 @@ export function useBuilderHistoryControls({
     );
   }
 
+  function abortActiveGenerationIfAny(_reason: ExternalSnapshotChangeReason) {
+    cancelActiveRequestRef.current?.();
+  }
+
   function handleExport() {
     if (isPristineCanvas) {
       return;
@@ -198,7 +204,7 @@ export function useBuilderHistoryControls({
       return;
     }
 
-    cancelActiveRequestRef.current?.();
+    abortActiveGenerationIfAny('import');
 
     try {
       const rawValue = await file.text();
@@ -245,20 +251,22 @@ export function useBuilderHistoryControls({
   }
 
   function handleUndo() {
-    if (!previousSnapshot || isStreaming) {
+    if (!previousSnapshot) {
       return;
     }
 
+    abortActiveGenerationIfAny('undo');
     dispatch(domainActions.replaceData(previousSnapshot.domainData));
     dispatch(builderSessionActions.replaceRuntimeSessionState(previousSnapshot.runtimeState));
     dispatch(builderActions.undoLatest());
   }
 
   function handleRedo() {
-    if (!redoSnapshot || isStreaming) {
+    if (!redoSnapshot) {
       return;
     }
 
+    abortActiveGenerationIfAny('redo');
     dispatch(domainActions.replaceData(redoSnapshot.domainData));
     dispatch(builderSessionActions.replaceRuntimeSessionState(redoSnapshot.runtimeState));
     dispatch(builderActions.redoLatest());
@@ -269,7 +277,7 @@ export function useBuilderHistoryControls({
       return;
     }
 
-    cancelActiveRequestRef.current?.();
+    abortActiveGenerationIfAny('reset-to-empty');
     onSystemNotice(null);
     resetAppState();
     onSystemNotice({

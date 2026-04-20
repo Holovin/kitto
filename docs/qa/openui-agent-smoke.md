@@ -221,15 +221,15 @@ Record:
 ### Prompt
 
 ```txt
-Create a task list with checkboxes for completed items and a filter with All, Active and Completed.
+Create a task list with completed status and a filter with All, Active and Completed.
 ```
 
 ### Expected
 
 - User can add multiple items.
-- User can mark items completed.
-- Completion uses an explicit persisted mutation + refresh flow instead of assuming `Checkbox`, `RadioGroup`, or `Select` writes directly into `app.items`.
-- Definition re-runs the visible `Query("read_state", ...)` after persisted add/complete mutations, including parent/child path refresh cases such as `app.items` and `app.items.0.completed`.
+- Completion may stay read-only for now; interactive persisted toggles are not required until action-mode lands.
+- If completion is interactive, it must use an explicit persisted mutation + refresh flow instead of assuming regular `Checkbox(...)` writes directly into `app.items`.
+- Definition re-runs the visible `Query("read_state", ...)` after persisted add mutations, and after complete mutations only when interactive completion exists.
 - All filter shows all items.
 - Active filter shows incomplete items.
 - Completed filter shows completed items.
@@ -241,7 +241,8 @@ Create a task list with checkboxes for completed items and a filter with All, Ac
 Record:
 
 - pass/fail;
-- whether add/complete/filter worked;
+- whether add/filter worked;
+- whether completion was read-only or interactive;
 - whether any LLM request happened during local filter interactions.
 
 ## Scenario 7 — Safe compute tools
@@ -304,6 +305,7 @@ Record:
 - Relevant runtime/domain state restores.
 - Undo restores previous committed app.
 - Redo restores redone app.
+- If undo or redo starts while a generation is still running, the generation is cancelled first and a late response does not overwrite the restored version.
 - No rejected draft becomes committed after reload.
 - No stale runtime error remains visible after a valid source change.
 
@@ -452,6 +454,7 @@ After smoke:
 
 - no uncaught Console errors;
 - preview internal clicks do not call LLM;
+- obviously oversized requests are blocked in the UI with a clear error before any `/api/llm/*` call is sent;
 - invalid drafts/imports do not replace committed preview;
 - import/export works;
 - undo/redo works;

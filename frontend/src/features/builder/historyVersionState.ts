@@ -29,16 +29,16 @@ export function getBuilderHistoryVersionState({
   hasRedoSnapshot,
   hasUndoSnapshot,
   historyVersionCount,
-  isStreaming,
+  isStreaming: _isStreaming,
   redoVersionCount,
 }: BuilderHistoryVersionStateInput): BuilderHistoryVersionState {
   const currentVersionNumber = committedSource.trim().length > 0 ? historyVersionCount : 0;
   const totalVersionCount = historyVersionCount + redoVersionCount;
 
   return {
-    canRedo: hasRedoSnapshot && !isStreaming,
+    canRedo: hasRedoSnapshot,
     canReset: totalVersionCount > 0 || committedSource.trim().length > 0 || hasRejectedDefinition,
-    canUndo: committedSource.trim().length > 0 && hasUndoSnapshot && !isStreaming,
+    canUndo: committedSource.trim().length > 0 && hasUndoSnapshot,
     currentVersionNumber,
     totalVersionCount,
     versionBadgeText: totalVersionCount > 0 ? `${currentVersionNumber} / ${totalVersionCount}` : '—',

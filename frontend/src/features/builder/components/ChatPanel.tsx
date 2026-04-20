@@ -25,6 +25,7 @@ interface ChatComposerProps {
 }
 
 interface ChatPanelProps {
+  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
@@ -208,9 +209,8 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
   );
 }
 
-export function ChatPanel({ onSystemNotice }: ChatPanelProps) {
+export function ChatPanel({ cancelActiveRequestRef, onSystemNotice }: ChatPanelProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
-  const cancelActiveRequestRef = useRef<(() => void) | null>(null);
   const abortCurrentRequest = useEffectEvent(() => {
     cancelActiveRequestRef.current?.();
   });

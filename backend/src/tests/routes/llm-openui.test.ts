@@ -343,6 +343,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledRequest).toEqual({
       prompt: 'build a compact app',
       currentSource: '',
+      mode: 'initial',
       chatHistory: chatHistory.slice(-2),
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
@@ -388,10 +389,38 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledRequest).toEqual({
       prompt: 'build a compact app',
       currentSource: '',
+      mode: 'initial',
       chatHistory: [
         { role: 'assistant', content: 'recent assistant reply' },
         { role: 'user', content: 'most recent user message' },
       ],
+    });
+  });
+
+  it('passes through explicit repair mode to the OpenAI service request', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue('root = AppShell([])');
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        mode: 'repair',
+        chatHistory: [],
+      }),
+    });
+    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(calledRequest).toEqual({
+      prompt: 'repair this invalid app',
+      currentSource: 'root = AppShell([])',
+      mode: 'repair',
+      chatHistory: [],
     });
   });
 
@@ -473,6 +502,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledRequest).toEqual({
       prompt: 'stream a tiny app',
       currentSource: '',
+      mode: 'initial',
       chatHistory: [],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);

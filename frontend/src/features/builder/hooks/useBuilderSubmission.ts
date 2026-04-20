@@ -229,6 +229,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         }),
         currentSource: request.currentSource,
         chatHistory: request.chatHistory,
+        mode: 'repair',
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 
@@ -398,6 +399,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       prompt: nextPrompt,
       currentSource: committedSource,
       chatHistory: buildRequestChatHistory(chatMessages, requestLimits.chatHistoryMaxItems),
+      mode: 'initial',
     };
     const requestValidationError = validateBuilderLlmRequest(request, requestLimits);
 

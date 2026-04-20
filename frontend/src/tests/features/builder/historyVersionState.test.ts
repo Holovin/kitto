@@ -65,7 +65,7 @@ describe('getBuilderHistoryVersionState', () => {
     });
   });
 
-  it('disables undo and redo while keeping reset enabled during a request', () => {
+  it('keeps undo, redo, and reset available during a request so they can abort and replace the active generation', () => {
     expect(
       getBuilderHistoryVersionState({
         committedSource: 'root = AppShell([])',
@@ -77,9 +77,9 @@ describe('getBuilderHistoryVersionState', () => {
         redoVersionCount: 0,
       }),
     ).toEqual({
-      canRedo: false,
+      canRedo: true,
       canReset: true,
-      canUndo: false,
+      canUndo: true,
       currentVersionNumber: 3,
       totalVersionCount: 3,
       versionBadgeText: '3 / 3',

@@ -277,6 +277,18 @@ const IMPORTED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const UNDO_SOURCE = `root = AppShell([
+  Screen("undo", "Undo target", [
+    Text("Undo target", "body", "start")
+  ])
+])`;
+
+const REDO_SOURCE = `root = AppShell([
+  Screen("redo", "Redo target", [
+    Text("Redo target", "body", "start")
+  ])
+])`;
+
 const DEFAULT_CONFIG = {
   limits: {
     chatHistoryMaxItems: 40,
@@ -356,6 +368,32 @@ function seedCommittedSource(source = PREVIOUS_SOURCE) {
       source,
     }),
   );
+}
+
+function seedHistorySources(...sources: string[]) {
+  const store = testHarness.storeRef.current;
+
+  if (!store) {
+    throw new Error('Test store is not initialized.');
+  }
+
+  const snapshots = sources.map((source) => createBuilderSnapshot(source, {}, {}));
+  const latestSnapshot = snapshots.at(-1);
+
+  if (!latestSnapshot) {
+    throw new Error('Expected at least one history source.');
+  }
+
+  store.dispatch(
+    builderActions.loadDefinition({
+      history: snapshots,
+      note: 'Seeded builder history for the test.',
+      runtimeState: latestSnapshot.runtimeState,
+      source: latestSnapshot.source,
+    }),
+  );
+
+  return snapshots;
 }
 
 function setDraftPrompt(prompt: string) {
@@ -473,6 +511,33 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('blocks an oversized request before sending it to the backend', async () => {
+    seedCommittedSource('x'.repeat(512));
+    setDraftPrompt('Build a small app.');
+    testHarness.configRef.current = {
+      ...DEFAULT_CONFIG,
+      limits: {
+        ...DEFAULT_CONFIG.limits,
+        requestMaxBytes: 128,
+      },
+    };
+    const submission = createSubmissionHarness();
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.streamMock).not.toHaveBeenCalled();
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(submission.onSystemNotice).toHaveBeenCalledWith({
+      content:
+        'The request is too large to send as-is. Limit: 128 bytes for the full request payload. Shorten the prompt or reduce recent context and try again.',
+      tone: 'error',
+    });
+    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().committedSource).toBe('x'.repeat(512));
 
     submission.unmount();
   });
@@ -748,6 +813,109 @@ describe('useBuilderSubmission', () => {
     await requestPromise;
 
     expect(getBuilderState().committedSource).toBe(IMPORTED_SOURCE);
+
+    historyControls.unmount();
+    submission.unmount();
+  });
+
+  it('aborts the active request when undo starts and keeps the undone source over a late response', async () => {
+    seedHistorySources(UNDO_SOURCE, REDO_SOURCE);
+    setDraftPrompt('Build a simple app.');
+    const submission = createSubmissionHarness();
+    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const streamResult = createDeferred<{ source: string }>();
+    let requestSignal: AbortSignal | undefined;
+
+    testHarness.streamMock.mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
+      requestSignal = signal;
+      return streamResult.promise;
+    });
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+
+    historyControls.result().handleUndo();
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+    expect(getBuilderState().isStreaming).toBe(false);
+
+    streamResult.resolve({
+      source: FIRST_REQUEST_LATE_SOURCE,
+    });
+    await requestPromise;
+
+    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+
+    historyControls.unmount();
+    submission.unmount();
+  });
+
+  it('aborts the active request when redo starts and keeps the redone source over a late response', async () => {
+    seedHistorySources(UNDO_SOURCE, REDO_SOURCE);
+    const store = testHarness.storeRef.current;
+
+    if (!store) {
+      throw new Error('Test store is not initialized.');
+    }
+
+    store.dispatch(builderActions.undoLatest());
+    setDraftPrompt('Build a simple app.');
+    const submission = createSubmissionHarness();
+    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const streamResult = createDeferred<{ source: string }>();
+    let requestSignal: AbortSignal | undefined;
+
+    testHarness.streamMock.mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
+      requestSignal = signal;
+      return streamResult.promise;
+    });
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+
+    historyControls.result().handleRedo();
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+    expect(getBuilderState().isStreaming).toBe(false);
+
+    streamResult.resolve({
+      source: FIRST_REQUEST_LATE_SOURCE,
+    });
+    await requestPromise;
+
+    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+
+    historyControls.unmount();
+    submission.unmount();
+  });
+
+  it('aborts the active request when reset starts and keeps the reset canvas over a late response', async () => {
+    seedCommittedSource(PREVIOUS_SOURCE);
+    setDraftPrompt('Build a simple app.');
+    const submission = createSubmissionHarness();
+    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const streamResult = createDeferred<{ source: string }>();
+    let requestSignal: AbortSignal | undefined;
+
+    testHarness.streamMock.mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
+      requestSignal = signal;
+      return streamResult.promise;
+    });
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+
+    historyControls.result().handleResetToEmpty();
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(getBuilderState().committedSource).toBe('');
+    expect(getBuilderState().isStreaming).toBe(false);
+
+    streamResult.resolve({
+      source: FIRST_REQUEST_LATE_SOURCE,
+    });
+    await requestPromise;
+
+    expect(getBuilderState().committedSource).toBe('');
 
     historyControls.unmount();
     submission.unmount();

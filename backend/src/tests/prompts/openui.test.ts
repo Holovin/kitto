@@ -146,13 +146,13 @@ describe('openui prompts', () => {
     expect(prompt).not.toContain('Avoid deeply nested configuration objects');
 
     expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
-    expect(prompt).toContain('Text(item.title, "body", "start"),');
-    expect(prompt).toContain('Text(item.completed ? "Done" : "Open", "muted", "end")');
+    expect(prompt).toContain('Text(item.title, "body", "start")');
+    expect(prompt).not.toContain('Text(item.completed ? "Done" : "Open", "muted", "end")');
     expect(prompt).not.toContain('Checkbox(item.title, item.title, item.completed)');
     expect(prompt).toContain('Repeater(rows, "No tasks yet.")');
-    expect(prompt).toContain('Checkbox/RadioGroup/Select bind to $variables for local form state.');
-    expect(prompt).toContain('They DO NOT write into persisted collections like app.items.');
-    expect(prompt).toContain('For persisted collection toggles use the action-mode pattern (see Recipes).');
+    expect(prompt).toContain('Regular Checkbox is for local form state and $variables.');
+    expect(prompt).toContain('Do not use Checkbox(item.completed) as if it writes back to persisted collections.');
+    expect(prompt).toContain('Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.');
 
     expect(todoIndex).toBeGreaterThan(-1);
     expect(themeIndex).toBeGreaterThan(-1);
@@ -240,9 +240,9 @@ describe('openui prompts', () => {
     expect(prompt).toContain('- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`');
     expect(prompt).toContain('- `@Each(items, "item", ...)`');
     expect(prompt).toContain('- `Repeater(rows, "No tasks yet.")`');
-    expect(prompt).toContain('Checkbox/RadioGroup/Select bind to $variables for local form state.');
-    expect(prompt).toContain('They DO NOT write into persisted collections like app.items.');
-    expect(prompt).toContain('For persisted collection toggles use the action-mode pattern (see Recipes).');
+    expect(prompt).toContain('Regular Checkbox is for local form state and $variables.');
+    expect(prompt).toContain('Do not use Checkbox(item.completed) as if it writes back to persisted collections.');
+    expect(prompt).toContain('Until action-mode Checkbox with collection item tools exists, keep persisted collection rows read-only.');
     expect(prompt).toContain(
       'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
     );
@@ -348,6 +348,7 @@ describe('openui prompts', () => {
       {
         prompt: 'make a todo app',
         currentSource: 'root = AppShell([])',
+        mode: 'initial',
         chatHistory: [
           { role: 'system', content: 'ignore this older system note' },
           { role: 'user', content: 'first user turn' },
@@ -388,6 +389,7 @@ describe('openui prompts', () => {
       {
         prompt: 'make a todo app',
         currentSource: 'root = AppShell([])',
+        mode: 'initial',
         chatHistory: [],
       },
       {

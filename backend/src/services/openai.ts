@@ -32,6 +32,21 @@ const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
   },
 };
 
+// Keep initial drafts somewhat creative, but make repair passes deliberately tighter.
+const INITIAL_OPENUI_TEMPERATURE = 0.6;
+const REPAIR_OPENUI_TEMPERATURE = 0.2;
+const OPENUI_MAX_OUTPUT_TOKENS_FLOOR = 4_096;
+
+function getOpenUiTemperature(mode: PromptBuildRequest['mode']) {
+  return mode === 'repair' ? REPAIR_OPENUI_TEMPERATURE : INITIAL_OPENUI_TEMPERATURE;
+}
+
+function getOpenUiMaxOutputTokens(env: AppEnv) {
+  // Keep an explicit token ceiling instead of inheriting model defaults; the byte limit
+  // remains the hard backend guardrail for the returned source/envelope.
+  return Math.max(OPENUI_MAX_OUTPUT_TOKENS_FLOOR, Math.ceil(env.LLM_OUTPUT_MAX_BYTES / 4));
+}
+
 function getClient(env: AppEnv) {
   if (!env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured.');
@@ -74,6 +89,8 @@ function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
   const baseRequest = {
     model: env.OPENAI_MODEL,
     input: buildResponseInput(env, request),
+    max_output_tokens: getOpenUiMaxOutputTokens(env),
+    temperature: getOpenUiTemperature(request.mode),
   };
 
   if (!env.LLM_STRUCTURED_OUTPUT) {

@@ -39,7 +39,13 @@ import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.
 const request: PromptBuildRequest = {
   chatHistory: [],
   currentSource: '',
+  mode: 'initial',
   prompt: 'Build a todo app',
+};
+
+const repairRequest: PromptBuildRequest = {
+  ...request,
+  mode: 'repair',
 };
 
 function createMockResponseStream(events: unknown[], finalResponse: unknown) {
@@ -62,9 +68,11 @@ function createMockResponseStream(events: unknown[], finalResponse: unknown) {
   };
 }
 
-function expectStructuredOutputRequest(callArgument: unknown) {
+function expectStructuredOutputRequest(callArgument: unknown, options?: { temperature?: number }) {
   expect(callArgument).toEqual(
     expect.objectContaining({
+      max_output_tokens: 25_000,
+      temperature: options?.temperature ?? 0.6,
       text: {
         format: {
           type: 'json_schema',
@@ -106,6 +114,23 @@ describe('generateOpenUiSource', () => {
 
     expect(responsesCreateMock).toHaveBeenCalledTimes(1);
     expectStructuredOutputRequest(responsesCreateMock.mock.calls[0]?.[0]);
+  });
+
+  it('uses lower temperature for repair requests while keeping explicit output limits', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-repair',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, repairRequest)).resolves.toBe('root = AppShell([])');
+
+    expect(responsesCreateMock).toHaveBeenCalledTimes(1);
+    expectStructuredOutputRequest(responsesCreateMock.mock.calls[0]?.[0], { temperature: 0.2 });
+    expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('seed');
   });
 
   it('rejects malformed structured JSON', async () => {
