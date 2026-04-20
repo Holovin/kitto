@@ -227,6 +227,7 @@ Create a task list with checkboxes for completed items and a filter with All, Ac
 
 - User can add multiple items.
 - User can mark items completed.
+- Definition re-runs the visible `Query("read_state", ...)` after persisted add/complete mutations, including parent/child path refresh cases such as `app.items` and `app.items.0.completed`.
 - All filter shows all items.
 - Active filter shows incomplete items.
 - Completed filter shows completed items.
@@ -254,6 +255,7 @@ Add a button that rolls a random number from 1 to 100 and shows the result.
 - Button click produces a number locally.
 - Result is between 1 and 100.
 - Definition uses the persisted compute recipe: `Mutation("write_computed_state", ...)`, `Query("read_state", ...)`, and a button `Action(...)` that runs both.
+- The action re-runs the visible `Query("read_state", ...)` after the persisted mutation, even if other steps such as `@Reset(...)` or `@Set(...)` also exist in the action.
 - Visible result text reads the re-queried persisted value instead of a raw mutation object.
 - Result displays as a primitive value, not `[object Object]`.
 - Button click does not call `/api/llm/*`.

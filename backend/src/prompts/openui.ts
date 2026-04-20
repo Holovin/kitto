@@ -532,7 +532,7 @@ const additionalRules = [
   'write_state and append_state values must stay JSON-compatible, and merge_state patches must be plain objects.',
   'remove_state requires an explicit non-negative integer index and only works on existing arrays.',
   'Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.',
-  'After every Mutation that changes persisted state used by visible UI, immediately re-run the Query that reads that state in the same Action.',
+  'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',
   'Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.',
   'Random example: `Action([@Run(roll), @Run(rollValue)])`.',
   'Remove example: `Action([@Run(removeItem), @Run(items)])`.',

@@ -2,6 +2,7 @@ import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue } from '@features/builder/types';
+import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from './qualityIntents';
 import {
   ALLOWED_TOOLS,
   OPENUI_SOURCE_LIMITS,
@@ -37,12 +38,12 @@ interface OpenUiQualityMetrics {
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
-const TODO_REQUEST_PATTERN = /\b(todo|to-?do|task\s+list)\b|список\s+задач/i;
 const THEME_REQUEST_PATTERN = /\b(theme|theming|dark|light|color|colors|colour|colours|palette)\b/i;
 const COMPUTE_REQUEST_PATTERN =
   /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b/i;
 const FILTER_REQUEST_PATTERN = /\b(filter|filters|filtered|search)\b/i;
 const VALIDATION_REQUEST_PATTERN = /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b/i;
+const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b/i;
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
 const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
@@ -68,6 +69,19 @@ type ActionRunRef = {
   statementId: string;
 };
 
+type PersistedPathStatementRef = {
+  path: string;
+  statementId: string;
+};
+
+export type OpenUiQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
+
+export interface OpenUiQualityIssue extends BuilderParseIssue {
+  severity: OpenUiQualityIssueSeverity;
+}
+
+const THEME_CONTAINER_TYPE_NAMES = new Set(['AppShell', 'Group', 'Repeater', 'Screen']);
+
 function normalizeSourceForValidation(source: string) {
   return source.trim();
 }
@@ -82,6 +96,17 @@ function createParserIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderPar
 function createQualityIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderParseIssue {
   return {
     ...issue,
+    source: 'quality',
+  };
+}
+
+function createOpenUiQualityIssue(
+  severity: OpenUiQualityIssueSeverity,
+  issue: Omit<BuilderParseIssue, 'source'>,
+): OpenUiQualityIssue {
+  return {
+    ...issue,
+    severity,
     source: 'quality',
   };
 }
@@ -452,7 +477,7 @@ function promptRequestsTheme(prompt: string) {
 }
 
 function promptRequestsTodo(prompt: string) {
-  return TODO_REQUEST_PATTERN.test(prompt);
+  return promptMentionsTodoIntent(prompt);
 }
 
 function promptRequestsCompute(prompt: string) {
@@ -465,6 +490,10 @@ function promptRequestsFiltering(prompt: string) {
 
 function promptRequestsValidation(prompt: string) {
   return VALIDATION_REQUEST_PATTERN.test(prompt);
+}
+
+function promptRequestsRandom(prompt: string) {
+  return RANDOM_REQUEST_PATTERN.test(prompt);
 }
 
 function hasComputeTools(result: ParseResult) {
@@ -495,7 +524,7 @@ function hasMutationTool(result: ParseResult, toolName: string) {
   return result.mutationStatements.some((statement) => extractStringLiteral(statement.toolAST) === toolName);
 }
 
-function hasRequiredTodoControls(result: ParseResult) {
+function hasRequiredTodoControls(result: ParseResult, source: string) {
   if (!result.root) {
     return false;
   }
@@ -504,6 +533,8 @@ function hasRequiredTodoControls(result: ParseResult) {
     hasElementType(result.root, 'Input') &&
     hasElementType(result.root, 'Button') &&
     hasElementType(result.root, 'Repeater') &&
+    /@Each\s*\(/.test(source) &&
+    result.queryStatements.some((statement) => extractStringLiteral(statement.toolAST) === 'read_state') &&
     hasMutationTool(result, 'append_state')
   );
 }
@@ -521,6 +552,161 @@ function extractPathLiteral(argsAst: unknown) {
   const pathValue = pathEntry?.[1];
 
   return isAstNode(pathValue) && pathValue.k === 'Str' && typeof pathValue.v === 'string' ? pathValue.v : null;
+}
+
+function extractObjectStringLiteral(argsAst: unknown, key: string) {
+  if (!isAstNode(argsAst) || argsAst.k !== 'Obj' || !Array.isArray(argsAst.entries)) {
+    return null;
+  }
+
+  const entry = argsAst.entries.find(([entryKey]) => entryKey === key);
+  const value = entry?.[1];
+
+  return isAstNode(value) && value.k === 'Str' && typeof value.v === 'string' ? value.v : null;
+}
+
+function splitPersistedPath(path: string) {
+  const segments = path.split('.');
+
+  return segments.every((segment) => segment.length > 0) ? segments : [];
+}
+
+function isPathPrefix(prefix: string[], value: string[]) {
+  return prefix.length <= value.length && prefix.every((segment, index) => value[index] === segment);
+}
+
+function doPathsOverlapByPrefix(leftPath: string, rightPath: string) {
+  const leftSegments = splitPersistedPath(leftPath);
+  const rightSegments = splitPersistedPath(rightPath);
+
+  if (leftSegments.length === 0 || rightSegments.length === 0) {
+    return false;
+  }
+
+  return isPathPrefix(leftSegments, rightSegments) || isPathPrefix(rightSegments, leftSegments);
+}
+
+function collectPersistedQueryRefs(result: ParseResult) {
+  return result.queryStatements.flatMap((query) => {
+    const toolName = extractStringLiteral(query.toolAST);
+    const path = extractPathLiteral(query.argsAST);
+
+    if (toolName !== 'read_state' || !path) {
+      return [];
+    }
+
+    return [
+      {
+        path,
+        statementId: query.statementId,
+      } satisfies PersistedPathStatementRef,
+    ];
+  });
+}
+
+function collectRefreshablePersistedMutationPaths(result: ParseResult) {
+  const mutationPathByStatementId = new Map<string, string>();
+
+  for (const mutation of result.mutationStatements) {
+    const toolName = extractStringLiteral(mutation.toolAST);
+    const path = extractPathLiteral(mutation.argsAST);
+
+    if (!toolName || !path || !REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES.has(toolName)) {
+      continue;
+    }
+
+    mutationPathByStatementId.set(mutation.statementId, path);
+  }
+
+  return mutationPathByStatementId;
+}
+
+function containsRuntimeRef(value: unknown, runtimeRefNames: Set<string>): boolean {
+  if (runtimeRefNames.size === 0) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return runtimeRefNames.has(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsRuntimeRef(entry, runtimeRefNames));
+  }
+
+  if (!isAstNode(value)) {
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).some((entry) => containsRuntimeRef(entry, runtimeRefNames));
+    }
+
+    return false;
+  }
+
+  if (value.k === 'RuntimeRef' && typeof value.n === 'string' && runtimeRefNames.has(value.n)) {
+    return true;
+  }
+
+  return Object.values(value).some((entry) => containsRuntimeRef(entry, runtimeRefNames));
+}
+
+function hasThemeDependentContainerAppearance(value: unknown, themeStateNames: Set<string>): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
+  }
+
+  if (!isElementNode(value)) {
+    if (typeof value === 'object' && value !== null) {
+      return Object.values(value).some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
+    }
+
+    return false;
+  }
+
+  if (
+    THEME_CONTAINER_TYPE_NAMES.has(value.typeName) &&
+    value.props.appearance != null &&
+    containsRuntimeRef(value.props.appearance, themeStateNames)
+  ) {
+    return true;
+  }
+
+  return Object.values(value.props).some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
+}
+
+function collectThemeAppearanceRefNames(source: string) {
+  const themeRefNames = new Set(source.match(/\$[\w$]*theme\b/gi) ?? []);
+
+  if (themeRefNames.size === 0) {
+    return themeRefNames;
+  }
+
+  const topLevelAssignmentPattern = /(^|\n)([A-Za-z_][\w$]*)\s*=\s*([\s\S]*?)(?=\n(?:\$?[A-Za-z_][\w$]*\s*=|root\s*=)|$)/g;
+  let match = topLevelAssignmentPattern.exec(source);
+
+  while (match) {
+    const statementId = match[2];
+    const statementValueSource = match[3] ?? '';
+
+    if (
+      statementId !== 'root' &&
+      [...themeRefNames].some((themeRefName) => statementValueSource.includes(themeRefName))
+    ) {
+      themeRefNames.add(statementId);
+    }
+
+    match = topLevelAssignmentPattern.exec(source);
+  }
+
+  return themeRefNames;
+}
+
+function stripQualityIssueSeverity(issue: OpenUiQualityIssue): BuilderParseIssue {
+  return {
+    code: issue.code,
+    message: issue.message,
+    source: issue.source,
+    statementId: issue.statementId,
+  };
 }
 
 function collectActionRunRefsFromActionAst(actionAst: unknown): ActionRunRef[] {
@@ -599,34 +785,10 @@ function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderPar
     return [];
   }
 
-  const mutationPathByStatementId = new Map<string, string>();
-  const queryStatementIdsByPath = new Map<string, string[]>();
+  const mutationPathByStatementId = collectRefreshablePersistedMutationPaths(result);
+  const persistedQueryRefs = collectPersistedQueryRefs(result);
 
-  for (const mutation of result.mutationStatements) {
-    const toolName = extractStringLiteral(mutation.toolAST);
-    const path = extractPathLiteral(mutation.argsAST);
-
-    if (!toolName || !path || !REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES.has(toolName)) {
-      continue;
-    }
-
-    mutationPathByStatementId.set(mutation.statementId, path);
-  }
-
-  for (const query of result.queryStatements) {
-    const toolName = extractStringLiteral(query.toolAST);
-    const path = extractPathLiteral(query.argsAST);
-
-    if (toolName !== 'read_state' || !path) {
-      continue;
-    }
-
-    const existingIds = queryStatementIdsByPath.get(path) ?? [];
-    existingIds.push(query.statementId);
-    queryStatementIdsByPath.set(path, existingIds);
-  }
-
-  if (mutationPathByStatementId.size === 0 || queryStatementIdsByPath.size === 0) {
+  if (mutationPathByStatementId.size === 0 || persistedQueryRefs.length === 0) {
     return [];
   }
 
@@ -634,17 +796,20 @@ function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderPar
   const seenWarningKeys = new Set<string>();
 
   for (const actionRunRefs of collectActionRunRefGroups(result.root)) {
-    const queryRunIds = new Set(actionRunRefs.filter((ref) => ref.refType === 'query').map((ref) => ref.statementId));
-
-    for (const runRef of actionRunRefs) {
+    for (const [index, runRef] of actionRunRefs.entries()) {
       if (runRef.refType !== 'mutation') {
         continue;
       }
 
       const path = mutationPathByStatementId.get(runRef.statementId);
-      const matchingQueryIds = path ? queryStatementIdsByPath.get(path) ?? [] : [];
+      const matchingQueryIds = path
+        ? persistedQueryRefs.filter((queryRef) => doPathsOverlapByPrefix(path, queryRef.path)).map((queryRef) => queryRef.statementId)
+        : [];
+      const laterQueryRunIds = new Set(
+        actionRunRefs.slice(index + 1).filter((ref) => ref.refType === 'query').map((ref) => ref.statementId),
+      );
 
-      if (!path || matchingQueryIds.length === 0 || matchingQueryIds.some((statementId) => queryRunIds.has(statementId))) {
+      if (!path || matchingQueryIds.length === 0 || matchingQueryIds.some((statementId) => laterQueryRunIds.has(statementId))) {
         continue;
       }
 
@@ -660,7 +825,7 @@ function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderPar
           code: 'quality-stale-persisted-query',
           message: `Persisted mutation may not refresh visible query. After @Run(${runRef.statementId}), also run ${matchingQueryIds
             .map((statementId) => `@Run(${statementId})`)
-            .join(' or ')} in the same Action for path "${path}".`,
+            .join(' or ')} later in the same Action for affected path "${path}".`,
           statementId: runRef.statementId,
         }),
       );
@@ -670,7 +835,80 @@ function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderPar
   return warnings;
 }
 
-export function detectOpenUiQualityWarnings(source: string, userPrompt: string): BuilderParseIssue[] {
+function detectRandomResultVisibilityIssues(result: ParseResult): BuilderParseIssue[] {
+  if (result.meta.incomplete || !result.root) {
+    return [];
+  }
+
+  const persistedQueryRefs = collectPersistedQueryRefs(result);
+  const actionRunRefGroups = collectActionRunRefGroups(result.root);
+  const randomMutations = result.mutationStatements.flatMap((mutation) => {
+    const toolName = extractStringLiteral(mutation.toolAST);
+    const path = extractPathLiteral(mutation.argsAST);
+    const op = extractObjectStringLiteral(mutation.argsAST, 'op');
+
+    if (toolName !== 'write_computed_state' || op !== 'random_int' || !path) {
+      return [];
+    }
+
+    return [{ path, statementId: mutation.statementId } satisfies PersistedPathStatementRef];
+  });
+
+  for (const randomMutation of randomMutations) {
+    const matchingQueryIds = persistedQueryRefs
+      .filter((queryRef) => doPathsOverlapByPrefix(randomMutation.path, queryRef.path))
+      .map((queryRef) => queryRef.statementId);
+
+    if (matchingQueryIds.length === 0) {
+      continue;
+    }
+
+    const hasVisibleRefreshAction = actionRunRefGroups.some((actionRunRefs) =>
+      actionRunRefs.some(
+        (runRef, index) =>
+          runRef.refType === 'mutation' &&
+          runRef.statementId === randomMutation.statementId &&
+          actionRunRefs
+            .slice(index + 1)
+            .some((laterRunRef) => laterRunRef.refType === 'query' && matchingQueryIds.includes(laterRunRef.statementId)),
+      ),
+    );
+
+    if (hasVisibleRefreshAction) {
+      return [];
+    }
+  }
+
+  return [
+    createQualityIssue({
+      code: 'quality-random-result-not-visible',
+      message:
+        'Random result cannot become visible. Use a `Mutation("write_computed_state", ...)`, a matching `Query("read_state", { path: "..." }, defaultValue)`, and a button `Action(...)` that runs both.',
+    }),
+  ];
+}
+
+function detectThemeAppearanceIssues(source: string, result: ParseResult): BuilderParseIssue[] {
+  if (result.meta.incomplete || !result.root) {
+    return [];
+  }
+
+  const themeStateNames = collectThemeAppearanceRefNames(source);
+
+  if (themeStateNames.size > 0 && hasThemeDependentContainerAppearance(result.root, themeStateNames)) {
+    return [];
+  }
+
+  return [
+    createQualityIssue({
+      code: 'quality-theme-state-not-applied',
+      message:
+        'Theme request did not wire theme state into container appearance. Bind AppShell or a top-level container appearance to a theme state such as `$currentTheme` so switching theme changes colors.',
+    }),
+  ];
+}
+
+export function detectOpenUiQualityIssues(source: string, userPrompt: string): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
 
@@ -684,13 +922,13 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
     return [];
   }
 
-  const warnings: BuilderParseIssue[] = [];
+  const issues: OpenUiQualityIssue[] = [];
   const maskedSource = maskStringLiterals(trimmedSource);
   const metrics = collectQualityMetrics(result.root);
 
   if (isSimplePrompt(trimmedPrompt) && metrics.screenCount > 1) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-too-many-screens',
         message: 'Simple request generated multiple screens.',
       }),
@@ -698,8 +936,8 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
   }
 
   if (isSimplePrompt(trimmedPrompt) && metrics.blockGroupCount > MAX_SIMPLE_PROMPT_BLOCK_GROUPS) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-too-many-block-groups',
         message: 'Simple request generated many block groups. Consider fewer sections.',
       }),
@@ -707,8 +945,8 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
   }
 
   if (!promptRequestsTheme(trimmedPrompt) && (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-theme',
         message: 'Theme styling was added even though not requested.',
       }),
@@ -716,8 +954,8 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
   }
 
   if (!promptRequestsCompute(trimmedPrompt) && hasComputeTools(result)) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-compute',
         message: 'Compute tools were added even though not requested.',
       }),
@@ -725,8 +963,8 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
   }
 
   if (!promptRequestsFiltering(trimmedPrompt) && /@Filter\s*\(/.test(maskedSource)) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-filter',
         message: 'Filtering was added even though not requested.',
       }),
@@ -734,26 +972,55 @@ export function detectOpenUiQualityWarnings(source: string, userPrompt: string):
   }
 
   if (!promptRequestsValidation(trimmedPrompt) && metrics.hasValidationRules) {
-    warnings.push(
-      createQualityIssue({
+    issues.push(
+      createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-validation',
         message: 'Validation rules were added even though not requested.',
       }),
     );
   }
 
-  if (promptRequestsTodo(trimmedPrompt) && !hasRequiredTodoControls(result)) {
-    warnings.push(
-      createQualityIssue({
+  if (promptRequestsTodo(trimmedPrompt) && !hasRequiredTodoControls(result, maskedSource)) {
+    issues.push(
+      createOpenUiQualityIssue(promptHasSimpleTodoIntent(trimmedPrompt) ? 'blocking-quality' : 'soft-warning', {
         code: 'quality-missing-todo-controls',
         message: 'Todo request did not generate required todo controls.',
       }),
     );
   }
 
-  warnings.push(...detectPersistedMutationRefreshWarnings(result));
+  issues.push(
+    ...detectPersistedMutationRefreshWarnings(result).map((issue) => ({
+      ...issue,
+      severity: 'blocking-quality' as const,
+    })),
+  );
 
-  return warnings;
+  if (promptRequestsRandom(trimmedPrompt)) {
+    issues.push(
+      ...detectRandomResultVisibilityIssues(result).map((issue) => ({
+        ...issue,
+        severity: 'blocking-quality' as const,
+      })),
+    );
+  }
+
+  if (promptRequestsTheme(trimmedPrompt)) {
+    issues.push(
+      ...detectThemeAppearanceIssues(trimmedSource, result).map((issue) => ({
+        ...issue,
+        severity: 'blocking-quality' as const,
+      })),
+    );
+  }
+
+  return issues;
+}
+
+export function detectOpenUiQualityWarnings(source: string, userPrompt: string): BuilderParseIssue[] {
+  return detectOpenUiQualityIssues(source, userPrompt)
+    .filter((issue) => issue.severity === 'soft-warning')
+    .map(stripQualityIssueSeverity);
 }
 
 export function validateOpenUiSource(source: string): OpenUiValidationResult {

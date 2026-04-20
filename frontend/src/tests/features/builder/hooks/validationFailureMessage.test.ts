@@ -15,7 +15,7 @@ describe('createValidationFailureMessage', () => {
       1,
     );
 
-    expect(message).toContain('The model kept returning invalid OpenUI after 1 automatic repair attempt.');
+    expect(message).toContain('The model kept returning draft issues after 1 automatic repair attempt.');
     expect(message).toContain('excess-args in root: Group takes 6 arg(s), got 7 (1 excess dropped)');
     expect(message).toContain('\n\nAn error occurred, a new version was not created. Please try rephrasing your request and run it again.');
     expect(message).toContain('An error occurred, a new version was not created. Please try rephrasing your request and run it again.');

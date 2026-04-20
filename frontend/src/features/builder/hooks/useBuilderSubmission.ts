@@ -14,7 +14,7 @@ import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from '@features/builder/h
 import { resolveBuilderComposerPrompt } from '@features/builder/hooks/submissionPrompt';
 import { createValidationFailureMessage } from '@features/builder/hooks/validationFailureMessage';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
   selectChatMessages,
   selectCommittedSource,
@@ -190,33 +190,35 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
   async function ensureValidGeneratedSource(initialSource: string, request: BuilderLlmRequest, requestId: BuilderRequestId) {
     let candidateSource = initialSource;
-    let attempt = 0;
+    let parserRepairCount = 0;
+    let qualityRepairCount = 0;
     let hasAnnouncedRepair = false;
     let hasCompletedRepairRequest = false;
 
-    while (attempt <= MAX_AUTO_REPAIR_ATTEMPTS) {
-      const validation = validateOpenUiSource(candidateSource);
-
-      if (validation.isValid) {
-        return {
-          note: hasCompletedRepairRequest ? 'The first draft had parser issues, so it was repaired automatically before commit.' : undefined,
-          source: candidateSource,
-        };
+    function buildRepairNote() {
+      if (parserRepairCount > 0 && qualityRepairCount > 0) {
+        return 'The first draft had parser issues and blocking quality issues, so it was repaired automatically before commit.';
       }
 
-      attempt += 1;
-
-      if (attempt > MAX_AUTO_REPAIR_ATTEMPTS) {
-        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, MAX_AUTO_REPAIR_ATTEMPTS));
+      if (parserRepairCount > 0) {
+        return 'The first draft had parser issues, so it was repaired automatically before commit.';
       }
 
+      if (qualityRepairCount > 0) {
+        return 'The first draft had blocking quality issues, so it was repaired automatically before commit.';
+      }
+
+      return undefined;
+    }
+
+    async function runRepairRequest(issues: Parameters<typeof buildRepairPrompt>[0]['issues'], attemptNumber: number) {
       const repairRequest: BuilderLlmRequest = {
         prompt: buildRepairPrompt({
           userPrompt: request.prompt,
           committedSource: request.currentSource,
           invalidSource: candidateSource,
-          issues: validation.issues,
-          attemptNumber: attempt,
+          issues,
+          attemptNumber,
           promptMaxChars: requestLimits.promptMaxChars,
         }),
         currentSource: request.currentSource,
@@ -234,7 +236,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
           builderActions.appendChatMessage({
             role: 'system',
             tone: 'info',
-            content: 'The model returned an invalid draft. Sending one automatic repair request now.',
+            content: 'The model returned a draft that cannot be committed yet. Sending one automatic repair request now.',
           }),
         );
         hasAnnouncedRepair = true;
@@ -246,9 +248,58 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       candidateSource = repairedResponse.source;
     }
 
-    return {
-      source: candidateSource,
-    };
+    while (true) {
+      const validation = validateOpenUiSource(candidateSource);
+
+      if (validation.isValid) {
+        const qualityIssues = detectOpenUiQualityIssues(candidateSource, request.prompt);
+        const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
+        const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
+        const qualityWarnings = qualityIssues
+          .filter((issue) => issue.severity === 'soft-warning')
+          .map(({ severity: _severity, ...issue }) => issue);
+
+        if (fatalQualityIssues.length > 0) {
+          throw new OpenUiValidationError(
+            createValidationFailureMessage(
+              fatalQualityIssues.map(({ severity: _severity, ...issue }) => issue),
+              parserRepairCount + qualityRepairCount,
+            ),
+          );
+        }
+
+        if (blockingQualityIssues.length > 0) {
+          if (qualityRepairCount >= 1) {
+            throw new OpenUiValidationError(
+              createValidationFailureMessage(
+                blockingQualityIssues.map(({ severity: _severity, ...issue }) => issue),
+                parserRepairCount + qualityRepairCount,
+              ),
+            );
+          }
+
+          qualityRepairCount += 1;
+          await runRepairRequest(
+            blockingQualityIssues.map(({ severity: _severity, ...issue }) => issue),
+            qualityRepairCount,
+          );
+          continue;
+        }
+
+        return {
+          note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
+          source: candidateSource,
+          warnings: qualityWarnings,
+        };
+      }
+
+      if (parserRepairCount >= MAX_AUTO_REPAIR_ATTEMPTS) {
+        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
+      }
+
+      parserRepairCount += 1;
+      await runRepairRequest(validation.issues, parserRepairCount);
+    }
   }
 
   function applyCompactionNotice(requestId: BuilderRequestId, compaction?: BuilderLlmRequestCompaction) {
@@ -274,7 +325,6 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   ) {
     throwIfInactiveRequest(requestId);
     const validatedResult = await ensureValidGeneratedSource(response.source, request, requestId);
-    const qualityWarnings = detectOpenUiQualityWarnings(validatedResult.source, request.prompt);
     throwIfInactiveRequest(requestId);
     const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
 
@@ -287,7 +337,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         source: validatedResult.source,
         note: validatedResult.note,
         snapshot,
-        warnings: qualityWarnings,
+        warnings: validatedResult.warnings,
       }),
     );
     clearRequestHandles(requestId);

@@ -1,0 +1,22 @@
+{
+  "simpleTodo": {
+    "includePatterns": [
+      "\\btodo\\b",
+      "\\bto-?do\\b",
+      "\\btask\\s+list\\b",
+      "список\\s+задач",
+      "\\bзадачи\\b"
+    ],
+    "antiPatterns": [
+      "\\bdashboard\\b",
+      "\\bcrm\\b",
+      "\\bkanban\\b",
+      "\\bproject\\b",
+      "\\bboard\\b",
+      "\\bfilter\\b",
+      "\\bdue\\s+dates?\\b",
+      "\\btheme\\b",
+      "\\bmulti[\\s-]?screen\\b"
+    ]
+  }
+}

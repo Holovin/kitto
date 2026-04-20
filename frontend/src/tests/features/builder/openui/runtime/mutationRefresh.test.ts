@@ -1,5 +1,5 @@
 import { createQueryManager, createStore, evaluate, evaluateElementProps } from '@openuidev/lang-core';
-import { createParser } from '@openuidev/react-lang';
+import { createParser, type OpenUIError } from '@openuidev/react-lang';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
@@ -115,10 +115,10 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
   queryManager.evaluateQueries(
     parseResult.queryStatements.map((query) => ({
       statementId: query.statementId,
-      toolName: query.toolAST ? evaluate(query.toolAST, evaluationContext) : '',
+      toolName: query.toolAST ? (evaluate(query.toolAST, evaluationContext) as string) : '',
       args: query.argsAST ? evaluate(query.argsAST, evaluationContext) : null,
       defaults: query.defaultsAST ? evaluate(query.defaultsAST, evaluationContext) : null,
-      refreshInterval: query.refreshAST ? evaluate(query.refreshAST, evaluationContext) : undefined,
+      refreshInterval: query.refreshAST ? (evaluate(query.refreshAST, evaluationContext) as number) : undefined,
       complete: query.complete,
       deps: undefined,
     })),
@@ -126,13 +126,13 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
   queryManager.registerMutations(
     parseResult.mutationStatements.map((mutation) => ({
       statementId: mutation.statementId,
-      toolName: mutation.toolAST ? evaluate(mutation.toolAST, evaluationContext) : '',
+      toolName: mutation.toolAST ? (evaluate(mutation.toolAST, evaluationContext) as string) : '',
     })),
   );
   await waitForQuerySettles(queryManager);
 
   function getEvaluatedRoot() {
-    const errors: Array<{ code: string; message: string }> = [];
+    const errors: OpenUIError[] = [];
     const evaluatedRoot = evaluateElementProps(parseResult.root as never, {
       ctx: evaluationContext,
       library: builderOpenUiLibrary,
@@ -144,7 +144,7 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
     return evaluatedRoot;
   }
 
-  function getButtonAction(buttonId: string) {
+  function getButtonAction(buttonId: string): { steps: ActionStep[] } {
     let action: { steps: ActionStep[] } | null = null;
 
     visitElements(getEvaluatedRoot(), (node) => {
@@ -154,7 +154,11 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
     });
 
     expect(action).not.toBeNull();
-    return action as { steps: ActionStep[] };
+    if (!action) {
+      throw new Error(`Button "${buttonId}" action was not found.`);
+    }
+
+    return action;
   }
 
   return {
@@ -165,7 +169,7 @@ async function createMutationRefreshHarness(source: string, initialDomainData: R
         if (step.type === 'run') {
           if (step.refType === 'mutation') {
             const mutation = parseResult.mutationStatements.find((entry) => entry.statementId === step.statementId);
-            const evaluatedArgs = mutation?.argsAST ? evaluate(mutation.argsAST, evaluationContext) : {};
+            const evaluatedArgs = mutation?.argsAST ? (evaluate(mutation.argsAST, evaluationContext) as Record<string, unknown>) : {};
             const didSucceed = await queryManager.fireMutation(step.statementId, evaluatedArgs);
 
             if (!didSucceed) {

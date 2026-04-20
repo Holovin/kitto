@@ -10,7 +10,11 @@ function formatValidationIssue(issue: BuilderParseIssue) {
 export function createValidationFailureMessage(issues: BuilderParseIssue[], maxAutoRepairAttempts: number) {
   const summary = issues.slice(0, 3).map(formatValidationIssue).join(' | ');
   const repairAttemptLabel =
-    maxAutoRepairAttempts === 1 ? '1 automatic repair attempt' : `${maxAutoRepairAttempts} automatic repair attempts`;
+    maxAutoRepairAttempts <= 0
+      ? 'without an automatic repair attempt'
+      : maxAutoRepairAttempts === 1
+        ? 'after 1 automatic repair attempt'
+        : `after ${maxAutoRepairAttempts} automatic repair attempts`;
 
-  return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'}\n\n${FAILED_GENERATION_RECOVERY_MESSAGE}`;
+  return `The model kept returning draft issues ${repairAttemptLabel}. ${summary || 'Please try again.'}\n\n${FAILED_GENERATION_RECOVERY_MESSAGE}`;
 }

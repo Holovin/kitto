@@ -157,40 +157,82 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
   const hints = new Set<string>();
 
   for (const issue of issues) {
-    if (issue.code !== 'invalid-prop') {
+    if (issue.code === 'invalid-prop') {
+      hints.add('Check component argument order against the documented signature before returning.');
+
+      if (issue.message.includes('Group.direction')) {
+        hints.add('For Group(...), the second argument is direction and must be "vertical" or "horizontal".');
+        hints.add('If you need Group variant "block" or "inline", place it in the optional fourth argument.');
+        hints.add('Never put "block" or "inline" in the second Group argument.');
+      }
+
+      if (issue.message.includes('Group.variant')) {
+        hints.add('Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
+      }
+
+      if (issue.message.includes('.appearance.') || issue.message.includes('.color') || issue.message.includes('.background')) {
+        hints.add('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
+        hints.add('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
+        hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
+        hints.add('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
+      }
+
+      if (
+        issue.message.includes('Text.appearance.mainColor') ||
+        issue.message.includes('Text.appearance.textColor') ||
+        issue.message.includes('Text.appearance.bgColor') ||
+        issue.message.includes('Text.background')
+      ) {
+        hints.add(
+          'Text supports only appearance.contrastColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.',
+        );
+      }
+
+      if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
+        hints.add('Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).');
+      }
+
       continue;
     }
 
-    hints.add('Check component argument order against the documented signature before returning.');
+    if (issue.code === 'quality-stale-persisted-query') {
+      const referencedRuns = [...issue.message.matchAll(/@Run\(([^)]+)\)/g)].map((match) => match[1]);
+      const suggestedQueryRuns = referencedRuns.filter((statementId) => statementId !== issue.statementId);
 
-    if (issue.message.includes('Group.direction')) {
-      hints.add('For Group(...), the second argument is direction and must be "vertical" or "horizontal".');
-      hints.add('If you need Group variant "block" or "inline", place it in the optional fourth argument.');
-      hints.add('Never put "block" or "inline" in the second Group argument.');
+      if (issue.statementId && suggestedQueryRuns.length > 0) {
+        hints.add(
+          `The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add ${suggestedQueryRuns
+            .map((statementId) => `@Run(${statementId})`)
+            .join(' or ')} later in the same Action after @Run(${issue.statementId}).`,
+        );
+      } else {
+        hints.add('If a mutation updates persisted state that visible UI reads, re-run a matching Query("read_state", ...) later in the same Action.');
+      }
+
+      hints.add(
+        'A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.',
+      );
+      continue;
     }
 
-    if (issue.message.includes('Group.variant')) {
-      hints.add('Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
+    if (issue.code === 'quality-missing-todo-controls') {
+      hints.add(
+        'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_state` mutation, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
+      );
+      continue;
     }
 
-    if (issue.message.includes('.appearance.') || issue.message.includes('.color') || issue.message.includes('.background')) {
-      hints.add('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
-      hints.add('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
-      hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
-      hints.add('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
+    if (issue.code === 'quality-random-result-not-visible') {
+      hints.add(
+        'For button-triggered randomness, use the canonical persisted recipe: `Mutation("write_computed_state", { op: "random_int", ... })`, `Query("read_state", { path: "..." }, defaultValue)`, and a button `Action(...)` that runs both in order.',
+      );
+      continue;
     }
 
-    if (
-      issue.message.includes('Text.appearance.mainColor') ||
-      issue.message.includes('Text.appearance.textColor') ||
-      issue.message.includes('Text.appearance.bgColor') ||
-      issue.message.includes('Text.background')
-    ) {
-      hints.add('Text supports only appearance.contrastColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.');
-    }
-
-    if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
-      hints.add('Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).');
+    if (issue.code === 'quality-theme-state-not-applied') {
+      hints.add(
+        'When the user asks for theme switching, bind `appearance` on `AppShell` or another top-level container to a theme state such as `$currentTheme` so changing the state actually changes colors.',
+      );
     }
   }
 
@@ -208,10 +250,10 @@ export function buildRepairPrompt(args: {
   const { attemptNumber, committedSource, invalidSource, issues, promptMaxChars, userPrompt } = args;
   const repairHints = buildRepairHints(issues);
   const introSection = [
-    `The previous OpenUI draft is invalid. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`,
+    `The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`,
     'Use the current committed valid OpenUI source as the baseline for this request.',
     'Carry forward the intended changes from the invalid model draft only when they can be expressed as valid OpenUI.',
-    'Fix every validation issue below and return a complete corrected program.',
+    'Fix every issue below and return a complete corrected program.',
   ].join('\n');
   const rulesSection = REPAIR_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
   const hintsSection = repairHints.map((hint) => `- ${hint}`).join('\n');

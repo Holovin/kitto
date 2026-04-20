@@ -272,7 +272,9 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
     expect(prompt).toContain('Use `random_int` only with integer min/max options.');
     expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
-    expect(prompt).toContain('After every Mutation that changes persisted state used by visible UI, immediately re-run the Query that reads that state in the same Action.');
+    expect(prompt).toContain(
+      'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',
+    );
     expect(prompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
     expect(prompt).toContain('Random example: `Action([@Run(roll), @Run(rollValue)])`.');
     expect(prompt).toContain('Remove example: `Action([@Run(removeItem), @Run(items)])`.');

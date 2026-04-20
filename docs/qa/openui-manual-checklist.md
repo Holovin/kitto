@@ -230,6 +230,7 @@ Todo request guardrails:
 
 - For `todo`, `task list`, `to-do`, or `список задач` requests, the minimum app must include `$draft`, an input, `Query("read_state", { path: "app.items" }, [])`, `Mutation("append_state", { path: "app.items", value: ... })`, an add button action with `@Run(addItem)` + `@Run(items)` + `@Reset($draft)`, `@Each(items, "item", ...)`, and `Repeater(rows, "No tasks yet.")`.
 - Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request.
+- If a simple todo request misses that minimum structure, repair before commit instead of committing the placeholder draft.
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or extra fields unless the prompt explicitly asks for them.
 
 Derived filtering:
@@ -325,9 +326,13 @@ Do use:
 - `Query("read_state", ...)` with a sensible default when reading persisted data
 - persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions
 - `Mutation(...)` with `write_state`, `merge_state`, `append_state`, `remove_state`, or `write_computed_state` for exportable persistent data
-- after every persisted `Mutation(...)` that affects visible UI, immediately re-run the matching `Query("read_state", ...)` in the same `Action(...)`
+- after every persisted `Mutation(...)` that affects visible UI, re-run later in the same `Action(...)` at least one matching `Query("read_state", ...)`
+- treat a `Query("read_state", ...)` as matching when it reads the same path, a parent path, or a child path of the mutation path
+- if a persisted mutation affecting visible UI lacks that later refresh query, repair before commit instead of committing a stale visible flow
 - `Action([@Run(addTask), @Run(tasks), @Reset($draft)])` for create-and-refresh flows
 - `Action([@Run(roll), @Run(rollValue)])` for button-triggered persisted compute flows
+- if a random/roll request lacks the persisted compute recipe, repair before commit instead of committing a draft where the result cannot become visible
+- if a theme-switch request introduces theme state but container `appearance` does not depend on it, repair before commit instead of committing a non-functional theme toggle
 - stable string ids as the first argument of every `Button(...)`
 
 Do not use:

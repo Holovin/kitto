@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import { detectOpenUiQualityIssues, detectOpenUiQualityWarnings, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -750,7 +750,7 @@ root = AppShell([
     );
   });
 
-  it('warns when a todo request commits without the required todo controls', () => {
+  it('does not surface blocking quality gates through the soft warning list', () => {
     const warnings = detectOpenUiQualityWarnings(
       `root = AppShell([
   Screen("main", "Todo list", [
@@ -761,19 +761,58 @@ root = AppShell([
       'Create a todo list.',
     );
 
-    expect(warnings).toEqual(
+    expect(warnings.find((warning) => warning.code === 'quality-missing-todo-controls')).toBeUndefined();
+  });
+});
+
+describe('detectOpenUiQualityIssues', () => {
+  it('marks missing todo controls as blocking for a simple todo intent', () => {
+    const issues = detectOpenUiQualityIssues(
+      `root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Todo list", "title", "start"),
+    Text("Start by describing your tasks here.", "body", "start")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-missing-todo-controls',
           message: 'Todo request did not generate required todo controls.',
+          severity: 'blocking-quality',
           source: 'quality',
         }),
       ]),
     );
   });
 
-  it('warns when append_state does not rerun the matching read_state query in the same Action', () => {
-    const warnings = detectOpenUiQualityWarnings(
+  it('keeps missing todo controls as a soft warning when anti-keywords make the prompt non-simple', () => {
+    const issues = detectOpenUiQualityIssues(
+      `root = AppShell([
+  Screen("main", "CRM", [
+    Text("CRM overview", "title", "start")
+  ])
+])`,
+      'Create a CRM with a task list module.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          severity: 'soft-warning',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('marks stale append_state refresh as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
       `$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
@@ -792,12 +831,13 @@ root = AppShell([
       'Create a todo list.',
     );
 
-    expect(warnings).toEqual(
+    expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           message:
-            'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) in the same Action for path "app.items".',
+            'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+          severity: 'blocking-quality',
           source: 'quality',
           statementId: 'addItem',
         }),
@@ -805,8 +845,128 @@ root = AppShell([
     );
   });
 
-  it('warns when write_computed_state does not rerun the matching read_state query in the same Action', () => {
-    const warnings = detectOpenUiQualityWarnings(
+  it('marks a query that runs before the mutation as blocking stale refresh', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Input("draft", "Task", $draft, "New task"),
+    Button("add-task", "Add", "default", Action([@Run(items), @Run(addItem), @Reset($draft)]), $draft == ""),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'addItem',
+        }),
+      ]),
+    );
+  });
+
+  it('marks a child-path mutation without parent-path refresh as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$flash = ""
+items = Query("read_state", { path: "app.items" }, [])
+toggleFirst = Mutation("merge_state", {
+  path: "app.items.0",
+  patch: { completed: true }
+})
+rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Button("toggle-first", "Toggle first", "default", Action([@Run(toggleFirst), @Set($flash, "done")]), false),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(toggleFirst), also run @Run(items) later in the same Action for affected path "app.items.0".',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'toggleFirst',
+        }),
+      ]),
+    );
+  });
+
+  it('marks a parent-path mutation without child-path refresh as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `themeValue = Query("read_state", { path: "app.settings.theme" }, "light")
+saveSettings = Mutation("write_state", {
+  path: "app.settings",
+  value: { theme: "dark" }
+})
+
+root = AppShell([
+  Screen("main", "Settings", [
+    Button("save-settings", "Save settings", "default", Action([@Run(saveSettings)]), false),
+    Text("Theme: " + themeValue, "body", "start")
+  ])
+])`,
+      'Create a settings app.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-stale-persisted-query',
+          message:
+            'Persisted mutation may not refresh visible query. After @Run(saveSettings), also run @Run(themeValue) later in the same Action for affected path "app.settings".',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'saveSettings',
+        }),
+      ]),
+    );
+  });
+
+  it('does not mark a child-path mutation as stale when a parent-path query reruns later in the same Action', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$flash = ""
+items = Query("read_state", { path: "app.items" }, [])
+toggleFirst = Mutation("merge_state", {
+  path: "app.items.0",
+  patch: { completed: true }
+})
+rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Button("toggle-first", "Toggle first", "default", Action([@Run(toggleFirst), @Reset($flash), @Run(items)]), false),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
+  });
+
+  it('marks missing random refresh as blocking and flags the missing visible recipe', () => {
+    const issues = detectOpenUiQualityIssues(
       `rollDice = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
@@ -824,22 +984,97 @@ root = AppShell([
       'Create a random dice roller.',
     );
 
-    expect(warnings).toEqual(
+    expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           message:
-            'Persisted mutation may not refresh visible query. After @Run(rollDice), also run @Run(rollValue) in the same Action for path "app.roll".',
+            'Persisted mutation may not refresh visible query. After @Run(rollDice), also run @Run(rollValue) later in the same Action for affected path "app.roll".',
+          severity: 'blocking-quality',
           source: 'quality',
           statementId: 'rollDice',
+        }),
+        expect.objectContaining({
+          code: 'quality-random-result-not-visible',
+          severity: 'blocking-quality',
+          source: 'quality',
         }),
       ]),
     );
   });
 
-  it('does not warn when the persisted mutation reruns the matching read_state query in the same Action', () => {
-    const warnings = detectOpenUiQualityWarnings(
+  it('marks theme prompts as blocking when theme state does not drive container appearance', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$currentTheme = "light"
+appTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+
+root = AppShell([
+  Screen("main", "Theme demo", [
+    Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false),
+    Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false),
+    Text("Current theme: " + $currentTheme, "body", "start")
+  ])
+], appTheme)`,
+      'Add dark mode with a light and dark theme switch.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-theme-state-not-applied',
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('does not mark a valid random refresh recipe as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+      'Create a random dice roller.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'quality-random-result-not-visible')).toBeUndefined();
+  });
+
+  it('does not mark a valid theme appearance binding as blocking', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$currentTheme = "light"
+appTheme = $currentTheme == "dark"
+  ? { mainColor: "#111827", contrastColor: "#F9FAFB" }
+  : { mainColor: "#F9FAFB", contrastColor: "#111827" }
+
+root = AppShell([
+  Screen("main", "Theme demo", [
+    Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false),
+    Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false)
+  ])
+], appTheme)`,
+      'Add dark mode with a light and dark theme switch.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
+  });
+
+  it('does not mark persisted refresh as blocking when the matching query reruns later in the same Action', () => {
+    const issues = detectOpenUiQualityIssues(
       `$draft = ""
+$flash = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
   path: "app.items",
@@ -850,13 +1085,13 @@ rows = @Each(items, "item", Checkbox(item.title, item.title, item.completed))
 root = AppShell([
   Screen("main", "Todo list", [
     Input("draft", "Task", $draft, "New task"),
-    Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == ""),
+    Button("add-task", "Add", "default", Action([@Run(addItem), @Set($flash, "saving"), @Run(items), @Reset($draft)]), $draft == ""),
     Repeater(rows, "No items yet.")
   ])
 ])`,
       'Create a todo list.',
     );
 
-    expect(warnings.find((warning) => warning.code === 'quality-stale-persisted-query')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
   });
 });
