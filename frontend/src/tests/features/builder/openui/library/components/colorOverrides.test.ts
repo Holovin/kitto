@@ -55,6 +55,7 @@ describe('OpenUI safe color overrides', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Input("todoText", "New todo", $todoText, "What needs to be done?", "#F9FAFB", "#111827"),
+    Checkbox("accepted", "Accepted", false, "#F9FAFB", "#111827"),
     RadioGroup("filter", "Show", $filter, [
       { label: "All", value: "all" },
       { label: "Active", value: "active" }
@@ -67,6 +68,7 @@ $filter = "all"`);
 
     expect(html).toMatch(/input[^>]+style="color:#F9FAFB;background-color:#111827/i);
     expect(html).toMatch(/label[^>]+style="color:#F9FAFB;background-color:#111827/i);
+    expect(html).toMatch(/role="checkbox"[^>]+style="color:#F9FAFB;background-color:#111827/i);
     expect(html).toMatch(/button[^>]+role="radio"[^>]+style="color:#F9FAFB;background-color:#111827/i);
   });
 

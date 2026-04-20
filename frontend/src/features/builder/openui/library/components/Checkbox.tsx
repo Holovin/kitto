@@ -22,7 +22,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
         <CheckboxUI
           checked={Boolean(field.value)}
           disabled={isStreaming}
-          style={getHexColorStyle({ color: props.color })}
+          style={getHexColorStyle(props)}
           onCheckedChange={(checked: boolean | 'indeterminate') => field.setValue(Boolean(checked))}
         />
       </div>
@@ -34,7 +34,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       <CheckboxUI
         checked={Boolean(field.value)}
         disabled={isStreaming}
-        style={getHexColorStyle({ color: props.color })}
+        style={getHexColorStyle(props)}
         onCheckedChange={(checked: boolean | 'indeterminate') => field.setValue(Boolean(checked))}
       />
       <span className="flex flex-col gap-1">
