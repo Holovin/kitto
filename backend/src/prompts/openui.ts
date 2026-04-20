@@ -225,25 +225,28 @@ const preamble =
 const toolExamples = [
   `$currentTheme = "light"
 $name = "Ada"
-$email = "ada@example.com"
+$preferredContact = "email"
 
 lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
 darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
 appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
 activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }
+inactiveThemeButton = appTheme
+
+contactOptions = [
+  { label: "Email", value: "email" },
+  { label: "Phone", value: "phone" }
+]
 
 root = AppShell([
   Screen("main", "Profile form", [
     Group("Theme", "horizontal", [
-      Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : appTheme),
-      Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : appTheme)
+      Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton),
+      Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
     ], "inline"),
     Group("Profile", "vertical", [
-      Text("Review your profile details below.", "body", "start"),
-      Group("Inline fields", "horizontal", [
-        Input("name", "Name", $name, "Ada"),
-        Input("email", "Email", $email, "ada@example.com")
-      ], "inline")
+      Input("name", "Name", $name, "Ada"),
+      RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)
     ])
   ], true)
 ], appTheme)`,
@@ -255,20 +258,15 @@ priorityOptions = [
   { label: "Normal", value: "normal" },
   { label: "High", value: "high" }
 ]
-warningAppearance = { mainColor: "#FEF3C7", contrastColor: "#92400E" }
 
 root = AppShell([
-  Screen("main", "Dark app", [
-    Group("Welcome", "vertical", [
-      Text("This is a dark interface.", "body", "start"),
+  Screen("main", "Request form", [
+    Group("Details", "vertical", [
       Input("email", "Email", $email, "ada@example.com"),
-      RadioGroup("priority", "Priority", $priority, priorityOptions),
-      Button("submit-button", "Submit", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
-    ], "block"),
-    Group("Warning", "vertical", [
-      Text("Double-check the selected priority before submit.", "body", "start")
-    ], "inline", warningAppearance)
-  ], true, { mainColor: "#111827", contrastColor: "#F9FAFB" })
+      Select("priority", "Priority", $priority, priorityOptions),
+      Button("submit-button", "Submit", "default", Action([]), false)
+    ])
+  ], true)
 ])`,
   `items = [
   { label: "First", value: "first" },
@@ -390,11 +388,28 @@ root = AppShell([
 ];
 
 const additionalRules = [
+  'APPEARANCE / THEME CONTRACT:',
+  'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
+  'Use `activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
+  'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
+  'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
+  'Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.',
+  'Use `appearance` for visual color changes.',
+  'Use `appearance.mainColor` and `appearance.contrastColor` only.',
+  'appearance.mainColor is the main theme surface color, usually the background for containers.',
+  'appearance.contrastColor is the contrasting text or primary action color.',
+  'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
+  'Only use #RRGGBB colors.',
+  'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
+  'For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.',
+  'For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.',
+  'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
+  'Local appearance overrides inherited theme colors, and buttons still map the theme pair according to their variant.',
+  'Variants are fallback styles, not the primary mechanism for theme switching.',
   'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
   'Return the full updated program every time, not a patch.',
   'The root statement must be `root = AppShell([...])`.',
   'Use only the supported components and tools provided in this prompt.',
-  'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
   'AppShell signature is `AppShell(children, appearance?)`.',
   'Group signature is `Group(title, direction, children, variant?, appearance?)`.',
@@ -404,25 +419,7 @@ const additionalRules = [
   'Use Group variant "block" for standalone visual sections.',
   'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
   'Do not over-nest block Groups.',
-  'Use `appearance` for visual color changes.',
-  'Use `appearance.mainColor` and `appearance.contrastColor` only.',
-  'appearance.mainColor is the main theme surface color, usually the background for containers.',
-  'appearance.contrastColor is the contrasting text or primary action color.',
-  'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
-  'Only use #RRGGBB colors.',
-  'For dark-looking UI, use a dark mainColor like #111827 and a light contrastColor like #F9FAFB.',
-  'For light-looking UI, use a light mainColor like #FFFFFF and a dark contrastColor like #111827.',
-  'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
-  'Use `AppShell(..., appTheme)` first for global theme switching.',
-  'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
-  'Do not pass the same appearance object to every control when the user asked for one shared theme. Prefer one shared parent theme pair.',
-  'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
-  'For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.',
-  'For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.',
-  'For an active red theme button, use `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }`.',
-  'destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
-  'Local appearance overrides inherited theme colors, and buttons still map the theme pair according to their variant.',
-  'Variants are fallback styles, not the primary mechanism for theme switching.',
+  'Destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',

@@ -188,6 +188,7 @@ Do use:
 - `Group(..., "block")` for standalone visual sections
 - `Group(..., "inline")` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
 - `AppShell(..., appearance?)` first when the request is about one shared theme or dark mode
+- for light/dark theme toggles, prefer the canonical recipe with `$currentTheme`, `lightTheme`, `darkTheme`, `appTheme`, `activeThemeButton`, `inactiveThemeButton`, and `root = AppShell([...], appTheme)`
 - `Screen(...)`, `Group(...)`, and `Repeater(...)` appearance overrides when a subtree needs different inherited colors
 - `appearance.mainColor` for the main surface or background color
 - `appearance.contrastColor` for text or the contrasting action color
@@ -195,7 +196,8 @@ Do use:
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
 - `Button(..., "secondary", ...)` when the button should stay on the normal theme pair
-- conditional `appearance` such as `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for an active red theme toggle
+- conditional `appearance` such as `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for an active red theme toggle, with the inactive toggle falling back to `appTheme`
+- do not manually pass the same `appearance` to every `Input`, `Select`, `RadioGroup`, or other control when the goal is one shared app theme
 - local control `appearance` only when a specific control must override the inherited theme
 - conditional `appearance` for active buttons or selected theme toggles
 - existing variants first when they already express the requested visual treatment

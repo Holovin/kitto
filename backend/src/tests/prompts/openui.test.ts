@@ -55,31 +55,38 @@ describe('openui prompts', () => {
   it('guides safe visual appearance overrides through strict hex props only', () => {
     const prompt = buildOpenUiSystemPrompt();
 
+    expect(prompt).toContain('APPEARANCE / THEME CONTRACT:');
+    expect(prompt).toContain(
+      'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
+    );
+    expect(prompt).toContain(
+      'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
+    );
     expect(prompt).toContain('Use `appearance` for visual color changes.');
     expect(prompt).toContain('Use `appearance.mainColor` and `appearance.contrastColor` only.');
     expect(prompt).toContain('appearance.mainColor is the main theme surface color, usually the background for containers.');
     expect(prompt).toContain('appearance.contrastColor is the contrasting text or primary action color.');
     expect(prompt).toContain('Only use #RRGGBB colors.');
-    expect(prompt).toContain('For dark-looking UI, use a dark mainColor like #111827 and a light contrastColor like #F9FAFB.');
-    expect(prompt).toContain('For light-looking UI, use a light mainColor like #FFFFFF and a dark contrastColor like #111827.');
     expect(prompt).toContain(
       'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
     );
-    expect(prompt).toContain('Use `AppShell(..., appTheme)` first for global theme switching.');
     expect(prompt).toContain('Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.');
-    expect(prompt).toContain('Do not pass the same appearance object to every control when the user asked for one shared theme. Prefer one shared parent theme pair.');
+    expect(prompt).toContain('Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.');
     expect(prompt).toContain('Use conditional appearance for active or selected buttons instead of inventing activeColor props.');
     expect(prompt).toContain('For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.');
     expect(prompt).toContain('For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.');
-    expect(prompt).toContain('For an active red theme button, use `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }`.');
     expect(prompt).toContain('Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {');
     expect(prompt).toContain('Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.');
     expect(prompt).toContain('lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }');
     expect(prompt).toContain('darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }');
     expect(prompt).toContain('activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }');
-    expect(prompt).toContain('Button("submit-button", "Submit", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })');
-    expect(prompt).toContain('Screen("main", "Dark app", [');
-    expect(prompt).toContain('], true, { mainColor: "#111827", contrastColor: "#F9FAFB" })');
+    expect(prompt).toContain('inactiveThemeButton = appTheme');
+    expect(prompt).toContain(
+      'Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton)',
+    );
+    expect(prompt).toContain('RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)');
+    expect(prompt).not.toContain('warningAppearance = { mainColor: "#FEF3C7", contrastColor: "#92400E" }');
+    expect(prompt).not.toContain('Screen("main", "Dark app", [');
     expect(prompt).not.toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
     expect(prompt).not.toContain('textColor');
     expect(prompt).not.toContain('bgColor');

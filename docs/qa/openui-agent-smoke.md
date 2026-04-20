@@ -1,289 +1,287 @@
 # Kitto OpenUI Agent Smoke Test
 
+## Purpose
+
+This file is for a fast browser/MCP smoke pass after meaningful changes to the OpenUI runtime, prompt, component library, validation, standalone export, or streaming lifecycle.
+
+This is not a full regression suite. Full invariants and edge cases live in `docs/qa/openui-manual-checklist.md`.
+
 ## Setup
 
-1. Start the app with `npm run dev`.
+1. Start the app:
+
+   ```bash
+   npm run dev
+   ```
+
 2. Open `http://localhost:5555/chat`.
-3. Wait for the status badge to change from `Backend model: loading...` to `Backend model: <model>`. If it shows `Backend model: unavailable`, fix the backend before continuing.
-4. Keep the browser DevTools Console visible to catch parser or runtime errors.
-5. Keep the DevTools Network tab open and filter by `/api/llm` so it is easy to verify when generation requests do and do not happen.
+3. Wait until the backend status in the header becomes `connected`.
+4. Open DevTools:
+   - `Console` for runtime and parser errors.
+   - `Network` filtered to `/api/llm` so it is easy to see when the LLM is called and when it is not.
 
-## MCP Automation Notes
+## MCP automation notes
 
-- For Chrome DevTools MCP automation, enter prompts in the composer `textarea` with real keyboard typing (`type_text`) after focusing the field. Do not rely on DOM-only value injection or `fill` for this control; React may keep `Send` disabled if the change does not arrive as real typed input.
-- For import smoke tests under MCP automation, the native OS file picker may be unavailable. It is acceptable to verify the same frontend import path by creating a `File`, assigning it to the hidden `input[type="file"]`, and dispatching the input `change` event.
+- In the chat composer, prompts should be entered with real typing into the `textarea` via `type_text` after focusing the field.
+- Do not use DOM-only `fill`, because React may not update state and may leave `Send` disabled.
+- For import/export, if the OS file picker is unavailable, it is acceptable to verify the same frontend import path through the hidden `input[type="file"]` by creating a `File` programmatically and dispatching `change`.
 
-## Scenario 1 — Basic app generation
+## Scenario 1 — Basic generation and local screen flow
 
 Prompt:
 
+```txt
 Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.
+```
 
 Expected:
-- while generation is in progress, the Preview panel shows a semi-transparent overlay with a spinner and the label `Generating...`
-- while generation streams, Preview stays on the last committed app; if the canvas was empty, it should stay on the empty state until commit
-- after commit, an intro screen is visible and interactive
-- no parser or runtime errors appear in the app UI or Console
-- the only LLM request is the chat submission itself; internal app buttons must not trigger extra generation requests
 
-## Scenario 2 — Local clicks without LLM
+- During generation, Preview stays on the last committed app or the empty state.
+- After commit, the intro screen is visible.
+- There are no parser or runtime errors in the UI or Console.
+- Definition contains OpenUI source.
+- The internal flow works locally:
+  1. `Start` or `Begin`
+  2. select a radio option
+  3. `Next`
+  4. `Restart`
+- After internal clicks, there are no new `/api/llm/generate` or `/api/llm/generate/stream` requests.
+- If you inspect Definition, screen flow uses local state such as `$currentScreen` plus `@Set(...)`, not a persisted navigation tool.
 
-Actions:
-1. Click the intro CTA (`Start`, `Begin`, or equivalent).
-2. Pick a radio option.
-3. Click `Next`.
-4. Click `Restart`.
-
-Expected:
-- screen changes are immediate
-- no new `/api/llm/generate` or `/api/llm/generate/stream` request is made after Scenario 1 has finished
-- no runtime errors appear
-- navigation is handled locally in runtime state rather than by rebuilding the definition
-- if you inspect `Definition`, screen flow uses local `$currentScreen` state with `@Set(...)` rather than persisted tool calls
-
-Follow-up:
-1. Reload the page.
-
-Expected:
-- the last committed app still renders after reload
-- the selected radio option and current screen restore from persisted runtime state
-- existing chat history and undo/redo history remain available after reload
-
-## Scenario 3 — Follow-up edit
+## Scenario 2 — Follow-up edit preserves existing app
 
 Prompt:
 
+```txt
 Add a required checkbox confirmation before the result screen.
+```
 
 Expected:
-- the existing intro -> question -> result flow is preserved rather than regenerated into a different app shape
-- while the follow-up request runs, the Preview overlay label changes to `Updating...`
-- a required checkbox appears before the user can reach the result
-- navigation still works end-to-end, including restart
-- any previous Preview runtime issue clears once the new committed valid source renders
-- no unresolved refs, parser errors, or broken actions appear
 
-## Scenario 4 — Inline group layout
+- The existing `intro -> question -> result` flow is preserved.
+- A new checkbox appears before the result or submit step.
+- The checkbox actually affects the flow or validation.
+- Navigation still works end-to-end.
+- Preview updates only after commit.
+- If the first draft is invalid and repair runs, that is acceptable, but the final version must be valid.
+- There are no unresolved refs, parser errors, or broken actions.
+
+## Scenario 3 — Theme / appearance / active button
 
 Prompt:
 
-Create a form with name, email, and due date fields in one visual section, with fields arranged in inline groups.
+```txt
+Build an app with every control you know. Add a separate top group with two buttons for light and dark themes. The active theme must be shown as a RED button with white text.
+```
 
 Expected:
-- generated source contains one outer section `Group(...)` using the default block styling or an explicit `"block"` variant
-- generated source uses one or more inner `Group(..., "horizontal", [...], "inline")` rows for the fields or controls
-- the rendered UI shows one section rather than nested card-in-card surfaces
-- no parser errors or unresolved refs appear
 
-## Scenario 5 — Collection / Repeater / filtering
-
-Prompt:
-
-Create a quiz and show selected answers on the result screen as a list.
-
-Expected:
-- generated source contains `Repeater(`
-- generated source builds rows with `@Each(`
-- if the result rows read persisted data, they come from `Query("read_state", ...)`; otherwise they come from a local array or runtime-derived collection
-- because this smoke test may end up with only one selected answer, it should still be modeled as a collection rather than a hardcoded summary line
-- no hardcoded selected answer values appear when the list should reflect runtime data
-- no unresolved refs appear
-- no todo-specific or unrelated domain assumptions appear
-- no parser errors appear
+- There are two theme buttons.
+- The active theme is shown as a red button with white text.
+- The inactive button is not red.
+- Clicking the theme buttons changes the active button locally without `/api/llm/*`.
+- Theme state affects real app colors, not just labels.
+- The shared theme is defined at the top level through `appTheme` and `AppShell([...], appTheme)`, rather than by repeating the same colors on every control.
+- `Definition` follows the canonical theme recipe with `$currentTheme`, `lightTheme`, `darkTheme`, `appTheme`, `activeThemeButton`, and `inactiveThemeButton`.
+- Inputs, selects, and radio groups inherit the shared `AppShell` theme instead of receiving duplicated per-control `appearance`.
+- All main controls remain readable.
+- Generated source does not contain:
+  - `style`
+  - `className`
+  - `css`
+  - named colors
+  - `rgb(...)`
+  - `hsl(...)`
+  - `var(...)`
+  - `url(...)`
 
 Follow-up prompt:
 
-Add a filter control so the app can show all items, active items, and completed items.
+```txt
+Make the buttons switch the theme between light and dark. The theme must affect all elements, including the theme block itself.
+```
 
 Expected:
-- generated source uses built-in collection helpers such as `@Filter(` and `@Count(` rather than inventing a new tool
-- generated source keeps the selected filter in a local `$filter` variable rather than a persisted tool-backed value
-- the filtered view is derived from one source collection instead of duplicating separate hardcoded lists
-- filtered rows still render through `@Each(` plus `Repeater(`
-- switching between All, Active, and Completed updates the visible rows locally without any extra `/api/llm/*` request
-- no todo-specific filter tool names or custom filtering APIs appear
-- no parser errors or unresolved refs appear
 
-## Scenario 6 — JSON import/export
+- The whole page changes visually when the theme is switched.
+- The theme block also changes together with the app.
+- Local overrides are used only where a special color is needed, for example the active button.
+- The inactive theme button falls back to `appTheme` instead of carrying a separate hard-coded control theme.
+- There is no repeat LLM request after clicking theme buttons.
 
-Actions:
-1. Click `Export JSON` and save the downloaded `kitto-definition-*.json` file.
-2. Click `Reset`.
-3. Click `Import JSON` and select the exported definition.
+## Scenario 4 — Inputs and validation
+
+Prompt:
+
+```txt
+Create a form with name, email, phone, quantity, due date, description and required agreement checkbox. Add basic validation.
+```
 
 Expected:
-- the imported file validates before it is applied
-- successful JSON export appends a success message at the end of chat history
-- after import, Preview, Definition, runtime state, and persisted data restore coherently
-- no runtime crash or parser error appears
 
-Follow-up:
-1. Edit the exported JSON so `source` becomes invalid OpenUI.
+- Appropriate input types are used:
+  - `email` for email
+  - `tel` for phone
+  - `number` for quantity
+  - `date` for due date
+  - `textarea` for description
+  - `checkbox` for agreement
+- Required validation is visible for required fields.
+- Email validation works for an invalid email.
+- Number validation works for quantity if the prompt asks for `min/max`.
+- Due date is stored as `YYYY-MM-DD`.
+- Validation works locally without LLM requests.
+- Generated source does not contain arbitrary JS validators, `eval`, `Function`, regex-code, or script-like strings.
+
+## Scenario 5 — Collection, Repeater and filtering
+
+Prompt:
+
+```txt
+Create a task list with checkboxes for completed items and a filter with All, Active and Completed.
+```
+
+Expected:
+
+- Multiple items can be added.
+- An item can be marked completed.
+- There is filter state, for example `$filter`.
+- Switching `All` / `Active` / `Completed` changes visible rows locally.
+- There are no new `/api/llm/*` requests when switching the filter.
+- Source uses supported OpenUI collection helpers:
+  - `@Each(...)`
+  - `Repeater(...)`
+  - `@Filter(collection, field, operator, value)` if filtering is needed
+- Source does not use predicate-form filtering such as:
+
+  ```txt
+  @Filter(items, "item", item.completed == true)
+  ```
+
+- No new filtering-specific tool such as `select_state` appears.
+
+## Scenario 6 — Safe compute tools
+
+Prompt:
+
+```txt
+Add a button that rolls a random number from 1 to 100 and shows the result.
+```
+
+Expected:
+
+- Source uses a safe compute tool:
+  - `compute_value`
+  - or `write_computed_state` if the result needs to be stored
+- For a random integer it uses `op: "random_int"` with integer `min` / `max`.
+- Clicking the button updates the number locally.
+- There are no new `/api/llm/*` requests after the click.
+- The result is shown as a primitive value, not `[object Object]`.
+- There is no arbitrary JS, `eval`, `Function`, or script-like content.
+
+Follow-up prompt:
+
+```txt
+Show a warning if the name field is empty.
+```
+
+Expected:
+
+- It uses a built-in expression or `compute_value`.
+- The warning appears and disappears locally while typing.
+- There is no arbitrary JS validation.
+
+## Scenario 7 — JSON import/export and standalone HTML export
+
+### JSON export/import
+
+1. Generate an app.
+2. Click `Export JSON`.
+3. Save the file.
+4. Click `Reset`.
+5. Click `Import JSON` and choose the exported file.
+
+Expected:
+
+- Import validates source before applying it.
+- Preview, Definition, runtime state, and persisted data restore coherently.
+- There is no runtime crash or parser error.
+
+### Invalid import check
+
+1. Edit the exported JSON so that `source` becomes invalid.
 2. Import the broken file.
 
 Expected:
-- an import error appears
-- Definition shows the rejected imported source and validation issues
-- Preview stays on the last committed valid app
-- if there is no last committed valid app to fall back to, Preview shows `Preview is unavailable` with light error styling instead of the normal empty state
-- runtime state and persisted data stay on the last committed snapshot
-- chat history is not wiped by the failed import
-- undo/redo history is not replaced by the failed import
 
-## Scenario 7 — Standalone HTML export
+- An import error is shown.
+- Definition shows the rejected source and validation issues.
+- Preview stays on the last committed valid app.
+- Chat/history/runtime/domain state is not reset.
 
-Actions:
-1. Generate a quiz app and interact with it so runtime state changes from the initial screen.
-2. Open the file menu and click `Download standalone HTML`.
-3. Open the downloaded `.html` file directly from disk.
+### Standalone HTML export
 
-Expected:
-- the standalone file shows only the generated app UI plus the small reset control
-- clicking `Download standalone HTML` appends a success message at the end of chat history
-- no builder shell, chat panel, backend status, or API key UI appears
-- the app starts from the committed snapshot baseline state rather than the live clicked builder state from step 1
-- the standalone file makes no `/api/llm/*` or other `/api/*` requests
-
-Follow-up:
-1. Click through the standalone app so its runtime/domain state changes.
-2. Reload the standalone file.
-3. Click `Reset local data`.
-
-Expected:
-- reloading restores the standalone app’s own saved runtime/domain state from localStorage
-- `Reset local data` clears the standalone storage key and returns the app to the embedded baseline state
-- resetting does not affect the main Kitto builder state in the original tab
-
-## Scenario 8 — Undo/redo
-
-Actions:
 1. Generate an app.
-2. Apply one follow-up change and wait for it to commit.
-3. Click `Undo`.
-4. Click `Redo`.
+2. Click `Download standalone HTML`.
+3. Open the downloaded `.html` file directly.
 
 Expected:
-- undo restores the previous committed source and its runtime/domain snapshot
-- redo restores the later committed source
-- the chat toolbar shows `Version: N / M` followed by previous-version and next-version buttons, and that label updates in lockstep with history position, for example `Version: 1 / 2` after undo and `Version: 2 / 2` after redo
-- if you undo all the way back to the blank canvas while prior versions still exist, the `Version:` label shows `0 / M`, the previous-version button stays disabled, and `Reset` stays enabled
-- `Reset` is disabled only on a pristine empty builder after a fresh open or after `Reset`
-- `Reset` stays enabled whenever committed preview content exists, version history exists, or a rejected cached/imported definition is visible
-- the chat keeps only one rewind-status system message; repeated `Undo`/`Redo` updates that one message instead of stacking a ladder of history notices
-- the rewind-status system message includes the visible version number
-- Definition reflects the restored committed snapshot after each action
-- no stale draft source or rejected-definition state remains after undo/redo
 
-## Scenario 9 — Cancel, abort, and stale-request safety
+- The standalone file shows only the generated app UI.
+- There is no Kitto builder shell.
+- There is no chat panel.
+- There is no backend status.
+- There are no `/api/*` or `/api/llm/*` requests.
+- Internal clicks work.
+- After changing state and reloading the standalone file, it restores its own `localStorage` state.
+- `Reset local data` returns the standalone app to the embedded baseline.
 
-Actions:
-1. Submit a prompt that should generate for at least a few seconds.
-2. Click `Cancel` while the request is still in progress.
+## Scenario 8 — Cancel, timeout and stale request safety
 
-Expected:
-- the `Generating...` or `Updating...` state clears promptly instead of hanging
-- no red cancel or abort error is appended to chat history
-- Preview and Definition still reflect the last committed valid app rather than a partial streamed draft
-- no late commit from the cancelled request appears after waiting a moment
+### Cancel
 
-Follow-up:
-1. Submit another prompt that should generate for at least a few seconds.
-2. Before it finishes, navigate to `http://localhost:5555/elements`.
-3. Wait a moment, then return to `http://localhost:5555/chat`.
+1. Send a prompt that takes several seconds to generate.
+2. Click `Cancel` while generation is in progress.
 
 Expected:
-- no red abort error is appended to chat history
-- Preview and Definition still reflect the last committed valid app rather than a partial streamed draft
-- no late commit from the aborted request appears after returning to `/chat`
-- the aborted request does not overwrite any later committed app state
 
-Failure-path note:
-- if a generation fails because the model still returns invalid OpenUI after automatic repair, no new version is created
-- the final red chat message ends with `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
-- with an empty composer after that failure, the primary chat button becomes enabled and reads `Repeat`
-- typing any new prompt into the composer changes that button text back to `Send` immediately
-- Preview and Definition both continue showing the last committed valid app rather than the rejected draft
+- The `Generating...` or `Updating...` state clears quickly.
+- A red intentional-cancel error is not added to chat.
+- Preview stays on the last committed valid app.
+- A partial streamed draft is not committed.
+- A late response from the cancelled request does not overwrite the current app.
 
-## Scenario 10 — Preview runtime issue lifecycle
+### Abort on navigation
 
-Actions:
-1. Generate or import a committed app that triggers a Preview runtime error.
-2. Confirm the Preview area shows `Preview runtime error` instead of crashing the builder shell.
-3. Open `Definition`.
-4. Commit a valid follow-up source.
+1. Send a long prompt.
+2. Before it completes, navigate to `/elements`.
+3. Return to `/chat`.
 
 Expected:
-- Definition shows the current runtime issue for the crashing committed preview only
-- switching to the new valid committed source clears the previous runtime issue
-- if a rejected imported source is shown in Definition, it does not mix in stale runtime issues from the last committed preview
-- the rest of the builder shell stays interactive throughout the crash
 
-## Scenario 11 — Safe color overrides
+- There is no red abort error in chat.
+- There is no late commit from the old request.
+- Preview and Definition show the last committed valid app.
+- The builder does not remain stuck in `Generating...`.
 
-Prompt:
+## Final quick checks
 
-Сделай приложение со всеми контролами что ты знаешь. Сделай сверху отдельную группу с двумя кнопками: светлая и тёмная темы. Нужно показывать активную тему КРАСНОЙ кнопкой с белым текстом.
+After the smoke pass, verify:
 
-Expected:
-- generated source defines `lightTheme`, `darkTheme`, and `appTheme`, then passes `appTheme` into `AppShell(..., appearance?)`
-- the active theme button uses conditional `appearance` with `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }`
-- inactive theme buttons are not red
-- clicks on the theme buttons update local runtime state only and do not trigger `/api/llm/*`
-- the rendered UI changes together across screens, groups, and controls through inherited appearance
-- default theme buttons stay readable because they invert the inherited theme pair automatically
-- no raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or `url()` appears in generated source
+- There are no console errors.
+- All internal preview clicks work without LLM requests.
+- Definition does not contain raw CSS or arbitrary JS.
+- Preview renders committed source only.
+- `Undo` and `Redo` work for at least one follow-up change.
+- `Reset` returns the builder to the expected empty state.
 
-Follow-up prompt:
+What is intentionally excluded from smoke:
 
-Сделай чтобы кнопки переключали тему. Тема должна влиять на все элементы, включая блок темы.
+- detailed route fallback checks
+- PM2 / Docker deploy checks
+- the full safe URL matrix
+- all path hardening edge cases
+- the full runtime issue lifecycle
+- deeper import/export variants
 
-Expected:
-- generated source keeps the shared theme pair on `AppShell(..., appearance?)`
-- nested elements inherit colors automatically instead of repeating the same `appearance` object on every control
-- the theme button block also follows the same inherited theme
-- theme buttons remain readable because `Button(..., "default", ...)` inverts the pair
-- local `appearance` is only used where a control intentionally overrides the inherited colors
-- no arbitrary CSS or style-object syntax appears in generated source
-
-Follow-up prompt:
-
-Сделай тёмную тему.
-
-Expected:
-- the rendered app looks dark and readable
-- generated source uses `darkTheme = { mainColor: dark, contrastColor: light }` and applies it through `AppShell(..., appearance?)`
-- controls inherit the dark theme unless a local override is needed
-- default buttons remain readable through the built-in theme-pair inversion
-- no arbitrary CSS or style-object syntax appears in generated source
-
-## Scenario 12 — Safe compute tools
-
-Prompt:
-
-Add a button that rolls a random number from 1 to 100.
-
-Expected:
-- generated source uses `Mutation("write_computed_state", ...)` with `op: "random_int"`
-- the generated mutation writes to persisted state and a `Query("read_state", ...)` displays the saved result after click
-- clicking the button updates the UI locally with no new `/api/llm/*` request
-- the generated `random_int` options use integer `min` / `max` values only
-- generated source does not interpolate the raw Mutation ref into `Text(...)`; no `"[object Object]"` result appears after click
-
-Follow-up prompt:
-
-Show a warning if the name field is empty.
-
-Expected:
-- generated source uses a normal built-in expression when that is enough, or `Query("compute_value", ...)` when it needs the safe compute tool
-- no JavaScript code, functions, `eval`, or regex appears in generated source
-- if `compute_value` is used, the generated source reads the returned primitive through `.value`
-
-Follow-up prompt:
-
-Show whether the due date is before today.
-
-Expected:
-- generated source uses `Query("compute_value", ...)` with the date operations rather than JavaScript date parsing
-- the generated source computes today through `op: "today_date"` and compares with `today.value`
-- date strings stay in strict `YYYY-MM-DD` form
-- no new `/api/llm/*` request is made when interacting with the rendered controls
+These still matter, but they belong in the regression/manual checklist rather than the fast agent smoke. Those remain in `docs/qa/openui-manual-checklist.md`.
