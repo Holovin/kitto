@@ -116,12 +116,32 @@ $email = "ada@example.com"
 root = AppShell([
   Screen("main", "Profile form", [
     Group("Profile", "vertical", [
+      Text("Review your profile details below.", "body", "start", "#F9FAFB"),
       Group("Inline fields", "horizontal", [
-        Input("name", "Name", $name, "Ada"),
-        Input("email", "Email", $email, "ada@example.com")
+        Input("name", "Name", $name, "Ada", "#F9FAFB", "#111827"),
+        Input("email", "Email", $email, "ada@example.com", "#F9FAFB", "#111827")
       ], "inline")
-    ], "block")
-  ])
+    ], "block", "#F9FAFB", "#111827")
+  ], true, "#F9FAFB", "#0F172A")
+])`,
+  `$email = ""
+$priority = "normal"
+
+priorityOptions = [
+  { label: "Low", value: "low" },
+  { label: "Normal", value: "normal" },
+  { label: "High", value: "high" }
+]
+
+root = AppShell([
+  Screen("main", "Dark app", [
+    Group("Welcome", "vertical", [
+      Text("This is a dark interface.", "body", "start", "#F9FAFB"),
+      Input("email", "Email", $email, "ada@example.com", "#F9FAFB", "#111827"),
+      RadioGroup("priority", "Priority", $priority, priorityOptions, "#F9FAFB", "#111827"),
+      Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")
+    ], "block", "#F9FAFB", "#111827")
+  ], true, "#F9FAFB", "#0F172A")
 ])`,
   `items = [
   { label: "First", value: "first" },
@@ -217,13 +237,21 @@ const additionalRules = [
   'Use only the supported components and tools provided in this prompt.',
   'Keep props shallow. Avoid deeply nested configuration objects.',
   'Use Screen for screen-level sections and Group for local layout.',
-  'Group signature is `Group(title, direction, children, variant?)`.',
+  'Group signature is `Group(title, direction, children, variant?, color?, background?)`.',
   'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put `"block"` or `"inline"` in the second Group argument.',
   'Use Group variant "block" for standalone visual sections.',
   'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
   'Do not over-nest block Groups.',
+  'Use `color` and `background` hex props for visual color changes on containers and control surfaces.',
+  'Text supports only the `color` hex prop. Do not pass `background` to Text.',
+  'Only use #RRGGBB colors.',
+  'For dark-looking UI, use dark background colors like #111827 and light text like #F9FAFB.',
+  'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
+  'Use existing variants first when enough; use hex color/background when the user asks for specific visual color changes.',
+  'When a form control should look dark or light, pass `color` and `background` directly to Input, TextArea, Checkbox, RadioGroup, Select, Button, or Link as needed.',
+  'Parent Screen or Group colors do not recolor nested form controls automatically.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
@@ -236,9 +264,10 @@ const additionalRules = [
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
   'For checklist or todo rows, put the row text into `Checkbox(label=...)` instead of rendering an empty checkbox next to a separate Text node.',
   'Prefer local $variables for ephemeral UI state such as tabs, draft inputs, and internal screen flow.',
-  'Screen signature is `Screen(id, title, children, isActive?)`.',
-  'Use `Screen(id, title, children, isActive?)` when you need screen-level sections.',
-  'Button signature is `Button(id, label, variant, action?, disabled?)`.',
+  'Screen signature is `Screen(id, title, children, isActive?, color?, background?)`.',
+  'Use `Screen(id, title, children, isActive?, color?, background?)` when you need screen-level sections.',
+  'Screen uses trailing visual overrides in the same order as other color-capable components: `color` first, then `background`.',
+  'Button signature is `Button(id, label, variant, action?, disabled?, color?, background?)`.',
   'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
   'Use `$currentScreen` + `@Set(...)` for screen navigation.',
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',

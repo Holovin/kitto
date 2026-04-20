@@ -1,9 +1,11 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
 import { z } from 'zod';
-import { choiceOptionSchema } from './shared';
+import { choiceOptionSchema, getHexColorStyle, hexColorOverrideProps } from './shared';
 
 type SelectRendererProps = ComponentRenderProps<{
+  background?: string;
+  color?: string;
   label: string;
   name: string;
   options: Array<{ label: string; value: string }>;
@@ -16,14 +18,16 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600">{props.label}</span>
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={getHexColorStyle({ color: props.color })}>
+        {props.label}
+      </span>
       <SelectUI disabled={isStreaming} name={props.name} value={field.value ?? ''} onValueChange={field.setValue}>
-        <SelectTrigger aria-label={props.label}>
+        <SelectTrigger aria-label={props.label} style={getHexColorStyle(props)}>
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent style={getHexColorStyle(props)}>
           {props.options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem key={option.value} style={getHexColorStyle({ color: props.color })} value={option.value}>
               {option.label}
             </SelectItem>
           ))}
@@ -41,6 +45,7 @@ export const SelectComponent = defineComponent({
     label: z.string().describe('Visible label for the select field.'),
     value: reactive(z.string().optional().describe('Currently selected value, often bound to a $variable.')),
     options: z.array(choiceOptionSchema).default([]).describe('Option list with label/value pairs.'),
+    ...hexColorOverrideProps,
   }),
   component: OpenUiSelectRenderer,
 });

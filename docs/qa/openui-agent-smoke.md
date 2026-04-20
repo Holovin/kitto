@@ -111,6 +111,7 @@ Actions:
 
 Expected:
 - the imported file validates before it is applied
+- successful JSON export appends a success message at the end of chat history
 - after import, Preview, Definition, runtime state, and persisted data restore coherently
 - no runtime crash or parser error appears
 
@@ -122,6 +123,7 @@ Expected:
 - an import error appears
 - Definition shows the rejected imported source and validation issues
 - Preview stays on the last committed valid app
+- if there is no last committed valid app to fall back to, Preview shows `Preview is unavailable` with light error styling instead of the normal empty state
 - runtime state and persisted data stay on the last committed snapshot
 - chat history is not wiped by the failed import
 - undo/redo history is not replaced by the failed import
@@ -135,6 +137,7 @@ Actions:
 
 Expected:
 - the standalone file shows only the generated app UI plus the small reset control
+- clicking `Download standalone HTML` appends a success message at the end of chat history
 - no builder shell, chat panel, backend status, or API key UI appears
 - the app starts from the committed snapshot baseline state rather than the live clicked builder state from step 1
 - the standalone file makes no `/api/llm/*` or other `/api/*` requests
@@ -162,6 +165,8 @@ Expected:
 - redo restores the later committed source
 - the chat toolbar shows `Version: N / M` followed by previous-version and next-version buttons, and that label updates in lockstep with history position, for example `Version: 1 / 2` after undo and `Version: 2 / 2` after redo
 - if you undo all the way back to the blank canvas while prior versions still exist, the `Version:` label shows `0 / M`, the previous-version button stays disabled, and `Reset` stays enabled
+- `Reset` is disabled only on a pristine empty builder after a fresh open or after `Reset`
+- `Reset` stays enabled whenever committed preview content exists, version history exists, or a rejected cached/imported definition is visible
 - the chat keeps only one rewind-status system message; repeated `Undo`/`Redo` updates that one message instead of stacking a ladder of history notices
 - the rewind-status system message includes the visible version number
 - Definition reflects the restored committed snapshot after each action
@@ -190,6 +195,11 @@ Expected:
 - no late commit from the aborted request appears after returning to `/chat`
 - the aborted request does not overwrite any later committed app state
 
+Failure-path note:
+- if a generation fails because the model still returns invalid OpenUI after automatic repair, no new version is created
+- the final red chat message ends with `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
+- Preview and Definition both continue showing the last committed valid app rather than the rejected draft
+
 ## Scenario 10 — Preview runtime issue lifecycle
 
 Actions:
@@ -201,5 +211,29 @@ Actions:
 Expected:
 - Definition shows the current runtime issue for the crashing committed preview only
 - switching to the new valid committed source clears the previous runtime issue
-- if a rejected draft is shown in Definition, it does not mix in stale runtime issues from the last committed preview
+- if a rejected imported source is shown in Definition, it does not mix in stale runtime issues from the last committed preview
 - the rest of the builder shell stays interactive throughout the crash
+
+## Scenario 11 — Safe color overrides
+
+Prompt:
+
+Add dark mode.
+
+Expected:
+- generated source uses `color` and/or `background` props on visible components
+- every generated color override uses strict `#RRGGBB` values
+- the rendered UI visibly changes to a dark-looking design
+- screen titles may use the trailing `Screen(..., isActive?, color?, background?)` overrides when needed
+- dark form controls use control-level `color` / `background` props instead of relying only on parent `Screen` or `Group` colors
+- no raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or `url()` appears in generated source
+
+Follow-up prompt:
+
+Make the warning message yellow and the submit button blue.
+
+Expected:
+- generated source uses safe `#RRGGBB` values for the warning message and submit button
+- the warning message uses `Text(..., color?)` or a surrounding surface component instead of `Text.background`
+- existing component variants still remain valid where they are enough
+- no arbitrary CSS or style-object syntax appears in generated source

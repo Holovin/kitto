@@ -55,12 +55,19 @@ Steps:
 - Current supported OpenUI components:
   - `AppShell`, `Screen`, `Group`, `Repeater`, `Text`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`
 - Group layout guidance:
-  - `Group(title, direction, children, variant?)` supports `block | inline`
+  - `Group(title, direction, children, variant?, color?, background?)` supports `block | inline`
   - the second `Group` argument is always `direction`, and `variant` belongs in the optional fourth argument
   - default variant is `block`
   - use `block` for standalone visual sections
   - use `inline` for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block
   - avoid over-nesting block groups
+- Safe visual color guidance:
+- `Screen(id, title, children, isActive?, color?, background?)` accepts optional trailing title color and background props
+  - `Text(...)` accepts only an optional trailing `color` prop
+  - `Group`, `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept optional trailing `color` and `background` props
+  - `color` and `background` must be strict `#RRGGBB` hex strings only
+  - parent `Screen` or `Group` colors do not recolor nested form controls automatically; pass colors to the control surface itself
+  - use existing variants first when enough, and never expose or generate `style`, `className`, CSS strings, named colors, `rgb()`, `hsl()`, `var()`, or layout props
 - Repeater collection guidance:
   - `Repeater(children, emptyText)` expects an array of already-built row nodes, usually produced by `@Each(collection, "item", rowNode)`
   - when the requested list is dynamic, derive rows from local arrays, runtime state, or `Query("read_state", ...)` data instead of hardcoding duplicate rows

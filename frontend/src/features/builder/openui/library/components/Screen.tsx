@@ -2,12 +2,13 @@ import type { ReactNode } from 'react';
 import { defineComponent } from '@openuidev/react-lang';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { z } from 'zod';
+import { getHexColorStyle, hexBackgroundProp, hexColorProp } from './shared';
 
 function ScreenRenderer({
   props,
   renderNode,
 }: {
-  props: { children: unknown[]; id: string; isActive?: boolean; title: string };
+  props: { background?: string; children: unknown[]; color?: string; id: string; isActive?: boolean; title: string };
   renderNode: (value: unknown) => ReactNode;
 }) {
   if (props.isActive === false) {
@@ -15,9 +16,9 @@ function ScreenRenderer({
   }
 
   return (
-    <Card data-screen={props.id}>
+    <Card data-screen={props.id} style={getHexColorStyle({ background: props.background })}>
       <CardHeader>
-        <CardTitle>{props.title}</CardTitle>
+        <CardTitle style={getHexColorStyle({ color: props.color })}>{props.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">{renderNode(props.children)}</CardContent>
     </Card>
@@ -35,6 +36,8 @@ export const ScreenComponent = defineComponent({
       .boolean()
       .optional()
       .describe('Optional visibility gate. When false the screen is hidden; when omitted the screen renders normally.'),
+    color: hexColorProp.describe('Optional screen title color override as #RRGGBB.'),
+    background: hexBackgroundProp,
   }),
   component: ScreenRenderer,
 });

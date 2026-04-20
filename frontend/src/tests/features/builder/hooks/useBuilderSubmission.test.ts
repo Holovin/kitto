@@ -13,10 +13,11 @@ describe('buildRepairPrompt', () => {
       promptMaxChars: 4_000,
     });
 
-    expect(prompt).toContain('Group signature is Group(title, direction, children, variant?).');
+    expect(prompt).toContain('Group signature is Group(title, direction, children, variant?, color?, background?).');
     expect(prompt).toContain('The second Group argument is direction and must be "vertical" or "horizontal".');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put "block" or "inline" in the second Group argument.');
+    expect(prompt).toContain('Use color and background only as #RRGGBB hex values.');
   });
 
   it('adds targeted hints when Group.direction fails validation', () => {
@@ -44,5 +45,29 @@ describe('buildRepairPrompt', () => {
     expect(prompt).toContain('If you need Group variant "block" or "inline", place it in the optional fourth argument.');
     expect(prompt).toContain('Never put "block" or "inline" in the second Group argument.');
     expect(prompt).toContain('invalid-prop in root: Group.direction must be one of "vertical", "horizontal".');
+  });
+
+  it('adds targeted hints when color props fail validation', () => {
+    const issues: BuilderParseIssue[] = [
+      {
+        code: 'invalid-prop',
+        message: 'Text.color must be a #RRGGBB hex color.',
+        source: 'parser',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildRepairPrompt({
+      userPrompt: 'Add dark mode.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Text("Hello", "body", "start", "red")])',
+      issues,
+      attemptNumber: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain('Use color/background only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
+    expect(prompt).toContain('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
+    expect(prompt).toContain('invalid-prop in root: Text.color must be a #RRGGBB hex color.');
   });
 });

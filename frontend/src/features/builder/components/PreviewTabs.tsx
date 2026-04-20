@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { DefinitionPanel } from '@features/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyState';
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
+import { PreviewUnavailableState } from '@features/builder/components/PreviewUnavailableState';
 import { getBuilderStreamTimeouts } from '@features/builder/config';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
@@ -78,6 +79,7 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
   const currentSnapshot = history.at(-1);
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
   const isPreviewEmptyCanvas = !previewSource.trim();
+  const isPreviewUnavailable = isPreviewEmptyCanvas && isShowingRejectedDefinition;
   const isEmptyCanvas = isPreviewEmptyCanvas && !isShowingRejectedDefinition;
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const runtimeIssueScope = `${history.length}:${currentSnapshot?.committedAt ?? ''}:${previewSource}:${isShowingRejectedDefinition ? 'rejected' : 'preview'}:${rendererResetVersion}`;
@@ -296,7 +298,11 @@ export function PreviewTabs({ onFeedbackChange }: PreviewTabsProps) {
         <Card className="h-full min-h-0 overflow-hidden border-0 bg-white/92">
           <CardContent className="h-full min-h-0 p-6">
             <div className="relative h-full min-h-0" aria-busy={isStreaming}>
-              {isPreviewEmptyCanvas ? (
+              {isPreviewUnavailable ? (
+                <div className="h-full min-h-0 overflow-y-auto rounded-[1.75rem] border border-rose-200/80 bg-rose-50/45 p-4 sm:p-6">
+                  <PreviewUnavailableState />
+                </div>
+              ) : isPreviewEmptyCanvas ? (
                 <div className="h-full min-h-0 overflow-y-auto rounded-[1.75rem] border border-slate-200/80 bg-slate-50/70 p-4 sm:p-6">
                   <PreviewEmptyState />
                 </div>

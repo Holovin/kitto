@@ -17,14 +17,15 @@ export const RepeaterComponent = defineComponent({
   component: ({ props, renderNode }) => {
     const renderedChildren = Children.toArray(renderNode(props.children));
 
-    if (renderedChildren.length === 0) {
-      return (
-        <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+    const content =
+      renderedChildren.length === 0 ? (
+        <div className="text-sm text-current opacity-80">
           {props.emptyText ?? 'Nothing to show yet.'}
         </div>
+      ) : (
+        renderedChildren
       );
-    }
 
-    return <div className="flex flex-col gap-3">{renderedChildren}</div>;
+    return <div className="flex flex-col gap-3">{content}</div>;
   },
 });

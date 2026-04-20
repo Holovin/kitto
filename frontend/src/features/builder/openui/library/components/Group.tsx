@@ -2,7 +2,7 @@ import { defineComponent } from '@openuidev/react-lang';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { cn } from '@lib/utils';
 import { z } from 'zod';
-import { nullableTextSchema } from './shared';
+import { getHexColorStyle, hexColorOverrideProps, nullableTextSchema } from './shared';
 
 const directionSchema = z.enum(['vertical', 'horizontal']).default('vertical');
 const variantSchema = z.enum(['block', 'inline']).default('block');
@@ -27,25 +27,32 @@ export const GroupComponent = defineComponent({
     direction: directionSchema.describe('Layout direction for the children: vertical or horizontal.'),
     children: z.array(z.unknown()).default([]).describe('Child nodes rendered inside the group.'),
     variant: variantSchema.describe('Visual weight: block for card-like sections, or inline for lightweight nested layout.'),
+    ...hexColorOverrideProps,
   }),
   component: ({ props, renderNode }) => {
     if (props.variant === 'inline') {
       return (
-        <div className="flex flex-col gap-3">
-          {props.title ? <div className="text-sm font-medium leading-6 text-slate-700">{props.title}</div> : null}
+        <div className="flex flex-col gap-3" style={getHexColorStyle({ background: props.background })}>
+          {props.title ? (
+            <div className="text-sm font-medium leading-6 text-slate-700" style={getHexColorStyle({ color: props.color })}>
+              {props.title}
+            </div>
+          ) : null}
           <div className={layoutClassNames.inline[props.direction]}>{renderNode(props.children)}</div>
         </div>
       );
     }
 
     return (
-      <Card className="border-slate-200/70 bg-slate-50/80 shadow-none">
+      <Card className="border-slate-200/70 bg-slate-50/80 shadow-none" style={getHexColorStyle({ background: props.background })}>
         {props.title ? (
           <CardHeader className="pb-4">
-            <CardTitle className="text-base">{props.title}</CardTitle>
+            <CardTitle className="text-base" style={getHexColorStyle({ color: props.color })}>
+              {props.title}
+            </CardTitle>
           </CardHeader>
         ) : null}
-        <CardContent className={cn(layoutClassNames.block[props.direction], props.title ? '' : 'pt-6')}>
+        <CardContent className={cn(layoutClassNames.block[props.direction], props.title ? '' : 'pt-6')} style={getHexColorStyle({ color: props.color })}>
           {renderNode(props.children)}
         </CardContent>
       </Card>

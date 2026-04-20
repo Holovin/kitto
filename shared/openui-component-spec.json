@@ -6,11 +6,11 @@
       "description": "Technical root wrapper for the generated app. Use it once as root; it renders children without any visual chrome."
     },
     "Screen": {
-      "signature": "Screen(id: string, title: string, children?: any[], isActive?: boolean)",
+      "signature": "Screen(id: string, title: string, children?: any[], isActive?: boolean, color?: string, background?: string)",
       "description": "Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility."
     },
     "Group": {
-      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[], variant?: \"block\" | \"inline\")",
+      "signature": "Group(title?: string | any, direction?: \"vertical\" | \"horizontal\", children?: any[], variant?: \"block\" | \"inline\", color?: string, background?: string)",
       "description": "Local layout container for related controls or content. Use variant \"block\" for standalone sections and variant \"inline\" for lightweight nested groups, repeated rows, or inline controls."
     },
     "Repeater": {
@@ -18,35 +18,35 @@
       "description": "Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, \"item\", rowNode) to build rows from local arrays, runtime state, or Query(\"read_state\", ...) results. Do not hardcode repeated rows when the user asked for dynamic data."
     },
     "Text": {
-      "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\")",
+      "signature": "Text(value?: string | number | boolean | any, variant?: \"body\" | \"code\" | \"muted\" | \"title\", align?: \"start\" | \"center\" | \"end\", color?: string)",
       "description": "Generic text node for headings, helper copy, code-style snippets, and status lines."
     },
     "Input": {
-      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any)",
+      "signature": "Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, color?: string, background?: string)",
       "description": "Single-line text input. Bind the value to a $variable for two-way state."
     },
     "TextArea": {
-      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any)",
+      "signature": "TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, color?: string, background?: string)",
       "description": "Multi-line text input for longer descriptions, prompts, or notes."
     },
     "Checkbox": {
-      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>)",
+      "signature": "Checkbox(name: string, label: string, checked?: $binding<boolean>, color?: string, background?: string)",
       "description": "Boolean toggle. Bind checked to a $variable when the user should control visibility or confirmation state."
     },
     "RadioGroup": {
-      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[])",
+      "signature": "RadioGroup(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], color?: string, background?: string)",
       "description": "Single-choice list of options. Good for quizzes, steps, and mode switches."
     },
     "Select": {
-      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[])",
+      "signature": "Select(name: string, label: string, value?: $binding<string>, options?: {label: string, value: string}[], color?: string, background?: string)",
       "description": "Dropdown selector for choosing one item from a short list of label/value pairs."
     },
     "Button": {
-      "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>)",
+      "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, color?: string, background?: string)",
       "description": "Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps."
     },
     "Link": {
-      "signature": "Link(label: string, url: string, newTab?: boolean)",
+      "signature": "Link(label: string, url: string, newTab?: boolean, color?: string, background?: string)",
       "description": "Text link for navigation to an external URL or a known browser route."
     }
   },

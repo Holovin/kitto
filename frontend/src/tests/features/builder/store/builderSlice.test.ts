@@ -149,9 +149,42 @@ describe('builderSlice', () => {
     vi.useRealTimers();
   });
 
-  it('marks invalid streamed output as a rejected definition', () => {
+  it('appends export success messages to the end of chat history', () => {
     const started = builderReducer(
       createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Build a simple app',
+        requestId: 'request-export-order',
+      }),
+    );
+    const withExportMessage = builderReducer(
+      started,
+      builderActions.appendChatMessage({
+        content: 'Definition exported.',
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+
+    expect(withExportMessage.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Definition exported.',
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+    expect(withExportMessage.chatMessages.at(-2)).toEqual(
+      expect.objectContaining({
+        content: 'Build a simple app',
+        role: 'user',
+      }),
+    );
+  });
+
+  it('rolls back invalid streamed output to the last committed definition', () => {
+    const initialState = createInitialState();
+    const started = builderReducer(
+      initialState,
       builderActions.beginStreaming({
         prompt: 'Break it',
         requestId: 'request-3',
@@ -160,19 +193,18 @@ describe('builderSlice', () => {
     const failed = builderReducer(
       started,
       builderActions.failStreaming({
-        issues: [{ code: 'missing-root', message: 'No root.' }],
         message: 'The generated source was invalid.',
         requestId: 'request-3',
-        source: 'broken source',
       }),
     );
 
     expect(failed.currentRequestId).toBeNull();
     expect(failed.isStreaming).toBe(false);
-    expect(failed.activeTab).toBe('definition');
-    expect(failed.hasRejectedDefinition).toBe(true);
-    expect(failed.streamedSource).toBe('broken source');
-    expect(failed.parseIssues).toEqual([{ code: 'missing-root', message: 'No root.' }]);
+    expect(failed.activeTab).toBe(initialState.activeTab);
+    expect(failed.hasRejectedDefinition).toBe(false);
+    expect(failed.streamedSource).toBe(initialState.committedSource);
+    expect(failed.parseIssues).toEqual([]);
+    expect(failed.history).toHaveLength(initialState.history.length);
     expect(failed.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         role: 'system',

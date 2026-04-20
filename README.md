@@ -90,7 +90,11 @@ Notes:
 
 Notes:
 
-- `Group(title, direction, children, variant?)` supports `block` and `inline`. `block` is the default card-like section surface; `inline` is the lightweight nested layout for inline controls, repeated rows, and groups inside an existing block.
+- `Screen(id, title, children, isActive?, color?, background?)` supports optional screen title `color` and screen surface `background` overrides as strict `#RRGGBB`.
+- `Group(title, direction, children, variant?, color?, background?)` supports `block` and `inline`. `block` is the default card-like section surface; `inline` is the lightweight nested layout for inline controls, repeated rows, and groups inside an existing block.
+- `Text` accepts only an optional trailing `color?` override. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, `Link`, `Group`, and `Screen` accept trailing `color?` and `background?`.
+- Use control-level `color` / `background` props for dark or light form controls; parent `Screen` or `Group` colors do not recolor nested control surfaces automatically.
+- Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.

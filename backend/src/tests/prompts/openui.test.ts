@@ -24,9 +24,9 @@ describe('openui prompts', () => {
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
     const prompt = buildOpenUiSystemPrompt();
 
-    expect(prompt).toContain('Screen(id: string, title: string, children?: any[], isActive?: boolean)');
+    expect(prompt).toContain('Screen(id: string, title: string, children?: any[], isActive?: boolean, color?: string, background?: string)');
     expect(prompt).toContain(
-      'Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>)',
+      'Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, color?: string, background?: string)',
     );
     expect(prompt).toContain('$currentScreen');
     expect(prompt).toContain('@Set($currentScreen');
@@ -38,19 +38,42 @@ describe('openui prompts', () => {
 
     expect(groupSpec).toBeDefined();
 
-    expect(groupSpec?.signature).toContain('variant?: "block" | "inline"');
-    expect(prompt).toContain('Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline")');
+    expect(groupSpec?.signature).toContain('variant?: "block" | "inline", color?: string, background?: string');
+    expect(prompt).toContain(
+      'Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", color?: string, background?: string)',
+    );
     expect(prompt).toContain('Use Group variant "block" for standalone visual sections.');
     expect(prompt).toContain(
       'Use Group variant "inline" for lightweight nested groups, inline controls, repeated rows, and groups inside an existing block.',
     );
     expect(prompt).toContain('Do not over-nest block Groups.');
-    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?)`.');
+    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?, color?, background?)`.');
     expect(prompt).toContain('The second Group argument is direction and must be `"vertical"` or `"horizontal"`.');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put `"block"` or `"inline"` in the second Group argument.');
     expect(prompt).toContain('Group("Profile", "vertical", [');
-    expect(prompt).toContain('], "block")');
+    expect(prompt).toContain('], "block", "#F9FAFB", "#111827")');
+  });
+
+  it('guides safe visual color overrides through strict hex props only', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('Use `color` and `background` hex props for visual color changes on containers and control surfaces.');
+    expect(prompt).toContain('Only use #RRGGBB colors.');
+    expect(prompt).toContain('For dark-looking UI, use dark background colors like #111827 and light text like #F9FAFB.');
+    expect(prompt).toContain(
+      'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
+    );
+    expect(prompt).toContain(
+      'Use existing variants first when enough; use hex color/background when the user asks for specific visual color changes.',
+    );
+    expect(prompt).toContain('Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", color?: string)');
+    expect(prompt).toContain('Text supports only the `color` hex prop. Do not pass `background` to Text.');
+    expect(prompt).toContain('When a form control should look dark or light, pass `color` and `background` directly to Input, TextArea, Checkbox, RadioGroup, Select, Button, or Link as needed.');
+    expect(prompt).toContain('Parent Screen or Group colors do not recolor nested form controls automatically.');
+    expect(prompt).toContain('Button("submit-button", "Submit", "default", Action([]), false, "#FFFFFF", "#2563EB")');
+    expect(prompt).toContain('Screen("main", "Dark app", [');
+    expect(prompt).toContain('], true, "#F9FAFB", "#0F172A")');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {

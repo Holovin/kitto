@@ -32,13 +32,13 @@ root = AppShell([
       Text("Alpha is visible right now.", "body", "start"),
       Button("go-beta", "Go to beta", "default", Action([@Set($currentScreen, "beta")]), false)
     ])
-  ], $currentScreen == "alpha"),
+  ], $currentScreen == "alpha", "#0F172A", "#F8FAFC"),
   Screen("beta", "Beta", [
     Group("Second screen", "vertical", [
       Text("Beta is active.", "body", "start"),
       Button("go-alpha", "Go to alpha", "secondary", Action([@Set($currentScreen, "alpha")]), false)
     ])
-  ], $currentScreen == "beta")
+  ], $currentScreen == "beta", "#0F172A", "#E0F2FE")
 ])`,
   },
   Group: {
@@ -72,7 +72,11 @@ root = AppShell([
       Text("Name: " + $name, "body", "start"),
       Text("Email: " + $email, "body", "start"),
       Text("Role: " + $role, "body", "start")
-    ])
+    ]),
+    Group("Dark section", "vertical", [
+      Text("Color overrides support dark-looking sections without exposing raw CSS.", "body", "start", "#F9FAFB"),
+      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, "#FFFFFF", "#2563EB")
+    ], "block", "#F9FAFB", "#111827")
   ])
 ])`,
   },
@@ -134,6 +138,9 @@ root = AppShell([
         Text("Saved", "body", "start"),
         Text("just now", "muted", "start")
       ], "inline"),
+      Group("Warning surface", "vertical", [
+        Text("Please complete all fields.", "body", "start", "#92400E")
+      ], "inline", "#92400E", "#FEF3C7"),
       Text("variant=body: Centered text", "body", "center"),
       Text("variant=body: Right-aligned text", "body", "end")
     ])
@@ -252,7 +259,8 @@ root = AppShell([
       Group(null, "horizontal", [
         Button("increment", "Increment", "default", Action([@Set($count, $count + 1), @Set($lastModifier, "+")]), false),
         Button("decrease", "Decrease", "secondary", Action([@Set($count, $count - 1), @Set($lastModifier, "-")]), false),
-        Button("reset-count", "Reset", "destructive", Action([@Set($count, 0)]), false)
+        Button("reset-count", "Reset", "destructive", Action([@Set($count, 0)]), false),
+        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, "#FFFFFF", "#2563EB")
       ], "inline")
     ])
   ])

@@ -317,10 +317,8 @@ export const builderSlice = createSlice({
     failStreaming(
       state,
       action: PayloadAction<{
-        issues?: BuilderParseIssue[];
         message: string;
         requestId: BuilderRequestId;
-        source?: string;
       }>,
     ) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -329,13 +327,10 @@ export const builderSlice = createSlice({
 
       state.currentRequestId = null;
       state.isStreaming = false;
-      state.hasRejectedDefinition = Boolean(action.payload.source && (action.payload.issues?.length ?? 0) > 0);
+      state.hasRejectedDefinition = false;
       state.streamError = action.payload.message;
-      state.streamedSource = action.payload.source ?? state.committedSource;
-      state.parseIssues = action.payload.issues ?? [];
-      if (state.hasRejectedDefinition) {
-        state.activeTab = 'definition';
-      }
+      state.streamedSource = state.committedSource;
+      state.parseIssues = [];
       pushMessage(state.chatMessages, createMessage('system', action.payload.message, 'error'));
     },
     cancelStreaming(state, action: PayloadAction<{ requestId: BuilderRequestId }>) {

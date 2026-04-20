@@ -7,6 +7,7 @@ describe('getBuilderHistoryVersionState', () => {
       getBuilderHistoryVersionState({
         committedSource: '',
         hasRedoSnapshot: false,
+        hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
         isStreaming: false,
@@ -27,6 +28,7 @@ describe('getBuilderHistoryVersionState', () => {
       getBuilderHistoryVersionState({
         committedSource: 'root = AppShell([])',
         hasRedoSnapshot: true,
+        hasRejectedDefinition: false,
         hasUndoSnapshot: true,
         historyVersionCount: 1,
         isStreaming: false,
@@ -47,6 +49,7 @@ describe('getBuilderHistoryVersionState', () => {
       getBuilderHistoryVersionState({
         committedSource: '',
         hasRedoSnapshot: true,
+        hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
         isStreaming: false,
@@ -62,11 +65,12 @@ describe('getBuilderHistoryVersionState', () => {
     });
   });
 
-  it('disables undo and redo while a request is streaming', () => {
+  it('disables undo and redo while keeping reset enabled during a request', () => {
     expect(
       getBuilderHistoryVersionState({
         committedSource: 'root = AppShell([])',
         hasRedoSnapshot: true,
+        hasRejectedDefinition: false,
         hasUndoSnapshot: true,
         historyVersionCount: 3,
         isStreaming: true,
@@ -74,7 +78,7 @@ describe('getBuilderHistoryVersionState', () => {
       }),
     ).toEqual({
       canRedo: false,
-      canReset: false,
+      canReset: true,
       canUndo: false,
       currentVersionNumber: 3,
       totalVersionCount: 3,
@@ -86,6 +90,7 @@ describe('getBuilderHistoryVersionState', () => {
     const versionState = getBuilderHistoryVersionState({
       committedSource: '',
       hasRedoSnapshot: true,
+      hasRejectedDefinition: false,
       hasUndoSnapshot: false,
       historyVersionCount: 0,
       isStreaming: false,
@@ -94,5 +99,68 @@ describe('getBuilderHistoryVersionState', () => {
 
     expect(formatHistoryVersionChatMessage('undo', versionState)).toBe('Reverted to version 0 / 2.');
     expect(formatHistoryVersionChatMessage('redo', versionState)).toBe('Restored version 0 / 2.');
+  });
+
+  it('keeps reset enabled when a rejected cached definition is visible without valid history', () => {
+    expect(
+      getBuilderHistoryVersionState({
+        committedSource: '',
+        hasRedoSnapshot: false,
+        hasRejectedDefinition: true,
+        hasUndoSnapshot: false,
+        historyVersionCount: 0,
+        isStreaming: false,
+        redoVersionCount: 0,
+      }),
+    ).toEqual({
+      canRedo: false,
+      canReset: true,
+      canUndo: false,
+      currentVersionNumber: 0,
+      totalVersionCount: 0,
+      versionBadgeText: '—',
+    });
+  });
+
+  it('keeps reset enabled when a visible definition exists without valid history', () => {
+    expect(
+      getBuilderHistoryVersionState({
+        committedSource: 'root = AppShell([])',
+        hasRedoSnapshot: false,
+        hasRejectedDefinition: false,
+        hasUndoSnapshot: false,
+        historyVersionCount: 0,
+        isStreaming: false,
+        redoVersionCount: 0,
+      }),
+    ).toEqual({
+      canRedo: false,
+      canReset: true,
+      canUndo: false,
+      currentVersionNumber: 0,
+      totalVersionCount: 0,
+      versionBadgeText: '—',
+    });
+  });
+
+  it('keeps reset disabled only for a pristine empty builder state', () => {
+    expect(
+      getBuilderHistoryVersionState({
+        committedSource: '',
+        hasRedoSnapshot: false,
+        hasRejectedDefinition: false,
+        hasUndoSnapshot: false,
+        historyVersionCount: 0,
+        isStreaming: false,
+        redoVersionCount: 0,
+      }),
+    ).toEqual({
+      canRedo: false,
+      canReset: false,
+      canUndo: false,
+      currentVersionNumber: 0,
+      totalVersionCount: 0,
+      versionBadgeText: '—',
+    });
   });
 });

@@ -117,6 +117,30 @@ root = AppShell([
     });
   });
 
+  it.each(['#000000', '#FFFFFF'])('accepts strict hex color prop %s', (hexColor) => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start", "${hexColor}")
+  ], true, "#F9FAFB", "#111827")
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it('rejects Text background because the component no longer supports it', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start", "#000000", "#111827")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues.length).toBeGreaterThan(0);
+  });
+
   it('rejects unknown components inside an otherwise valid document', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
@@ -139,6 +163,66 @@ root = AppShell([
 
     expect(result.isValid).toBe(false);
     expect(result.issues.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    '#fff',
+    'red',
+    'rgb(0,0,0)',
+    'var(--x)',
+    'url(...)',
+  ])('rejects invalid visual color prop %s', (invalidColor) => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start", "${invalidColor}")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Text.color must be a #RRGGBB hex color.',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid Screen title colors', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start")
+  ], true, "red", "#111827")
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Screen.color must be a #RRGGBB hex color.',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid Screen background colors', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start")
+  ], true, "#F9FAFB", "red")
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-prop',
+          message: 'Screen.background must be a #RRGGBB hex color.',
+        }),
+      ]),
+    );
   });
 
   it('rejects unsafe source patterns', () => {

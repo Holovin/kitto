@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { parseStandalonePayload, type KittoStandalonePayload } from '@features/builder/standalone/types';

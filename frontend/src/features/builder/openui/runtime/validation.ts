@@ -1,5 +1,6 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
+import { HEX_COLOR_PATTERN } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue } from '@features/builder/types';
 import {
   ALLOWED_TOOLS,
@@ -77,14 +78,14 @@ function isElementNode(
   );
 }
 
-function validateLiteralEnumProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
+function validateLiteralProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
   if (Array.isArray(value)) {
-    return value.flatMap((entry) => validateLiteralEnumProps(entry, inheritedStatementId));
+    return value.flatMap((entry) => validateLiteralProps(entry, inheritedStatementId));
   }
 
   if (!isElementNode(value)) {
     if (typeof value === 'object' && value !== null) {
-      return Object.values(value).flatMap((entry) => validateLiteralEnumProps(entry, inheritedStatementId));
+      return Object.values(value).flatMap((entry) => validateLiteralProps(entry, inheritedStatementId));
     }
 
     return [];
@@ -110,8 +111,24 @@ function validateLiteralEnumProps(value: unknown, inheritedStatementId?: string)
     );
   }
 
+  for (const propName of ['color', 'background'] as const) {
+    const propValue = value.props[propName];
+
+    if (typeof propValue !== 'string' || HEX_COLOR_PATTERN.test(propValue)) {
+      continue;
+    }
+
+    issues.push(
+      createParserIssue({
+        code: 'invalid-prop',
+        message: `${value.typeName}.${propName} must be a #RRGGBB hex color.`,
+        statementId,
+      }),
+    );
+  }
+
   for (const nestedValue of Object.values(value.props)) {
-    issues.push(...validateLiteralEnumProps(nestedValue, statementId));
+    issues.push(...validateLiteralProps(nestedValue, statementId));
   }
 
   return issues;
@@ -240,7 +257,7 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
     );
   }
 
-  issues.push(...validateLiteralEnumProps(result.root));
+  issues.push(...validateLiteralProps(result.root));
 
   if (!result.meta.incomplete) {
     issues.push(

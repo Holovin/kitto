@@ -11,6 +11,7 @@ import {
 import { getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
 import { buildRequestChatHistory } from '@features/builder/hooks/requestChatHistory';
 import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from '@features/builder/hooks/repairPrompt';
+import { createValidationFailureMessage } from '@features/builder/hooks/validationFailureMessage';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import {
@@ -22,22 +23,10 @@ import {
 } from '@features/builder/store/selectors';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
-import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderLlmResponse, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
+import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderLlmResponse, BuilderRequestId } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
-
-function formatValidationIssue(issue: BuilderParseIssue) {
-  return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
-}
-
-function createValidationFailureMessage(issues: BuilderParseIssue[]) {
-  const summary = issues.slice(0, 3).map(formatValidationIssue).join(' | ');
-  const repairAttemptLabel =
-    MAX_AUTO_REPAIR_ATTEMPTS === 1 ? '1 automatic repair attempt' : `${MAX_AUTO_REPAIR_ATTEMPTS} automatic repair attempts`;
-
-  return `The model kept returning invalid OpenUI after ${repairAttemptLabel}. ${summary || 'Please try again.'}`;
-}
 
 function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
   if (!compaction || compaction.omittedChatMessages <= 0) {
@@ -65,14 +54,9 @@ interface UseBuilderSubmissionOptions {
 }
 
 class OpenUiValidationError extends Error {
-  issues: BuilderParseIssue[];
-  source: string;
-
-  constructor(message: string, source: string, issues: BuilderParseIssue[]) {
+  constructor(message: string) {
     super(message);
     this.name = 'OpenUiValidationError';
-    this.source = source;
-    this.issues = issues;
   }
 }
 
@@ -183,9 +167,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     dispatch(
       builderActions.failStreaming({
         requestId,
-        issues: error instanceof OpenUiValidationError ? error.issues : undefined,
         message: getBuilderRequestErrorMessage(error),
-        source: error instanceof OpenUiValidationError ? error.source : undefined,
       }),
     );
   }
@@ -234,7 +216,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       attempt += 1;
 
       if (attempt > MAX_AUTO_REPAIR_ATTEMPTS) {
-        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues), candidateSource, validation.issues);
+        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, MAX_AUTO_REPAIR_ATTEMPTS));
       }
 
       const repairRequest: BuilderLlmRequest = {

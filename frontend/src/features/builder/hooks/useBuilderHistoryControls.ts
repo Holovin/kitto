@@ -10,6 +10,7 @@ import { createStandalonePayload } from '@features/builder/standalone/createStan
 import { downloadStandaloneHtml } from '@features/builder/standalone/downloadStandaloneHtml';
 import {
   selectCommittedSource,
+  selectHasRejectedDefinition,
   selectHistory,
   selectIsStreaming,
   selectRedoHistory,
@@ -46,6 +47,7 @@ export function useBuilderHistoryControls({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const committedSource = useAppSelector(selectCommittedSource);
   const history = useAppSelector(selectHistory);
+  const hasRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const redoHistory = useAppSelector(selectRedoHistory);
   const isStreaming = useAppSelector(selectIsStreaming);
   const previousSnapshot = history.at(-2);
@@ -54,6 +56,7 @@ export function useBuilderHistoryControls({
   const redoVersionCount = countCommittedVersions(redoHistory);
   const historyVersionState = getBuilderHistoryVersionState({
     committedSource,
+    hasRejectedDefinition,
     hasRedoSnapshot: Boolean(redoSnapshot),
     hasUndoSnapshot: Boolean(previousSnapshot),
     historyVersionCount,
@@ -61,6 +64,17 @@ export function useBuilderHistoryControls({
     redoVersionCount,
   });
   const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;
+
+  function appendSuccessChatMessage(content: string) {
+    onFeedbackChange(null);
+    dispatch(
+      builderActions.appendChatMessage({
+        content,
+        role: 'system',
+        tone: 'success',
+      }),
+    );
+  }
 
   function handleExport() {
     if (isPristineCanvas) {
@@ -77,7 +91,7 @@ export function useBuilderHistoryControls({
     linkElement.download = createDownloadFileName();
     linkElement.click();
     URL.revokeObjectURL(downloadUrl);
-    onFeedbackChange('Definition exported.');
+    appendSuccessChatMessage('Definition exported.');
   }
 
   function handleDownloadStandalone() {
@@ -102,7 +116,7 @@ export function useBuilderHistoryControls({
       const standaloneHtml = createStandaloneHtml(payload);
 
       downloadStandaloneHtml(standaloneHtml, createStandaloneDownloadFileName());
-      onFeedbackChange('Standalone HTML downloaded.');
+      appendSuccessChatMessage('Standalone HTML downloaded.');
     } catch (error) {
       onFeedbackChange(`Standalone export failed: ${getFeedbackMessage(error)}`);
     }

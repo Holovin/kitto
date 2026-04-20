@@ -1,9 +1,11 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Input as InputUI } from '@components/ui/input';
 import { z } from 'zod';
-import { nullableTextSchema } from './shared';
+import { getHexColorStyle, hexColorOverrideProps, nullableTextSchema } from './shared';
 
 type InputRendererProps = ComponentRenderProps<{
+  background?: string;
+  color?: string;
   label: string;
   name: string;
   placeholder?: string | null;
@@ -17,12 +19,15 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
 
   return (
     <label className="flex flex-col gap-2">
-      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600">{props.label}</span>
+      <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={getHexColorStyle({ color: props.color })}>
+        {props.label}
+      </span>
       <InputUI
         autoComplete={autoComplete}
         disabled={isStreaming}
         name={props.name}
         placeholder={props.placeholder ?? undefined}
+        style={getHexColorStyle(props)}
         value={field.value ?? ''}
         onChange={(event) => field.setValue(event.target.value)}
       />
@@ -38,6 +43,7 @@ export const InputComponent = defineComponent({
     label: z.string().describe('Visible label for the field.'),
     value: reactive(z.string().optional().describe('Current value, often bound to a $variable.')),
     placeholder: nullableTextSchema.describe('Placeholder text shown when empty.'),
+    ...hexColorOverrideProps,
   }),
   component: OpenUiInputRenderer,
 });

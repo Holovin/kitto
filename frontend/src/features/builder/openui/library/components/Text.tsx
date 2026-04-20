@@ -1,7 +1,7 @@
 import { defineComponent } from '@openuidev/react-lang';
 import { cn } from '@lib/utils';
 import { z } from 'zod';
-import { asDisplayText, textValueSchema } from './shared';
+import { asDisplayText, getHexColorStyle, hexColorProp, textValueSchema } from './shared';
 
 const variantSchema = z.enum(['body', 'code', 'muted', 'title']).default('body');
 const alignSchema = z.enum(['start', 'center', 'end']).default('start');
@@ -26,8 +26,11 @@ export const TextComponent = defineComponent({
     value: textValueSchema.describe('Text or expression result to display.'),
     variant: variantSchema.describe('Visual style: body, muted, title, or code.'),
     align: alignSchema.describe('Text alignment.'),
+    color: hexColorProp,
   }),
   component: ({ props }) => (
-    <div className={cn(variantClassNames[props.variant], alignClassNames[props.align])}>{asDisplayText(props.value)}</div>
+    <div className={cn(variantClassNames[props.variant], alignClassNames[props.align])} style={getHexColorStyle({ color: props.color })}>
+      {asDisplayText(props.value)}
+    </div>
   ),
 });

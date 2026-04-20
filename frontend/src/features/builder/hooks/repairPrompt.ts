@@ -7,13 +7,16 @@ const REPAIR_CRITICAL_RULES = [
   'Return the full updated program.',
   'Use only supported components and tools.',
   'Every @Run(ref) must reference a defined Query or Mutation.',
-  'Screen signature is Screen(id, title, children, isActive?).',
-  'Group signature is Group(title, direction, children, variant?).',
+  'Screen signature is Screen(id, title, children, isActive?, color?, background?).',
+  'Group signature is Group(title, direction, children, variant?, color?, background?).',
   'The second Group argument is direction and must be "vertical" or "horizontal".',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put "block" or "inline" in the second Group argument.',
+  'Use color and background only as #RRGGBB hex values.',
+  'Text supports only color. Do not pass background to Text.',
+  'Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Use $currentScreen + @Set for screen navigation.',
-  'Button signature is Button(id, label, variant, action?, disabled?).',
+  'Button signature is Button(id, label, variant, action?, disabled?, color?, background?).',
 ] as const;
 
 function formatValidationIssue(issue: BuilderParseIssue) {
@@ -166,6 +169,19 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
 
     if (issue.message.includes('Group.variant')) {
       hints.add('Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
+    }
+
+    if (issue.message.includes('.color') || issue.message.includes('.background')) {
+      hints.add('Use color/background only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
+      hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
+    }
+
+    if (issue.message.includes('Text.background')) {
+      hints.add('Text supports only color. If you need a colored surface, use Group, Screen, or the control component background instead.');
+    }
+
+    if (issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
+      hints.add('Screen uses trailing color/background arguments in that order: Screen(id, title, children, isActive?, color?, background?).');
     }
   }
 
