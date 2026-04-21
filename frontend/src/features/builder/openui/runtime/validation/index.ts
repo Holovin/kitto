@@ -9,6 +9,7 @@ import {
 import { detectArrayIndexPathMutationIssues } from './detectors/mutationIndexPath';
 import { detectPersistedMutationRefreshWarnings } from './detectors/persistedMutationRefresh';
 import { detectRandomResultVisibilityIssues } from './detectors/randomResultVisibility';
+import { detectStructuralInvariantIssues } from './detectors/structuralInvariants';
 import { detectThemeAppearanceIssues } from './detectors/themeAppearance';
 import { detectUndefinedStateReferenceIssues } from './detectors/undefinedStateReference';
 import { collectOpenUiParserValidationIssues } from './parser';
@@ -67,6 +68,12 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   issues.push(...detectReservedLastChoiceStatementIssues(trimmedSource, result));
   issues.push(...detectUndefinedStateReferenceIssues(trimmedSource, result));
   issues.push(...detectArrayIndexPathMutationIssues(result));
+  issues.push(
+    ...detectStructuralInvariantIssues(trimmedSource, result).map((issue) => ({
+      ...issue,
+      severity: 'fatal-quality' as const,
+    })),
+  );
 
   if (hasPromptContext && isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(
@@ -206,6 +213,7 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
   const result = parser.parse(trimmedSource);
   const issues = [
     ...collectOpenUiParserValidationIssues(trimmedSource, result),
+    ...detectStructuralInvariantIssues(trimmedSource, result),
     ...detectInlineToolCallIssues(result),
   ];
   const issuesWithSuggestions = appendAutoFixSuggestionIssues(trimmedSource, issues);

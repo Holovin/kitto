@@ -501,6 +501,7 @@ Before finishing, walk your output and verify:
 - If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.
 - Return the full updated program every time, not a patch.
 - The root statement must be \`root = AppShell([...])\`.
+- AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Use only the supported components and tools provided in this prompt.
 - Use only documented shallow objects:
 - - appearance objects
@@ -626,7 +627,9 @@ Before finishing, walk your output and verify:
 - For checkboxes, \`required\` means the checkbox must be checked.
 - Screen signature is \`Screen(id, title, children, isActive?, appearance?)\`.
 - Use \`Screen(id, title, children, isActive?, appearance?)\` when you need screen-level sections.
+- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
 - Repeater signature is \`Repeater(children, emptyText?, appearance?)\`.
+- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Button signature is \`Button(id, label, variant, action?, disabled?, appearance?)\`.
 - For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
 - Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.

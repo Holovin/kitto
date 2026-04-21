@@ -2,6 +2,7 @@ import type { BuilderRequestLimits } from '@features/builder/config';
 import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import { createRequestId } from '@features/builder/api/requestId';
 import { validateBuilderLlmRequest } from '@features/builder/config';
+import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { builderActions } from '@features/builder/store/builderSlice';
 import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
@@ -140,6 +141,13 @@ export function useValidationRepair({
           };
           logLocalAutoFix(autoFixResult.appliedIssues);
           continue;
+        }
+
+        const fatalValidationIssues = validation.issues.filter((issue) => FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code));
+
+        if (fatalValidationIssues.length > 0) {
+          reportRejectedCandidate(fatalValidationIssues);
+          throw new OpenUiValidationError(createValidationFailureMessage(fatalValidationIssues, parserRepairCount + qualityRepairCount));
         }
       }
 

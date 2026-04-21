@@ -261,6 +261,16 @@ const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const FATAL_STRUCTURAL_SOURCE = `root = AppShell([
+  Screen("main", "Main", [
+    Group("Body", "vertical", [
+      Screen("details", "Details", [
+        Text("Nested", "body", "start")
+      ])
+    ])
+  ])
+])`;
+
 const IQ_BUG_SOURCE = `root = AppShell([
   Screen("quiz", "IQ-like Test", [
     Group("Question 1", "vertical", [
@@ -955,6 +965,27 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('fails immediately for fatal structural drafts without sending a repair request', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a small app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: FATAL_STRUCTURAL_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().retryPrompt).toBe('Create a small app.');
+    expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
+    expect(getBuilderState().streamError).toContain('screen-inside-screen');
+    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
 
     submission.unmount();
   });

@@ -24,6 +24,8 @@ Guardrails:
 - Preview renders committed source only.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
+- Structural nesting is hard-invalid: keep exactly one `root = AppShell([...])` statement, never nest `AppShell(...)`, never put `Screen(...)` inside another `Screen(...)`, and never put `Repeater(...)` inside another `Repeater(...)`.
+- `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
 - Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
