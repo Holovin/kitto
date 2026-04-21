@@ -563,6 +563,9 @@ const DEFAULT_CONFIG = {
     promptMaxChars: 4_096,
     requestMaxBytes: 300_000,
   },
+  repair: {
+    maxRepairAttempts: 1,
+  },
   timeouts: {
     streamIdleTimeoutMs: 45_000,
     streamMaxDurationMs: 120_000,
@@ -840,7 +843,7 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().history).toHaveLength(2);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'Updated the app definition from the latest chat instruction.',
+        content: 'Applied the latest chat instruction to the app definition.',
         role: 'assistant',
         tone: 'success',
       }),
@@ -885,7 +888,7 @@ describe('useBuilderSubmission', () => {
         role: 'assistant',
       }),
     );
-    expect(getBuilderState().chatMessages.some((message) => message.content === 'Updated the app definition from the latest chat instruction.')).toBe(
+    expect(getBuilderState().chatMessages.some((message) => message.content === 'Applied the latest chat instruction to the app definition.')).toBe(
       false,
     );
 
@@ -1089,7 +1092,7 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
 
     const repairCall = testHarness.generateMock.mock.calls[0]?.[0] as {
-      request: { mode?: string; prompt: string; validationIssues?: string[] };
+      request: { invalidDraft?: string; mode?: string; prompt: string; validationIssues?: Array<{ code: string }> };
       requestId?: string;
     };
     const repairRequest = repairCall.request;
@@ -1109,8 +1112,11 @@ describe('useBuilderSubmission', () => {
     });
 
     expect(repairRequest.mode).toBe('repair');
-    expect(repairRequest.validationIssues).toContain('undefined-state-reference');
-    expect(repairRequest.prompt).toContain('$currentScreen');
+    expect(repairRequest.prompt).toBe('Create an IQ-like test with a quiz screen and a result screen.');
+    expect(repairRequest.invalidDraft).toBe(IQ_BUG_SOURCE);
+    expect(repairRequest.validationIssues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'undefined-state-reference' })]),
+    );
     expect(getBuilderState().committedSource).toBe(REPAIRED_IQ_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
 
@@ -1135,17 +1141,19 @@ describe('useBuilderSubmission', () => {
     const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
-      request: { mode?: string; parentRequestId?: string; prompt: string; validationIssues?: string[] };
+      request: { invalidDraft?: string; mode?: string; parentRequestId?: string; prompt: string; validationIssues?: Array<{ code: string }> };
     }).request;
 
     expect(repairRequest.mode).toBe('repair');
     expect(repairRequest.parentRequestId).toBe(initialRequestId);
-    expect(repairRequest.validationIssues).toEqual([
-      'item-bound-control-without-action',
-      'mutation-uses-array-index-path',
-    ]);
-    expect(repairRequest.prompt).toContain('item-bound-control-without-action');
-    expect(repairRequest.prompt).toContain('mutation-uses-array-index-path');
+    expect(repairRequest.prompt).toBe('Create an item browser with row actions.');
+    expect(repairRequest.invalidDraft).toBe(NEW_BLOCKING_QUALITY_SOURCE);
+    expect(repairRequest.validationIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'item-bound-control-without-action' }),
+        expect.objectContaining({ code: 'mutation-uses-array-index-path' }),
+      ]),
+    );
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
 
     submission.unmount();
@@ -1197,7 +1205,7 @@ describe('useBuilderSubmission', () => {
 
       const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
         const request = (requestOptions as { request: { mode?: string; prompt: string } }).request;
-        return request.mode === 'repair' && request.prompt.includes(prompt);
+        return request.mode === 'repair' && request.prompt === prompt;
       });
 
       expect(repairCalls).toHaveLength(1);
@@ -1232,7 +1240,7 @@ describe('useBuilderSubmission', () => {
 
       const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
         const request = (requestOptions as { request: { mode?: string; prompt: string } }).request;
-        return request.mode === 'repair' && request.prompt.includes(prompt);
+        return request.mode === 'repair' && request.prompt === prompt;
       });
 
       expect(repairCalls).toHaveLength(1);
@@ -1268,16 +1276,16 @@ describe('useBuilderSubmission', () => {
 
     const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
       const request = (requestOptions as {
-        request: { mode?: string; prompt: string; validationIssues?: string[] };
+        request: { mode?: string; prompt: string; validationIssues?: Array<{ code: string }> };
       }).request;
-      return request.mode === 'repair' && request.prompt.includes('Create a complex app with two screens');
+      return request.mode === 'repair' && request.prompt === 'Create a complex app with two screens, filtering, a random number button, validation, and a dark theme.';
     });
 
     expect(repairCalls).toHaveLength(1);
-    expect((repairCalls[0]?.[0] as { request: { validationIssues?: string[] } }).request.validationIssues).toEqual(
+    expect((repairCalls[0]?.[0] as { request: { validationIssues?: Array<{ code: string }> } }).request.validationIssues).toEqual(
       expect.arrayContaining([
-        'quality-random-result-not-visible',
-        'reserved-last-choice-outside-action-mode',
+        expect.objectContaining({ code: 'quality-random-result-not-visible' }),
+        expect.objectContaining({ code: 'reserved-last-choice-outside-action-mode' }),
       ]),
     );
     expect(getBuilderState().committedSource).toBe(REPAIRED_SMOKE_COMPLEX_SOURCE);

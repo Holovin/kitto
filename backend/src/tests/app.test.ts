@@ -25,6 +25,7 @@ describe('createApp', () => {
     const env = createTestEnv({
       FRONTEND_ORIGIN: 'https://builder.kitto.test',
       LLM_CHAT_HISTORY_MAX_ITEMS: 7,
+      LLM_MAX_REPAIR_ATTEMPTS: 2,
       LLM_PROMPT_MAX_CHARS: 321,
       LLM_REQUEST_MAX_BYTES: 654,
     });
@@ -43,6 +44,9 @@ describe('createApp', () => {
         chatHistoryMaxItems: 7,
         promptMaxChars: 321,
         requestMaxBytes: 654,
+      },
+      repair: {
+        maxRepairAttempts: 2,
       },
       timeouts: {
         streamIdleTimeoutMs: 45000,

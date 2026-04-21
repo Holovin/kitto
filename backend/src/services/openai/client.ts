@@ -89,6 +89,8 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
           type: 'input_text',
           text: buildOpenUiUserPrompt(request, {
             chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
+            maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
+            promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
             structuredOutput,
           }),
         },

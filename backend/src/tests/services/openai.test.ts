@@ -90,7 +90,16 @@ const request: PromptBuildRequest = {
 
 const repairRequest: PromptBuildRequest = {
   ...request,
+  invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
   mode: 'repair',
+  validationIssues: [
+    {
+      code: 'unresolved-reference',
+      message: 'This statement was referenced but never defined in the final source.',
+      source: 'parser',
+      statementId: 'items',
+    },
+  ],
 };
 
 function createMockResponseStream(events: unknown[], finalResponse: unknown) {
@@ -360,7 +369,19 @@ describe('generateOpenUiSource', () => {
     const repairRequestWithContext: PromptBuildRequest = {
       ...repairRequest,
       parentRequestId: 'builder-request-parent',
-      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+      validationIssues: [
+        {
+          code: 'unresolved-reference',
+          message: 'This statement was referenced but never defined in the final source.',
+          source: 'parser',
+          statementId: 'items',
+        },
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          source: 'quality',
+        },
+      ],
     };
 
     promptLogWriteFailureMock.mockResolvedValue(undefined);

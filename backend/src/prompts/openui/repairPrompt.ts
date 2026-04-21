@@ -1,10 +1,10 @@
-import type { BuilderParseIssue } from '@features/builder/types';
-
-export const MAX_AUTO_REPAIR_ATTEMPTS = 1;
+import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
 
-const REPAIR_CRITICAL_RULES = [
+const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
+
+export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Return only raw OpenUI Lang.',
   'Return the full updated program.',
   'Use only supported components and tools.',
@@ -26,7 +26,7 @@ const REPAIR_CRITICAL_RULES = [
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
 
-function formatValidationIssue(issue: BuilderParseIssue) {
+function formatValidationIssue(issue: PromptBuildValidationIssue) {
   return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
 }
 
@@ -133,7 +133,7 @@ function allocateRepairSectionBudgets(totalChars: number) {
   return budgets;
 }
 
-function buildRepairIssueSection(issues: BuilderParseIssue[], maxChars: number) {
+function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars: number) {
   if (maxChars <= 0) {
     return '- Validation issues were detected, but they could not be enumerated in full.';
   }
@@ -184,7 +184,7 @@ function buildRepairIssueSection(issues: BuilderParseIssue[], maxChars: number) 
   return sectionLines.length ? sectionLines.join('\n') : '- Validation issues were detected, but they could not be enumerated in full.';
 }
 
-function buildRepairHints(issues: BuilderParseIssue[]) {
+function buildRepairHints(issues: PromptBuildValidationIssue[]) {
   const hints = new Set<string>();
 
   for (const issue of issues) {
@@ -277,7 +277,7 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
   return [...hints];
 }
 
-function getRepairIssueMode(issues: BuilderParseIssue[]): RepairIssueMode {
+function getRepairIssueMode(issues: PromptBuildValidationIssue[]): RepairIssueMode {
   const hasQualityIssues = issues.some((issue) => issue.source === 'quality');
   const hasNonQualityIssues = issues.some((issue) => issue.source !== 'quality');
 
@@ -288,8 +288,10 @@ function getRepairIssueMode(issues: BuilderParseIssue[]): RepairIssueMode {
   return hasQualityIssues ? 'quality' : 'parser';
 }
 
-function buildRepairIntroSection(mode: RepairIssueMode, attemptNumber: number) {
-  const introLines = [`The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${MAX_AUTO_REPAIR_ATTEMPTS}.`];
+function buildRepairIntroSection(mode: RepairIssueMode, attemptNumber: number, maxRepairAttempts: number) {
+  const introLines = [
+    `The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${maxRepairAttempts}.`,
+  ];
 
   if (mode === 'quality') {
     introLines.push('The draft is syntactically valid but fails a product-quality check.');
@@ -338,22 +340,25 @@ function getRepairIssuesSectionTitle(mode: RepairIssueMode) {
   return 'Validation issues';
 }
 
-export function buildRepairPrompt(args: {
-  userPrompt: string;
+interface BuildOpenUiRepairPromptArgs {
+  attemptNumber: number;
   committedSource: string;
   invalidSource: string;
-  issues: BuilderParseIssue[];
-  attemptNumber: number;
+  issues: PromptBuildValidationIssue[];
+  maxRepairAttempts: number;
   promptMaxChars: number;
-}) {
-  const { attemptNumber, committedSource, invalidSource, issues, promptMaxChars, userPrompt } = args;
+  userPrompt: string;
+}
+
+export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
+  const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
   const issueMode = getRepairIssueMode(issues);
   const repairHints = buildRepairHints(issues);
-  const introSection = buildRepairIntroSection(issueMode, attemptNumber);
+  const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const rulesSection = REPAIR_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
+  const rulesSection = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
   const hintsSection = repairHints.map((hint) => `- ${hint}`).join('\n');
   const sectionHeaders = [
     'Original user request:',
@@ -388,4 +393,42 @@ export function buildRepairPrompt(args: {
       .join('\n\n'),
     promptMaxChars,
   );
+}
+
+export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
+  const parserExampleIssues: PromptBuildValidationIssue[] = [
+    {
+      code: 'invalid-prop',
+      message: 'Group.direction must be one of "vertical", "horizontal".',
+      source: 'parser',
+      statementId: 'root',
+    },
+  ];
+  const qualityExampleIssues: PromptBuildValidationIssue[] = [
+    {
+      code: 'quality-stale-persisted-query',
+      message:
+        'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+      source: 'quality',
+      statementId: 'addItem',
+    },
+  ];
+  const mixedExampleIssues = [...parserExampleIssues, ...qualityExampleIssues];
+
+  const buildTemplateVariant = (title: string, issues: PromptBuildValidationIssue[]) =>
+    [title, buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: '{{committedSource}}',
+      invalidSource: '{{invalidDraft}}',
+      issues,
+      maxRepairAttempts,
+      promptMaxChars: REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
+      userPrompt: '{{userPrompt}}',
+    })].join('\n\n');
+
+  return [
+    buildTemplateVariant('Parser-only repair example', parserExampleIssues),
+    buildTemplateVariant('Quality-only repair example', qualityExampleIssues),
+    buildTemplateVariant('Mixed repair example', mixedExampleIssues),
+  ].join('\n\n');
 }

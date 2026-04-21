@@ -1,7 +1,9 @@
 import type { BuilderLlmRequest } from '@features/builder/types';
 
 type SerializedBuilderLlmRequest = Pick<BuilderLlmRequest, 'chatHistory' | 'currentSource' | 'mode' | 'prompt'> & {
+  invalidDraft?: BuilderLlmRequest['invalidDraft'];
   parentRequestId?: BuilderLlmRequest['parentRequestId'];
+  repairAttemptNumber?: BuilderLlmRequest['repairAttemptNumber'];
   validationIssues?: BuilderLlmRequest['validationIssues'];
 };
 
@@ -15,6 +17,14 @@ export function createBuilderLlmRequestPayload(request: BuilderLlmRequest): Seri
 
   if (request.parentRequestId !== undefined) {
     payload.parentRequestId = request.parentRequestId;
+  }
+
+  if (request.repairAttemptNumber !== undefined) {
+    payload.repairAttemptNumber = request.repairAttemptNumber;
+  }
+
+  if (request.invalidDraft !== undefined) {
+    payload.invalidDraft = request.invalidDraft;
   }
 
   if (request.validationIssues !== undefined) {

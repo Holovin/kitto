@@ -22,11 +22,10 @@ export interface BuilderChatNotice {
   tone?: BuilderChatMessage['tone'];
 }
 
-export type BuilderLlmChatMessageRole = Exclude<BuilderChatMessage['role'], 'system'>;
-
 export interface BuilderLlmChatMessage {
   content: string;
-  role: BuilderLlmChatMessageRole;
+  excludeFromLlmContext?: boolean;
+  role: BuilderChatMessage['role'];
 }
 
 export interface BuilderSnapshot {
@@ -64,9 +63,11 @@ export interface BuilderLlmRequest {
   prompt: string;
   currentSource: string;
   chatHistory: BuilderLlmChatMessage[];
+  invalidDraft?: string;
   mode: BuilderLlmRequestMode;
   parentRequestId?: BuilderRequestId;
-  validationIssues?: string[];
+  repairAttemptNumber?: number;
+  validationIssues?: BuilderParseIssue[];
 }
 
 export interface BuilderLlmRequestCompaction {
@@ -92,6 +93,9 @@ export interface BuilderConfigResponse {
     chatHistoryMaxItems: number;
     promptMaxChars: number;
     requestMaxBytes: number;
+  };
+  repair: {
+    maxRepairAttempts: number;
   };
   timeouts: {
     streamIdleTimeoutMs: number;

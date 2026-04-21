@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { BuilderParseIssue } from '@features/builder/types';
-import { buildRepairPrompt } from '@features/builder/hooks/repairPrompt';
+import type { PromptBuildValidationIssue } from '../../prompts/openui.js';
+import { buildOpenUiRepairPrompt } from '../../prompts/openui.js';
 
-describe('buildRepairPrompt', () => {
+describe('buildOpenUiRepairPrompt', () => {
   it('includes Group argument-order rules in every repair prompt', () => {
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Create a settings form with inline groups.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([])',
       issues: [],
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 
@@ -24,7 +25,7 @@ describe('buildRepairPrompt', () => {
   });
 
   it('adds targeted hints when Group.direction fails validation', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'invalid-prop',
         message: 'Group.direction must be one of "vertical", "horizontal".',
@@ -33,12 +34,13 @@ describe('buildRepairPrompt', () => {
       },
     ];
 
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Create a form with inline groups.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([Group("Profile", "block", [], "inline")])',
       issues,
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 
@@ -51,7 +53,7 @@ describe('buildRepairPrompt', () => {
   });
 
   it('adds targeted hints when color props fail validation', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'invalid-prop',
         message: 'Text.appearance.contrastColor must be a #RRGGBB hex color.',
@@ -60,12 +62,13 @@ describe('buildRepairPrompt', () => {
       },
     ];
 
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Add dark mode.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([Text("Hello", "body", "start", { contrastColor: "red" })])',
       issues,
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 
@@ -77,7 +80,7 @@ describe('buildRepairPrompt', () => {
   });
 
   it('adds targeted hints for stale persisted query refresh warnings', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'quality-stale-persisted-query',
         message:
@@ -87,12 +90,13 @@ describe('buildRepairPrompt', () => {
       },
     ];
 
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Create a todo list.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([])',
       issues,
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 
@@ -115,7 +119,7 @@ describe('buildRepairPrompt', () => {
   });
 
   it('injects the control-action-and-binding repair hint into the issues section', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'control-action-and-binding',
         message:
@@ -125,12 +129,13 @@ describe('buildRepairPrompt', () => {
       },
     ];
 
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Create a persisted filter control.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([Select("filter", "Filter", $filter, filterOptions, null, [], Action([]))])',
       issues,
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 
@@ -144,7 +149,7 @@ describe('buildRepairPrompt', () => {
   });
 
   it('keeps parser repair framed as syntax repair instead of quality repair', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'unresolved-reference',
         message: 'This statement was referenced but never defined in the final source.',
@@ -153,12 +158,13 @@ describe('buildRepairPrompt', () => {
       },
     ];
 
-    const prompt = buildRepairPrompt({
+    const prompt = buildOpenUiRepairPrompt({
       userPrompt: 'Create a todo list.',
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([Button("add", "Add", "default", Action([@Run(items)]))])',
       issues,
       attemptNumber: 1,
+      maxRepairAttempts: 1,
       promptMaxChars: 4_000,
     });
 

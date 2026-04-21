@@ -159,9 +159,22 @@ describe('streamBuilderDefinition', () => {
   it('serializes repair linkage fields into the streaming request body', async () => {
     const repairRequest: BuilderLlmRequest = {
       ...request,
+      invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
-      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+      validationIssues: [
+        {
+          code: 'unresolved-reference',
+          message: 'This statement was referenced but never defined in the final source.',
+          source: 'parser',
+          statementId: 'items',
+        },
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          source: 'quality',
+        },
+      ],
     };
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
@@ -187,9 +200,22 @@ describe('streamBuilderDefinition', () => {
       prompt: 'Build a todo app',
       currentSource: '',
       chatHistory: [],
+      invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
-      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+      validationIssues: [
+        {
+          code: 'unresolved-reference',
+          message: 'This statement was referenced but never defined in the final source.',
+          source: 'parser',
+          statementId: 'items',
+        },
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          source: 'quality',
+        },
+      ],
     });
   });
 

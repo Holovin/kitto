@@ -1,7 +1,7 @@
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import { toPublicErrorPayload } from '../../errors/publicError.js';
-import { buildOpenUiRawUserRequest, type PromptBuildRequest } from '../../prompts/openui.js';
+import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '../../prompts/openui.js';
 import { promptLog, type PromptIoCommitSource, type PromptIoLogMode } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
 import { getSystemPromptHash } from './client.js';
@@ -55,7 +55,7 @@ function getPromptLogRawUserRequest(request: PromptBuildRequest) {
 }
 
 function getPromptLogValidationIssues(request: PromptBuildRequest, validationIssues?: string[]) {
-  const mergedIssues = [...(request.validationIssues ?? []), ...(validationIssues ?? [])].filter(
+  const mergedIssues = [...getPromptBuildValidationIssueCodes(request.validationIssues), ...(validationIssues ?? [])].filter(
     (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
   );
 
@@ -99,6 +99,19 @@ function getPartialPromptBuildContext(partialBody: unknown) {
     validationIssues?: unknown;
   };
   const mode = getPromptLogMode(partialRequest.mode);
+  const partialValidationIssues = Array.isArray(partialRequest.validationIssues)
+    ? partialRequest.validationIssues.flatMap((issue) => {
+        if (typeof issue === 'string') {
+          return issue;
+        }
+
+        if (issue && typeof issue === 'object' && 'code' in issue && typeof issue.code === 'string') {
+          return issue.code;
+        }
+
+        return [];
+      })
+    : undefined;
 
   return {
     chatHistoryLen: Array.isArray(partialRequest.chatHistory) ? partialRequest.chatHistory.length : undefined,
@@ -115,9 +128,7 @@ function getPartialPromptBuildContext(partialBody: unknown) {
           })
         : undefined,
     validationIssues: getSanitizedValidationIssues(
-      Array.isArray(partialRequest.validationIssues)
-        ? partialRequest.validationIssues.filter((issue): issue is string => typeof issue === 'string')
-        : undefined,
+      partialValidationIssues,
     ),
   };
 }

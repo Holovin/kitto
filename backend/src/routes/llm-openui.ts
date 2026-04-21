@@ -4,6 +4,12 @@ import { ZodError, z } from 'zod';
 import type { AppEnv } from '../env.js';
 import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
 import { getByteLength } from '../limits.js';
+import {
+  filterPromptBuildChatHistory,
+  type PromptBuildRequest,
+  type PromptBuildValidationIssue,
+  type RawPromptBuildChatHistoryMessage,
+} from '../prompts/openui.js';
 import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
 import { createRequestId, getRequestBytesFromContext, getRequestClientKey, getRequestIdFromContext } from '../requestMetadata.js';
 import { createCommitTelemetryRegistry } from '../services/commitTelemetryRegistry.js';
@@ -16,35 +22,22 @@ interface LlmRequestCompaction {
   omittedChatMessages: number;
 }
 
-interface ParsedLlmRequest {
-  chatHistory: Array<{
-    content: string;
-    role: 'assistant' | 'user';
-  }>;
-  currentSource: string;
-  mode: 'initial' | 'repair';
-  parentRequestId?: string;
-  prompt: string;
-  validationIssues?: string[];
-}
-
 interface RawParsedLlmRequest {
-  chatHistory: Array<{
-    content: string;
-    role: 'assistant' | 'system' | 'user';
-  }>;
+  chatHistory: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
+  invalidDraft?: string;
   mode: 'initial' | 'repair';
   parentRequestId?: string;
   prompt: string;
-  validationIssues?: string[];
+  repairAttemptNumber?: number;
+  validationIssues?: PromptBuildValidationIssue[];
 }
 
 interface PreparedLlmInvocation {
   compaction?: LlmRequestCompaction;
   compactedRequestBytes: number;
   compactionTrimmedItems: number;
-  request: ParsedLlmRequest;
+  request: PromptBuildRequest;
   requestBytes: number;
   requestId: string;
 }
@@ -58,7 +51,7 @@ interface ParsedCommitTelemetryRequest {
 
 interface CompactedLlmRequest {
   compaction?: LlmRequestCompaction;
-  request: ParsedLlmRequest;
+  request: PromptBuildRequest;
 }
 
 const GENERATE_SCOPE = 'POST /api/llm/generate';
@@ -69,20 +62,37 @@ type LlmRouteScope = typeof COMMIT_TELEMETRY_SCOPE | typeof GENERATE_SCOPE | typ
 type SseEventWriter = (event: string, data: string) => boolean;
 
 function createLlmRequestSchema(env: AppEnv) {
+  const validationIssueSchema = z.object({
+    code: z.string().trim().min(1).max(200),
+    message: z.string().trim().min(1).max(2_000),
+    source: z.enum(['mutation', 'parser', 'quality', 'query', 'runtime']).optional(),
+    statementId: z.string().trim().min(1).max(200).optional(),
+    suggestion: z
+      .object({
+        kind: z.literal('replace-text'),
+        from: z.string().max(1_000),
+        to: z.string().max(1_000),
+      })
+      .optional(),
+  });
+
   return z.object({
     prompt: z
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(env.LLM_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_PROMPT_MAX_CHARS} characters.`),
     currentSource: z.string().default(''),
+    invalidDraft: z.string().optional(),
     mode: z.enum(['initial', 'repair']).default('initial'),
     parentRequestId: z.string().trim().min(1).max(200).optional(),
-    validationIssues: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+    repairAttemptNumber: z.coerce.number().int().positive().optional(),
+    validationIssues: z.array(validationIssueSchema).max(20).optional(),
     chatHistory: z
       .array(
         z.object({
           role: z.enum(['assistant', 'system', 'user']),
           content: z.string(),
+          excludeFromLlmContext: z.boolean().optional(),
         }),
       )
       .default([]),
@@ -98,16 +108,10 @@ function createCommitTelemetrySchema() {
   });
 }
 
-function isConversationChatMessage(
-  message: RawParsedLlmRequest['chatHistory'][number],
-): message is ParsedLlmRequest['chatHistory'][number] {
-  return message.role === 'assistant' || message.role === 'user';
-}
-
-function sanitizeLlmRequest(request: RawParsedLlmRequest): ParsedLlmRequest {
+function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {
   return {
     ...request,
-    chatHistory: request.chatHistory.filter(isConversationChatMessage),
+    chatHistory: filterPromptBuildChatHistory(request.chatHistory),
   };
 }
 
@@ -128,11 +132,11 @@ function formatSseEvent(event: string, data: string) {
   return `event: ${event}\n${payload}\n\n`;
 }
 
-function getRequestSizeBytes(request: ParsedLlmRequest) {
+function getRequestSizeBytes(request: PromptBuildRequest) {
   return getByteLength(JSON.stringify(request));
 }
 
-function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): CompactedLlmRequest {
+function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedLlmRequest {
   let compactedByBytes = false;
   let compactedByItemLimit = false;
   let omittedChatMessages = 0;
@@ -144,7 +148,7 @@ function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): CompactedLlm
     chatHistory = chatHistory.slice(-env.LLM_CHAT_HISTORY_MAX_ITEMS);
   }
 
-  let compactedRequest: ParsedLlmRequest = {
+  let compactedRequest: PromptBuildRequest = {
     ...request,
     chatHistory,
   };
@@ -263,7 +267,7 @@ async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<Prep
     throw parseError;
   }
 
-  let request: ParsedLlmRequest;
+  let request: PromptBuildRequest;
 
   try {
     request = sanitizeLlmRequest(createLlmRequestSchema(env).parse(parsedBody));

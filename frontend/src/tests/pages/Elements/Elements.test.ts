@@ -26,7 +26,7 @@ const promptsInfoState = vi.hoisted(() => ({
       type: 'object',
       required: ['summary', 'source'],
     },
-    repairPromptTemplate: 'Original user request:\n{{userPrompt}}',
+    repairPromptTemplate: 'Parser-only repair example\n\nThe previous OpenUI draft cannot be committed yet.',
     systemPrompt: {
       hash: 'abcd1234efgh5678',
       text: 'System prompt body',

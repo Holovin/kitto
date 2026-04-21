@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getBuilderMaxRepairAttempts,
   getApproximateBuilderRequestSizeBytes,
   type BuilderRequestLimits,
   validateBuilderLlmRequest,
@@ -23,6 +24,22 @@ function createRequest(overrides: Partial<BuilderLlmRequest> = {}): BuilderLlmRe
 }
 
 describe('builder request preflight', () => {
+  it('reads the max repair-attempt count from runtime config with a safe fallback', () => {
+    expect(getBuilderMaxRepairAttempts()).toBe(1);
+    expect(
+      getBuilderMaxRepairAttempts({
+        limits: DEFAULT_LIMITS,
+        repair: {
+          maxRepairAttempts: 3,
+        },
+        timeouts: {
+          streamIdleTimeoutMs: 45_000,
+          streamMaxDurationMs: 120_000,
+        },
+      }),
+    ).toBe(3);
+  });
+
   it('measures approximate request bytes from the serialized payload', () => {
     const request = createRequest({
       currentSource: '🙂',

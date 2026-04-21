@@ -36,6 +36,9 @@ describe('GET /api/prompts/info', () => {
     expect(payload.userPromptTemplate).toContain('<user_request>');
     expect(payload.userPromptTemplate).toContain('<current_source>');
     expect(payload.userPromptTemplate).toContain('<recent_history>');
+    expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
+    expect(payload.repairPromptTemplate).toContain('Quality-only repair example');
+    expect(payload.repairPromptTemplate).toContain('Mixed repair example');
     expect(payload.repairPromptTemplate).toContain('Current critical syntax rules:');
     expect(payload.toolSpecs).toEqual(getPromptToolSpecSummaries());
     expect(payload.envelopeSchema).toEqual({

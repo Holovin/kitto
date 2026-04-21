@@ -1,29 +1,12 @@
-export interface PromptBuildRequest {
-  chatHistory: Array<{
-    content: string;
-    role: 'assistant' | 'system' | 'user';
-  }>;
-  currentSource: string;
-  mode: 'initial' | 'repair';
-  parentRequestId?: string;
-  prompt: string;
-  validationIssues?: string[];
-}
+import { filterPromptBuildChatHistory } from './chatHistoryFilter.js';
+import { buildOpenUiRepairPrompt } from './repairPrompt.js';
+import type { PromptBuildChatHistoryMessage, PromptBuildRequest, RawPromptBuildChatHistoryMessage } from './types.js';
 
 interface BuildOpenUiUserPromptOptions {
   chatHistoryMaxItems?: number;
+  maxRepairAttempts?: number;
+  promptMaxChars?: number;
   structuredOutput?: boolean;
-}
-
-interface PromptChatHistoryMessage {
-  content: string;
-  role: 'assistant' | 'user';
-}
-
-function isPromptChatHistoryMessage(
-  message: PromptBuildRequest['chatHistory'][number],
-): message is PromptChatHistoryMessage {
-  return message.role === 'assistant' || message.role === 'user';
 }
 
 function buildPromptDataBlock(tagName: string, content: string) {
@@ -45,7 +28,7 @@ function getUserPromptOutputInstruction(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_OUTPUT_INSTRUCTION : PLAIN_OUTPUT_INSTRUCTION;
 }
 
-export function buildCompactChatHistoryContent(messages: PromptChatHistoryMessage[]) {
+export function buildCompactChatHistoryContent(messages: PromptBuildChatHistoryMessage[]) {
   return messages
     .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
     .join('\n\n');
@@ -70,19 +53,33 @@ export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOpti
 }
 
 export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: BuildOpenUiUserPromptOptions = {}) {
+  if (request.mode === 'repair') {
+    return buildOpenUiRepairPrompt({
+      attemptNumber:
+        typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
+          ? Math.floor(request.repairAttemptNumber)
+          : 1,
+      committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
+      invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
+      issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],
+      maxRepairAttempts:
+        typeof options.maxRepairAttempts === 'number' && options.maxRepairAttempts > 0 ? Math.floor(options.maxRepairAttempts) : 1,
+      promptMaxChars:
+        typeof options.promptMaxChars === 'number' && options.promptMaxChars > 0 ? Math.floor(options.promptMaxChars) : 4_096,
+      userPrompt: buildOpenUiRawUserRequest(request),
+    });
+  }
+
   const currentSourceValue = typeof request.currentSource === 'string' ? request.currentSource : '';
   const chatHistory = Array.isArray(request.chatHistory) ? request.chatHistory : [];
   const chatHistoryMaxItems =
     typeof options.chatHistoryMaxItems === 'number' && options.chatHistoryMaxItems > 0 ? Math.floor(options.chatHistoryMaxItems) : 8;
   const structuredOutput = options.structuredOutput ?? true;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
-  const recentHistory = chatHistory
-    .filter(isPromptChatHistoryMessage)
-    .slice(-chatHistoryMaxItems)
-    .map((message) => ({
-      content: message.content,
-      role: message.role,
-    }));
+  const recentHistory = filterPromptBuildChatHistory(
+    chatHistory as RawPromptBuildChatHistoryMessage[],
+    chatHistoryMaxItems,
+  );
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';
 
   return [

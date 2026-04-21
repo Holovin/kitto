@@ -5,8 +5,7 @@ import {
   BuilderStreamTimeoutError,
   streamBuilderDefinition,
 } from '@features/builder/api/streamGenerate';
-import { getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
-import { buildRequestChatHistory } from './requestChatHistory';
+import { getBuilderMaxRepairAttempts, getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
 import {
   BuilderRequestAbortedError,
   isAbortError,
@@ -73,6 +72,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     }),
   });
   const requestLimits = getBuilderRequestLimits(configState.data);
+  const maxRepairAttempts = getBuilderMaxRepairAttempts(configState.data);
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const streamingSummary = useStreamingSummary();
   const generationLifecycle = useGenerationLifecycle({
@@ -83,6 +83,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     streamMaxDurationMs: streamTimeouts.streamMaxDurationMs,
   });
   const validationRepair = useValidationRepair({
+    maxRepairAttempts,
     requestLimits,
     runGenerateRequest: generationLifecycle.runGenerateRequest,
     throwIfInactiveRequest: generationLifecycle.throwIfInactiveRequest,
@@ -155,7 +156,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     const request: BuilderLlmRequest = {
       prompt: nextPrompt,
       currentSource: committedSource,
-      chatHistory: buildRequestChatHistory(chatMessages, requestLimits.chatHistoryMaxItems),
+      chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
+        content,
+        excludeFromLlmContext,
+        role,
+      })),
       mode: 'initial',
     };
     const requestValidationError = validateBuilderLlmRequest(request, requestLimits);

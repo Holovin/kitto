@@ -193,7 +193,7 @@ describe('builderSlice', () => {
     );
 
     expect(
-      completed.chatMessages.filter((message) => message.content === 'Updated the app definition from the latest chat instruction.'),
+      completed.chatMessages.filter((message) => message.content === 'Applied the latest chat instruction to the app definition.'),
     ).toHaveLength(0);
     expect(completed.chatMessages).toEqual(
       expect.arrayContaining([
@@ -241,7 +241,7 @@ describe('builderSlice', () => {
         {
           id: 'assistant-summary',
           role: 'assistant',
-          content: 'Updated the app definition from the latest chat instruction.',
+          content: 'Applied the latest chat instruction to the app definition.',
           excludeFromLlmContext: true,
           tone: 'success',
           createdAt: '2026-04-19T10:00:00.000Z',
@@ -253,7 +253,7 @@ describe('builderSlice', () => {
       expect.objectContaining({
         id: 'assistant-summary',
         role: 'assistant',
-        content: 'Updated the app definition from the latest chat instruction.',
+        content: 'Applied the latest chat instruction to the app definition.',
         excludeFromLlmContext: true,
       }),
     ]);

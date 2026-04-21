@@ -55,6 +55,7 @@ Notes:
 - The production SPA fallback route allowlist lives in `shared/frontend-routes.json`. Keep it aligned with `frontend/src/router/siteRoutes.ts`; backend fallback tests and frontend route contract tests both depend on it.
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
 - Generation follows a validation, single-repair, and commit pipeline.
+- The backend owns all model-visible prompt assembly for both initial generation and repair flows; the frontend sends raw builder inputs only.
 - Preview renders committed source only.
 
 ## 5. AI usage note
@@ -132,7 +133,7 @@ Notes:
 The supported backend API lives under `/api/*` only.
 
 - `GET /api/health` returns backend status, configured model, timestamp, and OpenAI key presence.
-- `GET /api/config` returns frontend-safe request limits and stream timeout policy.
+- `GET /api/config` returns frontend-safe request limits, stream timeout policy, and repair-attempt policy.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
 - `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events. `chunk` can contain raw structured JSON draft text, while `done.source` carries the extracted OpenUI source used for commit.
 - `POST /api/llm/commit-telemetry` records client-side validation and commit outcomes for a completed generation request without blocking the UI, rejecting unmatched or overused request ids.

@@ -378,7 +378,7 @@ export const builderSlice = createSlice({
           state.chatMessages,
           createMessage(
             'assistant',
-            'Updated the app definition from the latest chat instruction.',
+            'Applied the latest chat instruction to the app definition.',
             'success',
             undefined,
             true,

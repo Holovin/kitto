@@ -7,10 +7,10 @@ import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiS
 import { builderActions } from '@features/builder/store/builderSlice';
 import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
 import { useAppDispatch } from '@store/hooks';
-import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from './repairPrompt';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
+  maxRepairAttempts: number;
   requestLimits: BuilderRequestLimits;
   runGenerateRequest: (
     requestId: BuilderRequestId,
@@ -37,6 +37,7 @@ function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
 }
 
 export function useValidationRepair({
+  maxRepairAttempts,
   requestLimits,
   runGenerateRequest,
   throwIfInactiveRequest,
@@ -85,22 +86,17 @@ export function useValidationRepair({
       });
     }
 
-    async function runRepairRequest(issues: Parameters<typeof buildRepairPrompt>[0]['issues'], attemptNumber: number) {
+    async function runRepairRequest(issues: BuilderParseIssue[], attemptNumber: number) {
       reportRejectedCandidate(issues);
       const repairRequest: BuilderLlmRequest = {
-        prompt: buildRepairPrompt({
-          userPrompt: request.prompt,
-          committedSource: request.currentSource,
-          invalidSource: candidateResponse.source,
-          issues,
-          attemptNumber,
-          promptMaxChars: requestLimits.promptMaxChars,
-        }),
+        prompt: request.prompt,
         currentSource: request.currentSource,
         chatHistory: request.chatHistory,
+        invalidDraft: candidateResponse.source,
         mode: 'repair',
         parentRequestId: requestId,
-        validationIssues: issues.map((issue) => issue.code),
+        repairAttemptNumber: attemptNumber,
+        validationIssues: issues,
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 
@@ -220,7 +216,7 @@ export function useValidationRepair({
         };
       }
 
-      if (parserRepairCount >= MAX_AUTO_REPAIR_ATTEMPTS) {
+      if (parserRepairCount >= maxRepairAttempts) {
         reportRejectedCandidate(validation.issues);
         throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
       }

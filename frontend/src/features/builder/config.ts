@@ -24,6 +24,7 @@ const DEFAULT_BUILDER_STREAM_TIMEOUTS = {
   streamIdleTimeoutMs: 45_000,
   streamMaxDurationMs: 120_000,
 };
+const DEFAULT_BUILDER_MAX_REPAIR_ATTEMPTS = 1;
 
 export interface BuilderRequestLimits {
   chatHistoryMaxItems: number;
@@ -34,6 +35,10 @@ export interface BuilderRequestLimits {
 interface BuilderStreamTimeouts {
   streamIdleTimeoutMs: number;
   streamMaxDurationMs: number;
+}
+
+export function getBuilderMaxRepairAttempts(config?: BuilderConfigResponse) {
+  return parsePositiveInteger(config?.repair.maxRepairAttempts, DEFAULT_BUILDER_MAX_REPAIR_ATTEMPTS);
 }
 
 export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits {

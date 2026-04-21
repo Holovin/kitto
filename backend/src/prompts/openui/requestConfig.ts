@@ -1,5 +1,5 @@
 import type { AppEnv } from '../../env.js';
-import type { PromptBuildRequest } from './userPrompt.js';
+import type { PromptBuildRequest } from './types.js';
 
 // Keep initial drafts somewhat creative, but repair passes should stay tighter.
 const INITIAL_OPENUI_TEMPERATURE = 0.6;

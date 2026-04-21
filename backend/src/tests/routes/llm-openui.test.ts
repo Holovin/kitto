@@ -28,6 +28,12 @@ import { getRawRequestMaxBytes } from '../../limits.js';
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
 const streamOpenUiSourceMock = vi.mocked(streamOpenUiSource);
 const textEncoder = new TextEncoder();
+const unresolvedReferenceIssue = {
+  code: 'unresolved-reference',
+  message: 'This statement was referenced but never defined in the final source.',
+  source: 'parser' as const,
+  statementId: 'items',
+};
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
@@ -472,6 +478,42 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
+  it('filters excludeFromLlmContext and legacy assistant summaries before compaction and generation', async () => {
+    const { app } = createRouteApp({
+      LLM_CHAT_HISTORY_MAX_ITEMS: 5,
+    });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'build a compact app',
+        currentSource: '',
+        chatHistory: [
+          { role: 'assistant', content: 'Updated the app definition from the latest chat instruction.' },
+          { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
+          { role: 'assistant', content: 'Keep this out of context.', excludeFromLlmContext: true },
+          { role: 'user', content: 'Add sorting controls.' },
+        ],
+      }),
+    });
+    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(calledRequest).toEqual({
+      prompt: 'build a compact app',
+      currentSource: '',
+      mode: 'initial',
+      chatHistory: [
+        { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
+        { role: 'user', content: 'Add sorting controls.' },
+      ],
+    });
+  });
+
   it('passes through explicit repair mode to the OpenAI service request', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
@@ -484,6 +526,7 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'repair this invalid app',
         currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'repair',
         chatHistory: [],
       }),
@@ -495,6 +538,7 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'repair this invalid app',
       currentSource: 'root = AppShell([])',
       mode: 'repair',
+      invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       chatHistory: [],
     });
   });
@@ -511,9 +555,10 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'repair this invalid app',
         currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'repair',
         parentRequestId: 'builder-request-parent',
-        validationIssues: ['unresolved-reference'],
+        validationIssues: [unresolvedReferenceIssue],
         chatHistory: [],
       }),
     });
@@ -523,9 +568,10 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledRequest).toEqual({
       prompt: 'repair this invalid app',
       currentSource: 'root = AppShell([])',
+      invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
-      validationIssues: ['unresolved-reference'],
+      validationIssues: [unresolvedReferenceIssue],
       chatHistory: [],
     });
   });
