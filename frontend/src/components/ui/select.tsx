@@ -9,13 +9,18 @@ const SelectValue = SelectPrimitive.Value;
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, style, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
       'flex h-11 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60 [&>span]:line-clamp-1',
       className,
     )}
+    style={{
+      backgroundColor: 'var(--kitto-main-color, #FFFFFF)',
+      color: 'var(--kitto-contrast-color, #0F172A)',
+      ...style,
+    }}
     {...props}
   >
     {children}
@@ -32,7 +37,7 @@ type SelectContentProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.
 };
 
 const SelectContent = React.forwardRef<React.ElementRef<typeof SelectPrimitive.Content>, SelectContentProps>(
-  ({ className, children, portalled = true, position = 'popper', ...props }, ref) => {
+  ({ className, children, portalled = true, position = 'popper', style, ...props }, ref) => {
     const content = (
       <SelectPrimitive.Content
         ref={ref}
@@ -42,6 +47,11 @@ const SelectContent = React.forwardRef<React.ElementRef<typeof SelectPrimitive.C
           className,
         )}
         position={position}
+        style={{
+          backgroundColor: 'var(--kitto-main-color, #FFFFFF)',
+          color: 'var(--kitto-contrast-color, #0F172A)',
+          ...style,
+        }}
         {...props}
       >
         <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1">

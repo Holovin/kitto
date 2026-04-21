@@ -31,7 +31,7 @@ function RepeaterRenderer({
 
   return (
     <KittoAppearanceProvider appearance={props.appearance}>
-      <div className="flex flex-col gap-3" style={repeaterStyle}>
+      <div className="flex flex-col gap-3 rounded-xl p-3" style={repeaterStyle}>
         {content}
       </div>
     </KittoAppearanceProvider>

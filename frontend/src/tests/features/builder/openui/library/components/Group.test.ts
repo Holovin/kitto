@@ -34,6 +34,8 @@ describe('GroupComponent', () => {
   ])
 ])`);
 
+    expect(html).toContain('rounded-xl');
+    expect(html).toContain('p-3');
     expect(html).not.toContain('border-slate-200/70');
     expect(html).not.toContain('bg-slate-50/80');
     expect(html).not.toContain('pt-6');

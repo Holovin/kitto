@@ -50,7 +50,7 @@ function GroupRenderer({
 
     return (
       <KittoAppearanceProvider appearance={props.appearance}>
-        <div className="flex flex-col gap-3" style={inlineStyle}>
+        <div className="flex flex-col gap-3 rounded-xl p-3" style={inlineStyle}>
           {props.title ? (
             <div className="text-sm font-medium leading-6 text-slate-700" style={titleStyle}>
               {props.title}

@@ -9,13 +9,15 @@ function renderOpenUi(source: string) {
 }
 
 describe('RepeaterComponent', () => {
-  it('keeps the same outer layout wrapper for empty states without forcing a white surface', () => {
+  it('keeps the empty-state wrapper lightweight without forcing a white surface', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Repeater([], "Nothing to show yet.")
   ])
 ])`);
 
-    expect(html).toContain('<div class="flex flex-col gap-3"><div class="text-sm text-current opacity-80">Nothing to show yet.</div></div>');
+    expect(html).toContain(
+      '<div class="flex flex-col gap-3 rounded-xl p-3"><div class="text-sm text-current opacity-80">Nothing to show yet.</div></div>',
+    );
   });
 });

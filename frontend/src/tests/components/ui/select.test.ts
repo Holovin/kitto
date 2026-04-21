@@ -9,6 +9,29 @@ type ThemedStyle = CSSProperties & {
 };
 
 describe('SelectContent', () => {
+  it('uses a white fallback surface when no theme variables are provided', () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        Select,
+        {
+          defaultOpen: true,
+          defaultValue: 'all',
+        },
+        createElement(SelectTrigger, null, createElement(SelectValue, { placeholder: 'All tasks' })),
+        createElement(
+          SelectContent,
+          {
+            portalled: false,
+          },
+          createElement(SelectItem, { value: 'all' }, 'All tasks'),
+        ),
+      ),
+    );
+
+    expect(html).toContain('background-color:var(--kitto-main-color, #FFFFFF)');
+    expect(html).toContain('color:var(--kitto-contrast-color, #0F172A)');
+  });
+
   it('can render inline without a portal so inherited theme variables remain available', () => {
     const themedStyle: ThemedStyle = {
       '--kitto-main-color': '#111827',
