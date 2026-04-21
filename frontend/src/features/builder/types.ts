@@ -64,6 +64,8 @@ export interface BuilderLlmRequest {
   currentSource: string;
   chatHistory: BuilderLlmChatMessage[];
   mode: BuilderLlmRequestMode;
+  parentRequestId?: BuilderRequestId;
+  validationIssues?: string[];
 }
 
 export interface BuilderLlmRequestCompaction {

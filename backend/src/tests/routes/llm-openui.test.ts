@@ -436,6 +436,37 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
+  it('passes parentRequestId and validationIssues through to the OpenAI service request', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        mode: 'repair',
+        parentRequestId: 'builder-request-parent',
+        validationIssues: ['unresolved-reference'],
+        chatHistory: [],
+      }),
+    });
+    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(calledRequest).toEqual({
+      prompt: 'repair this invalid app',
+      currentSource: 'root = AppShell([])',
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference'],
+      chatHistory: [],
+    });
+  });
+
   it('passes x-kitto-request-id through to the non-stream OpenAI service call', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });

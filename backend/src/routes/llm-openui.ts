@@ -20,7 +20,9 @@ interface ParsedLlmRequest {
   }>;
   currentSource: string;
   mode: 'initial' | 'repair';
+  parentRequestId?: string;
   prompt: string;
+  validationIssues?: string[];
 }
 
 interface RawParsedLlmRequest {
@@ -30,7 +32,9 @@ interface RawParsedLlmRequest {
   }>;
   currentSource: string;
   mode: 'initial' | 'repair';
+  parentRequestId?: string;
   prompt: string;
+  validationIssues?: string[];
 }
 
 interface PreparedLlmInvocation {
@@ -52,6 +56,8 @@ function createLlmRequestSchema(env: AppEnv) {
       .max(env.LLM_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_PROMPT_MAX_CHARS} characters.`),
     currentSource: z.string().default(''),
     mode: z.enum(['initial', 'repair']).default('initial'),
+    parentRequestId: z.string().trim().min(1).max(200).optional(),
+    validationIssues: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
     chatHistory: z
       .array(
         z.object({

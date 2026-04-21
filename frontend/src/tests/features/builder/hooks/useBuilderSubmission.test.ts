@@ -891,12 +891,18 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
-      request: { mode?: string; prompt: string };
+      request: { mode?: string; parentRequestId?: string; prompt: string; validationIssues?: string[] };
     }).request;
 
     expect(repairRequest.mode).toBe('repair');
+    expect(repairRequest.parentRequestId).toBe(initialRequestId);
+    expect(repairRequest.validationIssues).toEqual([
+      'item-bound-control-without-action',
+      'mutation-uses-array-index-path',
+    ]);
     expect(repairRequest.prompt).toContain('item-bound-control-without-action');
     expect(repairRequest.prompt).toContain('mutation-uses-array-index-path');
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);

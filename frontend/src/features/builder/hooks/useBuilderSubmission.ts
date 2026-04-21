@@ -342,6 +342,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         currentSource: request.currentSource,
         chatHistory: request.chatHistory,
         mode: 'repair',
+        parentRequestId: requestId,
+        validationIssues: issues.map((issue) => issue.code),
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 

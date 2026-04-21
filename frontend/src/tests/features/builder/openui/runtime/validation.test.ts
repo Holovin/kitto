@@ -1549,6 +1549,27 @@ root = AppShell([
     expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
   });
 
+  it('treats local color-tag requests as appearance styling, not shared theme-state flows', () => {
+    const issues = detectOpenUiQualityIssues(
+      `mealTypeTag = { mainColor: "#DBEAFE", contrastColor: "#1D4ED8" }
+effortTag = { mainColor: "#FEF3C7", contrastColor: "#92400E" }
+
+root = AppShell([
+  Screen("main", "Meals", [
+    Group("Meal card", "horizontal", [
+      Text("Soup", "body", "start"),
+      Button("type-tag", "Lunch", "secondary", null, false, mealTypeTag),
+      Button("effort-tag", "Quick", "secondary", null, false, effortTag)
+    ], "inline")
+  ])
+])`,
+      'Add color tags for meal type and prep effort.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
   it('does not mark persisted refresh as blocking when the matching query reruns later in the same Action', () => {
     const issues = detectOpenUiQualityIssues(
       `$draft = ""

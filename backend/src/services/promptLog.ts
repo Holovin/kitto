@@ -6,10 +6,14 @@ export const DEFAULT_PROMPT_IO_LOG_MAX_CHARS = 16_000;
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-export interface PromptIoLogEntry {
+type PromptIoLogMode = 'initial' | 'repair';
+type PromptIoFailurePhase = 'parse' | 'request' | 'stream';
+
+interface PromptIoLogEntryBase {
   ts: string;
   requestId: string | null;
-  mode: 'initial' | 'repair';
+  parentRequestId?: string | null;
+  mode: PromptIoLogMode;
   userPrompt: string;
   currentSourceLen: number;
   chatHistoryLen: number;
@@ -20,6 +24,14 @@ export interface PromptIoLogEntry {
   usage: unknown;
   validationIssues?: string[];
   durationMs: number;
+}
+
+export interface PromptIoLogEntry extends PromptIoLogEntryBase {}
+
+export interface PromptIoFailureLogEntry extends PromptIoLogEntryBase {
+  errorCode: string;
+  errorMessage: string;
+  phase: PromptIoFailurePhase;
 }
 
 interface PromptLogWriteOptions {
@@ -91,27 +103,35 @@ function sanitizeForJson(value: unknown, maxStringChars: number): JsonValue | un
   return undefined;
 }
 
+async function writePromptLogEntry(entry: PromptIoLogEntry | PromptIoFailureLogEntry, options: PromptLogWriteOptions) {
+  if (!options.enabled) {
+    return;
+  }
+
+  const filePath = options.filePath ?? resolvePromptIoLogPath();
+  const maxStringChars = options.maxStringChars ?? DEFAULT_PROMPT_IO_LOG_MAX_CHARS;
+  const serializedEntry = sanitizeForJson(entry, maxStringChars);
+
+  if (!serializedEntry || Array.isArray(serializedEntry) || typeof serializedEntry !== 'object') {
+    throw new Error('Prompt log entry must serialize to a JSON object.');
+  }
+
+  const line = `${JSON.stringify(serializedEntry)}\n`;
+
+  writeQueue = writeQueue.catch(() => undefined).then(async () => {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await appendFile(filePath, line, 'utf8');
+  });
+
+  await writeQueue;
+}
+
 export const promptLog = {
   async write(entry: PromptIoLogEntry, options: PromptLogWriteOptions) {
-    if (!options.enabled) {
-      return;
-    }
+    await writePromptLogEntry(entry, options);
+  },
 
-    const filePath = options.filePath ?? resolvePromptIoLogPath();
-    const maxStringChars = options.maxStringChars ?? DEFAULT_PROMPT_IO_LOG_MAX_CHARS;
-    const serializedEntry = sanitizeForJson(entry, maxStringChars);
-
-    if (!serializedEntry || Array.isArray(serializedEntry) || typeof serializedEntry !== 'object') {
-      throw new Error('Prompt log entry must serialize to a JSON object.');
-    }
-
-    const line = `${JSON.stringify(serializedEntry)}\n`;
-
-    writeQueue = writeQueue.catch(() => undefined).then(async () => {
-      await mkdir(path.dirname(filePath), { recursive: true });
-      await appendFile(filePath, line, 'utf8');
-    });
-
-    await writeQueue;
+  async writeFailure(entry: PromptIoFailureLogEntry, options: PromptLogWriteOptions) {
+    await writePromptLogEntry(entry, options);
   },
 };

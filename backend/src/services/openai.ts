@@ -3,7 +3,7 @@ import OpenAI, { APIUserAbortError } from 'openai';
 import type { ResponseFormatTextJSONSchemaConfig, ResponseInput } from 'openai/resources/responses/responses';
 import { z } from 'zod';
 import type { AppEnv } from '../env.js';
-import { UpstreamFailureError } from '../errors/publicError.js';
+import { toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
 import { getByteLength, getRawStructuredOutputMaxBytes } from '../limits.js';
 import { buildOpenUiSystemPrompt, buildOpenUiUserPrompt, getOpenUiSystemPromptCacheKey, type PromptBuildRequest } from '../prompts/openui.js';
 import { promptLog } from './promptLog.js';
@@ -194,6 +194,14 @@ function getPromptLogUserPrompt(env: AppEnv, request: PromptBuildRequest) {
   });
 }
 
+function getPromptLogValidationIssues(request: PromptBuildRequest, validationIssues?: string[]) {
+  const mergedIssues = [...(request.validationIssues ?? []), ...(validationIssues ?? [])].filter(
+    (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
+  );
+
+  return mergedIssues.length > 0 ? [...new Set(mergedIssues)] : undefined;
+}
+
 function coerceRawModelOutput(rawModelText: unknown) {
   if (typeof rawModelText === 'string') {
     return rawModelText;
@@ -228,6 +236,22 @@ function getCachedInputTokens(usage: unknown) {
   }
 
   return getNumericField((usage as { prompt_tokens_details?: { cached_tokens?: unknown } }).prompt_tokens_details?.cached_tokens);
+}
+
+function getPromptLogErrorCode(error: unknown) {
+  return toPublicErrorPayload(error).code;
+}
+
+function getPromptLogErrorMessage(error: unknown) {
+  if (error instanceof Error && typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function isAbortedRequestError(error: unknown, signal?: AbortSignal) {
+  return error instanceof APIUserAbortError || signal?.aborted === true;
 }
 
 function logResponseUsage(env: AppEnv, phase: 'create' | 'stream', response: unknown) {
@@ -425,6 +449,7 @@ async function writePromptIoLogSafely(
       {
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
+        parentRequestId: request.parentRequestId ?? null,
         mode: request.mode,
         userPrompt: getPromptLogUserPrompt(env, request),
         currentSourceLen: request.currentSource.length,
@@ -434,7 +459,7 @@ async function writePromptIoLogSafely(
         modelOutputRaw: coerceRawModelOutput(rawModelText),
         parsedEnvelope: options.parsedEnvelope,
         usage: options.usage,
-        validationIssues: options.validationIssues,
+        validationIssues: getPromptLogValidationIssues(request, options.validationIssues),
         durationMs: options.durationMs,
       },
       {
@@ -443,6 +468,51 @@ async function writePromptIoLogSafely(
     );
   } catch (error) {
     console.warn('[prompt-log] Failed to write prompt I/O log entry.', error);
+  }
+}
+
+async function writePromptIoFailureSafely(
+  env: AppEnv,
+  request: PromptBuildRequest,
+  responseRequest: OpenUiResponseRequest,
+  rawModelText: unknown,
+  options: {
+    durationMs: number;
+    error: unknown;
+    parsedEnvelope?: OpenUiGenerationEnvelope | null;
+    phase: 'request' | 'stream' | 'parse';
+    requestId?: string | null;
+    usage: unknown;
+    validationIssues?: string[];
+  },
+) {
+  try {
+    await promptLog.writeFailure(
+      {
+        ts: new Date().toISOString(),
+        requestId: options.requestId ?? null,
+        parentRequestId: request.parentRequestId ?? null,
+        mode: request.mode,
+        userPrompt: getPromptLogUserPrompt(env, request),
+        currentSourceLen: request.currentSource.length,
+        chatHistoryLen: request.chatHistory.length,
+        systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
+        modelInput: buildPromptLogModelInput(responseRequest),
+        modelOutputRaw: coerceRawModelOutput(rawModelText),
+        parsedEnvelope: options.parsedEnvelope ?? null,
+        usage: options.usage,
+        validationIssues: getPromptLogValidationIssues(request, options.validationIssues),
+        errorCode: getPromptLogErrorCode(options.error),
+        errorMessage: getPromptLogErrorMessage(options.error),
+        phase: options.phase,
+        durationMs: options.durationMs,
+      },
+      {
+        enabled: env.PROMPT_IO_LOG,
+      },
+    );
+  } catch (error) {
+    console.warn('[prompt-log] Failed to write prompt I/O failure log entry.', error);
   }
 }
 
@@ -458,23 +528,27 @@ async function finalizeOpenUiModelResponse(
   },
 ) {
   let parsedEnvelope: OpenUiGenerationEnvelope | null = null;
-  let validationIssues: string[] | undefined;
 
   try {
     parsedEnvelope = extractOpenUiEnvelopeFromModelText(rawModelText, env);
     assertModelOutputWithinLimit(parsedEnvelope.source, env);
-    return parsedEnvelope;
-  } catch (error) {
-    validationIssues = error instanceof Error ? [error.message] : ['Unknown prompt/output validation failure.'];
-    throw error;
-  } finally {
     await writePromptIoLogSafely(env, request, responseRequest, rawModelText, {
       durationMs: options.durationMs,
       parsedEnvelope,
       requestId: options.requestId,
       usage: options.usage,
-      validationIssues,
     });
+    return parsedEnvelope;
+  } catch (error) {
+    await writePromptIoFailureSafely(env, request, responseRequest, rawModelText, {
+      durationMs: options.durationMs,
+      error,
+      parsedEnvelope,
+      phase: 'parse',
+      requestId: options.requestId,
+      usage: options.usage,
+    });
+    throw error;
   }
 }
 
@@ -487,13 +561,29 @@ export async function generateOpenUiSource(
   const client = getClient(env);
   const responseRequest = buildResponseRequest(env, request);
   const startedAt = Date.now();
-  const response = await client.responses.create(
-    responseRequest,
-    {
-      signal,
-      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
-    },
-  );
+  let response;
+
+  try {
+    response = await client.responses.create(
+      responseRequest,
+      {
+        signal,
+        timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      },
+    );
+  } catch (error) {
+    if (!isAbortedRequestError(error, signal)) {
+      await writePromptIoFailureSafely(env, request, responseRequest, '', {
+        durationMs: Date.now() - startedAt,
+        error,
+        phase: 'request',
+        requestId,
+        usage: null,
+      });
+    }
+
+    throw error;
+  }
   logResponseUsage(env, 'create', response);
 
   return finalizeOpenUiModelResponse(env, request, responseRequest, extractResponseText(response), {
@@ -513,13 +603,29 @@ export async function streamOpenUiSource(
   const client = getClient(env);
   const responseRequest = buildResponseRequest(env, request);
   const startedAt = Date.now();
-  const stream = client.responses.stream(
-    responseRequest,
-    {
-      signal,
-      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
-    },
-  );
+  let stream;
+
+  try {
+    stream = client.responses.stream(
+      responseRequest,
+      {
+        signal,
+        timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      },
+    );
+  } catch (error) {
+    if (!isAbortedRequestError(error, signal)) {
+      await writePromptIoFailureSafely(env, request, responseRequest, '', {
+        durationMs: Date.now() - startedAt,
+        error,
+        phase: 'request',
+        requestId,
+        usage: null,
+      });
+    }
+
+    throw error;
+  }
   let streamedText = '';
   let streamedTextBytes = 0;
   let hasAbortedStream = false;
@@ -541,6 +647,9 @@ export async function streamOpenUiSource(
   }
 
   signal?.addEventListener('abort', handleAbort, { once: true });
+
+  let finalResponse: { usage?: unknown } | null = null;
+  let finalResponseText: string | null = null;
 
   try {
     for await (const event of stream) {
@@ -569,16 +678,29 @@ export async function streamOpenUiSource(
     }
 
     throwIfAborted(signal, { abort: abortStream });
-    const finalResponse = await stream.finalResponse();
+    finalResponse = await stream.finalResponse();
     throwIfAborted(signal, { abort: abortStream });
     logResponseUsage(env, 'stream', finalResponse);
-    const finalResponseText = extractResponseText(finalResponse);
-    return finalizeOpenUiModelResponse(env, request, responseRequest, finalResponseText || streamedText, {
-      durationMs: Date.now() - startedAt,
-      requestId,
-      usage: finalResponse.usage,
-    });
+    finalResponseText = extractResponseText(finalResponse) || streamedText;
+  } catch (error) {
+    if (!isAbortedRequestError(error, signal)) {
+      await writePromptIoFailureSafely(env, request, responseRequest, streamedText, {
+        durationMs: Date.now() - startedAt,
+        error,
+        phase: 'stream',
+        requestId,
+        usage: finalResponse?.usage ?? null,
+      });
+    }
+
+    throw error;
   } finally {
     signal?.removeEventListener('abort', handleAbort);
   }
+
+  return finalizeOpenUiModelResponse(env, request, responseRequest, finalResponseText, {
+    durationMs: Date.now() - startedAt,
+    requestId,
+    usage: finalResponse?.usage ?? null,
+  });
 }

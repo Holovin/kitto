@@ -22,6 +22,7 @@ import {
   promptRequestsTheme,
   promptRequestsTodo,
   promptRequestsValidation,
+  promptRequestsVisualStyling,
 } from './qualitySignals';
 import {
   createOpenUiQualityIssue,
@@ -85,7 +86,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
 
   if (
     hasPromptContext &&
-    !promptRequestsTheme(trimmedPrompt) &&
+    !promptRequestsVisualStyling(trimmedPrompt) &&
     (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))
   ) {
     issues.push(

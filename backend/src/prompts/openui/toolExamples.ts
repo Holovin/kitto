@@ -29,6 +29,32 @@ root = AppShell([
 ])`,
   `WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
 OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`,
+  `$selectedExpenseId = ""
+$editTitle = ""
+
+expenses = Query("read_state", { path: "app.expenses" }, [])
+updateExpenseTitle = Mutation("update_item_field", {
+  path: "app.expenses",
+  idField: "id",
+  id: $selectedExpenseId,
+  field: "title",
+  value: $editTitle
+})
+expenseRows = @Each(expenses, "expense", Group(null, "horizontal", [
+  Text(expense.title, "body", "start"),
+  Button("edit-" + expense.id, "Edit", "secondary", Action([@Set($selectedExpenseId, expense.id), @Set($editTitle, expense.title)]), false)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Expenses", [
+    Repeater(expenseRows, "No expenses yet."),
+    Group("Edit selected expense", "vertical", [
+      Text($selectedExpenseId == "" ? "Select an expense to edit." : "Update the selected expense title.", "muted", "start"),
+      Input("editTitle", "Title", $editTitle, "Expense title"),
+      Button("save-expense", "Save", "default", Action([@Run(updateExpenseTitle), @Run(expenses)]), $selectedExpenseId == "" || $editTitle == "")
+    ])
+  ])
+])`,
   `$currentTheme = "light"
 $name = "Ada"
 $preferredContact = "email"

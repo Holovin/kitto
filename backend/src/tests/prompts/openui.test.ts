@@ -59,8 +59,8 @@ describe('openui prompts', () => {
     expect(structuredKey).not.toBe(plainTextKey);
     expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
       {
-        "plainTextKey": "kitto:openui:pl:9e12e681c279:8273f2702af07ede",
-        "structuredKey": "kitto:openui:st:9e12e681c279:b394dd90619f787d",
+        "plainTextKey": "kitto:openui:pl:9e12e681c279:6109f06edffe0a12",
+        "structuredKey": "kitto:openui:st:9e12e681c279:845ee62d625163e0",
       }
     `);
   });
@@ -106,6 +106,12 @@ describe('openui prompts', () => {
     expect(prompt).toContain('APPEARANCE / THEME CONTRACT:');
     expect(prompt).toContain(
       'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
+    );
+    expect(prompt).toContain(
+      'Only introduce `$currentTheme`, `lightTheme`, `darkTheme`, and theme-toggle buttons when the user asks for app-wide light/dark switching or a theme toggle.',
+    );
+    expect(prompt).toContain(
+      'If the request is only for color tags, accents, badges, or one-off color changes, use direct `appearance` overrides instead of shared theme state.',
     );
     expect(prompt).toContain(
       'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
@@ -352,6 +358,22 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain(
       'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
+    );
+  });
+
+  it('documents edit-flow recipes and explicit undefined-identifier guardrails', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain(
+      'Every identifier used on the right-hand side of any expression must have a matching top-level `name = ...` definition. Do not reference undefined names.',
+    );
+    expect(prompt).toContain('$selectedExpenseId = ""');
+    expect(prompt).toContain('updateExpenseTitle = Mutation("update_item_field", {');
+    expect(prompt).toContain(
+      'Button("edit-" + expense.id, "Edit", "secondary", Action([@Set($selectedExpenseId, expense.id), @Set($editTitle, expense.title)]), false)',
+    );
+    expect(prompt).toContain(
+      'Button("save-expense", "Save", "default", Action([@Run(updateExpenseTitle), @Run(expenses)]), $selectedExpenseId == "" || $editTitle == "")',
     );
   });
 

@@ -3,7 +3,37 @@ import type { PromptBuildRequest } from '../../prompts/openui.js';
 import { UpstreamFailureError } from '../../errors/publicError.js';
 import { createTestEnv } from '../createTestEnv.js';
 
-const { MockApiUserAbortError, promptLogWriteMock, responsesCreateMock, responsesStreamMock } = vi.hoisted(() => {
+const {
+  MockApiConnectionError,
+  MockApiConnectionTimeoutError,
+  MockApiError,
+  MockApiUserAbortError,
+  promptLogWriteFailureMock,
+  promptLogWriteMock,
+  responsesCreateMock,
+  responsesStreamMock,
+} = vi.hoisted(() => {
+  class HoistedMockApiError extends Error {
+    constructor(message = 'Mock API error') {
+      super(message);
+      this.name = 'APIError';
+    }
+  }
+
+  class HoistedMockApiConnectionError extends HoistedMockApiError {
+    constructor(message = 'Mock API connection error') {
+      super(message);
+      this.name = 'APIConnectionError';
+    }
+  }
+
+  class HoistedMockApiConnectionTimeoutError extends HoistedMockApiConnectionError {
+    constructor(message = 'Mock API connection timeout error') {
+      super(message);
+      this.name = 'APIConnectionTimeoutError';
+    }
+  }
+
   class HoistedMockApiUserAbortError extends Error {
     constructor() {
       super('Request was aborted.');
@@ -12,7 +42,11 @@ const { MockApiUserAbortError, promptLogWriteMock, responsesCreateMock, response
   }
 
   return {
+    MockApiConnectionError: HoistedMockApiConnectionError,
+    MockApiConnectionTimeoutError: HoistedMockApiConnectionTimeoutError,
+    MockApiError: HoistedMockApiError,
     MockApiUserAbortError: HoistedMockApiUserAbortError,
+    promptLogWriteFailureMock: vi.fn(),
     promptLogWriteMock: vi.fn(),
     responsesCreateMock: vi.fn(),
     responsesStreamMock: vi.fn(),
@@ -22,6 +56,7 @@ const { MockApiUserAbortError, promptLogWriteMock, responsesCreateMock, response
 vi.mock(import('../../services/promptLog.js'), () => ({
   promptLog: {
     write: promptLogWriteMock,
+    writeFailure: promptLogWriteFailureMock,
   },
 }));
 
@@ -36,6 +71,9 @@ vi.mock('openai', () => {
   }
 
   return {
+    APIConnectionError: MockApiConnectionError,
+    APIConnectionTimeoutError: MockApiConnectionTimeoutError,
+    APIError: MockApiError,
     APIUserAbortError: MockApiUserAbortError,
     default: MockOpenAI,
   };
@@ -165,6 +203,7 @@ describe('parseOpenUiGenerationEnvelope', () => {
 
 describe('generateOpenUiSource', () => {
   afterEach(() => {
+    promptLogWriteFailureMock.mockReset();
     promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
@@ -337,6 +376,74 @@ describe('generateOpenUiSource', () => {
     );
   });
 
+  it('writes parse failure prompt logs with parent request linkage and repair validation issue codes', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-parse-failure-log',
+      PROMPT_IO_LOG: true,
+    });
+    const repairRequestWithContext: PromptBuildRequest = {
+      ...repairRequest,
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+    };
+
+    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockResolvedValue({
+      output_text: 'not-json',
+      usage: {
+        input_tokens: 10,
+      },
+    });
+
+    await expect(generateOpenUiSource(env, repairRequestWithContext, undefined, 'builder-request-repair')).rejects.toBeInstanceOf(
+      UpstreamFailureError,
+    );
+
+    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'builder-request-repair',
+        parentRequestId: 'builder-request-parent',
+        mode: 'repair',
+        modelOutputRaw: 'not-json',
+        parsedEnvelope: null,
+        validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+        errorCode: 'upstream_error',
+        errorMessage: 'The model returned malformed structured output.',
+        phase: 'parse',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
+  it('writes request-phase failure prompt logs for timed out non-stream responses', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-request-failure-log',
+      PROMPT_IO_LOG: true,
+    });
+    const timeoutError = new Error('The model request timed out.');
+
+    timeoutError.name = 'TimeoutError';
+    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockRejectedValue(timeoutError);
+
+    await expect(generateOpenUiSource(env, request, undefined, 'builder-request-timeout')).rejects.toBe(timeoutError);
+
+    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'builder-request-timeout',
+        phase: 'request',
+        errorCode: 'timeout_error',
+        errorMessage: 'The model request timed out.',
+        modelOutputRaw: '',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
   it('rejects malformed structured JSON', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-2',
@@ -467,6 +574,7 @@ describe('generateOpenUiSource', () => {
 
 describe('streamOpenUiSource', () => {
   afterEach(() => {
+    promptLogWriteFailureMock.mockReset();
     promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
@@ -742,6 +850,44 @@ describe('streamOpenUiSource', () => {
           source: 'root = AppShell([])',
         },
         usage,
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
+  it('writes stream failure prompt logs when finalizing the stream fails', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-stream-failure-log',
+      PROMPT_IO_LOG: true,
+    });
+    const streamTimeoutError = new Error('The model request timed out.');
+
+    streamTimeoutError.name = 'TimeoutError';
+    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    responsesStreamMock.mockReturnValue({
+      abort: vi.fn(),
+      finalResponse: vi.fn().mockRejectedValue(streamTimeoutError),
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'response.output_text.delta' as const,
+          delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
+        };
+      },
+    });
+
+    await expect(streamOpenUiSource(env, request, vi.fn(), undefined, 'builder-request-stream-failure')).rejects.toBe(
+      streamTimeoutError,
+    );
+
+    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'builder-request-stream-failure',
+        phase: 'stream',
+        errorCode: 'timeout_error',
+        errorMessage: 'The model request timed out.',
+        modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
       }),
       {
         enabled: true,

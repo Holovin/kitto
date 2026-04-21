@@ -83,6 +83,56 @@ describe('promptLog.write', () => {
     expect(entry.validationIssues[0]).toBe('vvvvvvvvvvvvvvvv… [truncated 24 chars]');
   });
 
+  it('serializes failure JSONL entries with error metadata', async () => {
+    const { cleanup, filePath } = await createTempLogFilePath();
+    cleanupTasks.push(cleanup);
+
+    await promptLog.writeFailure(
+      {
+        ts: '2026-04-21T10:00:00.000Z',
+        requestId: 'request-failure',
+        parentRequestId: 'request-parent',
+        mode: 'repair',
+        userPrompt: 'Repair the invalid app',
+        currentSourceLen: 123,
+        chatHistoryLen: 4,
+        systemPromptHash: 'hash123',
+        modelInput: {
+          input: [{ content: [{ text: 'model input body', type: 'input_text' }], role: 'user' }],
+        },
+        modelOutputRaw: '{"summary":"broken"',
+        parsedEnvelope: null,
+        usage: null,
+        validationIssues: ['unresolved-reference'],
+        errorCode: 'timeout_error',
+        errorMessage: 'The model request timed out.',
+        phase: 'stream',
+        durationMs: 456,
+      },
+      {
+        enabled: true,
+        filePath,
+        maxStringChars: 16,
+      },
+    );
+
+    const serializedLog = await readFile(filePath, 'utf8');
+    const [line] = serializedLog.trim().split('\n');
+    const entry = JSON.parse(line ?? '{}') as {
+      errorCode: string;
+      errorMessage: string;
+      modelOutputRaw: string;
+      parentRequestId: string;
+      phase: string;
+    };
+
+    expect(entry.parentRequestId).toBe('request-parent');
+    expect(entry.errorCode).toBe('timeout_error');
+    expect(entry.errorMessage).toBe('The model reques… [truncated 12 chars]');
+    expect(entry.phase).toBe('stream');
+    expect(entry.modelOutputRaw).toBe('{"summary":"brok… [truncated 3 chars]');
+  });
+
   it('is a no-op when disabled', async () => {
     const { cleanup, filePath } = await createTempLogFilePath();
     cleanupTasks.push(cleanup);

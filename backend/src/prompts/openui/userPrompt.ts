@@ -5,7 +5,9 @@ export interface PromptBuildRequest {
   }>;
   currentSource: string;
   mode: 'initial' | 'repair';
+  parentRequestId?: string;
   prompt: string;
+  validationIssues?: string[];
 }
 
 interface BuildOpenUiUserPromptOptions {
