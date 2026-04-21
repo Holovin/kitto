@@ -364,7 +364,15 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
               </button>
             </div>
           ) : null}
-          <input ref={fileInputRef} accept="application/json" className="hidden" type="file" onChange={handleImport} />
+          <input
+            ref={fileInputRef}
+            accept="application/json"
+            className="hidden"
+            id="builder-import-json"
+            name="builder-import-json"
+            type="file"
+            onChange={handleImport}
+          />
         </div>
       </div>
 

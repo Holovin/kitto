@@ -4,10 +4,13 @@ import { BaseLayout } from '@layouts/BaseLayout';
 import ChatPage from '@pages/Chat/Chat';
 import { SiteRoutes } from './siteRoutes';
 
+const hydrateFallbackElement = <div />;
+
 export const router = createBrowserRouter([
   {
     element: <BaseLayout />,
     errorElement: <RouteErrorBoundary />,
+    hydrateFallbackElement,
     children: [
       {
         path: SiteRoutes.home.path,

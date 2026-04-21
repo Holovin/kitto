@@ -77,6 +77,7 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
       <RadioGroupUI
         {...ariaProps}
         disabled={isActionMode ? isStreaming || isPending : isStreaming}
+        name={props.name}
         value={selectedValue}
         onBlur={isActionMode ? undefined : onBlur}
         onValueChange={(nextValue: string) => {

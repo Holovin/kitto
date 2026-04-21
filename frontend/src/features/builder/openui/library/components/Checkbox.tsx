@@ -61,6 +61,8 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       checked={checkedValue}
       className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
       disabled={isActionMode ? isStreaming || isPending : isStreaming}
+      id={props.name}
+      name={props.name}
       style={checkboxStyle}
       onBlur={isActionMode ? undefined : onBlur}
       onCheckedChange={

@@ -80,6 +80,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         {props.label}
       </span>
       <SelectUI
+        autoComplete="off"
         disabled={isActionMode ? isStreaming || isPending : isStreaming}
         name={props.name}
         value={selectedValue}

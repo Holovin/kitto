@@ -69,8 +69,8 @@ root = AppShell([
     Group("Block section", "vertical", [
       Text("Block groups render as full visual sections.", "muted", "start"),
       Group("Inline fields", "horizontal", [
-        Input("name", "Name", $name, "Ada Lovelace"),
-        Input("email", "Email", $email, "ada@example.com")
+        Input("layoutName", "Name", $name, "Ada Lovelace"),
+        Input("layoutEmail", "Email", $email, "ada@example.com")
       ], "inline"),
       Group("Inline filters", "horizontal", [
         Select("role", "Role", $role, roleOptions),

@@ -499,7 +499,7 @@ export function getInputAutoComplete(name: string, inputType: InputType) {
     case 'password':
       return 'current-password';
     default:
-      return undefined;
+      return 'off';
   }
 }
 

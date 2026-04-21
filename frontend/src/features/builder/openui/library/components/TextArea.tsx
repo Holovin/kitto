@@ -53,8 +53,10 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
       </span>
       <TextareaUI
         {...ariaProps}
+        autoComplete="off"
         className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
         disabled={isStreaming}
+        id={props.name}
         name={props.name}
         placeholder={props.placeholder ?? undefined}
         style={textAreaStyle}

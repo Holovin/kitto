@@ -182,8 +182,11 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
       <Textarea
+        autoComplete="off"
         className="min-h-[8rem] w-full text-[0.8rem] leading-5 shadow-none"
+        id="builder-prompt"
         maxLength={promptMaxChars}
+        name="builder-prompt"
         placeholder="Describe the app or change you want."
         value={draftPrompt}
         onChange={(event) => handleDraftPromptChange(event.target.value)}
