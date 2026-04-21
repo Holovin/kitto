@@ -256,6 +256,55 @@ const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   ])
 ])`;
 
+const IQ_BUG_SOURCE = `root = AppShell([
+  Screen("quiz", "IQ-like Test", [
+    Group("Question 1", "vertical", [
+      Text("What number comes next in the sequence: 2, 4, 8, 16, ?", "body", "start"),
+      RadioGroup("q1", "Choose an answer", $q1, [
+        { label: "18", value: "18" },
+        { label: "24", value: "24" },
+        { label: "32", value: "32" },
+        { label: "36", value: "36" }
+      ])
+    ], "block"),
+    Group("Question 2", "vertical", [
+      Text("Which word does not belong: apple, banana, carrot, grape?", "body", "start"),
+      RadioGroup("q2", "Choose an answer", $q2, [
+        { label: "apple", value: "apple" },
+        { label: "banana", value: "banana" },
+        { label: "carrot", value: "carrot" },
+        { label: "grape", value: "grape" }
+      ])
+    ], "block"),
+    Group("Question 3", "vertical", [
+      Text("If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops Lazzies?", "body", "start"),
+      RadioGroup("q3", "Choose an answer", $q3, [
+        { label: "Yes", value: "yes" },
+        { label: "No", value: "no" },
+        { label: "Cannot be determined", value: "unknown" },
+        { label: "Only sometimes", value: "sometimes" }
+      ])
+    ], "block"),
+    Button("finish-test", "See score", "default", Action([@Set($currentScreen, "result")]), false)
+  ], $currentScreen == "quiz"),
+  Screen("result", "Result", [
+    Group("Your answers", "vertical", [
+      Text("Question 1: " + ($q1 == "32" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Question 2: " + ($q2 == "carrot" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Question 3: " + ($q3 == "yes" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Score: " + (($q1 == "32" ? 1 : 0) + ($q2 == "carrot" ? 1 : 0) + ($q3 == "yes" ? 1 : 0)) + "/3", "title", "start")
+    ], "block"),
+    Button("back-to-quiz", "Back", "secondary", Action([@Set($currentScreen, "quiz")]), false)
+  ], $currentScreen == "result")
+])`;
+
+const REPAIRED_IQ_SOURCE = `$currentScreen = "quiz"
+$q1 = ""
+$q2 = ""
+$q3 = ""
+
+${IQ_BUG_SOURCE}`;
+
 const NEW_BLOCKING_QUALITY_SOURCE = `items = Query("read_state", { path: "app.items" }, [])
 toggleFirst = Mutation("merge_state", {
   path: "app.items.0",
@@ -974,6 +1023,35 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('repairs a draft with missing top-level state declarations once and commits the repaired source', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create an IQ-like test with a quiz screen and a result screen.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: IQ_BUG_SOURCE,
+    });
+    testHarness.generateMock.mockResolvedValue({
+      source: REPAIRED_IQ_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+
+    const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
+      request: { mode?: string; prompt: string; validationIssues?: string[] };
+    }).request;
+
+    expect(repairRequest.mode).toBe('repair');
+    expect(repairRequest.validationIssues).toContain('undefined-state-reference');
+    expect(repairRequest.prompt).toContain('$currentScreen');
+    expect(getBuilderState().committedSource).toBe(REPAIRED_IQ_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
 
     submission.unmount();
   });

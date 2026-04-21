@@ -12,6 +12,67 @@ const validSource = `root = AppShell([
   ])
 ])`;
 
+const LOGGED_IQ_SOURCE = `root = AppShell([
+  Screen("quiz", "IQ-like Test", [
+    Group("Question 1", "vertical", [
+      Text("What number comes next in the sequence: 2, 4, 8, 16, ?", "body", "start"),
+      RadioGroup("q1", "Choose an answer", $q1, [
+        { label: "18", value: "18" },
+        { label: "24", value: "24" },
+        { label: "32", value: "32" },
+        { label: "36", value: "36" }
+      ])
+    ], "block"),
+    Group("Question 2", "vertical", [
+      Text("Which word does not belong: apple, banana, carrot, grape?", "body", "start"),
+      RadioGroup("q2", "Choose an answer", $q2, [
+        { label: "apple", value: "apple" },
+        { label: "banana", value: "banana" },
+        { label: "carrot", value: "carrot" },
+        { label: "grape", value: "grape" }
+      ])
+    ], "block"),
+    Group("Question 3", "vertical", [
+      Text("If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops Lazzies?", "body", "start"),
+      RadioGroup("q3", "Choose an answer", $q3, [
+        { label: "Yes", value: "yes" },
+        { label: "No", value: "no" },
+        { label: "Cannot be determined", value: "unknown" },
+        { label: "Only sometimes", value: "sometimes" }
+      ])
+    ], "block"),
+    Button("finish-test", "See score", "default", Action([@Set($currentScreen, "result")]), false)
+  ], $currentScreen == "quiz"),
+  Screen("result", "Result", [
+    Group("Your answers", "vertical", [
+      Text("Question 1: " + ($q1 == "32" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Question 2: " + ($q2 == "carrot" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Question 3: " + ($q3 == "yes" ? "Correct" : "Wrong"), "body", "start"),
+      Text("Score: " + (($q1 == "32" ? 1 : 0) + ($q2 == "carrot" ? 1 : 0) + ($q3 == "yes" ? 1 : 0)) + "/3", "title", "start")
+    ], "block"),
+    Button("back-to-quiz", "Back", "secondary", Action([@Set($currentScreen, "quiz")]), false)
+  ], $currentScreen == "result")
+])`;
+
+const REPAIRED_LOGGED_IQ_SOURCE = `$currentScreen = "quiz"
+$q1 = ""
+$q2 = ""
+$q3 = ""
+
+${LOGGED_IQ_SOURCE}`;
+
+const LANGUAGE_SWITCHER_SOURCE = `$language = "en"
+
+root = AppShell([
+  Screen("main", "Language switcher", [
+    Group("Pick language", "horizontal", [
+      Button("lang-en", "English", "default", Action([@Set($language, "en")]), $language == "en"),
+      Button("lang-es", "Spanish", "secondary", Action([@Set($language, "es")]), $language == "es")
+    ], "inline"),
+    Text($language == "en" ? "Hello" : "Hola", "body", "start")
+  ])
+])`;
+
 describe('validateOpenUiSource', () => {
   it('rejects empty source', () => {
     const result = validateOpenUiSource('   ');
@@ -940,6 +1001,72 @@ root = AppShell([
 });
 
 describe('detectOpenUiQualityIssues', () => {
+  it('marks logged IQ drafts that use $currentScreen without a top-level declaration', () => {
+    const issues = detectOpenUiQualityIssues(
+      LOGGED_IQ_SOURCE,
+      'Create an IQ-like test with a quiz screen and a result screen.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'undefined-state-reference',
+          message: expect.stringContaining('$currentScreen'),
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('accepts the repaired logged IQ draft after missing state declarations are added', () => {
+    expect(validateOpenUiSource(REPAIRED_LOGGED_IQ_SOURCE)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(
+      detectOpenUiQualityIssues(
+        REPAIRED_LOGGED_IQ_SOURCE,
+        'Create an IQ-like test with a quiz screen and a result screen.',
+      ).find((issue) => issue.code === 'undefined-state-reference'),
+    ).toBeUndefined();
+  });
+
+  it('does not mark the canonical todo recipe when its local state is declared', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_state", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Text(item.completed ? "Done" : "Open", "muted", "end")
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No items yet.")
+  ])
+])`,
+      'Create a todo list.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'undefined-state-reference')).toBeUndefined();
+  });
+
+  it('does not mark a declared language switcher state as undefined', () => {
+    const issues = detectOpenUiQualityIssues(LANGUAGE_SWITCHER_SOURCE, 'Create a language switcher.');
+
+    expect(issues.find((issue) => issue.code === 'undefined-state-reference')).toBeUndefined();
+  });
+
   it('marks missing todo controls as blocking for a simple todo intent', () => {
     const issues = detectOpenUiQualityIssues(
       `root = AppShell([

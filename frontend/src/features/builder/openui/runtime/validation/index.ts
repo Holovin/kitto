@@ -10,6 +10,7 @@ import { detectArrayIndexPathMutationIssues } from './detectors/mutationIndexPat
 import { detectPersistedMutationRefreshWarnings } from './detectors/persistedMutationRefresh';
 import { detectRandomResultVisibilityIssues } from './detectors/randomResultVisibility';
 import { detectThemeAppearanceIssues } from './detectors/themeAppearance';
+import { detectUndefinedStateReferenceIssues } from './detectors/undefinedStateReference';
 import { collectOpenUiParserValidationIssues } from './parser';
 import {
   getTodoIssueSeverity,
@@ -64,6 +65,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   issues.push(...detectItemBoundControlsWithoutAction(trimmedSource));
   issues.push(...detectReservedLastChoiceRootIssues(result.root));
   issues.push(...detectReservedLastChoiceStatementIssues(trimmedSource, result));
+  issues.push(...detectUndefinedStateReferenceIssues(trimmedSource, result));
   issues.push(...detectArrayIndexPathMutationIssues(result));
 
   if (hasPromptContext && isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {

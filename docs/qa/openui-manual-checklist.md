@@ -32,6 +32,7 @@ Guardrails:
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
+- `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
 - If local suggestion patches make the draft valid again, commit that locally fixed source directly and do not trigger the repair request path for those issues.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
@@ -90,6 +91,7 @@ Guardrails:
 - `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
 - `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Screen navigation uses local state such as `$currentScreen` with `@Set(...)`.
+- Every `$var` used anywhere in the program must have a top-level literal declaration such as `$draft = ""`, `$accepted = false`, or `$currentScreen = "main"`.
 - Persisted tools are for exportable/shared domain data, not internal screen navigation.
 
 ## Prompt and component contract

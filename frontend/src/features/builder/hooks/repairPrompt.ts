@@ -253,6 +253,13 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
       continue;
     }
 
+    if (issue.code === 'undefined-state-reference') {
+      hints.add(
+        'Every `$var` reference must have a top-level declaration with a literal initial value before it is used, such as `$draft = ""` or `$currentScreen = "main"`.',
+      );
+      continue;
+    }
+
     if (issue.code === 'quality-random-result-not-visible') {
       hints.add(
         'For button-triggered randomness, use the canonical persisted recipe: `Mutation("write_computed_state", { op: "random_int", ... })`, `Query("read_state", { path: "..." }, defaultValue)`, and a button `Action(...)` that runs both in order.',
