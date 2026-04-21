@@ -1,0 +1,138 @@
+import type { ResponseFormatTextJSONSchemaConfig } from 'openai/resources/responses/responses';
+import { z } from 'zod';
+import type { AppEnv } from '../../env.js';
+import { UpstreamFailureError } from '../../errors/publicError.js';
+import { getByteLength, getRawStructuredOutputMaxBytes } from '../../limits.js';
+
+export const OpenUiGenerationEnvelopeSchema = z
+  .object({
+    summary: z.string().max(200),
+    source: z.string().min(1),
+    notes: z.array(z.string().max(200)).max(5),
+  })
+  .strict();
+
+export type OpenUiGenerationEnvelope = z.infer<typeof OpenUiGenerationEnvelopeSchema>;
+
+export const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
+  type: 'json_schema',
+  name: 'kitto_openui_source',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['summary', 'source', 'notes'],
+    properties: {
+      summary: {
+        type: 'string',
+        maxLength: 200,
+      },
+      source: {
+        type: 'string',
+      },
+      notes: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'string',
+          maxLength: 200,
+        },
+      },
+    },
+  },
+};
+
+function normalizeOpenUiSource(rawSource: unknown) {
+  if (typeof rawSource !== 'string') {
+    throw new UpstreamFailureError('The model response did not include text output.');
+  }
+
+  const trimmedSource = rawSource.trim();
+
+  if (!trimmedSource) {
+    throw new UpstreamFailureError('The model returned an empty OpenUI document.');
+  }
+
+  if (!trimmedSource.startsWith('```')) {
+    return trimmedSource;
+  }
+
+  return trimmedSource.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
+}
+
+export function createRawStructuredOutputLimitError(outputSizeBytes: number, rawLimitBytes: number) {
+  return new UpstreamFailureError(
+    `Structured model output size ${outputSizeBytes} bytes exceeded the backend raw envelope limit of ${rawLimitBytes} bytes.`,
+  );
+}
+
+export function assertRawStructuredOutputWithinLimit(rawOutput: string, env: AppEnv) {
+  const outputSizeBytes = getByteLength(rawOutput);
+  const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
+
+  if (outputSizeBytes > rawLimitBytes) {
+    throw createRawStructuredOutputLimitError(outputSizeBytes, rawLimitBytes);
+  }
+}
+
+function createPlainTextOpenUiGenerationEnvelope(rawSource: unknown): OpenUiGenerationEnvelope {
+  return {
+    summary: '',
+    source: normalizeOpenUiSource(rawSource),
+    notes: [],
+  };
+}
+
+export function parseOpenUiGenerationEnvelope(rawModelText: unknown, options: { structuredOutput?: boolean } = {}) {
+  if (options.structuredOutput === false) {
+    return createPlainTextOpenUiGenerationEnvelope(rawModelText);
+  }
+
+  if (typeof rawModelText !== 'string') {
+    throw new UpstreamFailureError('The model response did not include text output.');
+  }
+
+  const trimmedEnvelopeText = rawModelText.trim();
+
+  if (!trimmedEnvelopeText) {
+    throw new UpstreamFailureError('The model returned an empty structured response.');
+  }
+
+  let parsedEnvelope: unknown;
+
+  try {
+    parsedEnvelope = JSON.parse(trimmedEnvelopeText);
+  } catch {
+    throw new UpstreamFailureError('The model returned malformed structured output.');
+  }
+
+  const envelopeResult = OpenUiGenerationEnvelopeSchema.safeParse(parsedEnvelope);
+
+  if (!envelopeResult.success) {
+    throw new UpstreamFailureError('The model returned an invalid OpenUI response envelope.');
+  }
+
+  return envelopeResult.data;
+}
+
+export function extractOpenUiEnvelopeFromModelText(rawModelText: unknown, env: AppEnv): OpenUiGenerationEnvelope {
+  if (env.LLM_STRUCTURED_OUTPUT) {
+    if (typeof rawModelText !== 'string') {
+      throw new UpstreamFailureError('The model response did not include text output.');
+    }
+
+    assertRawStructuredOutputWithinLimit(rawModelText, env);
+  }
+
+  return parseOpenUiGenerationEnvelope(rawModelText, { structuredOutput: env.LLM_STRUCTURED_OUTPUT });
+}
+
+export function assertModelOutputWithinLimit(source: string, env: AppEnv) {
+  const outputSizeBytes = getByteLength(source);
+
+  if (outputSizeBytes > env.LLM_OUTPUT_MAX_BYTES) {
+    throw new UpstreamFailureError(
+      `Model output size ${outputSizeBytes} bytes exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+    );
+  }
+}
