@@ -180,7 +180,9 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
-    expect(prompt).toContain('Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.');
+    expect(prompt).toContain(
+      'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
+    );
     expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(prompt).toContain(
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
@@ -314,9 +316,18 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
+    expect(prompt).toContain(
+      'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
+    );
     expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(prompt).toContain(
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
+    );
+    expect(prompt).toContain(
+      'WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))',
+    );
+    expect(prompt).toContain(
+      'OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))',
     );
     expect(prompt).toContain(
       'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',

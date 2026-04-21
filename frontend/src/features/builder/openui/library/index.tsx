@@ -32,6 +32,7 @@ export const builderOpenUiLibrary = createLibrary({
       notes: [
         'Bind interactive values to $variables when the user should control them.',
         'Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).',
+        'Never combine action with a writable $binding on Checkbox, RadioGroup, or Select. Action mode uses display values; binding mode uses only $variables.',
         'RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.',
       ],
     },

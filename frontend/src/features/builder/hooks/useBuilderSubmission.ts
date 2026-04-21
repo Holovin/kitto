@@ -122,10 +122,13 @@ function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
   console.info(`[builder.validation] auto-fixed locally: ${appliedLabels.join(', ')}`);
 }
 
+const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
+
 export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
   const handleCancelRef = useRef<() => void>(() => {});
+  const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
   const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
   const domainData = useAppSelector(selectDomainData);
@@ -191,6 +194,15 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     return normalizeCommittedSummary(pendingSummaryMessage.content);
   }
 
+  function consumeUserCancelledRequest(requestId: BuilderRequestId) {
+    if (userCancelledRequestIdRef.current !== requestId) {
+      return false;
+    }
+
+    userCancelledRequestIdRef.current = null;
+    return true;
+  }
+
   function upsertStreamingSummaryMessage(requestId: BuilderRequestId, summary: string, options?: { pending?: boolean }) {
     const trimmedSummary = summary.trim();
 
@@ -225,6 +237,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   function cancelRequest(requestId: BuilderRequestId, options?: { abort?: boolean }) {
+    const shouldAppendUserCancelNotice = consumeUserCancelledRequest(requestId);
     clearStreamingSummaryMessage(requestId);
 
     if (options?.abort) {
@@ -235,6 +248,15 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
     clearActiveRequest(requestId);
     dispatch(builderActions.cancelStreaming({ requestId }));
+
+    if (shouldAppendUserCancelNotice) {
+      dispatch(
+        builderActions.appendChatMessage({
+          content: USER_CANCELLED_NOTICE,
+          role: 'system',
+        }),
+      );
+    }
   }
 
   function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
@@ -489,14 +511,20 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   };
 
   const handleCancel = useCallback(() => {
+    const requestId = activeRequestIdRef.current;
+
+    if (requestId) {
+      userCancelledRequestIdRef.current = requestId;
+    }
+
     handleCancelRef.current();
   }, []);
 
   useEffect(() => {
     cancelActiveRequestRef.current = () => {
-      handleCancel();
+      handleCancelRef.current();
     };
-  }, [cancelActiveRequestRef, handleCancel]);
+  }, [cancelActiveRequestRef]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

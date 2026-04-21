@@ -104,6 +104,8 @@ const testHarness = vi.hoisted(() => {
   };
 });
 
+const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
+
 vi.mock('react', async () => {
   const actual = await vi.importActual<typeof import('react')>('react');
 
@@ -1155,6 +1157,13 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().history).toHaveLength(previousHistoryLength);
     expect(findChatMessage('Building: Builds a cancellable draft…')).toBeUndefined();
     expect(findChatMessage('Builds a cancellable draft')).toBeUndefined();
+    expect(findChatMessage(USER_CANCELLED_NOTICE)).toEqual(
+      expect.objectContaining({
+        content: USER_CANCELLED_NOTICE,
+        role: 'system',
+        tone: 'default',
+      }),
+    );
     expect(getBuilderState().chatMessages.some((message) => message.tone === 'error')).toBe(false);
 
     submission.unmount();
@@ -1193,6 +1202,13 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
     expect(getBuilderState().retryPrompt).toBeNull();
+    expect(findChatMessage(USER_CANCELLED_NOTICE)).toEqual(
+      expect.objectContaining({
+        content: USER_CANCELLED_NOTICE,
+        role: 'system',
+        tone: 'default',
+      }),
+    );
 
     submission.unmount();
   });
@@ -1230,6 +1246,7 @@ describe('useBuilderSubmission', () => {
     await requestPromise;
 
     expect(getBuilderState().committedSource).toBe(IMPORTED_SOURCE);
+    expect(findChatMessage(USER_CANCELLED_NOTICE)).toBeUndefined();
 
     historyControls.unmount();
     submission.unmount();

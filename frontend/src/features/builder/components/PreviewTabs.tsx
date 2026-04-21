@@ -277,7 +277,7 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
 
         dispatch(builderActions.setActiveTab(value as BuilderTabId));
       }}
-      className="flex h-full min-h-0 flex-col gap-4"
+      className="flex h-full min-h-0 flex-col gap-2 pt-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <TabsList>

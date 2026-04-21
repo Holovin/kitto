@@ -47,7 +47,8 @@ Guardrails:
 - Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
-- Intentional aborts, including clicking `Cancel` or leaving `/chat` mid-generation, clear the in-progress request without appending a red chat error or committing partial source.
+- Clicking `Cancel` mid-generation clears the in-progress request without appending a red chat error or committing partial source, and adds one neutral system confirmation message.
+- Leaving `/chat` mid-generation clears the in-progress request without appending a red chat error or committing partial source.
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Undo, redo, and builder reset also stay available during generation; each must abort the active request first, apply the requested snapshot change, and ignore any late response from the cancelled run.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.

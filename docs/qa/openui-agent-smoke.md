@@ -447,6 +447,7 @@ Record:
 
 - Cancel stops generation.
 - No scary red error appears for intentional cancel.
+- One neutral system chat message confirms that the user cancelled the in-flight generation.
 - Partial draft is not committed.
 - Late response does not overwrite current app.
 - New prompt works.

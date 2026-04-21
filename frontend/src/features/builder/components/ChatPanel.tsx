@@ -34,6 +34,10 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
     return 'ml-auto border-slate-900 bg-slate-950 text-white';
   }
 
+  if (message.role === 'assistant') {
+    return 'border-slate-200 bg-slate-100 text-slate-700';
+  }
+
   if (message.tone === 'error') {
     return 'border-rose-200 bg-rose-50 text-rose-700';
   }

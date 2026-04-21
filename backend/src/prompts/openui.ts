@@ -372,6 +372,8 @@ root = AppShell([
     Repeater(rows, "No tasks yet.")
   ])
 ])`,
+  `WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`,
   `$currentTheme = "light"
 $name = "Ada"
 $preferredContact = "email"
@@ -572,10 +574,10 @@ const additionalRules = [
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
   'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
   'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
-  'Do not combine Checkbox action mode with a writable `$binding<boolean>` on the same control.',
+  'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
+  'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
   'Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.',
   'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
-  'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
   'Do not read `$lastChoice` directly in Text(...), disabled expressions, or unrelated statements.',
