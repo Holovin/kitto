@@ -52,7 +52,7 @@ Never combine action with a writable $binding on Checkbox, RadioGroup, or Select
 RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.
 
 ### Actions
-Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string}) — Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button background and contrastColor sets the button text.
+Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string}) — Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text.
 Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) — Text link for navigation to an external URL or a known browser route.
 Use Button with Action([...]) for Query and Mutation flows. When appearance is present, all button variants use mainColor for background and contrastColor for text.
 

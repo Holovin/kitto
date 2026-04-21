@@ -54,7 +54,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
 export const ButtonComponent = defineComponent({
   name: 'Button',
   description:
-    'Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button background and contrastColor sets the button text.',
+    'Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text.',
   props: z.object({
     id: z.string().describe('Stable action and state key. Required first argument.'),
     label: z.string().describe('Visible button label.'),

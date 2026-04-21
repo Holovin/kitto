@@ -1,3 +1,6 @@
+export const BUTTON_APPEARANCE_RULE =
+  'For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.';
+
 export const additionalRules = [
   'SIMPLE APP RULE:',
   'Prefer the smallest working app that satisfies the latest user request.',
@@ -87,7 +90,7 @@ export const additionalRules = [
   'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
   'Only use #RRGGBB colors.',
   'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
-  'For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.',
+  BUTTON_APPEARANCE_RULE,
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Local appearance overrides inherited theme colors, and buttons use the same main/background + contrast/text mapping as other controls.',
   'Variants are fallback styles, not the primary mechanism for theme switching.',

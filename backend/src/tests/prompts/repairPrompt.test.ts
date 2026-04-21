@@ -74,7 +74,7 @@ describe('buildOpenUiRepairPrompt', () => {
 
     expect(prompt).toContain('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
     expect(prompt).toContain('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
-    expect(prompt).toContain('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
+    expect(prompt).toContain('For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.');
     expect(prompt).toContain('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
     expect(prompt).toContain('invalid-prop in root: Text.appearance.contrastColor must be a #RRGGBB hex color.');
   });

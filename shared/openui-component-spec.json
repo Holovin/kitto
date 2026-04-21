@@ -43,7 +43,7 @@
     },
     "Button": {
       "signature": "Button(id: string, label: string, variant?: \"default\" | \"secondary\" | \"destructive\", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})",
-      "description": "Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button background and contrastColor sets the button text."
+      "description": "Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text."
     },
     "Link": {
       "signature": "Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string})",

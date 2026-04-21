@@ -1,3 +1,4 @@
+import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
@@ -17,7 +18,7 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Never put "block" or "inline" in the second Group argument.',
   'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
   'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
-  'For Button default, contrastColor becomes the button background and mainColor becomes the button text.',
+  BUTTON_APPEARANCE_RULE,
   'Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Use $currentScreen + @Set for screen navigation.',
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
@@ -205,7 +206,7 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
         hints.add('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
         hints.add('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
         hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
-        hints.add('For Button default, contrastColor becomes the button background and mainColor becomes the button text.');
+        hints.add(BUTTON_APPEARANCE_RULE);
       }
 
       if (
