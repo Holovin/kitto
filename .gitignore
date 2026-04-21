@@ -156,3 +156,4 @@ frontend/dist-standalone-player/
 *.sln
 *.sw?
 _*.md
+docs/ignored/
