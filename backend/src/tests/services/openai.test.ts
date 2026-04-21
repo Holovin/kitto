@@ -357,7 +357,7 @@ describe('generateOpenUiSource', () => {
       expect.objectContaining({
         requestId: 'builder-request-1',
         mode: 'initial',
-        userPrompt: expect.stringContaining('Build a todo app'),
+        rawUserRequest: 'Build a todo app',
         currentSourceLen: 0,
         chatHistoryLen: 0,
         systemPromptHash: expect.any(String),
@@ -404,6 +404,7 @@ describe('generateOpenUiSource', () => {
         requestId: 'builder-request-repair',
         parentRequestId: 'builder-request-parent',
         mode: 'repair',
+        rawUserRequest: 'Build a todo app',
         modelOutputRaw: 'not-json',
         parsedEnvelope: null,
         validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
@@ -433,6 +434,7 @@ describe('generateOpenUiSource', () => {
     expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-timeout',
+        rawUserRequest: 'Build a todo app',
         phase: 'request',
         errorCode: 'timeout_error',
         errorMessage: 'The model request timed out.',
@@ -843,6 +845,7 @@ describe('streamOpenUiSource', () => {
     expect(promptLogWriteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-stream',
+        rawUserRequest: 'Build a todo app',
         modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
         parsedEnvelope: {
           notes: [],
@@ -884,6 +887,7 @@ describe('streamOpenUiSource', () => {
     expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-stream-failure',
+        rawUserRequest: 'Build a todo app',
         phase: 'stream',
         errorCode: 'timeout_error',
         errorMessage: 'The model request timed out.',

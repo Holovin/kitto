@@ -1,7 +1,7 @@
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import { toPublicErrorPayload } from '../../errors/publicError.js';
-import { buildOpenUiUserPrompt, type PromptBuildRequest } from '../../prompts/openui.js';
+import { buildOpenUiRawUserRequest, type PromptBuildRequest } from '../../prompts/openui.js';
 import { promptLog } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
 import { getSystemPromptHash } from './client.js';
@@ -50,11 +50,8 @@ function buildPromptLogModelInput(responseRequest: OpenUiResponseRequest) {
   };
 }
 
-function getPromptLogUserPrompt(env: AppEnv, request: PromptBuildRequest) {
-  return buildOpenUiUserPrompt(request, {
-    chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-    structuredOutput: env.LLM_STRUCTURED_OUTPUT,
-  });
+function getPromptLogRawUserRequest(request: PromptBuildRequest) {
+  return buildOpenUiRawUserRequest(request);
 }
 
 function getPromptLogValidationIssues(request: PromptBuildRequest, validationIssues?: string[]) {
@@ -163,7 +160,7 @@ export async function writePromptIoLogSafely(
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
         mode: request.mode,
-        userPrompt: getPromptLogUserPrompt(env, request),
+        rawUserRequest: getPromptLogRawUserRequest(request),
         currentSourceLen: request.currentSource.length,
         chatHistoryLen: request.chatHistory.length,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
@@ -205,7 +202,7 @@ export async function writePromptIoFailureSafely(
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
         mode: request.mode,
-        userPrompt: getPromptLogUserPrompt(env, request),
+        rawUserRequest: getPromptLogRawUserRequest(request),
         currentSourceLen: request.currentSource.length,
         chatHistoryLen: request.chatHistory.length,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),

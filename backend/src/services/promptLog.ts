@@ -14,7 +14,7 @@ interface PromptIoLogEntryBase {
   requestId: string | null;
   parentRequestId?: string | null;
   mode: PromptIoLogMode;
-  userPrompt: string;
+  rawUserRequest: string;
   currentSourceLen: number;
   chatHistoryLen: number;
   systemPromptHash: string;
