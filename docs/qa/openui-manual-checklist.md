@@ -30,6 +30,7 @@ Guardrails:
 - Trivial parser issues that carry deterministic local `suggestion` patches may be auto-fixed in the builder before any repair request is sent.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
+- `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - If local suggestion patches make the draft valid again, commit that locally fixed source directly and do not trigger the repair request path for those issues.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
@@ -257,9 +258,11 @@ Todo request guardrails:
 - Inside `@Each(...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`; those edits do not persist automatically.
 - For canonical interactive todo rows, prefer an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)`.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
+- Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
 - Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.
 - For persisted collection row actions, define top-level `Mutation(...)` statements such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row `Action(...)`.
+- The `/elements` `Checkbox`, `RadioGroup`, and `Select` demos should all showcase this repeater-row action-mode pattern against persisted collections rather than standalone saved scalars.
 
 Derived filtering:
 
@@ -278,9 +281,20 @@ Repeater(rows, "Empty state")
 Action-mode choice recipe:
 
 ```txt
-savedFilter = Query("read_state", { path: "ui.filter" }, "all")
-setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })
-Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))
+$targetPreferenceId = ""
+preferences = Query("read_state", { path: "ui.preferences" }, [])
+setPreferenceFilter = Mutation("update_item_field", {
+  path: "ui.preferences",
+  idField: "id",
+  id: $targetPreferenceId,
+  field: "filter",
+  value: $lastChoice
+})
+rows = @Each(preferences, "item", Group(null, "vertical", [
+  Select("filter-" + item.id, "Show", item.filter, filterOptions, null, [], Action([@Set($targetPreferenceId, item.id), @Run(setPreferenceFilter), @Run(preferences)])),
+  Text("Persisted filter: " + item.filter, "body", "start")
+], "inline"))
+Repeater(rows, "No saved preferences.")
 ```
 
 Safe compute tools:
@@ -342,6 +356,8 @@ Do use:
 - `Input(..., ..., ..., ..., ..., "email", validation)` for email fields, together with `email` validation when the field must contain a valid address
 - `Checkbox(..., validation)` with a writable `$binding<boolean>` and `required` for agreement, confirmation, consent, and acknowledgement fields
 - `Checkbox(..., item.completed, ..., Action([...]))` for persisted row toggles when the checkbox itself should trigger the mutation flow
+- `RadioGroup(..., item.plan, ..., [], Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row choices that must write through `$lastChoice`
+- `Select(..., item.filter, ..., [], Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row filters that must write through `$lastChoice`
 - declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - `Button(..., "default", ...)` when the primary action should invert the theme pair automatically

@@ -817,7 +817,8 @@ export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions 
   }
 
   const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
-  const cacheKey = `kitto-openui:openui-system:${variant}:${componentSpecHash}:${promptHash}`;
+  const variantCode = variant === 'structured' ? 'st' : 'pl';
+  const cacheKey = `kitto:openui:${variantCode}:${componentSpecHash}:${promptHash}`;
 
   cachedSystemPromptKeys.set(variant, cacheKey);
   return cacheKey;
@@ -849,7 +850,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
     buildPromptDataBlock('current_source', currentSource),
     recentHistory.length ? buildPromptDataBlock('recent_history', buildCompactChatHistoryContent(recentHistory)) : null,
     structuredOutput
-      ? 'Place the full updated OpenUI Lang program in `source`. Also include a concise human-readable `summary` of the resulting app or change, and include short `notes` only when they add useful implementation context.'
+      ? 'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change. Put extra implementation context in `notes`, and return `notes` as an empty array when there is nothing useful to add.'
       : 'Return the full updated OpenUI Lang program only.',
   ]
     .filter(Boolean)

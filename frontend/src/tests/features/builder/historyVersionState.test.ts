@@ -122,6 +122,28 @@ describe('getBuilderHistoryVersionState', () => {
     });
   });
 
+  it('keeps reset enabled when the chat contains any message on an otherwise pristine canvas', () => {
+    expect(
+      getBuilderHistoryVersionState({
+        committedSource: '',
+        hasChatMessages: true,
+        hasRedoSnapshot: false,
+        hasRejectedDefinition: false,
+        hasUndoSnapshot: false,
+        historyVersionCount: 0,
+        isStreaming: false,
+        redoVersionCount: 0,
+      }),
+    ).toEqual({
+      canRedo: false,
+      canReset: true,
+      canUndo: false,
+      currentVersionNumber: 0,
+      totalVersionCount: 0,
+      versionBadgeText: '—',
+    });
+  });
+
   it('keeps reset enabled when a visible definition exists without valid history', () => {
     expect(
       getBuilderHistoryVersionState({

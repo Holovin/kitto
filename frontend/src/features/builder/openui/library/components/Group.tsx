@@ -7,17 +7,15 @@ import { KittoAppearanceProvider, appearanceSchema, getAppearanceStyle, nullable
 
 const directionSchema = z.enum(['vertical', 'horizontal']).default('vertical');
 const variantSchema = z.enum(['block', 'inline']).default('block');
-const stackedFieldButtonOffsetClass =
-  'md:[&>[data-kitto-stacked-field]~[data-kitto-button]]:mt-[1.75rem] md:[&>[data-kitto-stacked-field]~[data-kitto-button]]:self-start';
 
 const layoutClassNames: Record<z.infer<typeof variantSchema>, Record<z.infer<typeof directionSchema>, string>> = {
   block: {
     vertical: 'flex flex-col gap-4',
-    horizontal: `flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end ${stackedFieldButtonOffsetClass}`,
+    horizontal: 'flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end',
   },
   inline: {
     vertical: 'flex flex-col gap-3',
-    horizontal: `flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end ${stackedFieldButtonOffsetClass}`,
+    horizontal: 'flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end',
   },
 };
 

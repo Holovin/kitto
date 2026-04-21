@@ -81,7 +81,7 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
           schema: {
             type: 'object',
             additionalProperties: false,
-            required: ['source'],
+            required: ['summary', 'source', 'notes'],
             properties: {
               summary: {
                 type: 'string',

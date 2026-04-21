@@ -48,7 +48,6 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
 
   return (
     <ButtonUI
-      data-kitto-button="true"
       disabled={isStreaming || Boolean(disabledField.value)}
       style={buttonStyle}
       variant={props.variant}

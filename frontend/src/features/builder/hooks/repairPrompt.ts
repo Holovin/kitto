@@ -23,6 +23,9 @@ const REPAIR_CRITICAL_RULES = [
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
 ] as const;
 
+const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
+  'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
+
 function formatValidationIssue(issue: BuilderParseIssue) {
   return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
 }
@@ -135,11 +138,18 @@ function buildRepairIssueSection(issues: BuilderParseIssue[], maxChars: number) 
     return '- Validation issues were detected, but they could not be enumerated in full.';
   }
 
+  const inlineHintLines = [
+    ...new Set(
+      issues
+        .filter((issue) => issue.code === 'control-action-and-binding')
+        .map(() => `- ${CONTROL_ACTION_AND_BINDING_REPAIR_HINT}`),
+    ),
+  ];
   const selectedIssueLines: string[] = [];
 
   for (const issue of issues) {
     const nextLine = `- ${formatValidationIssue(issue)}`;
-    const candidateSection = [...selectedIssueLines, nextLine].join('\n');
+    const candidateSection = [...selectedIssueLines, nextLine, ...inlineHintLines].join('\n');
 
     if (candidateSection.length > maxChars) {
       break;
@@ -152,7 +162,26 @@ function buildRepairIssueSection(issues: BuilderParseIssue[], maxChars: number) 
     selectedIssueLines.push(`- ${truncateText(formatValidationIssue(issues[0]), Math.max(1, maxChars - 2))}`);
   }
 
-  return selectedIssueLines.length ? selectedIssueLines.join('\n') : '- Validation issues were detected, but they could not be enumerated in full.';
+  const sectionLines = [...selectedIssueLines];
+
+  for (const inlineHintLine of inlineHintLines) {
+    const candidateSection = [...sectionLines, inlineHintLine].join('\n');
+
+    if (candidateSection.length > maxChars) {
+      const currentLength = sectionLines.join('\n').length;
+      const remainingChars = maxChars - currentLength - (sectionLines.length > 0 ? 1 : 0);
+
+      if (remainingChars > 0) {
+        sectionLines.push(truncateText(inlineHintLine, remainingChars));
+      }
+
+      break;
+    }
+
+    sectionLines.push(inlineHintLine);
+  }
+
+  return sectionLines.length ? sectionLines.join('\n') : '- Validation issues were detected, but they could not be enumerated in full.';
 }
 
 function buildRepairHints(issues: BuilderParseIssue[]) {

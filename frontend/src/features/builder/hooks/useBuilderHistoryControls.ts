@@ -14,6 +14,7 @@ import { downloadStandaloneHtml } from '@features/builder/standalone/downloadSta
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import {
   selectCommittedSource,
+  selectHasChatMessages,
   selectHasRejectedDefinition,
   selectHistory,
   selectIsStreaming,
@@ -85,6 +86,7 @@ export function useBuilderHistoryControls({
 }: UseBuilderHistoryControlsOptions) {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasChatMessages = useAppSelector(selectHasChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
   const history = useAppSelector(selectHistory);
   const hasRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
@@ -96,6 +98,7 @@ export function useBuilderHistoryControls({
   const redoVersionCount = countCommittedVersions(redoHistory);
   const historyVersionState = getBuilderHistoryVersionState({
     committedSource,
+    hasChatMessages,
     hasRejectedDefinition,
     hasRedoSnapshot: Boolean(redoSnapshot),
     hasUndoSnapshot: Boolean(previousSnapshot),

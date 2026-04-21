@@ -216,6 +216,7 @@ vi.mock('@features/builder/api/streamGenerate', () => {
 import { builderActions, builderReducer } from '@features/builder/store/builderSlice';
 import { builderSessionReducer } from '@features/builder/store/builderSessionSlice';
 import { domainReducer } from '@features/builder/store/domainSlice';
+import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
@@ -269,11 +270,91 @@ root = AppShell([
   ])
 ])`;
 
-const FATAL_QUALITY_SOURCE = `$accepted = false
+const CONTROL_ACTION_AND_BINDING_CHECKBOX_SOURCE = `$accepted = false
 
 root = AppShell([
   Screen("main", "Main", [
     Checkbox("accepted", "Persist acceptance", $accepted, "Persists acceptance", [], Action([]))
+  ])
+])`;
+
+const REPAIRED_CHECKBOX_SOURCE = `accepted = Query("read_state", { path: "prefs.accepted" }, false)
+saveAccepted = Mutation("write_state", {
+  path: "prefs.accepted",
+  value: accepted ? false : true
+})
+
+root = AppShell([
+  Screen("main", "Main", [
+    Checkbox("accepted", "Persist acceptance", accepted, "Persists acceptance", [], Action([@Run(saveAccepted), @Run(accepted)]))
+  ])
+])`;
+
+const CONTROL_ACTION_AND_BINDING_RADIO_SOURCE = `$plan = "pro"
+planOptions = [
+  { label: "Starter", value: "starter" },
+  { label: "Pro", value: "pro" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("plan", "Plan", $plan, planOptions, null, [], Action([]))
+  ])
+])`;
+
+const REPAIRED_RADIO_SOURCE = `savedPlan = Query("read_state", { path: "prefs.plan" }, "pro")
+savePlan = Mutation("write_state", {
+  path: "prefs.plan",
+  value: $lastChoice
+})
+planOptions = [
+  { label: "Starter", value: "starter" },
+  { label: "Pro", value: "pro" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("plan", "Plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)]))
+  ])
+])`;
+
+const CONTROL_ACTION_AND_BINDING_SELECT_SOURCE = `$filter = "all"
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Completed", value: "completed" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    Select("filter", "Filter", $filter, filterOptions, null, [], Action([]))
+  ])
+])`;
+
+const REPAIRED_SELECT_SOURCE = `savedFilter = Query("read_state", { path: "prefs.filter" }, "all")
+saveFilter = Mutation("write_state", {
+  path: "prefs.filter",
+  value: $lastChoice
+})
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Completed", value: "completed" }
+]
+
+root = AppShell([
+  Screen("main", "Main", [
+    Select("filter", "Filter", savedFilter, filterOptions, null, [], Action([@Run(saveFilter), @Run(savedFilter)]))
+  ])
+])`;
+
+const FATAL_LAST_CHOICE_SOURCE = `setFilter = Mutation("write_state", {
+  path: "demo.filter",
+  value: $lastChoice
+})
+
+root = AppShell([
+  Screen("main", "Main", [
+    Button("apply-filter", "Apply", "default", Action([@Run(setFilter)]), false),
+    Text("Last choice: " + $lastChoice, "body", "start")
   ])
 ])`;
 
@@ -364,6 +445,27 @@ function createDeferred<Result>() {
     resolve: resolvePromise,
   };
 }
+
+const controlActionAndBindingCases = [
+  {
+    controlName: 'Checkbox',
+    prompt: 'Create a checkbox that saves persisted acceptance.',
+    invalidSource: CONTROL_ACTION_AND_BINDING_CHECKBOX_SOURCE,
+    repairedSource: REPAIRED_CHECKBOX_SOURCE,
+  },
+  {
+    controlName: 'RadioGroup',
+    prompt: 'Create a saved plan choice control.',
+    invalidSource: CONTROL_ACTION_AND_BINDING_RADIO_SOURCE,
+    repairedSource: REPAIRED_RADIO_SOURCE,
+  },
+  {
+    controlName: 'Select',
+    prompt: 'Create a saved filter control.',
+    invalidSource: CONTROL_ACTION_AND_BINDING_SELECT_SOURCE,
+    repairedSource: REPAIRED_SELECT_SOURCE,
+  },
+] as const;
 
 function createFormEvent() {
   return {
@@ -527,6 +629,17 @@ function findChatMessage(content: string) {
   return getBuilderState().chatMessages.find((message) => message.content === content);
 }
 
+function getComposerSubmitState(submission: ReturnType<typeof createSubmissionHarness>) {
+  const result = submission.rerender();
+
+  return getBuilderComposerSubmitState({
+    draftPrompt: result.draftPrompt,
+    hasCommittedSource: getBuilderState().committedSource.trim().length > 0,
+    isSubmitting: result.isSubmitting,
+    retryPrompt: result.retryPrompt,
+  });
+}
+
 beforeEach(() => {
   testHarness.storeRef.current = createTestStore();
   testHarness.configRef.current = DEFAULT_CONFIG;
@@ -560,14 +673,14 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('shows a pending streamed summary in chat and keeps the final summary in LLM context after commit', async () => {
+  it('shows a partial streamed summary before commit, finalizes it on success, and removes it on failure', async () => {
     setDraftPrompt('Add a welcome screen.');
     const submission = createSubmissionHarness();
     const streamResult = createDeferred<{ source: string; summary: string }>();
 
     testHarness.streamMock.mockImplementationOnce(
       async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
-        onSummary?.('Adds a welcome screen');
+        onSummary?.('Adds a welcome');
         return streamResult.promise;
       },
     );
@@ -575,9 +688,9 @@ describe('useBuilderSubmission', () => {
     const requestPromise = submission.result().handleSubmit(createFormEvent());
     await flushMicrotasks();
 
-    expect(findChatMessage('Building: Adds a welcome screen…')).toEqual(
+    expect(findChatMessage('Building: Adds a welcome…')).toEqual(
       expect.objectContaining({
-        content: 'Building: Adds a welcome screen…',
+        content: 'Building: Adds a welcome…',
         role: 'assistant',
       }),
     );
@@ -588,7 +701,7 @@ describe('useBuilderSubmission', () => {
     });
     await requestPromise;
 
-    expect(findChatMessage('Building: Adds a welcome screen…')).toBeUndefined();
+    expect(findChatMessage('Building: Adds a welcome…')).toBeUndefined();
     expect(findChatMessage('Adds a welcome screen')).toEqual(
       expect.objectContaining({
         content: 'Adds a welcome screen',
@@ -599,6 +712,28 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().chatMessages.some((message) => message.content === 'Updated the app definition from the latest chat instruction.')).toBe(
       false,
     );
+
+    setDraftPrompt('Create a settings app.');
+
+    testHarness.streamMock.mockImplementationOnce(
+      async ({ onChunk, onSummary }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void }) => {
+        onSummary?.('Creates a settings app');
+        onChunk('partial draft');
+        throw new Error('The model stream ended before it returned any OpenUI source.');
+      },
+    );
+
+    await submission.rerender().handleSubmit(createFormEvent());
+
+    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+    expect(findChatMessage('Creates a settings app')).toBeUndefined();
+    expect(findChatMessage('Adds a welcome screen')).toEqual(
+      expect.objectContaining({
+        content: 'Adds a welcome screen',
+        role: 'assistant',
+      }),
+    );
+    expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
 
     submission.unmount();
   });
@@ -658,7 +793,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('auto-fixes trivial validation issues locally before triggering repair', async () => {
+  it('commits a locally auto-fixed draft without sending a repair request and logs the local fix', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
@@ -670,6 +805,7 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
 
+    expect(testHarness.streamMock).toHaveBeenCalledTimes(1);
     expect(testHarness.generateMock).not.toHaveBeenCalled();
     expect(getBuilderState().committedSource).toBe(AUTO_FIXED_SOURCE);
     expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
@@ -708,7 +844,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('repairs a quality-blocked draft and commits the repaired source', async () => {
+  it('repairs a parser-valid blocking-quality draft once and commits the repaired source', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a todo list.');
     const submission = createSubmissionHarness();
@@ -722,7 +858,10 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
 
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect((testHarness.generateMock.mock.calls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
     expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
@@ -792,16 +931,88 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('fails fast on fatal quality issues without sending a repair request', async () => {
+  for (const { controlName, invalidSource, prompt, repairedSource } of controlActionAndBindingCases) {
+    it(`repairs ${controlName} action mode plus writable binding once and commits the repaired source`, async () => {
+      seedCommittedSource();
+      setDraftPrompt(prompt);
+      const submission = createSubmissionHarness();
+
+      testHarness.streamMock.mockResolvedValue({
+        source: invalidSource,
+      });
+      testHarness.generateMock.mockResolvedValue({
+        source: repairedSource,
+      });
+
+      await submission.result().handleSubmit(createFormEvent());
+
+      const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
+        const request = (requestOptions as { request: { mode?: string; prompt: string } }).request;
+        return request.mode === 'repair' && request.prompt.includes(prompt);
+      });
+
+      expect(repairCalls).toHaveLength(1);
+      expect((repairCalls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
+      expect(getBuilderState().committedSource).toBe(repairedSource);
+      expect(getBuilderState().streamError).toBeNull();
+      expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+      expect(getBuilderState().chatMessages.at(-1)).toEqual(
+        expect.objectContaining({
+          content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
+          role: 'assistant',
+          tone: 'success',
+        }),
+      );
+
+      submission.unmount();
+    });
+
+    it(`fails cleanly after one repair when ${controlName} still combines action mode with a writable binding`, async () => {
+      seedCommittedSource();
+      setDraftPrompt(prompt);
+      const submission = createSubmissionHarness();
+
+      testHarness.streamMock.mockResolvedValue({
+        source: invalidSource,
+      });
+      testHarness.generateMock.mockResolvedValue({
+        source: invalidSource,
+      });
+
+      await submission.result().handleSubmit(createFormEvent());
+
+      const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
+        const request = (requestOptions as { request: { mode?: string; prompt: string } }).request;
+        return request.mode === 'repair' && request.prompt.includes(prompt);
+      });
+
+      expect(repairCalls).toHaveLength(1);
+      expect((repairCalls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
+      expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+      expect(getBuilderState().retryPrompt).toBe(prompt);
+      expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
+      expect(getBuilderState().streamError).toContain('control-action-and-binding');
+      expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+      expect(getComposerSubmitState(submission)).toEqual({
+        disabled: false,
+        label: 'Repeat',
+        mode: 'repeat',
+      });
+
+      submission.unmount();
+    });
+  }
+
+  it('fails fast on $lastChoice outside action mode without repair and returns the composer to Repeat', async () => {
     seedCommittedSource();
-    setDraftPrompt('Create a checkbox that saves persisted acceptance.');
+    setDraftPrompt('Create a saved filter control.');
     const submission = createSubmissionHarness();
 
     testHarness.streamMock.mockResolvedValue({
-      source: FATAL_QUALITY_SOURCE,
+      source: FATAL_LAST_CHOICE_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
-      source: FATAL_QUALITY_SOURCE,
+      source: FATAL_LAST_CHOICE_SOURCE,
     });
 
     await submission.result().handleSubmit(createFormEvent());
@@ -812,10 +1023,15 @@ describe('useBuilderSubmission', () => {
       ),
     ).toHaveLength(0);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
-    expect(getBuilderState().retryPrompt).toBe('Create a checkbox that saves persisted acceptance.');
+    expect(getBuilderState().retryPrompt).toBe('Create a saved filter control.');
     expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
-    expect(getBuilderState().streamError).toContain('control-action-and-binding');
+    expect(getBuilderState().streamError).toContain('reserved-last-choice-outside-action-mode');
     expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
+    expect(getComposerSubmitState(submission)).toEqual({
+      disabled: false,
+      label: 'Repeat',
+      mode: 'repeat',
+    });
 
     submission.unmount();
   });
@@ -896,14 +1112,18 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('cancels an active stream before done without surfacing an error', async () => {
+  it('aborts mid-stream without committing, preserves the last valid preview, and removes the pending summary', async () => {
     seedCommittedSource();
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
+    const previousHistoryLength = getBuilderState().history.length;
 
     testHarness.streamMock.mockImplementationOnce(
-      ({ signal }: { signal?: AbortSignal }) =>
+      ({ onChunk, onSummary, signal }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void; signal?: AbortSignal }) =>
         new Promise((_resolve, reject) => {
+          onSummary?.('Builds a cancellable draft');
+          onChunk('partial draft');
+
           signal?.addEventListener(
             'abort',
             () => {
@@ -915,14 +1135,26 @@ describe('useBuilderSubmission', () => {
     );
 
     const requestPromise = submission.result().handleSubmit(createFormEvent());
+    await flushMicrotasks();
+
+    expect(findChatMessage('Building: Builds a cancellable draft…')).toEqual(
+      expect.objectContaining({
+        content: 'Building: Builds a cancellable draft…',
+        role: 'assistant',
+      }),
+    );
 
     submission.result().handleCancel();
     await requestPromise;
 
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
     expect(getBuilderState().retryPrompt).toBeNull();
     expect(getBuilderState().currentRequestId).toBeNull();
+    expect(getBuilderState().history).toHaveLength(previousHistoryLength);
+    expect(findChatMessage('Building: Builds a cancellable draft…')).toBeUndefined();
+    expect(findChatMessage('Builds a cancellable draft')).toBeUndefined();
     expect(getBuilderState().chatMessages.some((message) => message.tone === 'error')).toBe(false);
 
     submission.unmount();

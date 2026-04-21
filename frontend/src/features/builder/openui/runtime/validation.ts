@@ -944,7 +944,7 @@ function detectControlActionBindingConflicts(value: unknown, inheritedStatementI
       ((value.typeName === 'RadioGroup' || value.typeName === 'Select') && isWritableBindingValue(value.props.value)))
   ) {
     issues.push(
-      createOpenUiQualityIssue('fatal-quality', {
+      createOpenUiQualityIssue('blocking-quality', {
         code: 'control-action-and-binding',
         message:
           'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',

@@ -985,7 +985,7 @@ describe('detectOpenUiQualityIssues', () => {
     );
   });
 
-  it('marks Checkbox action mode plus writable binding as fatal quality', () => {
+  it('marks Checkbox action mode plus writable binding as blocking quality', () => {
     const issues = detectOpenUiQualityIssues(
       `$accepted = false
 
@@ -1003,14 +1003,14 @@ root = AppShell([
           code: 'control-action-and-binding',
           message:
             'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
-          severity: 'fatal-quality',
+          severity: 'blocking-quality',
           source: 'quality',
         }),
       ]),
     );
   });
 
-  it('marks RadioGroup and Select action mode plus writable binding as fatal quality', () => {
+  it('marks RadioGroup and Select action mode plus writable binding as blocking quality', () => {
     const issues = detectOpenUiQualityIssues(
       `$plan = "pro"
 $filter = "all"
@@ -1037,7 +1037,7 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'control-action-and-binding',
-          severity: 'fatal-quality',
+          severity: 'blocking-quality',
           source: 'quality',
         }),
       ]),

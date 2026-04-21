@@ -2,6 +2,7 @@ import type { BuilderSnapshot } from '@features/builder/types';
 
 export interface BuilderHistoryVersionStateInput {
   committedSource: string;
+  hasChatMessages?: boolean;
   hasRejectedDefinition?: boolean;
   hasRedoSnapshot: boolean;
   hasUndoSnapshot: boolean;
@@ -25,6 +26,7 @@ export function countCommittedVersions(snapshots: Pick<BuilderSnapshot, 'source'
 
 export function getBuilderHistoryVersionState({
   committedSource,
+  hasChatMessages = false,
   hasRejectedDefinition = false,
   hasRedoSnapshot,
   hasUndoSnapshot,
@@ -36,7 +38,7 @@ export function getBuilderHistoryVersionState({
 
   return {
     canRedo: hasRedoSnapshot,
-    canReset: totalVersionCount > 0 || committedSource.trim().length > 0 || hasRejectedDefinition,
+    canReset: totalVersionCount > 0 || committedSource.trim().length > 0 || hasRejectedDefinition || hasChatMessages,
     canUndo: committedSource.trim().length > 0 && hasUndoSnapshot,
     currentVersionNumber,
     totalVersionCount,

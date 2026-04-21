@@ -104,7 +104,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2" data-kitto-stacked-field="true">
+    <div className="flex flex-col gap-2">
       <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
         {props.label}
       </span>

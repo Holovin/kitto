@@ -1,6 +1,7 @@
 import type { RootState } from '@store/store';
 
 export const selectActiveTab = (state: RootState) => state.builder.activeTab;
+export const selectHasChatMessages = (state: RootState) => state.builder.chatMessages.length > 0;
 export const selectChatMessages = (state: RootState) => state.builder.chatMessages;
 export const selectCommittedSource = (state: RootState) => state.builder.committedSource;
 export const selectDomainData = (state: RootState) => state.domain.data;

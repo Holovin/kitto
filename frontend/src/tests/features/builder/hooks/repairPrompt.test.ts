@@ -114,6 +114,35 @@ describe('buildRepairPrompt', () => {
     );
   });
 
+  it('injects the control-action-and-binding repair hint into the issues section', () => {
+    const issues: BuilderParseIssue[] = [
+      {
+        code: 'control-action-and-binding',
+        message:
+          'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildRepairPrompt({
+      userPrompt: 'Create a persisted filter control.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Select("filter", "Filter", $filter, filterOptions, null, [], Action([]))])',
+      issues,
+      attemptNumber: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain('Quality issues:');
+    expect(prompt).toContain(
+      '- control-action-and-binding in root: Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
+    );
+    expect(prompt).toContain(
+      '- Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.',
+    );
+  });
+
   it('keeps parser repair framed as syntax repair instead of quality repair', () => {
     const issues: BuilderParseIssue[] = [
       {

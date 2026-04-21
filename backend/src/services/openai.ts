@@ -25,7 +25,7 @@ const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['source'],
+    required: ['summary', 'source', 'notes'],
     properties: {
       summary: {
         type: 'string',

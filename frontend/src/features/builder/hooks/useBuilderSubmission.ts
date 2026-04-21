@@ -577,6 +577,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         return;
       }
 
+      if (error instanceof OpenUiValidationError) {
+        failRequest(requestId, error, { retryPrompt: request.prompt });
+        return;
+      }
+
       if (!receivedChunk) {
         try {
           const fallbackResponse = await runGenerateRequest(requestId, request);
