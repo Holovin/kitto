@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { ElementNode } from '@openuidev/react-lang';
 import { defineComponent } from '@openuidev/react-lang';
 import { cn } from '@lib/utils';
 import { z } from 'zod';
@@ -9,6 +10,45 @@ import {
   getAppearanceStyle,
   useKittoAppearanceScope,
 } from './shared';
+
+type ScreenElementNode = ElementNode & {
+  typeName: 'Screen';
+  props: ElementNode['props'] & { isActive?: boolean };
+};
+
+function isElementNode(value: unknown): value is ElementNode {
+  return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'element';
+}
+
+function isScreenNode(value: unknown): value is ScreenElementNode {
+  return isElementNode(value) && value.typeName === 'Screen';
+}
+
+function getRenderableChildren(children: unknown[]) {
+  const firstScreenIndex = children.findIndex(isScreenNode);
+
+  if (firstScreenIndex === -1) {
+    return children;
+  }
+
+  const hasVisibleScreen = children.some((child) => isScreenNode(child) && child.props.isActive !== false);
+
+  if (hasVisibleScreen) {
+    return children;
+  }
+
+  return children.map((child, index) =>
+    index === firstScreenIndex && isScreenNode(child)
+      ? {
+          ...child,
+          props: {
+            ...child.props,
+            isActive: true,
+          },
+        }
+      : child,
+  );
+}
 
 function AppShellRenderer({
   props,
@@ -34,7 +74,7 @@ function AppShellRenderer({
           data-app-shell="true"
           style={shellStyle}
         >
-          {renderNode(props.children)}
+          {renderNode(getRenderableChildren(props.children))}
         </div>
       </KittoValidationInteractionProvider>
     </KittoAppearanceProvider>
