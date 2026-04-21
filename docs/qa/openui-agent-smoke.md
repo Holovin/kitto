@@ -380,6 +380,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 ### Expected
 
 - If first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
+- `reserved-last-choice-outside-action-mode` should follow that same one-repair path instead of failing immediately on the first draft.
 - Trivial parser issues with local `suggestion` patches may be fixed in the browser before repair; in that case no repair request should run.
 - If repair succeeds, final app is valid and usable.
 - If repair fails, previous Preview remains visible.

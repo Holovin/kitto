@@ -1078,7 +1078,96 @@ root = AppShell([
     expect(detectOpenUiQualityIssues(source, 'Create persisted choice controls.')).toEqual([]);
   });
 
-  it('marks $lastChoice outside Select/RadioGroup action mode flows as fatal quality', () => {
+  it('accepts a logged kanban draft that routes Select actions through a top-level $lastChoice mutation', () => {
+    const source = `$draftTitle = ""
+$draftColumn = "todo"
+$targetItemId = ""
+items = Query("read_state", { path: "app.kanbanItems" }, [])
+addItem = Mutation("append_item", {
+  path: "app.kanbanItems",
+  value: { title: $draftTitle, column: $draftColumn, completed: false }
+})
+moveItem = Mutation("update_item_field", {
+  path: "app.kanbanItems",
+  idField: "id",
+  id: $targetItemId,
+  field: "column",
+  value: $lastChoice
+})
+removeItem = Mutation("remove_item", {
+  path: "app.kanbanItems",
+  idField: "id",
+  id: $targetItemId
+})
+columnOptions = [
+  { label: "Todo", value: "todo" },
+  { label: "Doing", value: "doing" },
+  { label: "Done", value: "done" }
+]
+todoItems = @Filter(items, "column", "==", "todo")
+doingItems = @Filter(items, "column", "==", "doing")
+doneItems = @Filter(items, "column", "==", "done")
+todoRows = @Each(todoItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start"),
+  Group(null, "horizontal", [
+    Select("move-todo-" + item.id, "Move", item.column, columnOptions, null, [], Action([@Set($targetItemId, item.id), @Run(moveItem), @Run(items)])),
+    Button("remove-todo-" + item.id, "Remove", "destructive", Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)]), false)
+  ], "inline")
+], "block"))
+doingRows = @Each(doingItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start"),
+  Group(null, "horizontal", [
+    Select("move-doing-" + item.id, "Move", item.column, columnOptions, null, [], Action([@Set($targetItemId, item.id), @Run(moveItem), @Run(items)])),
+    Button("remove-doing-" + item.id, "Remove", "destructive", Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)]), false)
+  ], "inline")
+], "block"))
+doneRows = @Each(doneItems, "item", Group(null, "vertical", [
+  Text(item.title, "body", "start"),
+  Group(null, "horizontal", [
+    Select("move-done-" + item.id, "Move", item.column, columnOptions, null, [], Action([@Set($targetItemId, item.id), @Run(moveItem), @Run(items)])),
+    Button("remove-done-" + item.id, "Remove", "destructive", Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)]), false)
+  ], "inline")
+], "block"))
+root = AppShell([
+  Screen("main", "Kanban board", [
+    Group("Quick add", "vertical", [
+      Input("draftTitle", "Task title", $draftTitle, "Add a task", "Type a new task and choose a column"),
+      Select("draftColumn", "Column", $draftColumn, columnOptions, "Choose where the task starts"),
+      Button("add-task", "Add task", "default", Action([@Run(addItem), @Run(items), @Reset($draftTitle)]), $draftTitle == "")
+    ], "block", { mainColor: "#FFF7ED", contrastColor: "#9A3412" }),
+    Group(null, "horizontal", [
+      Group("Todo", "vertical", [
+        Repeater(todoRows, "No todo tasks yet.")
+      ], "block", { mainColor: "#FEF2F2", contrastColor: "#B91C1C" }),
+      Group("Doing", "vertical", [
+        Repeater(doingRows, "No doing tasks yet.")
+      ], "block", { mainColor: "#EFF6FF", contrastColor: "#1D4ED8" }),
+      Group("Done", "vertical", [
+        Repeater(doneRows, "No done tasks yet.")
+      ], "block", { mainColor: "#ECFDF5", contrastColor: "#047857" })
+    ], "inline")
+  ], true, { mainColor: "#111827", contrastColor: "#F9FAFB" })
+], { mainColor: "#111827", contrastColor: "#F9FAFB" })`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(
+      detectOpenUiQualityIssues(
+        source,
+        'Create a kanban task board app with columns Todo, Doing, Done, quick add, and a colorful theme.',
+      ),
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'reserved-last-choice-outside-action-mode',
+        }),
+      ]),
+    );
+  });
+
+  it('marks $lastChoice outside Select/RadioGroup action mode flows as blocking quality', () => {
     const issues = detectOpenUiQualityIssues(
       `setFilter = Mutation("write_state", {
   path: "demo.filter",
@@ -1099,7 +1188,7 @@ root = AppShell([
         expect.objectContaining({
           code: 'reserved-last-choice-outside-action-mode',
           message: expect.stringContaining('reserved for Select/RadioGroup action mode'),
-          severity: 'fatal-quality',
+          severity: 'blocking-quality',
           source: 'quality',
         }),
       ]),

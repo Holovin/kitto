@@ -87,9 +87,15 @@ $filter = "all"`);
     expect(html).toMatch(
       /<button[^>]+role="combobox"[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"/i,
     );
-    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Submit<\/span><\/button>/i);
-    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Cancel<\/span><\/button>/i);
-    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Delete<\/span><\/button>/i);
+    expect(html).toMatch(
+      /<button[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"[^>]*><span>Submit<\/span><\/button>/i,
+    );
+    expect(html).toMatch(
+      /<button[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"[^>]*><span>Cancel<\/span><\/button>/i,
+    );
+    expect(html).toMatch(
+      /<button[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"[^>]*><span>Delete<\/span><\/button>/i,
+    );
     expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
   });
 
@@ -103,7 +109,26 @@ $filter = "all"`);
     expect(html).toMatch(/--kitto-main-color:#2563EB/i);
     expect(html).toMatch(/--kitto-contrast-color:#FFFFFF/i);
     expect(html).toMatch(/background-color:var\(--kitto-main-color\)/i);
-    expect(html).toMatch(/<span style="[^"]*color:var\(--kitto-contrast-color\)[^"]*">Publish<\/span>/i);
+    expect(html).toMatch(/<button[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"[^>]*><span>Publish<\/span><\/button>/i);
+  });
+
+  it('keeps inactive light-theme toggle buttons readable by applying inherited contrast color on the button element', () => {
+    const html = renderOpenUi(`$theme = "light"
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#0F172A", contrastColor: "#F9FAFB" }
+appTheme = $theme == "dark" ? darkTheme : lightTheme
+activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }
+
+root = AppShell([
+  Screen("main", "Main", [
+    Group("Theme", "horizontal", [
+      Button("theme-light", "Light", "default", Action([@Set($theme, "light")]), false, $theme == "light" ? activeThemeButton : appTheme),
+      Button("theme-dark", "Dark", "default", Action([@Set($theme, "dark")]), false, $theme == "dark" ? activeThemeButton : appTheme)
+    ], "inline")
+  ])
+], appTheme)`);
+
+    expect(html).toMatch(/<button[^>]+style="(?=[^"]*--kitto-main-color:#FFFFFF)(?=[^"]*--kitto-contrast-color:#111827)(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"[^>]*><span>Dark<\/span><\/button>/i);
   });
 
   it('accepts appearance props on supported components and rejects mainColor on Text', () => {

@@ -30,12 +30,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
     backgroundRole: shouldApplyButtonAppearance ? 'main' : undefined,
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
     hasInheritedMainColor: appearanceScope.hasMainColor,
-  });
-  const labelStyle = getAppearanceStyle({
-    appearance: props.appearance,
     textRole: shouldApplyButtonAppearance ? 'contrast' : undefined,
-    hasInheritedContrastColor: appearanceScope.hasContrastColor,
-    hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (
@@ -51,7 +46,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
         void triggerAction(props.label, undefined, props.action as never);
       }}
     >
-      <span style={labelStyle}>{props.label}</span>
+      <span>{props.label}</span>
     </ButtonUI>
   );
 }

@@ -216,8 +216,8 @@ vi.mock('@features/builder/api/streamGenerate', () => {
 });
 
 import { builderActions, builderReducer } from '@features/builder/store/builderSlice';
-import { builderSessionReducer } from '@features/builder/store/builderSessionSlice';
-import { domainReducer } from '@features/builder/store/domainSlice';
+import { builderSessionActions, builderSessionReducer } from '@features/builder/store/builderSessionSlice';
+import { domainActions, domainReducer } from '@features/builder/store/domainSlice';
 import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
@@ -348,17 +348,93 @@ root = AppShell([
   ])
 ])`;
 
-const FATAL_LAST_CHOICE_SOURCE = `setFilter = Mutation("write_state", {
-  path: "demo.filter",
-  value: $lastChoice
+const SMOKE_COMPLEX_LAST_CHOICE_SOURCE = `root = AppShell([
+  Screen("tasks", "Task planner", [
+    Group("Add task", "vertical", [
+      Input("taskTitle", "Task title", $taskTitle, "Write a task", "Required", "text", [{ type: "required", message: "Task title is required" }, { type: "minLength", value: 3, message: "Use at least 3 characters" }]),
+      Input("taskOwner", "Owner email", $taskOwner, "name@example.com", "Required", "email", [{ type: "required", message: "Owner email is required" }, { type: "email", message: "Enter a valid email address" }]),
+      Select("taskPriority", "Priority", $taskPriority, priorityOptions, "Choose a priority", [{ type: "required", message: "Priority is required" }]),
+      Group("Priority tools", "horizontal", [
+        Button("random-priority", "Random priority", "secondary", Action([@Set($taskPriority, $lastChoice)]), false),
+        Button("go-summary", "Go to summary", "default", Action([@Set($currentScreen, "summary")]), false)
+      ], "inline")
+    ], "block"),
+    Group("Filters", "horizontal", [
+      Select("statusFilter", "Show", $statusFilter, filterOptions, "Filter the task list", [{ type: "required", message: "Choose a filter" }]),
+      Text("Visible tasks: " + visibleCount, "muted", "start")
+    ], "inline"),
+    Repeater(taskRows, "No tasks yet.")
+  ], $currentScreen == "tasks", { mainColor: "#111827", contrastColor: "#F9FAFB" }),
+  Screen("summary", "Summary", [
+    Group("Overview", "vertical", [
+      Text("Total tasks: " + taskCount, "body", "start"),
+      Text("Completed tasks: " + completedCount, "body", "start"),
+      Text("Random number: " + randomNumber, "body", "start"),
+      Button("back-tasks", "Back to tasks", "secondary", Action([@Set($currentScreen, "tasks")]), false)
+    ], "block")
+  ], $currentScreen == "summary", { mainColor: "#111827", contrastColor: "#F9FAFB" })
+], { mainColor: "#111827", contrastColor: "#F9FAFB" })
+
+$currentScreen = "tasks"
+$taskTitle = ""
+$taskOwner = ""
+$taskPriority = "medium"
+$statusFilter = "all"
+$targetItemId = ""
+
+priorityOptions = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" }
+]
+
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Completed", value: "completed" }
+]
+
+tasks = Query("read_state", { path: "app.tasks" }, [
+  { id: "t1", title: "Draft project brief", owner: "ada@example.com", priority: "high", completed: false },
+  { id: "t2", title: "Review design mockups", owner: "sam@example.com", priority: "medium", completed: true },
+  { id: "t3", title: "Prepare launch checklist", owner: "lee@example.com", priority: "low", completed: false }
+])
+
+randomNumber = Query("read_state", { path: "app.randomNumber" }, 0)
+
+addTask = Mutation("append_item", {
+  path: "app.tasks",
+  value: { title: $taskTitle, owner: $taskOwner, priority: $taskPriority, completed: false }
 })
 
-root = AppShell([
-  Screen("main", "Main", [
-    Button("apply-filter", "Apply", "default", Action([@Run(setFilter)]), false),
-    Text("Last choice: " + $lastChoice, "body", "start")
-  ])
-])`;
+toggleTask = Mutation("toggle_item_field", {
+  path: "app.tasks",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
+
+rollRandom = Mutation("write_computed_state", {
+  path: "app.randomNumber",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+visibleTasks = $statusFilter == "completed" ? @Filter(tasks, "completed", "==", true) : $statusFilter == "active" ? @Filter(tasks, "completed", "==", false) : tasks
+visibleCount = @Count(visibleTasks)
+taskCount = @Count(tasks)
+completedCount = @Count(@Filter(tasks, "completed", "==", true))
+
+taskRows = @Each(visibleTasks, "task", Group(null, "horizontal", [
+  Checkbox("done-" + task.id, "", task.completed, null, null, Action([@Set($targetItemId, task.id), @Run(toggleTask), @Run(tasks)])),
+  Text(task.title + " — " + task.owner + " — " + task.priority, "body", "start")
+], "inline"))`;
+
+const REPAIRED_SMOKE_COMPLEX_SOURCE = SMOKE_COMPLEX_LAST_CHOICE_SOURCE.replace(
+  '        Button("random-priority", "Random priority", "secondary", Action([@Set($taskPriority, $lastChoice)]), false),',
+  '        Button("random-number", "Random number", "secondary", Action([@Run(rollRandom), @Run(randomNumber)]), false),',
+);
 
 const AUTO_FIXABLE_SOURCE = `root = AppShell({ mainColor: "#FFFFFF", contrastColor: "#111827" }, [
   Screen("main", "Main", [
@@ -500,6 +576,26 @@ function getBuilderState() {
   return (store.getState() as { builder: ReturnType<typeof builderReducer> }).builder;
 }
 
+function getBuilderSessionState() {
+  const store = testHarness.storeRef.current;
+
+  if (!store) {
+    throw new Error('Test store is not initialized.');
+  }
+
+  return (store.getState() as { builderSession: { runtimeSessionState: Record<string, unknown> } }).builderSession.runtimeSessionState;
+}
+
+function getDomainState() {
+  const store = testHarness.storeRef.current;
+
+  if (!store) {
+    throw new Error('Test store is not initialized.');
+  }
+
+  return (store.getState() as { domain: { data: Record<string, unknown> } }).domain.data;
+}
+
 function seedCommittedSource(source = PREVIOUS_SOURCE) {
   const store = testHarness.storeRef.current;
 
@@ -519,18 +615,17 @@ function seedCommittedSource(source = PREVIOUS_SOURCE) {
   );
 }
 
-function seedHistorySources(...sources: string[]) {
+function seedHistorySnapshots(...snapshots: ReturnType<typeof createBuilderSnapshot>[]) {
   const store = testHarness.storeRef.current;
 
   if (!store) {
     throw new Error('Test store is not initialized.');
   }
 
-  const snapshots = sources.map((source) => createBuilderSnapshot(source, {}, {}));
   const latestSnapshot = snapshots.at(-1);
 
   if (!latestSnapshot) {
-    throw new Error('Expected at least one history source.');
+    throw new Error('Expected at least one history snapshot.');
   }
 
   store.dispatch(
@@ -541,6 +636,13 @@ function seedHistorySources(...sources: string[]) {
       source: latestSnapshot.source,
     }),
   );
+  store.dispatch(domainActions.replaceData(latestSnapshot.domainData));
+  store.dispatch(builderSessionActions.replaceRuntimeSessionState(latestSnapshot.runtimeState));
+}
+
+function seedHistorySources(...sources: string[]) {
+  const snapshots = sources.map((source) => createBuilderSnapshot(source, {}, {}));
+  seedHistorySnapshots(...snapshots);
 
   return snapshots;
 }
@@ -1011,35 +1113,44 @@ describe('useBuilderSubmission', () => {
     });
   }
 
-  it('fails fast on $lastChoice outside action mode without repair and returns the composer to Repeat', async () => {
+  it('repairs a logged smoke draft when $lastChoice is used outside action mode', async () => {
     seedCommittedSource();
-    setDraftPrompt('Create a saved filter control.');
+    setDraftPrompt('Create a complex app with two screens, filtering, a random number button, validation, and a dark theme.');
     const submission = createSubmissionHarness();
 
     testHarness.streamMock.mockResolvedValue({
-      source: FATAL_LAST_CHOICE_SOURCE,
+      source: SMOKE_COMPLEX_LAST_CHOICE_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
-      source: FATAL_LAST_CHOICE_SOURCE,
+      source: REPAIRED_SMOKE_COMPLEX_SOURCE,
     });
 
     await submission.result().handleSubmit(createFormEvent());
 
-    expect(
-      testHarness.generateMock.mock.calls.filter(
-        ([requestOptions]) => (requestOptions as { request: { mode?: string } }).request.mode === 'repair',
-      ),
-    ).toHaveLength(0);
-    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
-    expect(getBuilderState().retryPrompt).toBe('Create a saved filter control.');
-    expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
-    expect(getBuilderState().streamError).toContain('reserved-last-choice-outside-action-mode');
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
-    expect(getComposerSubmitState(submission)).toEqual({
-      disabled: false,
-      label: 'Repeat',
-      mode: 'repeat',
+    const repairCalls = testHarness.generateMock.mock.calls.filter(([requestOptions]) => {
+      const request = (requestOptions as {
+        request: { mode?: string; prompt: string; validationIssues?: string[] };
+      }).request;
+      return request.mode === 'repair' && request.prompt.includes('Create a complex app with two screens');
     });
+
+    expect(repairCalls).toHaveLength(1);
+    expect((repairCalls[0]?.[0] as { request: { validationIssues?: string[] } }).request.validationIssues).toEqual(
+      expect.arrayContaining([
+        'quality-random-result-not-visible',
+        'reserved-last-choice-outside-action-mode',
+      ]),
+    );
+    expect(getBuilderState().committedSource).toBe(REPAIRED_SMOKE_COMPLEX_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
+    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+    expect(getBuilderState().chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
+        role: 'assistant',
+        tone: 'success',
+      }),
+    );
 
     submission.unmount();
   });
@@ -1256,6 +1367,71 @@ describe('useBuilderSubmission', () => {
 
     historyControls.unmount();
     submission.unmount();
+  });
+
+  it('restores the matching runtime and domain snapshot on undo and redo', () => {
+    const store = testHarness.storeRef.current;
+
+    if (!store) {
+      throw new Error('Test store is not initialized.');
+    }
+
+    const undoSnapshot = createBuilderSnapshot(
+      UNDO_SOURCE,
+      {
+        currentScreen: 'undo',
+        draftName: 'First version',
+      },
+      {
+        app: {
+          tasks: ['one'],
+        },
+      },
+    );
+    const redoSnapshot = createBuilderSnapshot(
+      REDO_SOURCE,
+      {
+        currentScreen: 'redo',
+        draftName: 'Second version',
+      },
+      {
+        app: {
+          tasks: ['one', 'two'],
+        },
+      },
+    );
+    const latestRuntimeState = {
+      currentScreen: 'redo',
+      draftName: 'Second version',
+      isDirty: true,
+    };
+    const latestDomainData = {
+      app: {
+        tasks: ['one', 'two', 'three'],
+      },
+    };
+
+    seedHistorySnapshots(undoSnapshot, redoSnapshot);
+    const historyControls = createHistoryControlsHarness({ current: null });
+
+    store.dispatch(builderSessionActions.replaceRuntimeSessionState(latestRuntimeState));
+    store.dispatch(builderActions.syncLatestSnapshotState({ runtimeState: latestRuntimeState }));
+    store.dispatch(domainActions.replaceData(latestDomainData));
+    store.dispatch(builderActions.syncLatestSnapshotState({ domainData: latestDomainData }));
+
+    historyControls.rerender().handleUndo();
+
+    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+    expect(getBuilderSessionState()).toEqual(undoSnapshot.runtimeState);
+    expect(getDomainState()).toEqual(undoSnapshot.domainData);
+
+    historyControls.rerender().handleRedo();
+
+    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+    expect(getBuilderSessionState()).toEqual(latestRuntimeState);
+    expect(getDomainState()).toEqual(latestDomainData);
+
+    historyControls.unmount();
   });
 
   it('aborts the active request when undo starts and keeps the undone source over a late response', async () => {

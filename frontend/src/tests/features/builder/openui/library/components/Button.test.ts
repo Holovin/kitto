@@ -27,5 +27,9 @@ describe('ButtonComponent', () => {
     expect(html).toMatch(
       /<button[^>]+class="(?=[^"]*bg-rose-600)(?=[^"]*border)(?=[^"]*border-slate-200)(?=[^"]*!shadow-none)(?=[^"]*hover:!shadow-none)[^"]*"[^>]*><span>Delete<\/span><\/button>/i,
     );
+    expect(html).toContain('text-white');
+    expect(html).toContain('text-slate-900');
+    expect(html).not.toContain('!text-white');
+    expect(html).not.toContain('!text-slate-900');
   });
 });

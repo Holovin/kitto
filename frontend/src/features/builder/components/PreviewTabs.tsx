@@ -261,8 +261,17 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
       return;
     }
 
-    dispatch(domainActions.replaceData(structuredClone(currentSnapshot.initialDomainData)));
-    dispatch(builderSessionActions.replaceRuntimeSessionState(structuredClone(currentSnapshot.initialRuntimeState)));
+    const nextDomainData = structuredClone(currentSnapshot.initialDomainData);
+    const nextRuntimeState = structuredClone(currentSnapshot.initialRuntimeState);
+
+    dispatch(domainActions.replaceData(nextDomainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(nextRuntimeState));
+    dispatch(
+      builderActions.syncLatestSnapshotState({
+        domainData: nextDomainData,
+        runtimeState: nextRuntimeState,
+      }),
+    );
     dispatch(builderActions.resetCurrentAppState());
     setRendererResetVersion((currentValue) => currentValue + 1);
   }
@@ -418,6 +427,7 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
                       onStateUpdate={(state) => {
                         const nextState = state as Record<string, unknown>;
                         dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
+                        dispatch(builderActions.syncLatestSnapshotState({ runtimeState: nextState }));
                       }}
                       queryLoader={
                         <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">

@@ -465,6 +465,27 @@ export const builderSlice = createSlice({
         ),
       );
     },
+    syncLatestSnapshotState(
+      state,
+      action: PayloadAction<{
+        domainData?: Record<string, unknown>;
+        runtimeState?: Record<string, unknown>;
+      }>,
+    ) {
+      const latestSnapshot = state.history.at(-1);
+
+      if (!latestSnapshot) {
+        return;
+      }
+
+      if (action.payload.domainData !== undefined) {
+        latestSnapshot.domainData = cloneForState(action.payload.domainData);
+      }
+
+      if (action.payload.runtimeState !== undefined) {
+        latestSnapshot.runtimeState = cloneForState(action.payload.runtimeState);
+      }
+    },
     removeChatMessageByKey(
       state,
       action: PayloadAction<{
