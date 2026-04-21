@@ -10,9 +10,9 @@ let cachedClient: { apiKey: string; client: OpenAI } | null = null;
 
 export const OpenUiGenerationEnvelopeSchema = z
   .object({
-    summary: z.string().max(200).optional(),
+    summary: z.string().max(200),
     source: z.string().min(1),
-    notes: z.array(z.string().max(200)).max(5).optional(),
+    notes: z.array(z.string().max(200)).max(5),
   })
   .strict();
 
@@ -261,8 +261,24 @@ function assertRawStructuredOutputWithinLimit(rawOutput: string, env: AppEnv) {
   }
 }
 
-function parseOpenUiGenerationEnvelope(rawEnvelopeText: string) {
-  const trimmedEnvelopeText = rawEnvelopeText.trim();
+function createPlainTextOpenUiGenerationEnvelope(rawSource: unknown): OpenUiGenerationEnvelope {
+  return {
+    summary: '',
+    source: normalizeOpenUiSource(rawSource),
+    notes: [],
+  };
+}
+
+export function parseOpenUiGenerationEnvelope(rawModelText: unknown, options: { structuredOutput?: boolean } = {}) {
+  if (options.structuredOutput === false) {
+    return createPlainTextOpenUiGenerationEnvelope(rawModelText);
+  }
+
+  if (typeof rawModelText !== 'string') {
+    throw new UpstreamFailureError('The model response did not include text output.');
+  }
+
+  const trimmedEnvelopeText = rawModelText.trim();
 
   if (!trimmedEnvelopeText) {
     throw new UpstreamFailureError('The model returned an empty structured response.');
@@ -292,12 +308,9 @@ function extractOpenUiEnvelopeFromModelText(rawModelText: unknown, env: AppEnv):
     }
 
     assertRawStructuredOutputWithinLimit(rawModelText, env);
-    return parseOpenUiGenerationEnvelope(rawModelText);
   }
 
-  return {
-    source: normalizeOpenUiSource(rawModelText),
-  };
+  return parseOpenUiGenerationEnvelope(rawModelText, { structuredOutput: env.LLM_STRUCTURED_OUTPUT });
 }
 
 function throwIfAborted(signal?: AbortSignal, stream?: { abort?: () => void }) {

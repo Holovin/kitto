@@ -852,7 +852,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
     buildPromptDataBlock('current_source', currentSource),
     recentHistory.length ? buildPromptDataBlock('recent_history', buildCompactChatHistoryContent(recentHistory)) : null,
     structuredOutput
-      ? 'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change. Put extra implementation context in `notes`, and return `notes` as an empty array when there is nothing useful to add.'
+      ? 'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change, and always include `notes` (use an empty array when there is nothing useful to add).'
       : 'Return the full updated OpenUI Lang program only.',
   ]
     .filter(Boolean)

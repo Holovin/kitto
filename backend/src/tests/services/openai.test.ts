@@ -34,7 +34,7 @@ vi.mock('openai', () => {
   };
 });
 
-import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.js';
+import { generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '../../services/openai.js';
 
 const request: PromptBuildRequest = {
   chatHistory: [],
@@ -106,6 +106,56 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
   );
 }
 
+describe('parseOpenUiGenerationEnvelope', () => {
+  it('accepts the structured model envelope shape with required summary and notes', () => {
+    expect(
+      parseOpenUiGenerationEnvelope(
+        JSON.stringify({
+          notes: ['Uses one screen only.', 'Keeps local state minimal.'],
+          source: 'root = AppShell([])',
+          summary: 'Builds a simple one-screen app.',
+        }),
+      ),
+    ).toEqual({
+      notes: ['Uses one screen only.', 'Keeps local state minimal.'],
+      source: 'root = AppShell([])',
+      summary: 'Builds a simple one-screen app.',
+    });
+  });
+
+  it('normalizes the plain-text model shape with empty summary and notes defaults', () => {
+    expect(
+      parseOpenUiGenerationEnvelope('```openui\nroot = AppShell([])\n```', {
+        structuredOutput: false,
+      }),
+    ).toEqual({
+      notes: [],
+      source: 'root = AppShell([])',
+      summary: '',
+    });
+  });
+
+  it('rejects the structured model envelope shape when summary or notes are omitted', () => {
+    expect(() =>
+      parseOpenUiGenerationEnvelope(
+        JSON.stringify({
+          source: 'root = AppShell([])',
+          summary: 'Builds a simple one-screen app.',
+        }),
+      ),
+    ).toThrow(UpstreamFailureError);
+
+    expect(() =>
+      parseOpenUiGenerationEnvelope(
+        JSON.stringify({
+          notes: [],
+          source: 'root = AppShell([])',
+        }),
+      ),
+    ).toThrow(UpstreamFailureError);
+  });
+});
+
 describe('generateOpenUiSource', () => {
   afterEach(() => {
     responsesCreateMock.mockReset();
@@ -118,12 +168,14 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
         summary: 'Builds a blank app shell.',
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });
@@ -138,12 +190,14 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
         summary: 'Repairs the OpenUI document.',
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
+      notes: [],
       summary: 'Repairs the OpenUI document.',
       source: 'root = AppShell([])',
     });
@@ -159,16 +213,19 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
         summary: 'Builds a blank app shell.',
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });
     await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });
@@ -195,6 +252,7 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       _request_id: 'req_usage_log',
       output_text: JSON.stringify({
+        notes: [],
         summary: 'Builds a blank app shell.',
         source: 'root = AppShell([])',
       }),
@@ -212,6 +270,7 @@ describe('generateOpenUiSource', () => {
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });
@@ -238,6 +297,8 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
+        summary: 'Builds a blank app shell.',
         notSource: 'root = AppShell([])',
       }),
     });
@@ -251,6 +312,8 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
+        summary: 'Builds a blank app shell.',
         source: '',
       }),
     });
@@ -264,6 +327,8 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
+        summary: 'Builds a blank app shell.',
         source: 'root = AppShell([])',
         extra: true,
       }),
@@ -272,7 +337,7 @@ describe('generateOpenUiSource', () => {
     await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
   });
 
-  it('accepts optional summary and notes fields in structured envelopes', async () => {
+  it('accepts required summary and notes fields in structured envelopes', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-envelope-extra-fields',
     });
@@ -298,7 +363,9 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
         source: '1234567890',
+        summary: '',
       }),
     });
 
@@ -312,14 +379,16 @@ describe('generateOpenUiSource', () => {
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
+        notes: [],
         source: 'x'.repeat(51),
+        summary: '',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
   });
 
-  it('keeps the legacy plain-text path when structured output is disabled', async () => {
+  it('normalizes the plain-text path to empty summary and notes defaults when structured output is disabled', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-8',
       LLM_STRUCTURED_OUTPUT: false,
@@ -329,7 +398,9 @@ describe('generateOpenUiSource', () => {
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      notes: [],
       source: 'root = AppShell([])',
+      summary: '',
     });
 
     expect(responsesCreateMock).toHaveBeenCalledTimes(1);
@@ -349,16 +420,16 @@ describe('streamOpenUiSource', () => {
     });
     const abortController = new AbortController();
     const onTextDelta = vi.fn((delta: string) => {
-      if (delta === '{"source":"root = ') {
+      if (delta === '{"summary":"Builds a blank app shell.","source":"root = ') {
         abortController.abort();
       }
     });
     const stream = createMockResponseStream(
       [
-        { type: 'response.output_text.delta', delta: '{"source":"root = ' },
-        { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
+        { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
+        { type: 'response.output_text.delta', delta: 'AppShell([])","notes":[]}' },
       ],
-      { output_text: '{"source":"root = AppShell([])"}' },
+      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}' },
     );
 
     responsesStreamMock.mockReturnValue(stream);
@@ -368,7 +439,7 @@ describe('streamOpenUiSource', () => {
     );
 
     expect(onTextDelta).toHaveBeenCalledTimes(1);
-    expect(onTextDelta).toHaveBeenCalledWith('{"source":"root = ');
+    expect(onTextDelta).toHaveBeenCalledWith('{"summary":"Builds a blank app shell.","source":"root = ');
     expect(stream.abort).toHaveBeenCalledTimes(1);
     expect(stream.finalResponse).not.toHaveBeenCalled();
   });
@@ -383,10 +454,12 @@ describe('streamOpenUiSource', () => {
       type: 'response.output_text.delta',
       get delta() {
         abortController.abort();
-        return '{"source":"root = AppShell([])"}';
+        return '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}';
       },
     };
-    const stream = createMockResponseStream([abortingEvent], { output_text: '{"source":"root = AppShell([])"}' });
+    const stream = createMockResponseStream([abortingEvent], {
+      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
+    });
 
     responsesStreamMock.mockReturnValue(stream);
 
@@ -407,20 +480,21 @@ describe('streamOpenUiSource', () => {
     const stream = createMockResponseStream(
       [
         { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
-        { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
+        { type: 'response.output_text.delta', delta: 'AppShell([])","notes":[]}' },
       ],
-      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
+      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}' },
     );
 
     responsesStreamMock.mockReturnValue(stream);
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });
 
     expect(onTextDelta).toHaveBeenNthCalledWith(1, '{"summary":"Builds a blank app shell.","source":"root = ');
-    expect(onTextDelta).toHaveBeenNthCalledWith(2, 'AppShell([])"}');
+    expect(onTextDelta).toHaveBeenNthCalledWith(2, 'AppShell([])","notes":[]}');
     expectStructuredOutputRequest(responsesStreamMock.mock.calls[0]?.[0]);
   });
 
@@ -443,8 +517,8 @@ describe('streamOpenUiSource', () => {
       OPENAI_API_KEY: 'test-key-13',
     });
     const onTextDelta = vi.fn();
-    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"source":' }], {
-      output_text: '{"source":',
+    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":' }], {
+      output_text: '{"summary":"Builds a blank app shell.","source":',
     });
 
     responsesStreamMock.mockReturnValue(stream);
@@ -457,9 +531,12 @@ describe('streamOpenUiSource', () => {
       OPENAI_API_KEY: 'test-key-14',
     });
     const onTextDelta = vi.fn();
-    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"source":""}' }], {
-      output_text: '{"source":""}',
-    });
+    const stream = createMockResponseStream(
+      [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"","notes":[]}' }],
+      {
+        output_text: '{"summary":"Builds a blank app shell.","source":"","notes":[]}',
+      },
+    );
 
     responsesStreamMock.mockReturnValue(stream);
 
@@ -472,9 +549,9 @@ describe('streamOpenUiSource', () => {
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream(
-      [{ type: 'response.output_text.delta', delta: '{"source":"root = AppShell([])","extra":true}' }],
+      [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[],"extra":true}' }],
       {
-        output_text: '{"source":"root = AppShell([])","extra":true}',
+        output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[],"extra":true}',
       },
     );
 
@@ -489,8 +566,8 @@ describe('streamOpenUiSource', () => {
       LLM_OUTPUT_MAX_BYTES: 10,
     });
     const onTextDelta = vi.fn();
-    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"source":"1234567890"}' }], {
-      output_text: '{"source":"1234567890"}',
+    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"summary":"","source":"1234567890","notes":[]}' }], {
+      output_text: '{"summary":"","source":"1234567890","notes":[]}',
     });
 
     responsesStreamMock.mockReturnValue(stream);
@@ -502,20 +579,25 @@ describe('streamOpenUiSource', () => {
     expect(stream.finalResponse).not.toHaveBeenCalled();
   });
 
-  it('keeps the legacy plain-text streaming path when structured output is disabled', async () => {
+  it('normalizes the plain-text streaming path to empty summary and notes defaults when structured output is disabled', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-17',
       LLM_STRUCTURED_OUTPUT: false,
     });
     const onTextDelta = vi.fn();
-    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '```openui\nroot = AppShell([])\n```' }], {
-      output_text: '```openui\nroot = AppShell([])\n```',
-    });
+    const stream = createMockResponseStream(
+      [{ type: 'response.output_text.delta', delta: '```openui\nroot = AppShell([])\n```' }],
+      {
+        output_text: '```openui\nroot = AppShell([])\n```',
+      },
+    );
 
     responsesStreamMock.mockReturnValue(stream);
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      notes: [],
       source: 'root = AppShell([])',
+      summary: '',
     });
 
     expect(onTextDelta).toHaveBeenCalledWith('```openui\nroot = AppShell([])\n```');
@@ -529,9 +611,15 @@ describe('streamOpenUiSource', () => {
     });
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const onTextDelta = vi.fn();
-    const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"source":"root = AppShell([])"}' }], {
+    const streamEvents = [
+      {
+        type: 'response.output_text.delta' as const,
+        delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
+      },
+    ];
+    const finalResponse = {
       _request_id: 'req_stream_usage',
-      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
       usage: {
         input_tokens: 2000,
         input_tokens_details: {
@@ -543,11 +631,13 @@ describe('streamOpenUiSource', () => {
         },
         total_tokens: 2025,
       },
-    });
+    };
+    const stream = createMockResponseStream(streamEvents, finalResponse);
 
     responsesStreamMock.mockReturnValue(stream);
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
     });

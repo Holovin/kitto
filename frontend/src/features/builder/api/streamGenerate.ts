@@ -455,9 +455,9 @@ export async function streamBuilderDefinition({
             rawStructuredEnvelope += parsedEvent.data;
             const partialEnvelope = parsePartialOpenUiEnvelope(rawStructuredEnvelope);
             const nextSource = partialEnvelope.source?.value ?? '';
-            const nextSummary = partialEnvelope.summary?.value?.trim() ?? '';
+            const nextSummary = partialEnvelope.summary?.value;
 
-            if (nextSummary && nextSummary !== lastParsedSummary) {
+            if (typeof nextSummary === 'string' && nextSummary !== lastParsedSummary) {
               lastParsedSummary = nextSummary;
               onSummary?.(nextSummary);
             }

@@ -234,7 +234,7 @@ describe('createLlmOpenUiRoutes', () => {
     const { app } = createRouteApp({
       LLM_OUTPUT_MAX_BYTES: 12,
     });
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
+    generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -314,6 +314,7 @@ describe('createLlmOpenUiRoutes', () => {
       { role: 'assistant' as const, content: 'most recent assistant reply' },
     ];
     generateOpenUiSourceMock.mockResolvedValue({
+      notes: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -340,6 +341,7 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: 2,
       },
       model: 'gpt-test-model',
+      notes: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -359,6 +361,7 @@ describe('createLlmOpenUiRoutes', () => {
       OPENAI_MODEL: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
+      notes: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -391,6 +394,7 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: 1,
       },
       model: 'gpt-test-model',
+      notes: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -407,7 +411,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes through explicit repair mode to the OpenAI service request', async () => {
     const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
+    generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -441,7 +445,7 @@ describe('createLlmOpenUiRoutes', () => {
       { role: 'assistant' as const, content: 'b'.repeat(120) },
       { role: 'user' as const, content: 'c'.repeat(120) },
     ];
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])' });
+    generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -474,7 +478,9 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: chatHistory.length - calledRequest.chatHistory.length,
       },
       model: 'gpt-5.4-mini',
+      notes: [],
       source: 'root = AppShell([])',
+      summary: '',
     });
   });
 
@@ -484,8 +490,9 @@ describe('createLlmOpenUiRoutes', () => {
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
       await onTextDelta('{"summary":"Builds a tiny app.","source":"root = ');
-      await onTextDelta('AppShell([])"}');
+      await onTextDelta('AppShell([])","notes":[]}');
       return {
+        notes: [],
         source: 'root = AppShell([])',
         summary: 'Builds a tiny app.',
       };
@@ -519,10 +526,11 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(events).toHaveLength(3);
     expect(events[0]).toEqual({ event: 'chunk', data: '{"summary":"Builds a tiny app.","source":"root = ' });
-    expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])"}' });
+    expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])","notes":[]}' });
     expect(events[2]?.event).toBe('done');
     expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
       model: 'gpt-stream-model',
+      notes: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
     });
@@ -552,7 +560,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(events).toEqual([{ event: 'chunk', data: 'root = ' }]);
   });
 
-  it('returns optional summary and notes fields from non-stream generation', async () => {
+  it('returns required summary and notes fields from non-stream generation', async () => {
     const { app } = createRouteApp({
       OPENAI_MODEL: 'gpt-test-model',
     });

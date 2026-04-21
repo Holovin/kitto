@@ -23,7 +23,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/llm` to verify which interactions call the LLM.
 5. While a generation is streaming, Chat should surface a human-readable pending assistant summary such as `Building: ...`, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
-6. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no extra repair LLM request is sent.
+6. In `/api/llm/generate*` responses, confirm the final envelope includes both `summary` and `notes` (`notes` may be an empty array).
+7. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no extra repair LLM request is sent.
 
 ## MCP automation notes
 

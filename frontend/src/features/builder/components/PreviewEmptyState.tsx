@@ -174,7 +174,7 @@ export function PreviewEmptyState() {
         <h3 className="text-3xl font-semibold tracking-tight text-slate-950">Preview is empty</h3>
       </div>
 
-      <div className="h-px w-full max-w-md bg-slate-200/80" />
+      <div aria-hidden="true" className="h-px w-full max-w-md bg-transparent" />
 
       <div className="flex flex-col items-center gap-4">
         <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">

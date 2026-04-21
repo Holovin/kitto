@@ -9,6 +9,21 @@ const request: BuilderLlmRequest = {
   mode: 'initial',
 };
 
+function createDeferred<Result>() {
+  let resolvePromise!: (value: Result) => void;
+  let rejectPromise!: (reason?: unknown) => void;
+  const promise = new Promise<Result>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+
+  return {
+    promise,
+    reject: rejectPromise,
+    resolve: resolvePromise,
+  };
+}
+
 function createTextStream(chunks: string[]) {
   const encoder = new TextEncoder();
 
@@ -236,19 +251,35 @@ describe('streamBuilderDefinition', () => {
     expect(onChunk).toHaveBeenCalledWith('  Text("hero", "Leading spaces matter")');
   });
 
-  it('emits summary updates as soon as the structured envelope includes summary', async () => {
+  it('emits at least one summary update before the done event finishes the stream', async () => {
     const onChunk = vi.fn();
     const onSummary = vi.fn();
+    const allowDone = createDeferred<void>();
+    const firstSummarySeen = createDeferred<void>();
+    let doneEventSent = false;
 
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
-          createTextStream([
-            'event: chunk\ndata: {"summary":"Builds a\n\n',
-            'event: chunk\ndata:  todo list","source":"root = AppShell([])"}\n\n',
-            'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])","notes":["Keeps one screen only."]}\n\n',
-          ]),
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              const encoder = new TextEncoder();
+
+              controller.enqueue(encoder.encode('event: chunk\ndata: {"summary":"Builds a\n\n'));
+
+              void allowDone.promise.then(() => {
+                controller.enqueue(encoder.encode('event: chunk\ndata:  todo list","source":"root = AppShell([])"}\n\n'));
+                doneEventSent = true;
+                controller.enqueue(
+                  encoder.encode(
+                    'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])","notes":["Keeps one screen only."]}\n\n',
+                  ),
+                );
+                controller.close();
+              });
+            },
+          }),
           {
             headers: {
               'content-type': 'text/event-stream',
@@ -259,10 +290,25 @@ describe('streamBuilderDefinition', () => {
       ),
     );
 
+    onSummary.mockImplementation(() => {
+      if (onSummary.mock.calls.length === 1) {
+        firstSummarySeen.resolve();
+      }
+    });
+
+    const streamPromise = streamBuilderDefinition({
+      ...createStreamRequestOptions({ onChunk, onSummary }),
+    });
+
+    await firstSummarySeen.promise;
+    expect(onSummary).toHaveBeenCalledTimes(1);
+    expect(onSummary).toHaveBeenCalledWith('Builds a');
+    expect(doneEventSent).toBe(false);
+
+    allowDone.resolve();
+
     await expect(
-      streamBuilderDefinition({
-        ...createStreamRequestOptions({ onChunk, onSummary }),
-      }),
+      streamPromise,
     ).resolves.toEqual({
       notes: ['Keeps one screen only.'],
       source: 'root = AppShell([])',
