@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { defineComponent } from '@openuidev/react-lang';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { z } from 'zod';
-import { KittoAppearanceProvider, appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
+import { KittoAppearanceProvider, KittoValidationInteractionProvider, appearanceSchema, getAppearanceStyle, useKittoAppearanceScope } from './shared';
 
 function ScreenRenderer({
   props,
@@ -32,12 +32,14 @@ function ScreenRenderer({
 
   return (
     <KittoAppearanceProvider appearance={props.appearance}>
-      <Card data-screen={props.id} style={screenStyle}>
-        <CardHeader>
-          <CardTitle style={titleStyle}>{props.title}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">{renderNode(props.children)}</CardContent>
-      </Card>
+      <KittoValidationInteractionProvider>
+        <Card data-screen={props.id} style={screenStyle}>
+          <CardHeader>
+            <CardTitle style={titleStyle}>{props.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">{renderNode(props.children)}</CardContent>
+        </Card>
+      </KittoValidationInteractionProvider>
     </KittoAppearanceProvider>
   );
 }

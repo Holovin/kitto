@@ -9,6 +9,7 @@ import {
   nullableTextSchema,
   sanitizeValidationRules,
   useKittoAppearanceScope,
+  useRegisterKittoValidationField,
   useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -41,7 +42,8 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const triggerAction = useTriggerAction();
   const field = useStateField(props.name, props.checked);
   const isActionMode = props.action != null;
-  const { submitLikeInteractionCount } = useKittoValidationInteraction();
+  const { interactedNames } = useKittoValidationInteraction();
+  useRegisterKittoValidationField(props.name);
   const hasLabel = props.label.trim().length > 0;
   const validationTarget = { componentType: 'Checkbox' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
@@ -53,8 +55,9 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       }
     : getValidationFeedback({
         helper: props.helper,
+        interactedNames,
+        name: props.name,
         rules: validationRules,
-        submitLikeInteractionCount,
         target: validationTarget,
         touched,
         value: checkedValue,

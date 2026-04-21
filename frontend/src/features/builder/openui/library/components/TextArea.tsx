@@ -9,6 +9,7 @@ import {
   nullableTextSchema,
   sanitizeValidationRules,
   useKittoAppearanceScope,
+  useRegisterKittoValidationField,
   useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -29,13 +30,15 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
   const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
-  const { submitLikeInteractionCount } = useKittoValidationInteraction();
+  const { interactedNames } = useKittoValidationInteraction();
+  useRegisterKittoValidationField(props.name);
   const validationTarget = { componentType: 'TextArea' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
   const { hasVisibleError, helperText } = getValidationFeedback({
     helper: props.helper,
+    interactedNames,
+    name: props.name,
     rules: validationRules,
-    submitLikeInteractionCount,
     target: validationTarget,
     touched,
     value: field.value ?? '',

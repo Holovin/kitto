@@ -43,7 +43,9 @@ Guardrails:
 - Rejected imported source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.
 - Input-like components validate locally on change, blur, and submit-like primary button interactions.
+- Required controls do not render red validation styling on first mount before any touch or submit-like interaction.
 - Validation sets `aria-invalid` and error styling on the relevant control without rendering inline error text below it; helper text remains helper-only.
+- Submit-like validation touch is scoped to the submitted screen/form subtree only and must not light up unrelated controls in other screens.
 - Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.

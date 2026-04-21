@@ -25,6 +25,38 @@ describe('OpenUI validation UI', () => {
     mockedGetValidationFeedback.mockReset();
   });
 
+  it('does not render red validation chrome for a fresh quiz with multiple required radio groups', () => {
+    mockedGetValidationFeedback.mockReturnValue({
+      hasVisibleError: false,
+      helperText: 'Pick one option',
+      validationError: undefined,
+    });
+
+    const html = renderOpenUi(`$questionOne = ""
+$questionTwo = ""
+questionOneOptions = [
+  { label: "A", value: "a" },
+  { label: "B", value: "b" }
+]
+questionTwoOptions = [
+  { label: "C", value: "c" },
+  { label: "D", value: "d" }
+]
+root = AppShell([
+  Screen("quiz", "Quiz", [
+    RadioGroup("question-one", "Question One", $questionOne, questionOneOptions, "Pick one option", [{ type: "required", message: "Choose one" }]),
+    RadioGroup("question-two", "Question Two", $questionTwo, questionTwoOptions, "Pick one option", [{ type: "required", message: "Choose one" }]),
+    Button("next", "Next", "default")
+  ])
+])`);
+
+    expect(mockedGetValidationFeedback).toHaveBeenCalledTimes(2);
+    expect(html).not.toContain('border-rose-300');
+    expect(html).not.toContain('border-rose-400');
+    expect(html).not.toContain('focus-visible:border-rose-500');
+    expect(html).not.toContain('aria-invalid="true"');
+  });
+
   it.each([
     [
       'Input',

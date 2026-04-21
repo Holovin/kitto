@@ -18,7 +18,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const triggerAction = useTriggerAction();
   const isStreaming = useIsStreaming();
   const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
-  const { markSubmitLikeInteraction } = useKittoValidationInteraction();
+  const { getRegisteredFieldNames, markSubmitLikeInteraction } = useKittoValidationInteraction();
   const appearanceScope = useKittoAppearanceScope();
   const isThemeDrivenVariant = props.variant === 'default' || props.variant === 'secondary';
   const isDestructiveAppearanceOverride = props.variant === 'destructive' && Boolean(props.appearance);
@@ -53,7 +53,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
       variant={props.variant}
       onClick={() => {
         if (props.variant === 'default') {
-          markSubmitLikeInteraction();
+          markSubmitLikeInteraction(getRegisteredFieldNames());
         }
         void triggerAction(props.label, undefined, props.action as never);
       }}

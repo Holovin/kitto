@@ -21,6 +21,7 @@ import {
   nullableTextSchema,
   sanitizeValidationRules,
   useKittoAppearanceScope,
+  useRegisterKittoValidationField,
   useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -47,7 +48,8 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
   const isActionMode = props.action != null;
-  const { submitLikeInteractionCount } = useKittoValidationInteraction();
+  const { interactedNames } = useKittoValidationInteraction();
+  useRegisterKittoValidationField(props.name);
   const validationTarget = { componentType: 'Select' as const };
   const validationRules = sanitizeValidationRules(validationTarget, props.validation);
   const selectedValue = isActionMode ? (typeof props.value === 'string' ? props.value : '') : (field.value ?? '');
@@ -58,8 +60,9 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
       }
     : getValidationFeedback({
         helper: props.helper,
+        interactedNames,
+        name: props.name,
         rules: validationRules,
-        submitLikeInteractionCount,
         target: validationTarget,
         touched,
         value: selectedValue,

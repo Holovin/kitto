@@ -87,8 +87,9 @@ describe('validation helpers', () => {
     expect(
       getValidationFeedback({
         helper: 'Required agreement',
+        interactedNames: new Set(),
+        name: 'agreement',
         rules,
-        submitLikeInteractionCount: 0,
         target: { componentType: 'Checkbox' },
         touched: false,
         value: false,
@@ -102,8 +103,9 @@ describe('validation helpers', () => {
     expect(
       getValidationFeedback({
         helper: 'Required agreement',
+        interactedNames: new Set(['agreement']),
+        name: 'agreement',
         rules,
-        submitLikeInteractionCount: 1,
         target: { componentType: 'Checkbox' },
         touched: false,
         value: false,
@@ -112,6 +114,29 @@ describe('validation helpers', () => {
       hasVisibleError: true,
       helperText: 'Required agreement',
       validationError: 'You must accept the agreement',
+    });
+  });
+
+  it('does not show another form field error when a different submitted field name was marked', () => {
+    const rules = sanitizeValidationRules(
+      { componentType: 'RadioGroup' },
+      [{ type: 'required', message: 'Pick an option' }],
+    );
+
+    expect(
+      getValidationFeedback({
+        helper: 'Question helper',
+        interactedNames: new Set(['question-a']),
+        name: 'question-b',
+        rules,
+        target: { componentType: 'RadioGroup' },
+        touched: false,
+        value: '',
+      }),
+    ).toEqual({
+      hasVisibleError: false,
+      helperText: 'Question helper',
+      validationError: undefined,
     });
   });
 

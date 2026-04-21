@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { z } from 'zod';
 
 export const nullableTextSchema = z.union([z.string(), z.null()]).optional();
@@ -126,8 +126,10 @@ type KittoAppearanceScope = {
 };
 
 type KittoValidationInteractionContextValue = {
-  markSubmitLikeInteraction: () => void;
-  submitLikeInteractionCount: number;
+  getRegisteredFieldNames: () => string[];
+  interactedNames: ReadonlySet<string>;
+  markSubmitLikeInteraction: (names: string[]) => void;
+  registerFieldName: (name: string) => () => void;
 };
 
 const defaultKittoAppearanceScope: KittoAppearanceScope = {
@@ -135,9 +137,13 @@ const defaultKittoAppearanceScope: KittoAppearanceScope = {
   hasMainColor: false,
 };
 
+const emptyInteractedNames = new Set<string>();
+
 const defaultKittoValidationInteractionContext: KittoValidationInteractionContextValue = {
+  getRegisteredFieldNames: () => [],
+  interactedNames: emptyInteractedNames,
   markSubmitLikeInteraction: () => undefined,
-  submitLikeInteractionCount: 0,
+  registerFieldName: () => () => undefined,
 };
 
 const KittoAppearanceContext = createContext<KittoAppearanceScope>(defaultKittoAppearanceScope);
@@ -566,15 +572,16 @@ function getNormalizedHelperText(helper: string | null | undefined) {
 
 export function getValidationFeedback(args: {
   helper?: string | null;
+  interactedNames: ReadonlySet<string>;
+  name: string;
   rules: ValidationRule[];
-  submitLikeInteractionCount: number;
   target: ValidationTarget;
   touched: boolean;
   value: unknown;
 }) {
-  const { helper, rules, submitLikeInteractionCount, target, touched, value } = args;
+  const { helper, interactedNames, name, rules, target, touched, value } = args;
   const validationError =
-    touched || submitLikeInteractionCount > 0
+    touched || interactedNames.has(name)
       ? evaluateValidationRules({
           rules,
           target,
@@ -616,6 +623,12 @@ export function useKittoValidationInteraction() {
   return useContext(KittoValidationInteractionContext);
 }
 
+export function useRegisterKittoValidationField(name: string) {
+  const { registerFieldName } = useKittoValidationInteraction();
+
+  useEffect(() => registerFieldName(name), [name, registerFieldName]);
+}
+
 export function KittoAppearanceProvider({
   appearance,
   children,
@@ -633,16 +646,61 @@ export function KittoAppearanceProvider({
 }
 
 export function KittoValidationInteractionProvider({ children }: { children: ReactNode }) {
-  const [submitLikeInteractionCount, setSubmitLikeInteractionCount] = useState(0);
-  const markSubmitLikeInteraction = useCallback(() => {
-    setSubmitLikeInteractionCount((count) => count + 1);
+  const [interactedNames, setInteractedNames] = useState<ReadonlySet<string>>(emptyInteractedNames);
+  const registeredFieldCountsRef = useRef(new Map<string, number>());
+  const markSubmitLikeInteraction = useCallback((names: string[]) => {
+    if (names.length === 0) {
+      return;
+    }
+
+    setInteractedNames((currentNames) => {
+      let nextNames: Set<string> | null = null;
+
+      for (const name of names) {
+        if (name.length === 0 || currentNames.has(name)) {
+          continue;
+        }
+
+        nextNames ??= new Set(currentNames);
+        nextNames.add(name);
+      }
+
+      return nextNames ?? currentNames;
+    });
+  }, []);
+  const registerFieldName = useCallback((name: string) => {
+    if (name.length === 0) {
+      return () => undefined;
+    }
+
+    const registeredFieldCounts = registeredFieldCountsRef.current;
+    registeredFieldCounts.set(name, (registeredFieldCounts.get(name) ?? 0) + 1);
+
+    return () => {
+      const currentCount = registeredFieldCounts.get(name);
+      if (currentCount == null) {
+        return;
+      }
+
+      if (currentCount <= 1) {
+        registeredFieldCounts.delete(name);
+        return;
+      }
+
+      registeredFieldCounts.set(name, currentCount - 1);
+    };
+  }, []);
+  const getRegisteredFieldNames = useCallback(() => {
+    return Array.from(registeredFieldCountsRef.current.keys());
   }, []);
   const value = useMemo(
     () => ({
+      getRegisteredFieldNames,
+      interactedNames,
       markSubmitLikeInteraction,
-      submitLikeInteractionCount,
+      registerFieldName,
     }),
-    [markSubmitLikeInteraction, submitLikeInteractionCount],
+    [getRegisteredFieldNames, interactedNames, markSubmitLikeInteraction, registerFieldName],
   );
 
   return <KittoValidationInteractionContext.Provider value={value}>{children}</KittoValidationInteractionContext.Provider>;
