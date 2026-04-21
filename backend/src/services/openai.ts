@@ -8,7 +8,11 @@ import { getByteLength, getRawStructuredOutputMaxBytes } from '../limits.js';
 import { buildOpenUiSystemPrompt, buildOpenUiUserPrompt, getOpenUiSystemPromptCacheKey, type PromptBuildRequest } from '../prompts/openui.js';
 import { promptLog } from './promptLog.js';
 
-let cachedClient: { apiKey: string; client: OpenAI } | null = null;
+type OpenAiClient = Pick<OpenAI, 'responses'>;
+type OpenAiClientFactory = (env: AppEnv) => OpenAiClient;
+
+let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenAiClientFactory | null } | null = null;
+let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
 export const OpenUiGenerationEnvelopeSchema = z
   .object({
@@ -81,17 +85,38 @@ function getSystemPromptHash(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_SYSTEM_PROMPT_HASH : PLAIN_TEXT_SYSTEM_PROMPT_HASH;
 }
 
+function createDefaultOpenAiClient(env: AppEnv): OpenAiClient {
+  return new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
+}
+
+// Test-only override used by local provokers and integration helpers.
+export function setOpenAiClientFactoryForTesting(factory: OpenAiClientFactory | null) {
+  openAiClientFactoryOverride = factory;
+  cachedClient = null;
+}
+
+export function resetOpenAiClientForTesting() {
+  setOpenAiClientFactoryForTesting(null);
+}
+
 function getClient(env: AppEnv) {
   if (!env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured.');
   }
 
-  if (!cachedClient || cachedClient.apiKey !== env.OPENAI_API_KEY) {
+  if (
+    !cachedClient ||
+    cachedClient.apiKey !== env.OPENAI_API_KEY ||
+    cachedClient.overrideFactory !== openAiClientFactoryOverride
+  ) {
+    const clientFactory = openAiClientFactoryOverride ?? createDefaultOpenAiClient;
+
     cachedClient = {
       apiKey: env.OPENAI_API_KEY,
-      client: new OpenAI({
-        apiKey: env.OPENAI_API_KEY,
-      }),
+      client: clientFactory(env),
+      overrideFactory: openAiClientFactoryOverride,
     };
   }
 
