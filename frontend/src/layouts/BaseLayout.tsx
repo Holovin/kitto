@@ -42,7 +42,7 @@ export function BaseLayout() {
               variant={activePath === SiteRoutes.elements.path ? 'default' : 'ghost'}
             >
               <NavLink to={SiteRoutes.elements.path}>
-                Schemas
+                Schema
               </NavLink>
             </Button>
           </nav>

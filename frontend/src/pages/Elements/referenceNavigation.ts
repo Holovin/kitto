@@ -2,7 +2,14 @@ import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
 import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
 
-export type ReferenceTabId = 'elements' | 'actions';
+export type ReferenceTabId = 'elements' | 'actions' | 'prompts';
+export type PromptReferenceSectionLabel =
+  | 'Backend config'
+  | 'System prompt'
+  | 'User prompt template'
+  | 'Tool specs'
+  | 'Repair prompt'
+  | 'Output envelope schema';
 
 export type ReferenceItem = {
   id: string;
@@ -61,8 +68,18 @@ export const ELEMENT_REFERENCE_ITEMS = OPENUI_SUPPORTED_COMPONENTS.map((componen
 
 export const ACTION_REFERENCE_ITEMS = OPENUI_ACTION_DEFINITIONS.map((action) => createReferenceItem(action.name, 'actions'));
 
+export const PROMPT_REFERENCE_ITEMS: ReferenceItem[] = [
+  createReferenceItem('Backend config', 'prompts'),
+  createReferenceItem('System prompt', 'prompts'),
+  createReferenceItem('User prompt template', 'prompts'),
+  createReferenceItem('Tool specs', 'prompts'),
+  createReferenceItem('Repair prompt', 'prompts'),
+  createReferenceItem('Output envelope schema', 'prompts'),
+];
+
 const elementReferenceItemsByLabel = new Map(ELEMENT_REFERENCE_ITEMS.map((item) => [item.label, item] as const));
 const actionReferenceItemsByLabel = new Map(ACTION_REFERENCE_ITEMS.map((item) => [item.label, item] as const));
+const promptReferenceItemsByLabel = new Map(PROMPT_REFERENCE_ITEMS.map((item) => [item.label, item] as const));
 
 export const ELEMENT_REFERENCE_GROUPS = (builderOpenUiLibrary.componentGroups ?? []).map((group) =>
   createReferenceGroup(
@@ -101,6 +118,32 @@ export const ACTION_REFERENCE_GROUPS = ACTION_GROUP_DEFINITIONS.map((group) =>
   ),
 );
 
+const PROMPT_GROUP_DEFINITIONS = [
+  {
+    label: 'Backend',
+    items: ['Backend config', 'System prompt'],
+  },
+  {
+    label: 'Templates',
+    items: ['User prompt template', 'Repair prompt'],
+  },
+  {
+    label: 'Contracts',
+    items: ['Tool specs', 'Output envelope schema'],
+  },
+] as const;
+
+export const PROMPT_REFERENCE_GROUPS = PROMPT_GROUP_DEFINITIONS.map((group) =>
+  createReferenceGroup(
+    group.label,
+    'prompts',
+    group.items.flatMap((sectionLabel) => {
+      const item = promptReferenceItemsByLabel.get(sectionLabel);
+      return item ? [item] : [];
+    }),
+  ),
+);
+
 const referenceLookup = new Map<string, ReferenceItem>();
 
 function registerReferenceItems(items: ReferenceItem[]) {
@@ -116,6 +159,7 @@ function registerReferenceItems(items: ReferenceItem[]) {
 
 registerReferenceItems(ELEMENT_REFERENCE_ITEMS);
 registerReferenceItems(ACTION_REFERENCE_ITEMS);
+registerReferenceItems(PROMPT_REFERENCE_ITEMS);
 
 export function resolveReferenceTargetFromHash(hash: string): ReferenceItem | null {
   const normalizedHash = hash.replace(/^#/, '').trim();

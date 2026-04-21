@@ -15,6 +15,7 @@ const componentSpecPath = new URL('../../../../shared/openui-component-spec.json
 const componentSpecSource = fs.readFileSync(componentSpecPath, 'utf8');
 const componentSpecHash = createHash('sha256').update(componentSpecSource).digest('hex').slice(0, 12);
 const componentSpec = JSON.parse(componentSpecSource) as PromptSpec;
+export const OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX = 'kitto:openui';
 
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
@@ -38,6 +39,7 @@ function getSystemPromptVariant(options: BuildOpenUiPromptOptions = {}): SystemP
 }
 
 const cachedSystemPrompts = new Map<SystemPromptVariant, string>();
+const cachedSystemPromptHashes = new Map<SystemPromptVariant, string>();
 const cachedSystemPromptKeys = new Map<SystemPromptVariant, string>();
 
 export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
@@ -74,8 +76,21 @@ export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions 
 
   const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
   const variantCode = variant === 'structured' ? 'st' : 'pl';
-  const cacheKey = `kitto:openui:${variantCode}:${componentSpecHash}:${promptHash}`;
+  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${variantCode}:${componentSpecHash}:${promptHash}`;
 
   cachedSystemPromptKeys.set(variant, cacheKey);
   return cacheKey;
+}
+
+export function getOpenUiSystemPromptHash(options: BuildOpenUiPromptOptions = {}) {
+  const variant = getSystemPromptVariant(options);
+  const cachedHash = cachedSystemPromptHashes.get(variant);
+
+  if (cachedHash) {
+    return cachedHash;
+  }
+
+  const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
+  cachedSystemPromptHashes.set(variant, promptHash);
+  return promptHash;
 }

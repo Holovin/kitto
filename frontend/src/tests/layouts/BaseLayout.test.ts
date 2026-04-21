@@ -28,7 +28,7 @@ function renderLayoutAt(path: string) {
           { element: createElement(BaseLayout) },
           createElement(Route, { index: true, element: createElement('div', null, 'Chat page') }),
           createElement(Route, { path: 'chat', element: createElement('div', null, 'Chat page') }),
-          createElement(Route, { path: 'elements', element: createElement('div', null, 'Schemas page') }),
+          createElement(Route, { path: 'elements', element: createElement('div', null, 'Schema page') }),
         ),
       ),
     ),
@@ -45,6 +45,6 @@ describe('BaseLayout', () => {
   it('forces the active header link text to white on the schemas route', () => {
     const html = renderLayoutAt('/elements');
 
-    expect(html).toMatch(/<a[^>]+aria-current="page"[^>]+class="[^"]*!text-white[^"]*"[^>]*>Schemas<\/a>/i);
+    expect(html).toMatch(/<a[^>]+aria-current="page"[^>]+class="[^"]*!text-white[^"]*"[^>]*>Schema<\/a>/i);
   });
 });

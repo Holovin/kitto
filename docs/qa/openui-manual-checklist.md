@@ -6,6 +6,7 @@ Supported API:
 
 - `GET /api/health`
 - `GET /api/config`
+- `GET /api/prompts/info`
 - `POST /api/llm/generate`
 - `POST /api/llm/generate/stream`
 - `POST /api/llm/commit-telemetry`
@@ -18,6 +19,13 @@ Guardrails:
 - when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source` / `notes`, empty `source`, invalid `summary` / `notes`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
+
+## Prompt docs page
+
+- Open `/elements`, switch to the `Prompts` tab, and verify the page renders the backend config, system prompt, user prompt template, tool specs, repair prompt, and output envelope schema sections.
+- Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
+- Confirm the system-prompt block shows a visible `systemPromptHash`.
+- Confirm the prompts tab stays read-only and does not show edit or copy controls.
 
 ## Runtime invariants
 

@@ -1,5 +1,11 @@
 import type { ToolSpec } from '@openuidev/lang-core';
 
+export interface PromptToolSpecSummary {
+  description: string;
+  name: string;
+  signature: string;
+}
+
 export const computeOperationEnum = [
   'truthy',
   'falsy',
@@ -329,3 +335,40 @@ export const toolSpecifications: ToolSpec[] = [
     },
   },
 ];
+
+function buildToolSignature(toolSpecification: ToolSpec) {
+  const inputSchema = toolSpecification.inputSchema;
+
+  if (!inputSchema || typeof inputSchema !== 'object' || !('properties' in inputSchema)) {
+    return `${toolSpecification.name}()`;
+  }
+
+  const properties = inputSchema.properties;
+
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties)) {
+    return `${toolSpecification.name}()`;
+  }
+
+  const requiredProperties = new Set(Array.isArray(inputSchema.required) ? inputSchema.required : []);
+  const propertyNames = Object.keys(properties);
+
+  if (propertyNames.length === 0) {
+    return `${toolSpecification.name}()`;
+  }
+
+  return `${toolSpecification.name}(${propertyNames
+    .map((propertyName) => (requiredProperties.has(propertyName) ? propertyName : `${propertyName}?`))
+    .join(', ')})`;
+}
+
+const promptToolSpecSummaries = Object.freeze(
+  toolSpecifications.map<PromptToolSpecSummary>((toolSpecification) => ({
+    description: toolSpecification.description ?? '',
+    name: toolSpecification.name,
+    signature: buildToolSignature(toolSpecification),
+  })),
+);
+
+export function getPromptToolSpecSummaries() {
+  return promptToolSpecSummaries;
+}

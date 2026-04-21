@@ -106,3 +106,29 @@ export interface HealthResponse {
   status: 'ok';
   timestamp: string;
 }
+
+export interface PromptInfoToolSpec {
+  description: string;
+  name: string;
+  signature: string;
+}
+
+export interface PromptsInfoResponse {
+  config: {
+    cacheKeyPrefix: string;
+    maxOutputTokens: number;
+    model: string;
+    outputMaxBytes: number;
+    requestMaxBytes: number;
+    structuredOutput: boolean;
+    temperature: number;
+  };
+  envelopeSchema: Record<string, unknown>;
+  repairPromptTemplate: string;
+  systemPrompt: {
+    hash: string;
+    text: string;
+  };
+  toolSpecs: PromptInfoToolSpec[];
+  userPromptTemplate: string;
+}

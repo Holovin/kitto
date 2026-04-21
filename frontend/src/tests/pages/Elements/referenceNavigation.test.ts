@@ -4,6 +4,8 @@ import {
   ACTION_REFERENCE_ITEMS,
   ELEMENT_REFERENCE_GROUPS,
   ELEMENT_REFERENCE_ITEMS,
+  PROMPT_REFERENCE_GROUPS,
+  PROMPT_REFERENCE_ITEMS,
   createReferenceAnchorId,
   resolveReferenceTargetFromHash,
 } from '@pages/Elements/referenceNavigation';
@@ -36,9 +38,18 @@ describe('referenceNavigation', () => {
       label: 'read_state',
       tab: 'actions',
     });
+
+    expect(PROMPT_REFERENCE_ITEMS.map(({ label }) => label)).toEqual([
+      'Backend config',
+      'System prompt',
+      'User prompt template',
+      'Tool specs',
+      'Repair prompt',
+      'Output envelope schema',
+    ]);
   });
 
-  it('groups references into logical blocks for elements and actions', () => {
+  it('groups references into logical blocks for elements, actions, and prompts', () => {
     expect(ELEMENT_REFERENCE_GROUPS.map(({ label }) => label)).toEqual(['Containers', 'Inputs', 'Actions']);
     expect(ELEMENT_REFERENCE_GROUPS[0]?.items.map(({ label }) => label)).toEqual(['AppShell', 'Screen', 'Group', 'Repeater', 'Text']);
 
@@ -55,6 +66,9 @@ describe('referenceNavigation', () => {
       'update_item_field',
       'remove_item',
     ]);
+
+    expect(PROMPT_REFERENCE_GROUPS.map(({ label }) => label)).toEqual(['Backend', 'Templates', 'Contracts']);
+    expect(PROMPT_REFERENCE_GROUPS[0]?.items.map(({ label }) => label)).toEqual(['Backend config', 'System prompt']);
   });
 
   it('resolves direct hashes to the right tab and canonical anchor id', () => {
@@ -74,6 +88,12 @@ describe('referenceNavigation', () => {
       id: 'read_state',
       label: 'read_state',
       tab: 'actions',
+    });
+
+    expect(resolveReferenceTargetFromHash('#system-prompt')).toEqual({
+      id: 'system-prompt',
+      label: 'System prompt',
+      tab: 'prompts',
     });
   });
 });

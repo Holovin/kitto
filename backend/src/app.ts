@@ -13,6 +13,7 @@ import { isFrontendRoute } from './frontendRoutes.js';
 import { createConfigRoutes } from './routes/config.js';
 import { createHealthRoutes } from './routes/health.js';
 import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
+import { createPromptRoutes } from './routes/prompts.js';
 import { writePromptIoIntakeFailureSafely } from './services/openai/logging.js';
 
 function jsonRouteNotFound(context: Context) {
@@ -93,10 +94,12 @@ export function createApp(env: AppEnv) {
   const configRoutes = createConfigRoutes(env);
   const healthRoutes = createHealthRoutes(env);
   const llmRoutes = createLlmOpenUiRoutes(env);
+  const promptRoutes = createPromptRoutes(env);
 
   app.route('/api', configRoutes);
   app.route('/api', healthRoutes);
   app.route('/api', llmRoutes);
+  app.route('/api', promptRoutes);
 
   const frontendDistDir = env.frontendDistDir;
   const frontendRoot = path.relative(process.cwd(), frontendDistDir);

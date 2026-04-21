@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { ArrowUp, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { useGetPromptsInfoQuery } from '@api/apiSlice';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -11,13 +12,16 @@ import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/action
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { BuilderParseIssue, PromptInfoToolSpec, PromptsInfoResponse } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
 import {
   ACTION_REFERENCE_GROUPS,
   ACTION_REFERENCE_ITEMS,
   ELEMENT_REFERENCE_GROUPS,
   ELEMENT_REFERENCE_ITEMS,
+  PROMPT_REFERENCE_GROUPS,
+  PROMPT_REFERENCE_ITEMS,
+  type PromptReferenceSectionLabel,
   type ReferenceGroup,
   resolveReferenceTargetFromHash,
   type ReferenceTabId,
@@ -50,7 +54,61 @@ const groupByComponent = new Map(
 );
 const elementReferenceIdByName = new Map(ELEMENT_REFERENCE_ITEMS.map(({ id, label }) => [label, id] as const));
 const actionReferenceIdByName = new Map(ACTION_REFERENCE_ITEMS.map(({ id, label }) => [label, id] as const));
+const promptReferenceIdByName = new Map(PROMPT_REFERENCE_ITEMS.map(({ id, label }) => [label, id] as const));
 const actionDefinitionByName = new Map(OPENUI_ACTION_DEFINITIONS.map((action) => [action.name, action] as const));
+
+type PromptReferenceSectionDefinition = {
+  description: string;
+  formatBody: (data: PromptsInfoResponse) => string;
+  title: PromptReferenceSectionLabel;
+};
+
+const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
+  {
+    title: 'Backend config',
+    description: 'Current backend prompt configuration for the main initial generation call.',
+    formatBody: (data) =>
+      [
+        `model: ${data.config.model}`,
+        `temperature: ${data.config.temperature}`,
+        `structuredOutput: ${data.config.structuredOutput ? 'on' : 'off'}`,
+        `maxOutputTokens: ${data.config.maxOutputTokens}`,
+        `requestMaxBytes: ${data.config.requestMaxBytes}`,
+        `outputMaxBytes: ${data.config.outputMaxBytes}`,
+        `cacheKeyPrefix: ${data.config.cacheKeyPrefix}`,
+      ].join('\n'),
+  },
+  {
+    title: 'System prompt',
+    description: 'Exact system prompt text currently sent to the model, together with the hash logged in prompt I/O telemetry.',
+    formatBody: (data) => [`systemPromptHash: ${data.systemPrompt.hash}`, '', data.systemPrompt.text].join('\n'),
+  },
+  {
+    title: 'User prompt template',
+    description: 'Readable skeleton of the wrapped user prompt with data blocks, without injecting live builder content.',
+    formatBody: (data) => data.userPromptTemplate,
+  },
+  {
+    title: 'Tool specs',
+    description: 'Human-readable tool list derived from the backend tool specs, without expanding full JSON schemas.',
+    formatBody: (data) =>
+      data.toolSpecs
+        .map((toolSpec: PromptInfoToolSpec) => [`${toolSpec.signature}`, toolSpec.description].join('\n'))
+        .join('\n\n'),
+  },
+  {
+    title: 'Repair prompt',
+    description: 'Repair-message template used as the baseline shape when the first draft needs one automatic fix pass.',
+    formatBody: (data) => data.repairPromptTemplate,
+  },
+  {
+    title: 'Output envelope schema',
+    description: 'Structured output schema for `kitto_openui_source`.',
+    formatBody: (data) => formatJson(data.envelopeSchema),
+  },
+] as const;
+
+const promptReferenceSectionByTitle = new Map(PROMPT_REFERENCE_SECTIONS.map((section) => [section.title, section] as const));
 
 function cloneRecord(value?: Record<string, unknown>) {
   return structuredClone(value ?? {});
@@ -58,6 +116,24 @@ function cloneRecord(value?: Record<string, unknown>) {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+function formatPromptInfoErrorMessage(error: unknown) {
+  if (error && typeof error === 'object') {
+    if ('status' in error && 'error' in error && typeof error.error === 'string') {
+      return error.error;
+    }
+
+    if ('status' in error && 'data' in error) {
+      return `Request failed with status ${String(error.status)}.`;
+    }
+
+    if ('message' in error && typeof error.message === 'string') {
+      return error.message;
+    }
+  }
+
+  return 'Failed to load prompt info.';
 }
 
 function getComponentSchema(componentName: string): ComponentSchema {
@@ -214,6 +290,23 @@ function ActionDocumentationPanel({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PromptReferencePanel({
+  body,
+}: {
+  body: string;
+}) {
+  return (
+    <div className="min-w-0 space-y-3">
+      <div className="flex min-h-7 items-center">
+        <ActionSectionHeading>Snapshot</ActionSectionHeading>
+      </div>
+      <pre className="max-h-[32rem] w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+        <code>{body}</code>
+      </pre>
     </div>
   );
 }
@@ -450,6 +543,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 export default function ElementsPage() {
   const [activeTab, setActiveTab] = useState<ReferenceTabId>(() => getInitialReferenceTab());
   const [hashTargetId, setHashTargetId] = useState<string | null>(() => getInitialReferenceTargetId());
+  const { data: promptsInfo, error: promptsInfoError, isError: isPromptsInfoError, isLoading: isPromptsInfoLoading } = useGetPromptsInfoQuery();
 
   useEffect(() => {
     const rootElement = document.documentElement;
@@ -500,6 +594,7 @@ export default function ElementsPage() {
           <TabsList>
             <TabsTrigger value="elements">Elements</TabsTrigger>
             <TabsTrigger value="actions">Actions</TabsTrigger>
+            <TabsTrigger value="prompts">Prompts</TabsTrigger>
           </TabsList>
         </div>
 
@@ -598,6 +693,57 @@ export default function ElementsPage() {
                               summary={action.documentation.summary}
                               useWhen={action.documentation.useWhen}
                             />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </ReferenceContentGroup>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="prompts" className="mt-0">
+          <Card className="min-w-0 border-white/70 bg-white/92">
+            <CardHeader className="border-b border-slate-200/70 pb-4">
+              <CardTitle className="text-2xl">Prompts</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <ReferenceTableOfContents items={PROMPT_REFERENCE_GROUPS.map((group) => <ReferenceTableOfContentsGroup key={group.id} group={group} />)} />
+              <div className="grid min-w-0 gap-5">
+                {PROMPT_REFERENCE_GROUPS.map((group) => (
+                  <ReferenceContentGroup key={group.id} group={group}>
+                    {group.items.map(({ label }) => {
+                      const section = promptReferenceSectionByTitle.get(label as PromptReferenceSectionLabel);
+
+                      if (!section) {
+                        return null;
+                      }
+
+                      const body = isPromptsInfoLoading
+                        ? 'Loading current backend prompt configuration and prompt templates.'
+                        : isPromptsInfoError || !promptsInfo
+                          ? formatPromptInfoErrorMessage(promptsInfoError)
+                          : section.formatBody(promptsInfo);
+
+                      return (
+                        <Card
+                          key={section.title}
+                          id={promptReferenceIdByName.get(section.title)}
+                          className="min-w-0 scroll-mt-24 overflow-hidden border-slate-200/80 bg-slate-50/70 shadow-none"
+                        >
+                          <CardHeader className="border-b border-slate-200/70 pb-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <BackToTopButton />
+                                <CardTitle className="min-w-0 break-words text-lg">{section.title}</CardTitle>
+                              </div>
+                              <p className="max-w-3xl text-sm font-medium leading-6 text-slate-500">{section.description}</p>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="min-w-0 pt-6">
+                            <PromptReferencePanel body={body} />
                           </CardContent>
                         </Card>
                       );
