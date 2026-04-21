@@ -5,7 +5,7 @@ import type { AppEnv } from '../env.js';
 import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
 import { getByteLength } from '../limits.js';
 import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
-import { generateOpenUiSource, streamOpenUiSource } from '../services/openai.js';
+import { generateOpenUiSource, streamOpenUiSource, type OpenUiGenerationEnvelope } from '../services/openai.js';
 
 interface LlmRequestCompaction {
   compactedByBytes: boolean;
@@ -33,12 +33,16 @@ interface RawParsedLlmRequest {
   prompt: string;
 }
 
-interface ParsedLlmRequestResult {
+interface PreparedLlmInvocation {
   compaction?: LlmRequestCompaction;
   request: ParsedLlmRequest;
 }
 
-type LlmRouteScope = 'POST /api/llm/generate' | 'POST /api/llm/generate/stream';
+const GENERATE_SCOPE = 'POST /api/llm/generate';
+const STREAM_SCOPE = 'POST /api/llm/generate/stream';
+
+type LlmRouteScope = typeof GENERATE_SCOPE | typeof STREAM_SCOPE;
+type SseEventWriter = (event: string, data: string) => void;
 
 function createLlmRequestSchema(env: AppEnv) {
   return z.object({
@@ -93,7 +97,7 @@ function getRequestSizeBytes(request: ParsedLlmRequest) {
   return getByteLength(JSON.stringify(request));
 }
 
-function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): ParsedLlmRequestResult {
+function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): PreparedLlmInvocation {
   let compactedByBytes = false;
   let compactedByItemLimit = false;
   let omittedChatMessages = 0;
@@ -152,7 +156,38 @@ function getLoggedPublicError(error: unknown, scope: LlmRouteScope) {
   return toPublicErrorPayload(error);
 }
 
-async function prepareLlmInvocation(context: Context, env: AppEnv) {
+function createLlmResponsePayload(env: AppEnv, invocation: PreparedLlmInvocation, responseEnvelope: OpenUiGenerationEnvelope) {
+  assertModelOutputWithinLimit(responseEnvelope.source, env);
+
+  return {
+    compaction: invocation.compaction,
+    model: env.OPENAI_MODEL,
+    ...responseEnvelope,
+  };
+}
+
+function createJsonErrorResponse(context: Context, error: unknown, scope: LlmRouteScope) {
+  const publicError = getLoggedPublicError(error, scope);
+  return context.json(publicError, publicError.status);
+}
+
+function handleStreamingLlmError(
+  error: unknown,
+  abortController: AbortController,
+  closeController: () => void,
+  writeEvent: SseEventWriter,
+  scope: LlmRouteScope,
+) {
+  if (isAbortError(error) || abortController.signal.aborted) {
+    closeController();
+    return;
+  }
+
+  writeEvent('error', JSON.stringify(getLoggedPublicError(error, scope)));
+  closeController();
+}
+
+async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<PreparedLlmInvocation> {
   const rawBody = await context.req.text();
 
   let parsedBody: unknown;
@@ -181,15 +216,110 @@ async function handleLlmRoute(
   context: Context,
   env: AppEnv,
   scope: LlmRouteScope,
-  respond: (invocation: ParsedLlmRequestResult) => Promise<Response> | Response,
+  respond: (invocation: PreparedLlmInvocation) => Promise<Response> | Response,
 ) {
   try {
     const invocation = await prepareLlmInvocation(context, env);
     return await respond(invocation);
   } catch (error) {
-    const publicError = getLoggedPublicError(error, scope);
-    return context.json(publicError, publicError.status);
+    return createJsonErrorResponse(context, error, scope);
   }
+}
+
+function createStreamingLlmResponse(
+  context: Context,
+  env: AppEnv,
+  scope: LlmRouteScope,
+  invocation: PreparedLlmInvocation,
+  streamResponse: (
+    onDelta: (delta: string) => void,
+    signal: AbortSignal,
+    requestId: string | undefined,
+  ) => Promise<OpenUiGenerationEnvelope>,
+) {
+  const requestId = getRequestIdHeader(context);
+  const abortController = new AbortController();
+  const encoder = new TextEncoder();
+  let isClosed = false;
+  let closeController = () => {
+    // Assigned inside the stream start callback once the controller exists.
+  };
+  const handleClientAbort = () => {
+    abortController.abort();
+    closeController();
+  };
+  const stream = new ReadableStream({
+    start(controller) {
+      closeController = () => {
+        if (isClosed) {
+          return;
+        }
+
+        isClosed = true;
+        context.req.raw.signal.removeEventListener('abort', handleClientAbort);
+
+        try {
+          controller.close();
+        } catch {
+          // Ignore close errors after the client has already gone away.
+        }
+      };
+      const writeEvent: SseEventWriter = (event, data) => {
+        if (isClosed) {
+          return;
+        }
+
+        try {
+          controller.enqueue(encoder.encode(formatSseEvent(event, data)));
+        } catch {
+          abortController.abort();
+          closeController();
+        }
+      };
+
+      context.req.raw.signal.addEventListener('abort', handleClientAbort, { once: true });
+
+      void (async () => {
+        try {
+          const responseEnvelope = await streamResponse(
+            (delta) => {
+              if (abortController.signal.aborted) {
+                return;
+              }
+
+              writeEvent('chunk', delta);
+            },
+            abortController.signal,
+            requestId,
+          );
+
+          if (abortController.signal.aborted) {
+            closeController();
+            return;
+          }
+
+          writeEvent('done', JSON.stringify(createLlmResponsePayload(env, invocation, responseEnvelope)));
+          closeController();
+        } catch (error) {
+          handleStreamingLlmError(error, abortController, closeController, writeEvent, scope);
+        }
+      })();
+    },
+    cancel() {
+      isClosed = true;
+      context.req.raw.signal.removeEventListener('abort', handleClientAbort);
+      abortController.abort();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }
 
 export function createLlmOpenUiRoutes(env: AppEnv) {
@@ -203,120 +333,24 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
   llmRoutes.use('*', rateLimitMiddleware);
 
   llmRoutes.post('/llm/generate', async (context) =>
-    handleLlmRoute(context, env, 'POST /api/llm/generate', async ({ compaction, request }) => {
-      const responseEnvelope = await generateOpenUiSource(env, request, context.req.raw.signal, getRequestIdHeader(context));
-      assertModelOutputWithinLimit(responseEnvelope.source, env);
+    handleLlmRoute(context, env, GENERATE_SCOPE, async (invocation) => {
+      const responseEnvelope = await generateOpenUiSource(
+        env,
+        invocation.request,
+        context.req.raw.signal,
+        getRequestIdHeader(context),
+      );
 
-      return context.json({
-        compaction,
-        model: env.OPENAI_MODEL,
-        ...responseEnvelope,
-      });
+      return context.json(createLlmResponsePayload(env, invocation, responseEnvelope));
     }),
   );
 
   llmRoutes.post('/llm/generate/stream', async (context) =>
-    handleLlmRoute(context, env, 'POST /api/llm/generate/stream', async ({ compaction, request }) => {
-      const requestId = getRequestIdHeader(context);
-      const abortController = new AbortController();
-      const encoder = new TextEncoder();
-      let isClosed = false;
-      let closeController = () => {
-        // Assigned inside the stream start callback once the controller exists.
-      };
-      const handleClientAbort = () => {
-        abortController.abort();
-        closeController();
-      };
-      const stream = new ReadableStream({
-        start(controller) {
-          closeController = () => {
-            if (isClosed) {
-              return;
-            }
-
-            isClosed = true;
-            context.req.raw.signal.removeEventListener('abort', handleClientAbort);
-
-            try {
-              controller.close();
-            } catch {
-              // Ignore close errors after the client has already gone away.
-            }
-          };
-          const writeEvent = (event: string, data: string) => {
-            if (isClosed) {
-              return;
-            }
-
-            try {
-              controller.enqueue(encoder.encode(formatSseEvent(event, data)));
-            } catch {
-              abortController.abort();
-              closeController();
-            }
-          };
-
-          context.req.raw.signal.addEventListener('abort', handleClientAbort, { once: true });
-
-          void (async () => {
-            try {
-              const responseEnvelope = await streamOpenUiSource(
-                env,
-                request,
-                (delta) => {
-                  if (abortController.signal.aborted) {
-                    return;
-                  }
-
-                  writeEvent('chunk', delta);
-                },
-                abortController.signal,
-                requestId,
-              );
-
-              if (abortController.signal.aborted) {
-                closeController();
-                return;
-              }
-
-              assertModelOutputWithinLimit(responseEnvelope.source, env);
-              writeEvent(
-                'done',
-                JSON.stringify({
-                  compaction,
-                  model: env.OPENAI_MODEL,
-                  ...responseEnvelope,
-                }),
-              );
-              closeController();
-            } catch (error) {
-              if (isAbortError(error) || abortController.signal.aborted) {
-                closeController();
-                return;
-              }
-
-              writeEvent('error', JSON.stringify(getLoggedPublicError(error, 'POST /api/llm/generate/stream')));
-              closeController();
-            }
-          })();
-        },
-        cancel() {
-          isClosed = true;
-          context.req.raw.signal.removeEventListener('abort', handleClientAbort);
-          abortController.abort();
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'X-Accel-Buffering': 'no',
-        },
-      });
-    }),
+    handleLlmRoute(context, env, STREAM_SCOPE, (invocation) =>
+      createStreamingLlmResponse(context, env, STREAM_SCOPE, invocation, (onDelta, signal, requestId) =>
+        streamOpenUiSource(env, invocation.request, onDelta, signal, requestId),
+      ),
+    ),
   );
 
   return llmRoutes;
