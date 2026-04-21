@@ -1,5 +1,5 @@
 import { nanoid } from '@reduxjs/toolkit';
-import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from '@features/builder/api/streamGenerate';
@@ -48,7 +48,6 @@ export function useGenerationLifecycle({
 }: UseGenerationLifecycleOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
-  const handleCancelRef = useRef<() => void>(() => {});
   const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
   const isStreaming = useAppSelector(selectIsStreaming);
   const isSubmitting = isStreaming;
@@ -201,7 +200,7 @@ export function useGenerationLifecycle({
     }
   }
 
-  handleCancelRef.current = () => {
+  function cancelActiveRequest() {
     const requestId = activeRequestIdRef.current;
 
     if (!requestId) {
@@ -210,23 +209,52 @@ export function useGenerationLifecycle({
 
     onSystemNotice(null);
     cancelRequest(requestId, { abort: true });
-  };
+  }
 
-  const handleCancel = useCallback(() => {
+  function handleCancel() {
     const requestId = activeRequestIdRef.current;
 
     if (requestId) {
       userCancelledRequestIdRef.current = requestId;
     }
 
-    handleCancelRef.current();
-  }, []);
+    cancelActiveRequest();
+  }
 
   useEffect(() => {
     cancelActiveRequestRef.current = () => {
-      handleCancelRef.current();
+      const requestId = activeRequestIdRef.current;
+
+      if (!requestId) {
+        return;
+      }
+
+      onSystemNotice(null);
+      const shouldAppendUserCancelNotice = userCancelledRequestIdRef.current === requestId;
+
+      clearStreamingSummaryMessage(requestId);
+
+      const abortController = abortControllerRef.current;
+      abortControllerRef.current = null;
+      abortController?.abort();
+
+      if (activeRequestIdRef.current === requestId) {
+        activeRequestIdRef.current = null;
+      }
+
+      dispatch(builderActions.cancelStreaming({ requestId }));
+
+      if (shouldAppendUserCancelNotice) {
+        userCancelledRequestIdRef.current = null;
+        dispatch(
+          builderActions.appendChatMessage({
+            content: USER_CANCELLED_NOTICE,
+            role: 'system',
+          }),
+        );
+      }
     };
-  }, [cancelActiveRequestRef]);
+  }, [abortControllerRef, cancelActiveRequestRef, clearStreamingSummaryMessage, dispatch, onSystemNotice]);
 
   return {
     beginGeneration,

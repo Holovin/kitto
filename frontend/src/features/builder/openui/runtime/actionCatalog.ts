@@ -11,7 +11,7 @@ export interface OpenUiActionDefinition {
   signature: string;
 }
 
-interface OpenUiActionDefinitionSeed extends Omit<OpenUiActionDefinition, 'demoExample' | 'documentation'> {}
+type OpenUiActionDefinitionSeed = Omit<OpenUiActionDefinition, 'demoExample' | 'documentation'>;
 
 function getRequiredActionDemoExample(actionName: string) {
   const demoExample = OPENUI_ACTION_DEMO_EXAMPLES[actionName];
