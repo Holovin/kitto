@@ -262,7 +262,7 @@ function buildRepairHints(issues: BuilderParseIssue[]) {
 
     if (issue.code === 'quality-theme-state-not-applied') {
       hints.add(
-        'When the user asks for theme switching, bind `appearance` on `AppShell` or another top-level container to a theme state such as `$currentTheme` so changing the state actually changes colors.',
+        'When the user asks to switch or toggle between themes, introduce a theme state such as `$currentTheme`, derive a theme object from it, and bind `appearance` on `AppShell` or another top-level container to that derived theme.',
       );
     }
   }

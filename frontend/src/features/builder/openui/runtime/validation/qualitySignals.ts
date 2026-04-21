@@ -6,6 +6,8 @@ const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
 const THEME_REQUEST_PATTERN =
   /\b(theme|theming|dark\s+theme|light\s+theme|dark\s+mode|light\s+mode|theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme)\b|(?:темн\w*\s+тем\w*|тёмн\w*\s+тем\w*|светл\w*\s+тем\w*|переключател\w*\s+тем\w*|смен\w*\s+тем\w*)/i;
+const THEME_STATE_REQUEST_PATTERN =
+  /\b(theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme|(?:light|dark)\s+and\s+(?:light|dark)\s+(?:themes?|modes?)|(?:light|dark)\s*\/\s*(?:light|dark)\s+(?:themes?|modes?))\b|(?:переключател\w*\s+тем\w*|смен\w*\s+тем\w*|светл\w*.*темн\w*|тёмн\w*.*светл\w*)/i;
 const VISUAL_STYLING_REQUEST_PATTERN =
   /\b(theme|theming|dark|light|color|colors|colour|colours|palette|accent|accents)\b|(?:цвет\w*|палитр\w*|акцент\w*|темн\w*|тёмн\w*|светл\w*)/i;
 const COMPUTE_REQUEST_PATTERN =
@@ -21,6 +23,10 @@ function isSimplePrompt(prompt: string) {
 
 export function promptRequestsTheme(prompt: string) {
   return THEME_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsThemeState(prompt: string) {
+  return THEME_STATE_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsVisualStyling(prompt: string) {

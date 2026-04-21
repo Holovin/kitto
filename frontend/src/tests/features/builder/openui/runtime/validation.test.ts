@@ -1549,6 +1549,79 @@ root = AppShell([
     expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
   });
 
+  it('does not block a static dark-theme restyle from log f9e52bac', () => {
+    const issues = detectOpenUiQualityIssues(
+      `root = AppShell([
+  Screen("main", "Task board", [
+    Group("Summary", "vertical", [
+      Text("Tasks by column", "title", "start"),
+      Text("Todo: 0", "body", "start"),
+      Text("Doing: 0", "body", "start"),
+      Text("Done: 0", "body", "start")
+    ]),
+    Group("Filters", "horizontal", [
+      Input("taskSearch", "Search tasks", $taskSearch, "Search by title", "Type a task title to filter"),
+      Select("priorityFilter", "Priority filter", $priorityFilter, priorityFilterOptions, "Filter tasks by priority"),
+      Select("statusFilter", "Status filter", $statusFilter, statusFilterOptions, "Filter tasks by status")
+    ], "inline"),
+    Group("Add task", "vertical", [
+      Input("draft", "Task", $draft, "New task"),
+      Select("priority", "Priority", $priority, priorityOptions, "Choose task priority"),
+      Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD", "Choose a due date", "date")
+    ]),
+    Button("archive-completed", "Archive completed tasks", "secondary", Action([]), false),
+    Button("open-details", "Open task details", "secondary", Action([@Set($currentScreen, "details")]), false)
+  ], $currentScreen == "main"),
+  Screen("details", "Task details", [
+    Group("Selected task", "vertical", [
+      Text($selectedTaskTitle == "" ? "No task selected." : $selectedTaskTitle, "title", "start"),
+      Text("Priority: " + $selectedTaskPriority, "body", "start"),
+      Text("Status: " + $selectedTaskStatus, "body", "start"),
+      TextArea("notes", "Notes", $notes, "Add notes for this task")
+    ]),
+    Button("back-to-board", "Back to board", "secondary", Action([@Set($currentScreen, "main")]), false)
+  ], $currentScreen == "details")
+], { mainColor: "#0F172A", contrastColor: "#60A5FA" }),
+
+$currentScreen = "main"
+$draft = ""
+$priority = "medium"
+$dueDate = ""
+$priorityFilter = "all"
+$statusFilter = "all"
+$taskSearch = ""
+$selectedTaskTitle = "Sample task"
+$selectedTaskPriority = "medium"
+$selectedTaskStatus = "todo"
+$notes = ""
+priorityOptions = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" }
+]
+priorityFilterOptions = [
+  { label: "All priorities", value: "all" },
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" }
+]
+statusFilterOptions = [
+  { label: "All statuses", value: "all" },
+  { label: "Todo", value: "todo" },
+  { label: "Doing", value: "doing" },
+  { label: "Done", value: "done" }
+]
+starterTasks = [
+  { title: "Plan project kickoff", priority: "high", status: "todo", dueDate: "2026-04-25" },
+  { title: "Draft first design mockup", priority: "medium", status: "doing", dueDate: "2026-04-24" },
+  { title: "Review launch checklist", priority: "low", status: "done", dueDate: "2026-04-22" }
+]`,
+      'Switch the look to a compact dark theme with blue accents.',
+    );
+
+    expect(issues).toEqual([]);
+  });
+
   it('treats local color-tag requests as appearance styling, not shared theme-state flows', () => {
     const issues = detectOpenUiQualityIssues(
       `mealTypeTag = { mainColor: "#DBEAFE", contrastColor: "#1D4ED8" }
@@ -1568,6 +1641,208 @@ root = AppShell([
 
     expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
     expect(issues.find((issue) => issue.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
+  it('does not block meal color tags from log 650c50ad but keeps unrelated filter warning', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$selectedDay = "Monday"
+$mealName = ""
+$mealNotes = ""
+$vegetarianOnly = false
+
+mealTypeTags = [
+  { label: "Breakfast", value: "Breakfast" },
+  { label: "Lunch", value: "Lunch" },
+  { label: "Dinner", value: "Dinner" }
+]
+
+prepEffortTags = [
+  { label: "Quick", value: "Quick" },
+  { label: "Moderate", value: "Moderate" },
+  { label: "More involved", value: "More involved" }
+]
+
+dayOptions = [
+  { label: "Monday", value: "Monday" },
+  { label: "Tuesday", value: "Tuesday" },
+  { label: "Wednesday", value: "Wednesday" },
+  { label: "Thursday", value: "Thursday" },
+  { label: "Friday", value: "Friday" },
+  { label: "Saturday", value: "Saturday" },
+  { label: "Sunday", value: "Sunday" }
+]
+
+ingredientGroups = [
+  { label: "Breakfast ingredients", value: "Breakfast ingredients" },
+  { label: "Lunch ingredients", value: "Lunch ingredients" },
+  { label: "Dinner ingredients", value: "Dinner ingredients" }
+]
+
+breakfastIngredients = [
+  "Eggs",
+  "Oats",
+  "Berries",
+  "Yogurt",
+  "Bread",
+  "Avocado"
+]
+
+lunchIngredients = [
+  "Chicken",
+  "Greens",
+  "Wraps",
+  "Grain bowl mix",
+  "Tomatoes",
+  "Soup bread"
+]
+
+dinnerIngredients = [
+  "Salmon",
+  "Rice",
+  "Pasta",
+  "Tofu",
+  "Vegetables",
+  "Garlic"
+]
+
+shoppingItems = [
+  { label: "Eggs", value: "Eggs" },
+  { label: "Oats", value: "Oats" },
+  { label: "Berries", value: "Berries" },
+  { label: "Yogurt", value: "Yogurt" },
+  { label: "Bread", value: "Bread" },
+  { label: "Avocado", value: "Avocado" },
+  { label: "Chicken", value: "Chicken" },
+  { label: "Greens", value: "Greens" },
+  { label: "Wraps", value: "Wraps" },
+  { label: "Grain bowl mix", value: "Grain bowl mix" },
+  { label: "Tomatoes", value: "Tomatoes" },
+  { label: "Soup bread", value: "Soup bread" },
+  { label: "Salmon", value: "Salmon" },
+  { label: "Rice", value: "Rice" },
+  { label: "Pasta", value: "Pasta" },
+  { label: "Tofu", value: "Tofu" },
+  { label: "Vegetables", value: "Vegetables" },
+  { label: "Garlic", value: "Garlic" }
+]
+
+weeklyMealExamples = [
+  { day: "Monday", breakfast: "Oatmeal with berries", lunch: "Chicken salad wrap", dinner: "Salmon with rice and greens", vegetarian: false, mealType: "Dinner", prepEffort: "Moderate" },
+  { day: "Tuesday", breakfast: "Avocado toast", lunch: "Veggie grain bowl", dinner: "Pasta primavera", vegetarian: true, mealType: "Lunch", prepEffort: "Quick" },
+  { day: "Wednesday", breakfast: "Yogurt parfait", lunch: "Tomato soup and sandwich", dinner: "Stir-fry with tofu and vegetables", vegetarian: true, mealType: "Dinner", prepEffort: "More involved" },
+  { day: "Thursday", breakfast: "Scrambled eggs with bread", lunch: "Chicken and greens bowl", dinner: "Garlic pasta with vegetables", vegetarian: false, mealType: "Breakfast", prepEffort: "Quick" },
+  { day: "Friday", breakfast: "Overnight oats with berries", lunch: "Wrap with chicken and tomatoes", dinner: "Baked salmon with rice", vegetarian: false, mealType: "Dinner", prepEffort: "Moderate" }
+]
+
+visibleMealExamples = $vegetarianOnly ? @Filter(weeklyMealExamples, "vegetarian", "==", true) : weeklyMealExamples
+mealExampleRows = @Each(visibleMealExamples, "item", Group(null, "vertical", [
+  Text(item.day, "title", "start"),
+  Group(null, "horizontal", [
+    Text(item.mealType, "body", "start", { contrastColor: "#92400E" }),
+    Text(item.prepEffort, "body", "start", { contrastColor: "#1D4ED8" })
+  ], "inline"),
+  Text("Breakfast: " + item.breakfast, "body", "start"),
+  Text("Lunch: " + item.lunch, "body", "start"),
+  Text("Dinner: " + item.dinner, "body", "start")
+], "inline"))
+
+breakfastRows = @Each(breakfastIngredients, "item", Text("• " + item, "body", "start"))
+lunchRows = @Each(lunchIngredients, "item", Text("• " + item, "body", "start"))
+dinnerRows = @Each(dinnerIngredients, "item", Text("• " + item, "body", "start"))
+shoppingRows = @Each(shoppingItems, "item", Text("• " + item, "body", "start"))
+
+root = AppShell([
+  Screen("main", "Meal planner", [
+    Group("Week day", "vertical", [
+      Select("selectedDay", "Day of the week", $selectedDay, dayOptions),
+      Text("Planning for " + $selectedDay, "muted", "start")
+    ], "block"),
+    Group("Filters", "vertical", [
+      Checkbox("vegetarianOnly", "Vegetarian meals only", $vegetarianOnly, "Show only vegetarian starter meal examples")
+    ], "block"),
+    Group("Custom meal", "vertical", [
+      Text("Create a custom meal", "title", "start"),
+      Group(null, "horizontal", [
+        Text("Meal type", "muted", "start"),
+        Text("Breakfast", "body", "start", { contrastColor: "#92400E" }),
+        Text("Lunch", "body", "start", { contrastColor: "#166534" }),
+        Text("Dinner", "body", "start", { contrastColor: "#7C3AED" })
+      ], "inline"),
+      Group(null, "horizontal", [
+        Text("Prep effort", "muted", "start"),
+        Text("Quick", "body", "start", { contrastColor: "#1D4ED8" }),
+        Text("Moderate", "body", "start", { contrastColor: "#B45309" }),
+        Text("More involved", "body", "start", { contrastColor: "#B91C1C" })
+      ], "inline"),
+      Input("mealName", "Meal name", $mealName, "e.g. Lemon tofu bowl", "Name your custom meal"),
+      TextArea("mealNotes", "Notes", $mealNotes, "Add ingredients, prep steps, or serving ideas", "Optional notes for this meal"),
+      Button("save-meal", "Save meal", "default", Action([]), false)
+    ], "block"),
+    Group("Starter meal examples", "vertical", [
+      Text("Starter meal examples", "title", "start"),
+      Repeater(mealExampleRows, "No meal examples match this filter.")
+    ], "block"),
+    Group("Breakfast", "vertical", [
+      Text("Breakfast ideas", "title", "start"),
+      Text("• Oatmeal with berries", "body", "start"),
+      Text("• Yogurt parfait", "body", "start"),
+      Text("• Avocado toast", "body", "start"),
+      Repeater(breakfastRows, "")
+    ], "block"),
+    Group("Lunch", "vertical", [
+      Text("Lunch ideas", "title", "start"),
+      Text("• Chicken salad wrap", "body", "start"),
+      Text("• Veggie grain bowl", "body", "start"),
+      Text("• Tomato soup and sandwich", "body", "start"),
+      Repeater(lunchRows, "")
+    ], "block"),
+    Group("Dinner", "vertical", [
+      Text("Dinner ideas", "title", "start"),
+      Text("• Salmon with rice and greens", "body", "start"),
+      Text("• Pasta primavera", "body", "start"),
+      Text("• Stir-fry with tofu and vegetables", "body", "start"),
+      Repeater(dinnerRows, "")
+    ], "block"),
+    Group("Quick shopping list by ingredients", "vertical", [
+      Text("Quick shopping list by ingredients", "title", "start"),
+      Text("Breakfast ingredients", "muted", "start"),
+      Text("• Eggs", "body", "start"),
+      Text("• Oats", "body", "start"),
+      Text("• Berries", "body", "start"),
+      Text("• Yogurt", "body", "start"),
+      Text("• Bread", "body", "start"),
+      Text("• Avocado", "body", "start"),
+      Text("Lunch ingredients", "muted", "start"),
+      Text("• Chicken", "body", "start"),
+      Text("• Greens", "body", "start"),
+      Text("• Wraps", "body", "start"),
+      Text("• Grain bowl mix", "body", "start"),
+      Text("• Tomatoes", "body", "start"),
+      Text("• Soup bread", "body", "start"),
+      Text("Dinner ingredients", "muted", "start"),
+      Text("• Salmon", "body", "start"),
+      Text("• Rice", "body", "start"),
+      Text("• Pasta", "body", "start"),
+      Text("• Tofu", "body", "start"),
+      Text("• Vegetables", "body", "start"),
+      Text("• Garlic", "body", "start"),
+      Repeater(shoppingRows, "")
+    ], "block")
+  ], true, { mainColor: "#FFF7ED", contrastColor: "#1F2937" })
+], { mainColor: "#FFF7ED", contrastColor: "#1F2937" })`,
+      'Add color tags for meal type and prep effort.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-filter',
+          severity: 'soft-warning',
+          source: 'quality',
+        }),
+      ]),
+    );
   });
 
   it('does not mark persisted refresh as blocking when the matching query reruns later in the same Action', () => {

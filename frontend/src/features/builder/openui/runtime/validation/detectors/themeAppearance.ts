@@ -21,7 +21,7 @@ export function detectThemeAppearanceIssues(source: string, result: ParseResult)
     createQualityIssue({
       code: 'quality-theme-state-not-applied',
       message:
-        'Theme request did not wire theme state into container appearance. Bind AppShell or a top-level container appearance to a theme state such as `$currentTheme` so switching theme changes colors.',
+        'Theme-switch request did not wire theme state into container appearance. Bind AppShell or a top-level container appearance to a theme state such as `$currentTheme` so switching theme changes colors.',
     }),
   ];
 }

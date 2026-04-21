@@ -19,7 +19,7 @@ import {
   promptRequestsCompute,
   promptRequestsFiltering,
   promptRequestsRandom,
-  promptRequestsTheme,
+  promptRequestsThemeState,
   promptRequestsTodo,
   promptRequestsValidation,
   promptRequestsVisualStyling,
@@ -156,7 +156,7 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
     );
   }
 
-  if (hasPromptContext && promptRequestsTheme(trimmedPrompt)) {
+  if (hasPromptContext && promptRequestsThemeState(trimmedPrompt)) {
     issues.push(
       ...detectThemeAppearanceIssues(trimmedSource, result).map((issue) => ({
         ...issue,
