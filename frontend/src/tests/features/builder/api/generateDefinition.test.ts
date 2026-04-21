@@ -197,4 +197,47 @@ describe('generateBuilderDefinition', () => {
       }),
     );
   });
+
+  it('serializes repair linkage fields into the fallback request body', async () => {
+    const repairRequest: BuilderLlmRequest = {
+      ...request,
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          model: 'gpt-5.4-mini',
+          source: 'root = AppShell([])',
+        } satisfies BuilderLlmResponse),
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+          status: 200,
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await generateBuilderDefinition(
+      createGenerateRequestOptions({
+        requestId: 'builder-request-repair',
+        request: repairRequest,
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      prompt: 'Build a todo app',
+      currentSource: '',
+      chatHistory: [],
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+    });
+  });
 });

@@ -156,6 +156,43 @@ describe('streamBuilderDefinition', () => {
     );
   });
 
+  it('serializes repair linkage fields into the streaming request body', async () => {
+    const repairRequest: BuilderLlmRequest = {
+      ...request,
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+        status: 200,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await streamBuilderDefinition(
+      createStreamRequestOptions({
+        requestId: 'builder-request-repair',
+        request: repairRequest,
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      prompt: 'Build a todo app',
+      currentSource: '',
+      chatHistory: [],
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
+    });
+  });
+
   it('throws a normalized error when the server responds with an error event', async () => {
     vi.stubGlobal(
       'fetch',

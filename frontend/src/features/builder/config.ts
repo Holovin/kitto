@@ -1,4 +1,5 @@
 import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
+import { serializeBuilderLlmRequest } from './api/requestBody';
 
 const textEncoder = new TextEncoder();
 
@@ -57,7 +58,7 @@ export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): Builde
 }
 
 export function getApproximateBuilderRequestSizeBytes(request: BuilderLlmRequest) {
-  return textEncoder.encode(JSON.stringify(request)).byteLength;
+  return textEncoder.encode(serializeBuilderLlmRequest(request)).byteLength;
 }
 
 export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: BuilderRequestLimits) {

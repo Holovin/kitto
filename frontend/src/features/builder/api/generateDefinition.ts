@@ -1,5 +1,6 @@
 import type { BuilderLlmRequest, BuilderLlmResponse } from '@features/builder/types';
 import { createBuilderRequestError } from './requestErrors';
+import { serializeBuilderLlmRequest } from './requestBody';
 import { unwrapAbortableRequestWithTimeout } from './requestTimeout';
 
 interface GenerateBuilderDefinitionOptions {
@@ -65,7 +66,7 @@ export async function generateBuilderDefinition({
               Accept: 'application/json',
               ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
             },
-            body: JSON.stringify(request),
+            body: serializeBuilderLlmRequest(request),
             signal: abortController.signal,
           });
 

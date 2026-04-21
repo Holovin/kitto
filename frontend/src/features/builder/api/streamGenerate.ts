@@ -1,5 +1,6 @@
 import type { BuilderLlmRequest, BuilderLlmRequestCompaction } from '@features/builder/types';
 import { createBuilderRequestError } from './requestErrors';
+import { serializeBuilderLlmRequest } from './requestBody';
 
 export type BuilderStreamTimeoutKind = 'idle' | 'max-duration';
 
@@ -405,7 +406,7 @@ export async function streamBuilderDefinition({
         Accept: 'text/event-stream',
         ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
       },
-      body: JSON.stringify(request),
+      body: serializeBuilderLlmRequest(request),
       signal: abortController.signal,
     });
 
