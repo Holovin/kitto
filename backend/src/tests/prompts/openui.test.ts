@@ -42,6 +42,10 @@ describe('openui prompts', () => {
     expect(structuredPrompt.length).toBeLessThan(plainTextPrompt.length);
   });
 
+  it('keeps the structured system prompt snapshot stable', () => {
+    expect(buildOpenUiSystemPrompt()).toMatchSnapshot();
+  });
+
   it('builds stable system prompt cache keys per prompt variant', () => {
     const structuredKey = getOpenUiSystemPromptCacheKey();
     const plainTextKey = getOpenUiSystemPromptCacheKey({ structuredOutput: false });
@@ -53,6 +57,12 @@ describe('openui prompts', () => {
     expect(structuredKey.length).toBeLessThanOrEqual(64);
     expect(plainTextKey.length).toBeLessThanOrEqual(64);
     expect(structuredKey).not.toBe(plainTextKey);
+    expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
+      {
+        "plainTextKey": "kitto:openui:pl:9e12e681c279:8273f2702af07ede",
+        "structuredKey": "kitto:openui:st:9e12e681c279:b394dd90619f787d",
+      }
+    `);
   });
 
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
