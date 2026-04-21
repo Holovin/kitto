@@ -28,6 +28,7 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().default('gpt-5.4-mini'),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(DEFAULT_OPENAI_REQUEST_TIMEOUT_MS),
   PORT: z.coerce.number().int().positive().default(8787),
+  PROMPT_IO_LOG: z.stringbool().default(false),
 });
 
 export function resolveBackendEnvPath(moduleUrl: string | URL) {

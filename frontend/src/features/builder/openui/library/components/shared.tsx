@@ -150,14 +150,6 @@ const KittoAppearanceContext = createContext<KittoAppearanceScope>(defaultKittoA
 const KittoValidationInteractionContext = createContext<KittoValidationInteractionContextValue>(
   defaultKittoValidationInteractionContext,
 );
-let choiceActionQueue: Promise<void> = Promise.resolve();
-
-export function enqueueChoiceAction(runAction: () => Promise<void>) {
-  const nextAction = choiceActionQueue.then(runAction, runAction);
-  choiceActionQueue = nextAction.catch(() => undefined);
-  return nextAction;
-}
-
 export function asDisplayText(value: unknown) {
   if (value == null) {
     return '';

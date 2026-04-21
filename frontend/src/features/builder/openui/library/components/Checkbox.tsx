@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react';
-import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
+import { useId, useState } from 'react';
+import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
 import { z } from 'zod';
 import {
@@ -14,6 +14,7 @@ import {
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
+import { useActionModeControl } from './useActionModeControl';
 
 type CheckboxRendererProps = ComponentRenderProps<{
   action?: unknown;
@@ -25,23 +26,16 @@ type CheckboxRendererProps = ComponentRenderProps<{
   validation?: ValidationRuleConfig[];
 }>;
 
-let checkboxActionQueue: Promise<void> = Promise.resolve();
-
-function enqueueCheckboxAction(runAction: () => Promise<void>) {
-  const nextAction = checkboxActionQueue.then(runAction, runAction);
-  checkboxActionQueue = nextAction.catch(() => undefined);
-  return nextAction;
-}
-
 function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const feedbackId = useId();
   const [touched, setTouched] = useState(false);
-  const [isPending, setPending] = useState(false);
-  const pendingActionRef = useRef(false);
   const isStreaming = useIsStreaming();
-  const triggerAction = useTriggerAction();
   const field = useStateField(props.name, props.checked);
-  const isActionMode = props.action != null;
+  const { isActionMode, isPending, runAction } = useActionModeControl({
+    action: props.action,
+    name: props.name || 'checkbox',
+    queue: 'checkbox',
+  });
   const { interactedNames } = useKittoValidationInteraction();
   useRegisterKittoValidationField(props.name);
   const hasLabel = props.label.trim().length > 0;
@@ -77,24 +71,6 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
-  async function handleActionToggle() {
-    if (isStreaming || pendingActionRef.current) {
-      return;
-    }
-
-    pendingActionRef.current = true;
-    setPending(true);
-
-    try {
-      await enqueueCheckboxAction(async () => {
-        await triggerAction(props.name || 'checkbox', undefined, props.action as never);
-      });
-    } finally {
-      pendingActionRef.current = false;
-      setPending(false);
-    }
-  }
-
   const checkboxControl = (
     <CheckboxUI
       aria-describedby={helperText ? feedbackId : undefined}
@@ -106,8 +82,8 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       onBlur={isActionMode ? undefined : () => setTouched(true)}
       onCheckedChange={
         isActionMode
-          ? () => {
-              void handleActionToggle();
+          ? (checked: boolean | 'indeterminate') => {
+              void runAction(Boolean(checked));
             }
           : (checked: boolean | 'indeterminate') => {
               setTouched(true);

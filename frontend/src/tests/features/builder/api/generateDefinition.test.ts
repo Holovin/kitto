@@ -159,4 +159,42 @@ describe('generateBuilderDefinition', () => {
 
     await Promise.resolve();
   });
+
+  it('includes x-kitto-request-id when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          model: 'gpt-5.4-mini',
+          source: 'root = AppShell([])',
+        } satisfies BuilderLlmResponse),
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+          status: 200,
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      generateBuilderDefinition(
+        createGenerateRequestOptions({
+          requestId: 'builder-request-123',
+        }),
+      ),
+    ).resolves.toEqual({
+      model: 'gpt-5.4-mini',
+      source: 'root = AppShell([])',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/llm/generate',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-kitto-request-id': 'builder-request-123',
+        }),
+      }),
+    );
+  });
 });

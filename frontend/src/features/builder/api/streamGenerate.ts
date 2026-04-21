@@ -10,6 +10,7 @@ interface StreamBuilderDefinitionOptions {
   onChunk: (chunk: string) => void;
   onSummary?: (summary: string) => void;
   onTimeout?: (kind: BuilderStreamTimeoutKind) => void;
+  requestId?: string;
   request: BuilderLlmRequest;
   signal?: AbortSignal;
 }
@@ -337,6 +338,7 @@ export async function streamBuilderDefinition({
   onChunk,
   onSummary,
   onTimeout,
+  requestId,
   request,
   signal,
 }: StreamBuilderDefinitionOptions): Promise<StreamBuilderDefinitionResult> {
@@ -401,6 +403,7 @@ export async function streamBuilderDefinition({
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
       },
       body: JSON.stringify(request),
       signal: abortController.signal,

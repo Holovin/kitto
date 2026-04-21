@@ -38,6 +38,8 @@ interface ParsedLlmRequestResult {
   request: ParsedLlmRequest;
 }
 
+type LlmRouteScope = 'POST /api/llm/generate' | 'POST /api/llm/generate/stream';
+
 function createLlmRequestSchema(env: AppEnv) {
   return z.object({
     prompt: z
@@ -140,7 +142,17 @@ function assertModelOutputWithinLimit(source: string, env: AppEnv) {
   }
 }
 
-async function parseLlmRequest(context: Context, env: AppEnv) {
+function getRequestIdHeader(context: Context) {
+  const requestId = context.req.header('x-kitto-request-id')?.trim();
+  return requestId ? requestId : undefined;
+}
+
+function getLoggedPublicError(error: unknown, scope: LlmRouteScope) {
+  logServerError(error, scope);
+  return toPublicErrorPayload(error);
+}
+
+async function prepareLlmInvocation(context: Context, env: AppEnv) {
   const rawBody = await context.req.text();
 
   let parsedBody: unknown;
@@ -165,6 +177,21 @@ async function parseLlmRequest(context: Context, env: AppEnv) {
   return compactedRequest;
 }
 
+async function handleLlmRoute(
+  context: Context,
+  env: AppEnv,
+  scope: LlmRouteScope,
+  respond: (invocation: ParsedLlmRequestResult) => Promise<Response> | Response,
+) {
+  try {
+    const invocation = await prepareLlmInvocation(context, env);
+    return await respond(invocation);
+  } catch (error) {
+    const publicError = getLoggedPublicError(error, scope);
+    return context.json(publicError, publicError.status);
+  }
+}
+
 export function createLlmOpenUiRoutes(env: AppEnv) {
   const llmRoutes = new Hono();
   const rateLimitMiddleware = createInMemoryRateLimitMiddleware({
@@ -175,10 +202,9 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
 
   llmRoutes.use('*', rateLimitMiddleware);
 
-  llmRoutes.post('/llm/generate', async (context) => {
-    try {
-      const { compaction, request } = await parseLlmRequest(context, env);
-      const responseEnvelope = await generateOpenUiSource(env, request, context.req.raw.signal);
+  llmRoutes.post('/llm/generate', async (context) =>
+    handleLlmRoute(context, env, 'POST /api/llm/generate', async ({ compaction, request }) => {
+      const responseEnvelope = await generateOpenUiSource(env, request, context.req.raw.signal, getRequestIdHeader(context));
       assertModelOutputWithinLimit(responseEnvelope.source, env);
 
       return context.json({
@@ -186,16 +212,12 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         model: env.OPENAI_MODEL,
         ...responseEnvelope,
       });
-    } catch (error) {
-      logServerError(error, 'POST /api/llm/generate');
-      const publicError = toPublicErrorPayload(error);
-      return context.json(publicError, publicError.status);
-    }
-  });
+    }),
+  );
 
-  llmRoutes.post('/llm/generate/stream', async (context) => {
-    try {
-      const { compaction, request } = await parseLlmRequest(context, env);
+  llmRoutes.post('/llm/generate/stream', async (context) =>
+    handleLlmRoute(context, env, 'POST /api/llm/generate/stream', async ({ compaction, request }) => {
+      const requestId = getRequestIdHeader(context);
       const abortController = new AbortController();
       const encoder = new TextEncoder();
       let isClosed = false;
@@ -250,6 +272,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                   writeEvent('chunk', delta);
                 },
                 abortController.signal,
+                requestId,
               );
 
               if (abortController.signal.aborted) {
@@ -273,8 +296,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
                 return;
               }
 
-              logServerError(error, 'POST /api/llm/generate/stream');
-              writeEvent('error', JSON.stringify(toPublicErrorPayload(error)));
+              writeEvent('error', JSON.stringify(getLoggedPublicError(error, 'POST /api/llm/generate/stream')));
               closeController();
             }
           })();
@@ -294,12 +316,8 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
           'X-Accel-Buffering': 'no',
         },
       });
-    } catch (error) {
-      logServerError(error, 'POST /api/llm/generate/stream');
-      const publicError = toPublicErrorPayload(error);
-      return context.json(publicError, publicError.status);
-    }
-  });
+    }),
+  );
 
   return llmRoutes;
 }

@@ -291,6 +291,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
     return generateBuilderDefinition({
       apiBaseUrl: getBackendApiBaseUrl(),
+      requestId,
       request,
       signal: abortControllerRef.current?.signal,
       timeoutMs: streamTimeouts.streamMaxDurationMs,
@@ -572,6 +573,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         apiBaseUrl: getBackendApiBaseUrl(),
         idleTimeoutMs: streamTimeouts.streamIdleTimeoutMs,
         maxDurationMs: streamTimeouts.streamMaxDurationMs,
+        requestId,
         request,
         signal: abortController.signal,
         onChunk: (chunk) => {

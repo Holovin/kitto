@@ -21,7 +21,7 @@ Requirements:
 npm install
 cp backend/.env.example backend/.env
 # set OPENAI_API_KEY in backend/.env
-# for local dev, set PORT=8787 and FRONTEND_ORIGIN=http://localhost:5555
+# for local dev, set PORT=8787, FRONTEND_ORIGIN=http://localhost:5555, and PROMPT_IO_LOG=true if you want prompt I/O JSONL logs
 npm run dev
 npm run test
 npm run build
@@ -36,6 +36,7 @@ Notes:
 - `npm run start` launches the compiled backend after `npm run build` and serves the built frontend when `frontend/dist` exists.
 - `npm run build` also rebuilds the standalone player assets embedded into exported `.html` files.
 - `backend/.env.example` is production-oriented for PM2 deployment. For local development, set `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555` in `backend/.env` after copying it.
+- Set `PROMPT_IO_LOG=true` in `backend/.env` (or prefix `npm run dev` with it) when you want append-only prompt/model logs in `backend/logs/prompt-io.jsonl` for prompt tuning. The default is `false`.
 - If you want to override the API base URL or dev proxy target, copy `frontend/.env.example` to `frontend/.env`.
 
 ## 3. Production deployment
@@ -66,6 +67,7 @@ Notes:
 - During streaming, Definition may temporarily show raw structured JSON draft chunks; commit still happens only from the final extracted `done.source`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
+- Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.
 
 ## 6. Standalone HTML export
 

@@ -436,6 +436,28 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
+  it('passes x-kitto-request-id through to the non-stream OpenAI service call', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({ notes: [], source: 'root = AppShell([])', summary: '' });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-123',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const [, , , calledRequestId] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(calledRequestId).toBe('builder-request-123');
+  });
+
   it('compacts oversized requests by bytes while keeping the newest chat messages', async () => {
     const { app } = createRouteApp({
       LLM_REQUEST_MAX_BYTES: 260,
@@ -534,6 +556,32 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
     });
+  });
+
+  it('passes x-kitto-request-id through to the streaming OpenAI service call', async () => {
+    const { app } = createRouteApp();
+    streamOpenUiSourceMock.mockResolvedValue({
+      notes: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-stream-123',
+      },
+      body: JSON.stringify({
+        prompt: 'stream a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const [, , , , calledRequestId] = streamOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(calledRequestId).toBe('builder-stream-123');
   });
 
   it('closes the SSE stream without done or error when the upstream stream is aborted', async () => {

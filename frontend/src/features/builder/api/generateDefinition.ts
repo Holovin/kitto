@@ -4,6 +4,7 @@ import { unwrapAbortableRequestWithTimeout } from './requestTimeout';
 
 interface GenerateBuilderDefinitionOptions {
   apiBaseUrl: string;
+  requestId?: string;
   request: BuilderLlmRequest;
   signal?: AbortSignal;
   timeoutMs: number;
@@ -45,6 +46,7 @@ async function getResponseError(response: Response) {
 
 export async function generateBuilderDefinition({
   apiBaseUrl,
+  requestId,
   request,
   signal,
   timeoutMs,
@@ -61,6 +63,7 @@ export async function generateBuilderDefinition({
             headers: {
               'Content-Type': 'application/json',
               Accept: 'application/json',
+              ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
             },
             body: JSON.stringify(request),
             signal: abortController.signal,

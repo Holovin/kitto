@@ -125,6 +125,37 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
+  it('includes x-kitto-request-id when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+        status: 200,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      streamBuilderDefinition(
+        createStreamRequestOptions({
+          requestId: 'builder-stream-123',
+        }),
+      ),
+    ).resolves.toEqual({
+      source: 'root = AppShell([])',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/llm/generate/stream',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-kitto-request-id': 'builder-stream-123',
+        }),
+      }),
+    );
+  });
+
   it('throws a normalized error when the server responds with an error event', async () => {
     vi.stubGlobal(
       'fetch',

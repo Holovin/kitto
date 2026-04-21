@@ -3,7 +3,7 @@ import type { PromptBuildRequest } from '../../prompts/openui.js';
 import { UpstreamFailureError } from '../../errors/publicError.js';
 import { createTestEnv } from '../createTestEnv.js';
 
-const { MockApiUserAbortError, responsesCreateMock, responsesStreamMock } = vi.hoisted(() => {
+const { MockApiUserAbortError, promptLogWriteMock, responsesCreateMock, responsesStreamMock } = vi.hoisted(() => {
   class HoistedMockApiUserAbortError extends Error {
     constructor() {
       super('Request was aborted.');
@@ -13,10 +13,17 @@ const { MockApiUserAbortError, responsesCreateMock, responsesStreamMock } = vi.h
 
   return {
     MockApiUserAbortError: HoistedMockApiUserAbortError,
+    promptLogWriteMock: vi.fn(),
     responsesCreateMock: vi.fn(),
     responsesStreamMock: vi.fn(),
   };
 });
+
+vi.mock(import('../../services/promptLog.js'), () => ({
+  promptLog: {
+    write: promptLogWriteMock,
+  },
+}));
 
 vi.mock('openai', () => {
   class MockOpenAI {
@@ -158,6 +165,7 @@ describe('parseOpenUiGenerationEnvelope', () => {
 
 describe('generateOpenUiSource', () => {
   afterEach(() => {
+    promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
   });
@@ -277,6 +285,55 @@ describe('generateOpenUiSource', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '[openai.responses.create] request_id=req_usage_log input_tokens=1800 cached_tokens=1536 output_tokens=42 total_tokens=1842',
+    );
+  });
+
+  it('writes prompt I/O logs for completed non-stream responses', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-prompt-log',
+      PROMPT_IO_LOG: true,
+    });
+    const usage = {
+      input_tokens: 18,
+      output_tokens: 4,
+      total_tokens: 22,
+    };
+    promptLogWriteMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        notes: [],
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+      usage,
+    });
+
+    await expect(generateOpenUiSource(env, request, undefined, 'builder-request-1')).resolves.toEqual({
+      notes: [],
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'builder-request-1',
+        mode: 'initial',
+        userPrompt: expect.stringContaining('Build a todo app'),
+        currentSourceLen: 0,
+        chatHistoryLen: 0,
+        systemPromptHash: expect.any(String),
+        modelOutputRaw: '{"notes":[],"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        parsedEnvelope: {
+          notes: [],
+          summary: 'Builds a blank app shell.',
+          source: 'root = AppShell([])',
+        },
+        usage,
+        durationMs: expect.any(Number),
+      }),
+      {
+        enabled: true,
+      },
     );
   });
 
@@ -410,6 +467,7 @@ describe('generateOpenUiSource', () => {
 
 describe('streamOpenUiSource', () => {
   afterEach(() => {
+    promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
   });
@@ -644,6 +702,50 @@ describe('streamOpenUiSource', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '[openai.responses.stream] request_id=req_stream_usage input_tokens=2000 cached_tokens=1600 output_tokens=25 total_tokens=2025',
+    );
+  });
+
+  it('writes prompt I/O logs after a finalized stream response', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-stream-prompt-log',
+      PROMPT_IO_LOG: true,
+    });
+    const usage = {
+      input_tokens: 20,
+      output_tokens: 5,
+      total_tokens: 25,
+    };
+    const onTextDelta = vi.fn();
+    const stream = createMockResponseStream(
+      [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}' }],
+      {
+        output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
+        usage,
+      },
+    );
+    promptLogWriteMock.mockResolvedValue(undefined);
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(streamOpenUiSource(env, request, onTextDelta, undefined, 'builder-request-stream')).resolves.toEqual({
+      notes: [],
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'builder-request-stream',
+        modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}',
+        parsedEnvelope: {
+          notes: [],
+          summary: 'Builds a blank app shell.',
+          source: 'root = AppShell([])',
+        },
+        usage,
+      }),
+      {
+        enabled: true,
+      },
     );
   });
 });

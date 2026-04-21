@@ -1,11 +1,10 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import {
   defineComponent,
   reactive,
   useIsStreaming,
   useSetFieldValue,
   useStateField,
-  useTriggerAction,
   type ComponentRenderProps,
   type StateField,
 } from '@openuidev/react-lang';
@@ -15,7 +14,6 @@ import {
   ACTION_MODE_LAST_CHOICE_STATE,
   appearanceSchema,
   choiceOptionSchema,
-  enqueueChoiceAction,
   getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
@@ -26,6 +24,7 @@ import {
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
+import { useActionModeControl } from './useActionModeControl';
 
 type SelectRendererProps = ComponentRenderProps<{
   action?: unknown;
@@ -41,13 +40,17 @@ type SelectRendererProps = ComponentRenderProps<{
 function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   const feedbackId = useId();
   const [touched, setTouched] = useState(false);
-  const [isPending, setPending] = useState(false);
-  const pendingActionRef = useRef(false);
   const isStreaming = useIsStreaming();
-  const triggerAction = useTriggerAction();
   const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
-  const isActionMode = props.action != null;
+  const { isActionMode, isPending, runAction } = useActionModeControl({
+    action: props.action,
+    beforeRun: (nextValue: string) => {
+      setFieldValue(undefined, undefined, ACTION_MODE_LAST_CHOICE_STATE, nextValue, false);
+    },
+    name: props.name || 'select',
+    queue: 'choice',
+  });
   const { interactedNames } = useKittoValidationInteraction();
   useRegisterKittoValidationField(props.name);
   const validationTarget = { componentType: 'Select' as const };
@@ -87,25 +90,6 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
 
-  async function handleActionSelect(nextValue: string) {
-    if (isStreaming || pendingActionRef.current) {
-      return;
-    }
-
-    pendingActionRef.current = true;
-    setPending(true);
-
-    try {
-      await enqueueChoiceAction(async () => {
-        setFieldValue(undefined, undefined, ACTION_MODE_LAST_CHOICE_STATE, nextValue, false);
-        await triggerAction(props.name || 'select', undefined, props.action as never);
-      });
-    } finally {
-      pendingActionRef.current = false;
-      setPending(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-slate-600" style={labelStyle}>
@@ -117,7 +101,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         value={selectedValue}
         onValueChange={(nextValue: string) => {
           if (isActionMode) {
-            void handleActionSelect(nextValue);
+            void runAction(nextValue);
             return;
           }
 
