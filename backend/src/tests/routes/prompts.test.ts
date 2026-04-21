@@ -41,14 +41,6 @@ describe('GET /api/prompts/info', () => {
     expect(payload.envelopeSchema).toEqual({
       additionalProperties: false,
       properties: {
-        notes: {
-          items: {
-            maxLength: 200,
-            type: 'string',
-          },
-          maxItems: 5,
-          type: 'array',
-        },
         source: {
           type: 'string',
         },
@@ -57,7 +49,7 @@ describe('GET /api/prompts/info', () => {
           type: 'string',
         },
       },
-      required: ['summary', 'source', 'notes'],
+      required: ['summary', 'source'],
       type: 'object',
     });
   });

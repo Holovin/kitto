@@ -78,12 +78,11 @@ export interface BuilderLlmRequestCompaction {
 export interface BuilderLlmResponse {
   compaction?: BuilderLlmRequestCompaction;
   model: string;
-  notes?: string[];
   source: string;
   summary?: string;
 }
 
-export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'notes' | 'source' | 'summary'> {
+export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'source' | 'summary'> {
   commitSource: BuilderCommitSource;
   requestId: BuilderRequestId;
 }

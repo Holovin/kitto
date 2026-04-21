@@ -213,7 +213,6 @@ export function useValidationRepair({
         return {
           commitSource: candidateResponse.commitSource,
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
-          notes: candidateResponse.notes,
           requestId: candidateResponse.requestId,
           source: candidateResponse.source,
           summary: candidateResponse.summary,

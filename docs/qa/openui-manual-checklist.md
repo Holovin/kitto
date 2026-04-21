@@ -16,7 +16,7 @@ Guardrails:
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
 - frontend submit-time preflight must block requests whose serialized payload already exceeds `GET /api/config` `limits.requestMaxBytes`, show one clear builder error, and avoid sending that oversized request; the backend `413` limit remains the security boundary
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
-- when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source` / `notes`, empty `source`, invalid `summary` / `notes`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
+- when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 

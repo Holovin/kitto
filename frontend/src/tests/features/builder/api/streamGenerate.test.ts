@@ -341,7 +341,7 @@ describe('streamBuilderDefinition', () => {
                 doneEventSent = true;
                 controller.enqueue(
                   encoder.encode(
-                    'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])","notes":["Keeps one screen only."]}\n\n',
+                    'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])"}\n\n',
                   ),
                 );
                 controller.close();
@@ -378,7 +378,6 @@ describe('streamBuilderDefinition', () => {
     await expect(
       streamPromise,
     ).resolves.toEqual({
-      notes: ['Keeps one screen only.'],
       source: 'root = AppShell([])',
       summary: 'Builds a todo list',
     });

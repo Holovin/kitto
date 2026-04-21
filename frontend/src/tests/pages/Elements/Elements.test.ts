@@ -24,7 +24,7 @@ const promptsInfoState = vi.hoisted(() => ({
     },
     envelopeSchema: {
       type: 'object',
-      required: ['summary', 'source', 'notes'],
+      required: ['summary', 'source'],
     },
     repairPromptTemplate: 'Original user request:\n{{userPrompt}}',
     systemPrompt: {

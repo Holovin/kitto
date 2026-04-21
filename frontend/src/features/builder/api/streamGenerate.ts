@@ -19,14 +19,12 @@ interface StreamBuilderDefinitionOptions {
 interface StreamDonePayload {
   compaction?: BuilderLlmRequestCompaction;
   model?: string;
-  notes?: string[];
   source?: string;
   summary?: string;
 }
 
 interface StreamBuilderDefinitionResult {
   compaction?: BuilderLlmRequestCompaction;
-  notes?: string[];
   source: string;
   summary?: string;
 }
@@ -208,7 +206,6 @@ function parsePartialOpenUiEnvelope(input: string): PartialOpenUiEnvelope {
   let currentKey: string | null = null;
   let expectingKey = false;
   let expectingValue = false;
-  let isInsideNotesArray = false;
 
   while (index < input.length) {
     const currentCharacter = input[index];
@@ -242,20 +239,12 @@ function parsePartialOpenUiEnvelope(input: string): PartialOpenUiEnvelope {
     }
 
     if (currentCharacter === '[') {
-      if (depth === 1 && currentKey === 'notes') {
-        isInsideNotesArray = true;
-      }
-
       depth += 1;
       index += 1;
       continue;
     }
 
     if (currentCharacter === ']') {
-      if (isInsideNotesArray && depth === 2) {
-        isInsideNotesArray = false;
-      }
-
       depth = Math.max(0, depth - 1);
       index += 1;
       continue;
@@ -301,11 +290,6 @@ function parsePartialOpenUiEnvelope(input: string): PartialOpenUiEnvelope {
       if (parsedString.complete) {
         expectingValue = false;
       }
-      index = parsedString.nextIndex;
-      continue;
-    }
-
-    if (depth === 2 && isInsideNotesArray) {
       index = parsedString.nextIndex;
       continue;
     }
@@ -520,7 +504,6 @@ export async function streamBuilderDefinition({
 
       return {
         compaction: donePayload.compaction,
-        notes: donePayload.notes,
         source: donePayload.source,
         summary: donePayload.summary,
       };

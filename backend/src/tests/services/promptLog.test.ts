@@ -49,7 +49,6 @@ describe('promptLog.write', () => {
         },
         modelOutputRaw: 'o'.repeat(40),
         parsedEnvelope: {
-          notes: ['n'.repeat(40)],
           source: 's'.repeat(40),
           summary: 'y'.repeat(40),
         },
@@ -76,7 +75,7 @@ describe('promptLog.write', () => {
     const entry = JSON.parse(line ?? '{}') as {
       modelInput: { input: Array<{ content: Array<{ text: string }> }> };
       modelOutputRaw: string;
-      parsedEnvelope: { notes: string[]; source: string; summary: string };
+      parsedEnvelope: { source: string; summary: string };
       rawUserRequest: string;
       validationIssues: string[];
     };
@@ -86,7 +85,6 @@ describe('promptLog.write', () => {
     expect(entry.modelOutputRaw).toBe('oooooooooooooooo… [truncated 24 chars]');
     expect(entry.parsedEnvelope.source).toBe('ssssssssssssssss… [truncated 24 chars]');
     expect(entry.parsedEnvelope.summary).toBe('yyyyyyyyyyyyyyyy… [truncated 24 chars]');
-    expect(entry.parsedEnvelope.notes[0]).toBe('nnnnnnnnnnnnnnnn… [truncated 24 chars]');
     expect(entry.validationIssues[0]).toBe('vvvvvvvvvvvvvvvv… [truncated 24 chars]');
   });
 
@@ -131,9 +129,8 @@ describe('promptLog.write', () => {
           },
         ],
       },
-      modelOutputRaw: '{"summary":"Builds app.","source":"root = AppShell([])","notes":[]}',
+      modelOutputRaw: '{"summary":"Builds app.","source":"root = AppShell([])"}',
       parsedEnvelope: {
-        notes: [],
         source: 'root = AppShell([])',
         summary: 'Builds app.',
       },

@@ -8,7 +8,6 @@ export const OpenUiGenerationEnvelopeSchema = z
   .object({
     summary: z.string().max(200),
     source: z.string().min(1),
-    notes: z.array(z.string().max(200)).max(5),
   })
   .strict();
 
@@ -21,7 +20,7 @@ export const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['summary', 'source', 'notes'],
+    required: ['summary', 'source'],
     properties: {
       summary: {
         type: 'string',
@@ -29,14 +28,6 @@ export const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
       },
       source: {
         type: 'string',
-      },
-      notes: {
-        type: 'array',
-        maxItems: 5,
-        items: {
-          type: 'string',
-          maxLength: 200,
-        },
       },
     },
   },
@@ -79,7 +70,6 @@ function createPlainTextOpenUiGenerationEnvelope(rawSource: unknown): OpenUiGene
   return {
     summary: '',
     source: normalizeOpenUiSource(rawSource),
-    notes: [],
   };
 }
 

@@ -38,7 +38,7 @@ const USER_PROMPT_INTRO_LINES = [
 ] as const;
 
 const STRUCTURED_OUTPUT_INSTRUCTION =
-  'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change, and always include `notes` (use an empty array when there is nothing useful to add).';
+  'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change.';
 const PLAIN_OUTPUT_INSTRUCTION = 'Return the full updated OpenUI Lang program only.';
 
 function getUserPromptOutputInstruction(structuredOutput: boolean) {
