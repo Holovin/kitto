@@ -1,22 +1,18 @@
-import { useId, useState } from 'react';
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Input as InputUI } from '@components/ui/input';
 import { z } from 'zod';
 import {
   appearanceSchema,
-  getValidationFeedback,
   getAppearanceStyle,
   getInputAutoComplete,
   inputTypeSchema,
   nullableTextSchema,
-  sanitizeValidationRules,
   useKittoAppearanceScope,
-  useRegisterKittoValidationField,
-  useKittoValidationInteraction,
   validationRulesSchema,
   type InputType,
   type ValidationRuleConfig,
 } from './shared';
+import { useFormFieldValidation } from './useFormFieldValidation';
 
 type InputRendererProps = ComponentRenderProps<{
   appearance?: { contrastColor?: string; mainColor?: string };
@@ -30,24 +26,17 @@ type InputRendererProps = ComponentRenderProps<{
 }>;
 
 function OpenUiInputRenderer({ props }: InputRendererProps) {
-  const feedbackId = useId();
-  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
-  const { interactedNames } = useKittoValidationInteraction();
-  useRegisterKittoValidationField(props.name);
   const validationTarget = {
     componentType: 'Input' as const,
     inputType: props.type,
   };
-  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const { hasVisibleError, helperText } = getValidationFeedback({
+  const { ariaProps, hasVisibleError, helperText, onBlur } = useFormFieldValidation({
     helper: props.helper,
-    interactedNames,
     name: props.name,
-    rules: validationRules,
     target: validationTarget,
-    touched,
+    validation: props.validation,
     value: field.value ?? '',
   });
   const autoComplete = getInputAutoComplete(props.name, props.type);
@@ -71,8 +60,7 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
         {props.label}
       </span>
       <InputUI
-        aria-describedby={helperText ? feedbackId : undefined}
-        aria-invalid={hasVisibleError}
+        {...ariaProps}
         autoComplete={autoComplete}
         className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
         disabled={isStreaming}
@@ -81,14 +69,14 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
         style={inputStyle}
         type={props.type}
         value={field.value ?? ''}
-        onBlur={() => setTouched(true)}
+        onBlur={onBlur}
         onChange={(event) => {
-          setTouched(true);
+          onBlur();
           field.setValue(event.target.value);
         }}
       />
       {helperText ? (
-        <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
+        <p className="text-sm leading-6 text-slate-500" id={ariaProps['aria-describedby']}>
           {helperText}
         </p>
       ) : null}

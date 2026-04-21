@@ -1,19 +1,15 @@
-import { useId, useState } from 'react';
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Textarea as TextareaUI } from '@components/ui/textarea';
 import { z } from 'zod';
 import {
   appearanceSchema,
-  getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
-  sanitizeValidationRules,
   useKittoAppearanceScope,
-  useRegisterKittoValidationField,
-  useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
+import { useFormFieldValidation } from './useFormFieldValidation';
 
 type TextAreaRendererProps = ComponentRenderProps<{
   appearance?: { contrastColor?: string; mainColor?: string };
@@ -26,21 +22,14 @@ type TextAreaRendererProps = ComponentRenderProps<{
 }>;
 
 function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
-  const feedbackId = useId();
-  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
-  const { interactedNames } = useKittoValidationInteraction();
-  useRegisterKittoValidationField(props.name);
   const validationTarget = { componentType: 'TextArea' as const };
-  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
-  const { hasVisibleError, helperText } = getValidationFeedback({
+  const { ariaProps, hasVisibleError, helperText, onBlur } = useFormFieldValidation({
     helper: props.helper,
-    interactedNames,
     name: props.name,
-    rules: validationRules,
     target: validationTarget,
-    touched,
+    validation: props.validation,
     value: field.value ?? '',
   });
   const appearanceScope = useKittoAppearanceScope();
@@ -63,22 +52,21 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
         {props.label}
       </span>
       <TextareaUI
-        aria-describedby={helperText ? feedbackId : undefined}
-        aria-invalid={hasVisibleError}
+        {...ariaProps}
         className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
         disabled={isStreaming}
         name={props.name}
         placeholder={props.placeholder ?? undefined}
         style={textAreaStyle}
         value={field.value ?? ''}
-        onBlur={() => setTouched(true)}
+        onBlur={onBlur}
         onChange={(event) => {
-          setTouched(true);
+          onBlur();
           field.setValue(event.target.value);
         }}
       />
       {helperText ? (
-        <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
+        <p className="text-sm leading-6 text-slate-500" id={ariaProps['aria-describedby']}>
           {helperText}
         </p>
       ) : null}

@@ -1,25 +1,21 @@
-import { useId, useState } from 'react';
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
 import { z } from 'zod';
 import {
   appearanceSchema,
-  getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
-  sanitizeValidationRules,
   useKittoAppearanceScope,
-  useRegisterKittoValidationField,
-  useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
 import { useActionModeControl } from './useActionModeControl';
+import { useFormFieldValidation } from './useFormFieldValidation';
 
 type CheckboxRendererProps = ComponentRenderProps<{
   action?: unknown;
   appearance?: { contrastColor?: string; mainColor?: string };
-  checked?: StateField<boolean> | boolean;
+  checked?: StateField<boolean | undefined> | boolean;
   helper?: string | null;
   label: string;
   name: string;
@@ -27,8 +23,6 @@ type CheckboxRendererProps = ComponentRenderProps<{
 }>;
 
 function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
-  const feedbackId = useId();
-  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.checked);
   const { isActionMode, isPending, runAction } = useActionModeControl({
@@ -36,27 +30,17 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
     name: props.name || 'checkbox',
     queue: 'checkbox',
   });
-  const { interactedNames } = useKittoValidationInteraction();
-  useRegisterKittoValidationField(props.name);
   const hasLabel = props.label.trim().length > 0;
   const validationTarget = { componentType: 'Checkbox' as const };
-  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
   const checkedValue = isActionMode ? Boolean(props.checked) : Boolean(field.value);
-  const validationFeedback = isActionMode
-    ? {
-        hasVisibleError: false,
-        helperText: props.helper ?? undefined,
-      }
-    : getValidationFeedback({
-        helper: props.helper,
-        interactedNames,
-        name: props.name,
-        rules: validationRules,
-        target: validationTarget,
-        touched,
-        value: checkedValue,
-      });
-  const { hasVisibleError, helperText } = validationFeedback;
+  const { ariaProps, hasVisibleError, helperText, onBlur } = useFormFieldValidation({
+    helper: props.helper,
+    name: props.name,
+    skip: isActionMode,
+    target: validationTarget,
+    validation: props.validation,
+    value: checkedValue,
+  });
   const appearanceScope = useKittoAppearanceScope();
   const checkboxStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -73,20 +57,19 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
 
   const checkboxControl = (
     <CheckboxUI
-      aria-describedby={helperText ? feedbackId : undefined}
-      aria-invalid={hasVisibleError}
+      {...ariaProps}
       checked={checkedValue}
       className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
       disabled={isActionMode ? isStreaming || isPending : isStreaming}
       style={checkboxStyle}
-      onBlur={isActionMode ? undefined : () => setTouched(true)}
+      onBlur={isActionMode ? undefined : onBlur}
       onCheckedChange={
         isActionMode
           ? (checked: boolean | 'indeterminate') => {
               void runAction(Boolean(checked));
             }
           : (checked: boolean | 'indeterminate') => {
-              setTouched(true);
+              onBlur();
               field.setValue(Boolean(checked));
             }
       }
@@ -98,7 +81,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       <div className="flex flex-col gap-2">
         <div className="flex h-5 items-center">{checkboxControl}</div>
         {helperText ? (
-          <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
+          <p className="text-sm leading-6 text-slate-500" id={ariaProps['aria-describedby']}>
             {helperText}
           </p>
         ) : null}
@@ -122,7 +105,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
         </span>
       </label>
       {helperText ? (
-        <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
+        <p className="text-sm leading-6 text-slate-500" id={ariaProps['aria-describedby']}>
           {helperText}
         </p>
       ) : null}

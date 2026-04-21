@@ -1,4 +1,3 @@
-import { useId, useState } from 'react';
 import {
   defineComponent,
   reactive,
@@ -14,17 +13,14 @@ import {
   ACTION_MODE_LAST_CHOICE_STATE,
   appearanceSchema,
   choiceOptionSchema,
-  getValidationFeedback,
   getAppearanceStyle,
   nullableTextSchema,
-  sanitizeValidationRules,
   useKittoAppearanceScope,
-  useRegisterKittoValidationField,
-  useKittoValidationInteraction,
   validationRulesSchema,
   type ValidationRuleConfig,
 } from './shared';
 import { useActionModeControl } from './useActionModeControl';
+import { useFormFieldValidation } from './useFormFieldValidation';
 
 type SelectRendererProps = ComponentRenderProps<{
   action?: unknown;
@@ -38,8 +34,6 @@ type SelectRendererProps = ComponentRenderProps<{
 }>;
 
 function OpenUiSelectRenderer({ props }: SelectRendererProps) {
-  const feedbackId = useId();
-  const [touched, setTouched] = useState(false);
   const isStreaming = useIsStreaming();
   const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
@@ -51,26 +45,16 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     name: props.name || 'select',
     queue: 'choice',
   });
-  const { interactedNames } = useKittoValidationInteraction();
-  useRegisterKittoValidationField(props.name);
   const validationTarget = { componentType: 'Select' as const };
-  const validationRules = sanitizeValidationRules(validationTarget, props.validation);
   const selectedValue = isActionMode ? (typeof props.value === 'string' ? props.value : '') : (field.value ?? '');
-  const validationFeedback = isActionMode
-    ? {
-        hasVisibleError: false,
-        helperText: props.helper ?? undefined,
-      }
-    : getValidationFeedback({
-        helper: props.helper,
-        interactedNames,
-        name: props.name,
-        rules: validationRules,
-        target: validationTarget,
-        touched,
-        value: selectedValue,
-      });
-  const { hasVisibleError, helperText } = validationFeedback;
+  const { ariaProps, hasVisibleError, helperText, onBlur } = useFormFieldValidation({
+    helper: props.helper,
+    name: props.name,
+    skip: isActionMode,
+    target: validationTarget,
+    validation: props.validation,
+    value: selectedValue,
+  });
   const appearanceScope = useKittoAppearanceScope();
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
@@ -105,17 +89,16 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
             return;
           }
 
-          setTouched(true);
+          onBlur();
           field.setValue(nextValue);
         }}
       >
         <SelectTrigger
-          aria-describedby={helperText ? feedbackId : undefined}
-          aria-invalid={hasVisibleError}
+          {...ariaProps}
           aria-label={props.label}
           className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
           style={selectStyle}
-          onBlur={() => setTouched(true)}
+          onBlur={isActionMode ? undefined : onBlur}
         >
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
@@ -128,7 +111,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         </SelectContent>
       </SelectUI>
       {helperText ? (
-        <p className="text-sm leading-6 text-slate-500" id={feedbackId}>
+        <p className="text-sm leading-6 text-slate-500" id={ariaProps['aria-describedby']}>
           {helperText}
         </p>
       ) : null}
