@@ -16,12 +16,18 @@ import {
   type OpenAiResponseStreamState,
 } from './streaming.js';
 
+interface PromptIoRequestMetrics {
+  compactedRequestBytes?: number | null;
+  compactionTrimmedItems?: number | null;
+  requestBytes?: number | null;
+}
+
 async function finalizeOpenUiModelResponse(
   env: AppEnv,
   request: PromptBuildRequest,
   responseRequest: ReturnType<typeof buildResponseRequest>,
   rawModelText: unknown,
-  options: {
+  options: PromptIoRequestMetrics & {
     durationMs: number;
     requestId?: string | null;
     usage: unknown;
@@ -33,19 +39,25 @@ async function finalizeOpenUiModelResponse(
     parsedEnvelope = extractOpenUiEnvelopeFromModelText(rawModelText, env);
     assertModelOutputWithinLimit(parsedEnvelope.source, env);
     await writePromptIoLogSafely(env, request, responseRequest, rawModelText, {
+      compactedRequestBytes: options.compactedRequestBytes,
+      compactionTrimmedItems: options.compactionTrimmedItems,
       durationMs: options.durationMs,
       parsedEnvelope,
       requestId: options.requestId,
+      requestBytes: options.requestBytes,
       usage: options.usage,
     });
     return parsedEnvelope;
   } catch (error) {
     await writePromptIoFailureSafely(env, request, responseRequest, rawModelText, {
+      compactedRequestBytes: options.compactedRequestBytes,
+      compactionTrimmedItems: options.compactionTrimmedItems,
       durationMs: options.durationMs,
       error,
       parsedEnvelope,
       phase: 'parse',
       requestId: options.requestId,
+      requestBytes: options.requestBytes,
       usage: options.usage,
     });
     throw error;
@@ -56,7 +68,9 @@ export async function generateOpenUiSource(
   env: AppEnv,
   request: PromptBuildRequest,
   signal?: AbortSignal,
-  requestId?: string,
+  telemetry?: {
+    requestId?: string;
+  } & PromptIoRequestMetrics,
 ) {
   const client = getClient(env);
   const responseRequest = buildResponseRequest(env, request);
@@ -71,10 +85,13 @@ export async function generateOpenUiSource(
   } catch (error) {
     if (!isAbortedRequestError(error, signal)) {
       await writePromptIoFailureSafely(env, request, responseRequest, '', {
+        compactedRequestBytes: telemetry?.compactedRequestBytes,
+        compactionTrimmedItems: telemetry?.compactionTrimmedItems,
         durationMs: Date.now() - startedAt,
         error,
         phase: 'request',
-        requestId,
+        requestId: telemetry?.requestId,
+        requestBytes: telemetry?.requestBytes,
         usage: null,
       });
     }
@@ -84,8 +101,11 @@ export async function generateOpenUiSource(
   logResponseUsage(env, 'create', response);
 
   return finalizeOpenUiModelResponse(env, request, responseRequest, extractResponseText(response), {
+    compactedRequestBytes: telemetry?.compactedRequestBytes,
+    compactionTrimmedItems: telemetry?.compactionTrimmedItems,
     durationMs: Date.now() - startedAt,
-    requestId,
+    requestId: telemetry?.requestId,
+    requestBytes: telemetry?.requestBytes,
     usage: response.usage,
   });
 }
@@ -95,7 +115,9 @@ export async function streamOpenUiSource(
   request: PromptBuildRequest,
   onTextDelta: (delta: string) => Promise<void> | void,
   signal?: AbortSignal,
-  requestId?: string,
+  telemetry?: {
+    requestId?: string;
+  } & PromptIoRequestMetrics,
 ) {
   const client = getClient(env);
   const responseRequest = buildResponseRequest(env, request);
@@ -110,10 +132,13 @@ export async function streamOpenUiSource(
   } catch (error) {
     if (!isAbortedRequestError(error, signal)) {
       await writePromptIoFailureSafely(env, request, responseRequest, '', {
+        compactedRequestBytes: telemetry?.compactedRequestBytes,
+        compactionTrimmedItems: telemetry?.compactionTrimmedItems,
         durationMs: Date.now() - startedAt,
         error,
         phase: 'request',
-        requestId,
+        requestId: telemetry?.requestId,
+        requestBytes: telemetry?.requestBytes,
         usage: null,
       });
     }
@@ -131,22 +156,27 @@ export async function streamOpenUiSource(
     finalResponseText = await consumeOpenAiResponseStream(env, stream, onTextDelta, signal, streamState);
     logResponseUsage(env, 'stream', streamState.finalResponse);
   } catch (error) {
-    if (!isAbortedRequestError(error, signal)) {
-      await writePromptIoFailureSafely(env, request, responseRequest, streamState.streamedText, {
-        durationMs: Date.now() - startedAt,
-        error,
-        phase: 'stream',
-        requestId,
-        usage: streamState.finalResponse?.usage ?? null,
-      });
-    }
+    await writePromptIoFailureSafely(env, request, responseRequest, streamState.streamedText, {
+      compactedRequestBytes: telemetry?.compactedRequestBytes,
+      compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+      durationMs: Date.now() - startedAt,
+      error,
+      errorCode: isAbortedRequestError(error, signal) ? 'client_aborted' : undefined,
+      phase: 'stream',
+      requestId: telemetry?.requestId,
+      requestBytes: telemetry?.requestBytes,
+      usage: streamState.finalResponse?.usage ?? null,
+    });
 
     throw error;
   }
 
   return finalizeOpenUiModelResponse(env, request, responseRequest, finalResponseText, {
+    compactedRequestBytes: telemetry?.compactedRequestBytes,
+    compactionTrimmedItems: telemetry?.compactionTrimmedItems,
     durationMs: Date.now() - startedAt,
-    requestId,
+    requestId: telemetry?.requestId,
+    requestBytes: telemetry?.requestBytes,
     usage: streamState.finalResponse?.usage ?? null,
   });
 }

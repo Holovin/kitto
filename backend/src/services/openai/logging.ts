@@ -2,7 +2,7 @@ import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import { toPublicErrorPayload } from '../../errors/publicError.js';
 import { buildOpenUiRawUserRequest, type PromptBuildRequest } from '../../prompts/openui.js';
-import { promptLog } from '../promptLog.js';
+import { promptLog, type PromptIoCommitSource, type PromptIoLogMode } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
 import { getSystemPromptHash } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
@@ -59,7 +59,67 @@ function getPromptLogValidationIssues(request: PromptBuildRequest, validationIss
     (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
   );
 
-  return mergedIssues.length > 0 ? [...new Set(mergedIssues)] : undefined;
+  return mergedIssues.length > 0 ? [...new Set(mergedIssues)] : [];
+}
+
+function getSanitizedValidationIssues(validationIssues?: string[]) {
+  const sanitizedIssues = (validationIssues ?? []).filter(
+    (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
+  );
+
+  return sanitizedIssues.length > 0 ? [...new Set(sanitizedIssues)] : [];
+}
+
+function getPromptLogMode(mode: unknown): PromptIoLogMode {
+  return mode === 'initial' || mode === 'repair' ? mode : null;
+}
+
+function getRepairAttempt(mode: PromptIoLogMode) {
+  return mode === 'repair' ? 1 : 0;
+}
+
+function getPartialPromptBuildContext(partialBody: unknown) {
+  if (!partialBody || typeof partialBody !== 'object') {
+    return {
+      chatHistoryLen: undefined,
+      currentSourceLen: undefined,
+      mode: null,
+      parentRequestId: null,
+      rawUserRequest: undefined,
+      validationIssues: [] as string[],
+    };
+  }
+
+  const partialRequest = partialBody as {
+    chatHistory?: unknown;
+    currentSource?: unknown;
+    mode?: unknown;
+    parentRequestId?: unknown;
+    prompt?: unknown;
+    validationIssues?: unknown;
+  };
+  const mode = getPromptLogMode(partialRequest.mode);
+
+  return {
+    chatHistoryLen: Array.isArray(partialRequest.chatHistory) ? partialRequest.chatHistory.length : undefined,
+    currentSourceLen: typeof partialRequest.currentSource === 'string' ? partialRequest.currentSource.length : undefined,
+    mode,
+    parentRequestId: typeof partialRequest.parentRequestId === 'string' ? partialRequest.parentRequestId : null,
+    rawUserRequest:
+      typeof partialRequest.prompt === 'string'
+        ? buildOpenUiRawUserRequest({
+            chatHistory: [],
+            currentSource: '',
+            mode: mode ?? 'initial',
+            prompt: partialRequest.prompt,
+          })
+        : undefined,
+    validationIssues: getSanitizedValidationIssues(
+      Array.isArray(partialRequest.validationIssues)
+        ? partialRequest.validationIssues.filter((issue): issue is string => typeof issue === 'string')
+        : undefined,
+    ),
+  };
 }
 
 function coerceRawModelOutput(rawModelText: unknown) {
@@ -110,6 +170,12 @@ function getPromptLogErrorMessage(error: unknown) {
   return String(error);
 }
 
+interface PromptIoRequestMetrics {
+  compactedRequestBytes?: number | null;
+  compactionTrimmedItems?: number | null;
+  requestBytes?: number | null;
+}
+
 export function logResponseUsage(env: AppEnv, phase: 'create' | 'stream', response: unknown) {
   if (env.LOG_LEVEL !== 'debug' && env.LOG_LEVEL !== 'info') {
     return;
@@ -146,23 +212,33 @@ export async function writePromptIoLogSafely(
   responseRequest: OpenUiResponseRequest,
   rawModelText: unknown,
   options: {
+    compactedRequestBytes?: number | null;
+    compactionTrimmedItems?: number | null;
     durationMs: number;
     parsedEnvelope: OpenUiGenerationEnvelope | null;
     requestId?: string | null;
+    requestBytes?: number | null;
     usage: unknown;
     validationIssues?: string[];
   },
 ) {
+  const mode = getPromptLogMode(request.mode);
+
   try {
     await promptLog.write(
       {
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
-        mode: request.mode,
+        repairAttempt: getRepairAttempt(mode),
+        mode,
+        phase: null,
         rawUserRequest: getPromptLogRawUserRequest(request),
         currentSourceLen: request.currentSource.length,
         chatHistoryLen: request.chatHistory.length,
+        requestBytes: options.requestBytes ?? null,
+        compactedRequestBytes: options.compactedRequestBytes ?? null,
+        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -186,34 +262,44 @@ export async function writePromptIoFailureSafely(
   responseRequest: OpenUiResponseRequest,
   rawModelText: unknown,
   options: {
+    compactedRequestBytes?: number | null;
+    compactionTrimmedItems?: number | null;
     durationMs: number;
     error: unknown;
+    errorCode?: string;
     parsedEnvelope?: OpenUiGenerationEnvelope | null;
     phase: 'request' | 'stream' | 'parse';
     requestId?: string | null;
+    requestBytes?: number | null;
     usage: unknown;
     validationIssues?: string[];
   },
 ) {
+  const mode = getPromptLogMode(request.mode);
+
   try {
     await promptLog.writeFailure(
       {
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
-        mode: request.mode,
+        repairAttempt: getRepairAttempt(mode),
+        mode,
+        phase: options.phase,
         rawUserRequest: getPromptLogRawUserRequest(request),
         currentSourceLen: request.currentSource.length,
         chatHistoryLen: request.chatHistory.length,
+        requestBytes: options.requestBytes ?? null,
+        compactedRequestBytes: options.compactedRequestBytes ?? null,
+        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
         parsedEnvelope: options.parsedEnvelope ?? null,
         usage: options.usage,
         validationIssues: getPromptLogValidationIssues(request, options.validationIssues),
-        errorCode: getPromptLogErrorCode(options.error),
+        errorCode: options.errorCode ?? getPromptLogErrorCode(options.error),
         errorMessage: getPromptLogErrorMessage(options.error),
-        phase: options.phase,
         durationMs: options.durationMs,
       },
       {
@@ -222,5 +308,76 @@ export async function writePromptIoFailureSafely(
     );
   } catch (error) {
     console.warn('[prompt-log] Failed to write prompt I/O failure log entry.', error);
+  }
+}
+
+export async function writePromptIoIntakeFailureSafely(
+  env: AppEnv,
+  options: PromptIoRequestMetrics & {
+    errorCode: string;
+    errorMessage: string;
+    partialBody?: unknown;
+    requestId: string | null;
+  },
+) {
+  const partialContext = getPartialPromptBuildContext(options.partialBody);
+
+  try {
+    await promptLog.writeFailure(
+      {
+        ts: new Date().toISOString(),
+        requestId: options.requestId,
+        parentRequestId: partialContext.parentRequestId,
+        repairAttempt: getRepairAttempt(partialContext.mode),
+        mode: partialContext.mode,
+        phase: 'intake',
+        rawUserRequest: partialContext.rawUserRequest,
+        currentSourceLen: partialContext.currentSourceLen,
+        chatHistoryLen: partialContext.chatHistoryLen,
+        requestBytes: options.requestBytes ?? null,
+        compactedRequestBytes: options.compactedRequestBytes ?? null,
+        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
+        validationIssues: partialContext.validationIssues,
+        errorCode: options.errorCode,
+        errorMessage: options.errorMessage,
+      },
+      {
+        enabled: env.PROMPT_IO_LOG,
+      },
+    );
+  } catch (error) {
+    console.warn('[prompt-log] Failed to write prompt intake failure log entry.', error);
+  }
+}
+
+export async function writePromptIoCommitTelemetrySafely(
+  env: AppEnv,
+  options: {
+    commitSource: PromptIoCommitSource;
+    committed: boolean;
+    parentRequestId: string | null;
+    requestId: string | null;
+    validationIssues?: string[];
+  },
+) {
+  try {
+    await promptLog.write(
+      {
+        ts: new Date().toISOString(),
+        requestId: options.requestId,
+        parentRequestId: options.parentRequestId,
+        repairAttempt: 0,
+        mode: null,
+        phase: 'client-commit',
+        validationIssues: getSanitizedValidationIssues(options.validationIssues),
+        committed: options.committed,
+        commitSource: options.commitSource,
+      },
+      {
+        enabled: env.PROMPT_IO_LOG,
+      },
+    );
+  } catch (error) {
+    console.warn('[prompt-log] Failed to write prompt client commit telemetry entry.', error);
   }
 }

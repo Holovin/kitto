@@ -1,11 +1,11 @@
-import { nanoid } from '@reduxjs/toolkit';
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
+import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from '@features/builder/api/streamGenerate';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { selectIsStreaming } from '@features/builder/store/selectors';
-import type { BuilderChatNotice, BuilderLlmRequest, BuilderLlmResponse, BuilderRequestId } from '@features/builder/types';
+import type { BuilderChatNotice, BuilderGeneratedDraft, BuilderLlmRequest, BuilderRequestId } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
@@ -23,14 +23,6 @@ export class BuilderRequestAbortedError extends Error {
     super('The builder request was intentionally aborted.');
     this.name = 'BuilderRequestAbortedError';
   }
-}
-
-function createRequestId(): BuilderRequestId {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return nanoid();
 }
 
 export function isAbortError(error: unknown) {
@@ -152,16 +144,26 @@ export function useGenerationLifecycle({
     failRequest(requestId, new BuilderStreamTimeoutError(kind), { abort: true, retryPrompt });
   }
 
-  async function runGenerateRequest(requestId: BuilderRequestId, request: BuilderLlmRequest): Promise<BuilderLlmResponse> {
+  async function runGenerateRequest(
+    requestId: BuilderRequestId,
+    request: BuilderLlmRequest,
+    options?: { transportRequestId?: BuilderRequestId },
+  ): Promise<BuilderGeneratedDraft> {
     throwIfInactiveRequest(requestId);
-
-    return generateBuilderDefinition({
+    const transportRequestId = options?.transportRequestId ?? requestId;
+    const response = await generateBuilderDefinition({
       apiBaseUrl: getBackendApiBaseUrl(),
-      requestId,
+      requestId: transportRequestId,
       request,
       signal: abortControllerRef.current?.signal,
       timeoutMs: streamMaxDurationMs,
     });
+
+    return {
+      ...response,
+      commitSource: 'fallback',
+      requestId: transportRequestId,
+    };
   }
 
   function beginGeneration(prompt: string) {

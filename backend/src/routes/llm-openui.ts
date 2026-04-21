@@ -1,11 +1,14 @@
 import { Hono, type Context } from 'hono';
 import { APIUserAbortError } from 'openai';
-import { z } from 'zod';
+import { ZodError, z } from 'zod';
 import type { AppEnv } from '../env.js';
 import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
 import { getByteLength } from '../limits.js';
 import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
+import { createRequestId, getRequestBytesFromContext, getRequestClientKey, getRequestIdFromContext } from '../requestMetadata.js';
+import { createCommitTelemetryRegistry } from '../services/commitTelemetryRegistry.js';
 import { generateOpenUiSource, streamOpenUiSource, type OpenUiGenerationEnvelope } from '../services/openai.js';
+import { writePromptIoCommitTelemetrySafely, writePromptIoIntakeFailureSafely } from '../services/openai/logging.js';
 
 interface LlmRequestCompaction {
   compactedByBytes: boolean;
@@ -39,14 +42,31 @@ interface RawParsedLlmRequest {
 
 interface PreparedLlmInvocation {
   compaction?: LlmRequestCompaction;
+  compactedRequestBytes: number;
+  compactionTrimmedItems: number;
+  request: ParsedLlmRequest;
+  requestBytes: number;
+  requestId: string;
+}
+
+interface ParsedCommitTelemetryRequest {
+  commitSource: 'fallback' | 'streaming';
+  committed: boolean;
+  requestId: string;
+  validationIssues: string[];
+}
+
+interface CompactedLlmRequest {
+  compaction?: LlmRequestCompaction;
   request: ParsedLlmRequest;
 }
 
 const GENERATE_SCOPE = 'POST /api/llm/generate';
 const STREAM_SCOPE = 'POST /api/llm/generate/stream';
+const COMMIT_TELEMETRY_SCOPE = 'POST /api/llm/commit-telemetry';
 
-type LlmRouteScope = typeof GENERATE_SCOPE | typeof STREAM_SCOPE;
-type SseEventWriter = (event: string, data: string) => void;
+type LlmRouteScope = typeof COMMIT_TELEMETRY_SCOPE | typeof GENERATE_SCOPE | typeof STREAM_SCOPE;
+type SseEventWriter = (event: string, data: string) => boolean;
 
 function createLlmRequestSchema(env: AppEnv) {
   return z.object({
@@ -66,6 +86,15 @@ function createLlmRequestSchema(env: AppEnv) {
         }),
       )
       .default([]),
+  });
+}
+
+function createCommitTelemetrySchema() {
+  return z.object({
+    requestId: z.string().trim().min(1).max(200),
+    validationIssues: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
+    committed: z.boolean(),
+    commitSource: z.enum(['streaming', 'fallback']),
   });
 }
 
@@ -103,7 +132,7 @@ function getRequestSizeBytes(request: ParsedLlmRequest) {
   return getByteLength(JSON.stringify(request));
 }
 
-function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): PreparedLlmInvocation {
+function compactLlmRequest(request: ParsedLlmRequest, env: AppEnv): CompactedLlmRequest {
   let compactedByBytes = false;
   let compactedByItemLimit = false;
   let omittedChatMessages = 0;
@@ -152,14 +181,33 @@ function assertModelOutputWithinLimit(source: string, env: AppEnv) {
   }
 }
 
-function getRequestIdHeader(context: Context) {
-  const requestId = context.req.header('x-kitto-request-id')?.trim();
-  return requestId ? requestId : undefined;
-}
-
 function getLoggedPublicError(error: unknown, scope: LlmRouteScope) {
   logServerError(error, scope);
   return toPublicErrorPayload(error);
+}
+
+async function logIntakeFailure(
+  env: AppEnv,
+  options: {
+    compactedRequestBytes?: number | null;
+    compactionTrimmedItems?: number | null;
+    error: unknown;
+    partialBody?: unknown;
+    requestBytes?: number | null;
+    requestId: string;
+  },
+) {
+  const publicError = toPublicErrorPayload(options.error);
+
+  await writePromptIoIntakeFailureSafely(env, {
+    compactedRequestBytes: options.compactedRequestBytes,
+    compactionTrimmedItems: options.compactionTrimmedItems,
+    errorCode: publicError.code,
+    errorMessage: publicError.error,
+    partialBody: options.partialBody,
+    requestBytes: options.requestBytes ?? null,
+    requestId: options.requestId,
+  });
 }
 
 function createLlmResponsePayload(env: AppEnv, invocation: PreparedLlmInvocation, responseEnvelope: OpenUiGenerationEnvelope) {
@@ -194,6 +242,78 @@ function handleStreamingLlmError(
 }
 
 async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<PreparedLlmInvocation> {
+  const requestId = getRequestIdFromContext(context);
+  const rawBody = await context.req.text();
+  const requestBytes = getByteLength(rawBody);
+
+  let parsedBody: unknown;
+
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    const parseError = new RequestValidationError('Request body could not be parsed as JSON.', 400, {
+      publicMessage: 'Request body must be valid JSON.',
+    });
+
+    await logIntakeFailure(env, {
+      error: parseError,
+      requestBytes,
+      requestId,
+    });
+    throw parseError;
+  }
+
+  let request: ParsedLlmRequest;
+
+  try {
+    request = sanitizeLlmRequest(createLlmRequestSchema(env).parse(parsedBody));
+  } catch (error) {
+    if (error instanceof ZodError) {
+      await logIntakeFailure(env, {
+        error,
+        partialBody: parsedBody,
+        requestBytes,
+        requestId,
+      });
+    }
+
+    throw error;
+  }
+
+  const compactedRequest = compactLlmRequest(request, env);
+  const compactedRequestBytes = getRequestSizeBytes(compactedRequest.request);
+  const compactionTrimmedItems = compactedRequest.compaction?.omittedChatMessages ?? 0;
+
+  if (compactedRequestBytes > env.LLM_REQUEST_MAX_BYTES) {
+    const compactionError = new RequestValidationError(
+      `Compacted request still exceeded the safe request limit of ${env.LLM_REQUEST_MAX_BYTES} bytes.`,
+      413,
+      {
+        publicMessage: 'Request body is too large to process safely.',
+      },
+    );
+
+    await logIntakeFailure(env, {
+      compactedRequestBytes,
+      compactionTrimmedItems,
+      error: compactionError,
+      partialBody: parsedBody,
+      requestBytes,
+      requestId,
+    });
+    throw compactionError;
+  }
+
+  return {
+    ...compactedRequest,
+    compactedRequestBytes,
+    compactionTrimmedItems,
+    requestBytes,
+    requestId,
+  };
+}
+
+async function parseCommitTelemetryRequest(context: Context) {
   const rawBody = await context.req.text();
 
   let parsedBody: unknown;
@@ -206,16 +326,9 @@ async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<Prep
     });
   }
 
-  const request = sanitizeLlmRequest(createLlmRequestSchema(env).parse(parsedBody));
-  const compactedRequest = compactLlmRequest(request, env);
-
-  if (getRequestSizeBytes(compactedRequest.request) > env.LLM_REQUEST_MAX_BYTES) {
-    throw new RequestValidationError(`Compacted request still exceeded the safe request limit of ${env.LLM_REQUEST_MAX_BYTES} bytes.`, 413, {
-      publicMessage: 'Request body is too large to process safely.',
-    });
-  }
-
-  return compactedRequest;
+  return {
+    telemetryRequest: createCommitTelemetrySchema().parse(parsedBody) as ParsedCommitTelemetryRequest,
+  };
 }
 
 async function handleLlmRoute(
@@ -237,13 +350,13 @@ function createStreamingLlmResponse(
   env: AppEnv,
   scope: LlmRouteScope,
   invocation: PreparedLlmInvocation,
+  onCompletedResponse: (requestId: string, clientKey: string) => void,
   streamResponse: (
     onDelta: (delta: string) => void,
     signal: AbortSignal,
-    requestId: string | undefined,
+    requestId: string,
   ) => Promise<OpenUiGenerationEnvelope>,
 ) {
-  const requestId = getRequestIdHeader(context);
   const abortController = new AbortController();
   const encoder = new TextEncoder();
   let isClosed = false;
@@ -272,14 +385,16 @@ function createStreamingLlmResponse(
       };
       const writeEvent: SseEventWriter = (event, data) => {
         if (isClosed) {
-          return;
+          return false;
         }
 
         try {
           controller.enqueue(encoder.encode(formatSseEvent(event, data)));
+          return true;
         } catch {
           abortController.abort();
           closeController();
+          return false;
         }
       };
 
@@ -296,7 +411,7 @@ function createStreamingLlmResponse(
               writeEvent('chunk', delta);
             },
             abortController.signal,
-            requestId,
+            invocation.requestId,
           );
 
           if (abortController.signal.aborted) {
@@ -304,7 +419,12 @@ function createStreamingLlmResponse(
             return;
           }
 
-          writeEvent('done', JSON.stringify(createLlmResponsePayload(env, invocation, responseEnvelope)));
+          const didWriteDoneEvent = writeEvent('done', JSON.stringify(createLlmResponsePayload(env, invocation, responseEnvelope)));
+
+          if (didWriteDoneEvent) {
+            onCompletedResponse(invocation.requestId, getRequestClientKey(context));
+          }
+
           closeController();
         } catch (error) {
           handleStreamingLlmError(error, abortController, closeController, writeEvent, scope);
@@ -330,13 +450,23 @@ function createStreamingLlmResponse(
 
 export function createLlmOpenUiRoutes(env: AppEnv) {
   const llmRoutes = new Hono();
+  const commitTelemetryRegistry = createCommitTelemetryRegistry();
   const rateLimitMiddleware = createInMemoryRateLimitMiddleware({
     maxEntries: env.LLM_RATE_LIMIT_MAX_ENTRIES,
     maxRequests: env.LLM_RATE_LIMIT_MAX_REQUESTS,
+    onRejected: async (context) => {
+      await writePromptIoIntakeFailureSafely(env, {
+        errorCode: 'rate_limited',
+        errorMessage: 'Too many LLM requests. Please wait a moment and try again.',
+        requestBytes: getRequestBytesFromContext(context) ?? getByteLength(await context.req.text()),
+        requestId: getRequestIdFromContext(context),
+      });
+    },
     windowMs: env.LLM_RATE_LIMIT_WINDOW_MS,
   });
 
-  llmRoutes.use('*', rateLimitMiddleware);
+  llmRoutes.use('/llm/generate', rateLimitMiddleware);
+  llmRoutes.use('/llm/generate/stream', rateLimitMiddleware);
 
   llmRoutes.post('/llm/generate', async (context) =>
     handleLlmRoute(context, env, GENERATE_SCOPE, async (invocation) => {
@@ -344,20 +474,77 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         env,
         invocation.request,
         context.req.raw.signal,
-        getRequestIdHeader(context),
+        {
+          compactedRequestBytes: invocation.compactedRequestBytes,
+          compactionTrimmedItems: invocation.compactionTrimmedItems,
+          requestBytes: invocation.requestBytes,
+          requestId: invocation.requestId,
+        },
       );
+      const responsePayload = createLlmResponsePayload(env, invocation, responseEnvelope);
 
-      return context.json(createLlmResponsePayload(env, invocation, responseEnvelope));
+      commitTelemetryRegistry.registerCompletedRequest(invocation.requestId, getRequestClientKey(context));
+
+      return context.json(responsePayload);
     }),
   );
 
   llmRoutes.post('/llm/generate/stream', async (context) =>
     handleLlmRoute(context, env, STREAM_SCOPE, (invocation) =>
-      createStreamingLlmResponse(context, env, STREAM_SCOPE, invocation, (onDelta, signal, requestId) =>
-        streamOpenUiSource(env, invocation.request, onDelta, signal, requestId),
+      createStreamingLlmResponse(
+        context,
+        env,
+        STREAM_SCOPE,
+        invocation,
+        (requestId, clientKey) => {
+          commitTelemetryRegistry.registerCompletedRequest(requestId, clientKey);
+        },
+        (onDelta, signal, requestId) =>
+          streamOpenUiSource(env, invocation.request, onDelta, signal, {
+            compactedRequestBytes: invocation.compactedRequestBytes,
+            compactionTrimmedItems: invocation.compactionTrimmedItems,
+            requestBytes: invocation.requestBytes,
+            requestId,
+          }),
       ),
     ),
   );
+
+  llmRoutes.post('/llm/commit-telemetry', async (context) => {
+    try {
+      const parsedRequest = await parseCommitTelemetryRequest(context);
+      const telemetryPermission = commitTelemetryRegistry.consumeTelemetry(
+        parsedRequest.telemetryRequest.requestId,
+        getRequestClientKey(context),
+      );
+
+      if (!telemetryPermission.ok) {
+        return context.json(
+          {
+            code: 'validation_error',
+            error:
+              telemetryPermission.reason === 'event_limit_reached'
+                ? 'Commit telemetry for this generation request was already accepted too many times.'
+                : 'Commit telemetry request does not match a completed generation request.',
+            status: 409,
+          },
+          409,
+        );
+      }
+
+      await writePromptIoCommitTelemetrySafely(env, {
+        commitSource: parsedRequest.telemetryRequest.commitSource,
+        committed: parsedRequest.telemetryRequest.committed,
+        parentRequestId: parsedRequest.telemetryRequest.requestId,
+        requestId: createRequestId(),
+        validationIssues: parsedRequest.telemetryRequest.validationIssues,
+      });
+
+      return context.json({ ok: true }, 202);
+    } catch (error) {
+      return createJsonErrorResponse(context, error, COMMIT_TELEMETRY_SCOPE);
+    }
+  });
 
   return llmRoutes;
 }

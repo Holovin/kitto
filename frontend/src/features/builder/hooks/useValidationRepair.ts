@@ -1,8 +1,10 @@
 import type { BuilderRequestLimits } from '@features/builder/config';
+import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
+import { createRequestId } from '@features/builder/api/requestId';
 import { validateBuilderLlmRequest } from '@features/builder/config';
 import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { builderActions } from '@features/builder/store/builderSlice';
-import type { BuilderLlmRequest, BuilderLlmResponse, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
+import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
 import { useAppDispatch } from '@store/hooks';
 import { buildRepairPrompt, MAX_AUTO_REPAIR_ATTEMPTS } from './repairPrompt';
 import { createValidationFailureMessage } from './validationFailureMessage';
@@ -12,7 +14,8 @@ interface UseValidationRepairOptions {
   runGenerateRequest: (
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
-  ) => Promise<Pick<BuilderLlmResponse, 'notes' | 'source' | 'summary'>>;
+    options?: { transportRequestId?: BuilderRequestId },
+  ) => Promise<BuilderGeneratedDraft>;
   throwIfInactiveRequest: (requestId: BuilderRequestId) => void;
 }
 
@@ -40,15 +43,11 @@ export function useValidationRepair({
   const dispatch = useAppDispatch();
 
   async function ensureValidGeneratedSource(
-    initialResponse: Pick<BuilderLlmResponse, 'notes' | 'source' | 'summary'>,
+    initialResponse: BuilderGeneratedDraft,
     request: BuilderLlmRequest,
     requestId: BuilderRequestId,
   ) {
-    let candidateResponse: Pick<BuilderLlmResponse, 'notes' | 'source' | 'summary'> = {
-      notes: initialResponse.notes,
-      source: initialResponse.source,
-      summary: initialResponse.summary,
-    };
+    let candidateResponse: BuilderGeneratedDraft = { ...initialResponse };
     let parserRepairCount = 0;
     let qualityRepairCount = 0;
     let hasAnnouncedRepair = false;
@@ -70,7 +69,23 @@ export function useValidationRepair({
       return undefined;
     }
 
+    function reportRejectedCandidate(issues: BuilderParseIssue[]) {
+      if (candidateResponse.requestId.trim().length === 0) {
+        return;
+      }
+
+      const validationIssues = [...new Set(issues.map((issue) => issue.code))];
+
+      void postCommitTelemetry({
+        commitSource: candidateResponse.commitSource,
+        committed: false,
+        requestId: candidateResponse.requestId,
+        validationIssues,
+      });
+    }
+
     async function runRepairRequest(issues: Parameters<typeof buildRepairPrompt>[0]['issues'], attemptNumber: number) {
+      reportRejectedCandidate(issues);
       const repairRequest: BuilderLlmRequest = {
         prompt: buildRepairPrompt({
           userPrompt: request.prompt,
@@ -104,14 +119,12 @@ export function useValidationRepair({
         hasAnnouncedRepair = true;
       }
 
-      const repairedResponse = await runGenerateRequest(requestId, repairRequest);
+      const repairedResponse = await runGenerateRequest(requestId, repairRequest, {
+        transportRequestId: createRequestId(),
+      });
       throwIfInactiveRequest(requestId);
       hasCompletedRepairRequest = true;
-      candidateResponse = {
-        notes: repairedResponse.notes,
-        source: repairedResponse.source,
-        summary: repairedResponse.summary,
-      };
+      candidateResponse = repairedResponse;
     }
 
     while (true) {
@@ -142,6 +155,12 @@ export function useValidationRepair({
           });
 
         if (fatalQualityIssues.length > 0) {
+          reportRejectedCandidate(
+            fatalQualityIssues.map(({ severity, ...issue }) => {
+              void severity;
+              return issue;
+            }),
+          );
           throw new OpenUiValidationError(
             createValidationFailureMessage(
               fatalQualityIssues.map(({ severity, ...issue }) => {
@@ -155,6 +174,12 @@ export function useValidationRepair({
 
         if (blockingQualityIssues.length > 0) {
           if (qualityRepairCount >= 1) {
+            reportRejectedCandidate(
+              blockingQualityIssues.map(({ severity, ...issue }) => {
+                void severity;
+                return issue;
+              }),
+            );
             throw new OpenUiValidationError(
               createValidationFailureMessage(
                 blockingQualityIssues.map(({ severity, ...issue }) => {
@@ -178,8 +203,10 @@ export function useValidationRepair({
         }
 
         return {
+          commitSource: candidateResponse.commitSource,
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
           notes: candidateResponse.notes,
+          requestId: candidateResponse.requestId,
           source: candidateResponse.source,
           summary: candidateResponse.summary,
           warnings: qualityWarnings,
@@ -187,6 +214,7 @@ export function useValidationRepair({
       }
 
       if (parserRepairCount >= MAX_AUTO_REPAIR_ATTEMPTS) {
+        reportRejectedCandidate(validation.issues);
         throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
       }
 

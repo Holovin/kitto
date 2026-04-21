@@ -6,33 +6,40 @@ export const DEFAULT_PROMPT_IO_LOG_MAX_CHARS = 16_000;
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-type PromptIoLogMode = 'initial' | 'repair';
-type PromptIoFailurePhase = 'parse' | 'request' | 'stream';
+export type PromptIoLogMode = 'initial' | 'repair' | null;
+export type PromptIoLogPhase = 'client-commit' | 'intake' | 'parse' | 'request' | 'stream' | null;
+export type PromptIoRepairAttempt = 0 | 1;
+export type PromptIoCommitSource = 'fallback' | 'streaming';
 
-interface PromptIoLogEntryBase {
+interface PromptIoLogEntryFields {
   ts: string;
   requestId: string | null;
-  parentRequestId?: string | null;
+  parentRequestId: string | null;
+  repairAttempt: PromptIoRepairAttempt;
   mode: PromptIoLogMode;
-  rawUserRequest: string;
-  currentSourceLen: number;
-  chatHistoryLen: number;
-  systemPromptHash: string;
+  phase: PromptIoLogPhase;
+  rawUserRequest?: string;
+  currentSourceLen?: number;
+  chatHistoryLen?: number;
+  requestBytes?: number | null;
+  compactedRequestBytes?: number | null;
+  compactionTrimmedItems?: number | null;
+  systemPromptHash?: string;
   modelInput?: unknown;
-  modelOutputRaw: string;
-  parsedEnvelope: unknown;
-  usage: unknown;
-  validationIssues?: string[];
-  durationMs: number;
+  modelOutputRaw?: string;
+  parsedEnvelope?: unknown;
+  usage?: unknown;
+  validationIssues: string[];
+  durationMs?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  committed?: boolean;
+  commitSource?: PromptIoCommitSource;
 }
 
-export interface PromptIoLogEntry extends PromptIoLogEntryBase {}
+export interface PromptIoLogEntry extends PromptIoLogEntryFields {}
 
-export interface PromptIoFailureLogEntry extends PromptIoLogEntryBase {
-  errorCode: string;
-  errorMessage: string;
-  phase: PromptIoFailurePhase;
-}
+export interface PromptIoFailureLogEntry extends PromptIoLogEntryFields {}
 
 interface PromptLogWriteOptions {
   enabled: boolean;

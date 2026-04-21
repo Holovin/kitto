@@ -4,9 +4,22 @@ import { createApp } from '../../app.js';
 import { UpstreamFailureError } from '../../errors/publicError.js';
 import { createTestEnv } from '../createTestEnv.js';
 
+const {
+  writePromptIoCommitTelemetrySafelyMock,
+  writePromptIoIntakeFailureSafelyMock,
+} = vi.hoisted(() => ({
+  writePromptIoCommitTelemetrySafelyMock: vi.fn(),
+  writePromptIoIntakeFailureSafelyMock: vi.fn(),
+}));
+
 vi.mock(import('../../services/openai.js'), () => ({
   generateOpenUiSource: vi.fn(),
   streamOpenUiSource: vi.fn(),
+}));
+
+vi.mock(import('../../services/openai/logging.js'), () => ({
+  writePromptIoCommitTelemetrySafely: writePromptIoCommitTelemetrySafelyMock,
+  writePromptIoIntakeFailureSafely: writePromptIoIntakeFailureSafelyMock,
 }));
 
 import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.js';
@@ -57,6 +70,8 @@ describe('createLlmOpenUiRoutes', () => {
   afterEach(() => {
     generateOpenUiSourceMock.mockReset();
     streamOpenUiSourceMock.mockReset();
+    writePromptIoCommitTelemetrySafelyMock.mockReset();
+    writePromptIoIntakeFailureSafelyMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -78,6 +93,14 @@ describe('createLlmOpenUiRoutes', () => {
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+    expect(writePromptIoIntakeFailureSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        errorCode: 'validation_error',
+        errorMessage: 'Request body must be valid JSON.',
+        requestBytes: Buffer.byteLength('{"prompt":', 'utf8'),
+      }),
+    );
   });
 
   it('rejects invalid JSON stream bodies before calling the OpenAI service', async () => {
@@ -98,6 +121,28 @@ describe('createLlmOpenUiRoutes', () => {
       status: 400,
     });
     expect(streamOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('logs an intake validation error for empty request bodies', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: '',
+    });
+
+    expect(response.status).toBe(400);
+    expect(writePromptIoIntakeFailureSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        errorCode: 'validation_error',
+        errorMessage: 'Request body must be valid JSON.',
+        requestBytes: 0,
+      }),
+    );
   });
 
   it('rejects empty prompts before calling the OpenAI service', async () => {
@@ -122,6 +167,14 @@ describe('createLlmOpenUiRoutes', () => {
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+    expect(writePromptIoIntakeFailureSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        errorCode: 'validation_error',
+        errorMessage: 'The request payload is invalid.',
+        requestBytes: expect.any(Number),
+      }),
+    );
   });
 
   it('rejects empty stream prompts before calling the OpenAI service', async () => {
@@ -199,6 +252,14 @@ describe('createLlmOpenUiRoutes', () => {
       status: 413,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+    expect(writePromptIoIntakeFailureSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        errorCode: 'validation_error',
+        errorMessage: `Request body exceeded the raw request limit of ${getRawRequestMaxBytes(env)} bytes.`,
+        requestBytes: getRawRequestMaxBytes(env) + 1,
+      }),
+    );
   });
 
   it('rejects oversized streamed bodies before parsing or calling the OpenAI service', async () => {
@@ -353,6 +414,12 @@ describe('createLlmOpenUiRoutes', () => {
       chatHistory: chatHistory.slice(-2),
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
+    expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
+      compactedRequestBytes: expect.any(Number),
+      compactionTrimmedItems: 2,
+      requestBytes: expect.any(Number),
+      requestId: expect.any(String),
+    });
   });
 
   it('drops system chat messages before compaction and generation', async () => {
@@ -483,10 +550,14 @@ describe('createLlmOpenUiRoutes', () => {
         chatHistory: [],
       }),
     });
-    const [, , , calledRequestId] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+    const [, , , calledTelemetry] = generateOpenUiSourceMock.mock.calls[0] ?? [];
 
     expect(response.status).toBe(200);
-    expect(calledRequestId).toBe('builder-request-123');
+    expect(calledTelemetry).toEqual(
+      expect.objectContaining({
+        requestId: 'builder-request-123',
+      }),
+    );
   });
 
   it('compacts oversized requests by bytes while keeping the newest chat messages', async () => {
@@ -564,7 +635,7 @@ describe('createLlmOpenUiRoutes', () => {
     });
     const payload = await response.text();
     const events = parseSseEvents(payload);
-    const [calledEnv, calledRequest, , calledSignal] = streamOpenUiSourceMock.mock.calls[0] ?? [];
+    const [calledEnv, calledRequest, , calledSignal, calledTelemetry] = streamOpenUiSourceMock.mock.calls[0] ?? [];
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/event-stream');
@@ -577,6 +648,14 @@ describe('createLlmOpenUiRoutes', () => {
       chatHistory: [],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
+    expect(calledTelemetry).toEqual(
+      expect.objectContaining({
+        compactedRequestBytes: expect.any(Number),
+        compactionTrimmedItems: 0,
+        requestBytes: expect.any(Number),
+        requestId: expect.any(String),
+      }),
+    );
     expect(events).toHaveLength(3);
     expect(events[0]).toEqual({ event: 'chunk', data: '{"summary":"Builds a tiny app.","source":"root = ' });
     expect(events[1]).toEqual({ event: 'chunk', data: 'AppShell([])","notes":[]}' });
@@ -609,10 +688,14 @@ describe('createLlmOpenUiRoutes', () => {
         chatHistory: [],
       }),
     });
-    const [, , , , calledRequestId] = streamOpenUiSourceMock.mock.calls[0] ?? [];
+    const [, , , , calledTelemetry] = streamOpenUiSourceMock.mock.calls[0] ?? [];
 
     expect(response.status).toBe(200);
-    expect(calledRequestId).toBe('builder-stream-123');
+    expect(calledTelemetry).toEqual(
+      expect.objectContaining({
+        requestId: 'builder-stream-123',
+      }),
+    );
   });
 
   it('closes the SSE stream without done or error when the upstream stream is aborted', async () => {
@@ -724,5 +807,251 @@ describe('createLlmOpenUiRoutes', () => {
         data: '{"code":"timeout_error","error":"The model request timed out.","status":504}',
       },
     ]);
+  });
+
+  it('accepts client commit telemetry only after a successful generation request from the same client', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      notes: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+
+    const generationResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    const response = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: [],
+        committed: true,
+        commitSource: 'streaming',
+      }),
+    });
+
+    expect(generationResponse.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(writePromptIoCommitTelemetrySafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        commitSource: 'streaming',
+        committed: true,
+        parentRequestId: 'builder-request-parent',
+        requestId: expect.any(String),
+        validationIssues: [],
+      }),
+    );
+  });
+
+  it('rejects commit telemetry when there was no completed generation request to match it', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: [],
+        committed: true,
+        commitSource: 'streaming',
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Commit telemetry request does not match a completed generation request.',
+      status: 409,
+    });
+    expect(writePromptIoCommitTelemetrySafelyMock).not.toHaveBeenCalled();
+    expect(writePromptIoIntakeFailureSafelyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects commit telemetry from a different client even when the request id exists', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      notes: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+
+    const generationResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    const response = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.11',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: [],
+        committed: true,
+        commitSource: 'streaming',
+      }),
+    });
+
+    expect(generationResponse.status).toBe(200);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Commit telemetry request does not match a completed generation request.',
+      status: 409,
+    });
+    expect(writePromptIoCommitTelemetrySafelyMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts at most three commit telemetry events per completed generation request', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      notes: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+
+    const generationResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const requestInit: RequestInit = {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: [],
+        committed: true,
+        commitSource: 'streaming',
+      }),
+    };
+
+    const firstResponse = await app.request('/api/llm/commit-telemetry', requestInit);
+    const secondResponse = await app.request('/api/llm/commit-telemetry', requestInit);
+    const thirdResponse = await app.request('/api/llm/commit-telemetry', requestInit);
+    const fourthResponse = await app.request('/api/llm/commit-telemetry', requestInit);
+
+    expect(generationResponse.status).toBe(200);
+    expect(firstResponse.status).toBe(202);
+    expect(secondResponse.status).toBe(202);
+    expect(thirdResponse.status).toBe(202);
+    expect(fourthResponse.status).toBe(409);
+    expect(await fourthResponse.json()).toEqual({
+      code: 'validation_error',
+      error: 'Commit telemetry for this generation request was already accepted too many times.',
+      status: 409,
+    });
+    expect(writePromptIoCommitTelemetrySafelyMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not accept commit telemetry for aborted streams that never reached the done event', async () => {
+    const { app } = createRouteApp();
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      await onTextDelta('root = ');
+      throw new APIUserAbortError();
+    });
+
+    const streamResponse = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: JSON.stringify({
+        prompt: 'abort the stream',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    const telemetryResponse = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: [],
+        committed: false,
+        commitSource: 'streaming',
+      }),
+    });
+
+    expect(streamResponse.status).toBe(200);
+    expect(parseSseEvents(await streamResponse.text())).toEqual([{ event: 'chunk', data: 'root = ' }]);
+    expect(telemetryResponse.status).toBe(409);
+    expect(await telemetryResponse.json()).toEqual({
+      code: 'validation_error',
+      error: 'Commit telemetry request does not match a completed generation request.',
+      status: 409,
+    });
+    expect(writePromptIoCommitTelemetrySafelyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid commit telemetry payloads without writing intake failures', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        committed: true,
+        commitSource: 'streaming',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(writePromptIoCommitTelemetrySafelyMock).not.toHaveBeenCalled();
+    expect(writePromptIoIntakeFailureSafelyMock).not.toHaveBeenCalled();
   });
 });

@@ -61,7 +61,7 @@ Notes:
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
 - By default, the backend requests a structured Responses API envelope shaped like `{"source":"..."}` and extracts `.source` before OpenUI validation, quality checks, repair, and commit.
-- Internal preview interactions such as screen changes, form edits, and button clicks run locally; only chat submissions hit `/api/llm/*`.
+- Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
 - During streaming, Definition may temporarily show raw structured JSON draft chunks; commit still happens only from the final extracted `done.source`.
@@ -135,6 +135,7 @@ The supported backend API lives under `/api/*` only.
 - `GET /api/config` returns frontend-safe request limits and stream timeout policy.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
 - `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events. `chunk` can contain raw structured JSON draft text, while `done.source` carries the extracted OpenUI source used for commit.
+- `POST /api/llm/commit-telemetry` records client-side validation and commit outcomes for a completed generation request without blocking the UI, rejecting unmatched or overused request ids.
 
 ## 10. Additional docs
 

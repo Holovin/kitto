@@ -8,6 +8,7 @@ Supported API:
 - `GET /api/config`
 - `POST /api/llm/generate`
 - `POST /api/llm/generate/stream`
+- `POST /api/llm/commit-telemetry`
 
 Guardrails:
 
@@ -16,6 +17,7 @@ Guardrails:
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
 - when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source` / `notes`, empty `source`, invalid `summary` / `notes`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose both frontend-safe request limits and the stream timeout policy used by the builder UI
+- `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 
 ## Runtime invariants
 
@@ -65,7 +67,7 @@ Guardrails:
 - `Reset` stays enabled whenever any committed version history exists, including the `0 / M` state after undoing back to a blank canvas.
 - `Reset` is disabled only in the pristine empty builder state immediately after a fresh open or after `Reset`.
 - `Reset` stays enabled whenever committed preview content exists, version history exists, or a rejected cached/imported definition is visible.
-- Internal preview clicks do not call the LLM; only chat submissions should hit `/api/llm/*`.
+- Internal preview clicks do not call the LLM; only chat submissions should hit the generation endpoints, and the builder may additionally send `/api/llm/commit-telemetry` after validation or commit outcomes tied to real generation responses.
 - Standalone HTML export always uses the committed source and the committed snapshot baseline runtime/domain state, not the builder’s current live clicked state.
 - Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.
 - Standalone HTML files persist their own runtime/domain state in localStorage and can reset back to the embedded baseline state.

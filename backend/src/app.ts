@@ -8,10 +8,12 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
 import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from './errors/publicError.js';
 import { getRawRequestMaxBytes } from './limits.js';
+import { getRequestBytesFromContext, getRequestIdFromContext } from './requestMetadata.js';
 import { isFrontendRoute } from './frontendRoutes.js';
 import { createConfigRoutes } from './routes/config.js';
 import { createHealthRoutes } from './routes/health.js';
 import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
+import { writePromptIoIntakeFailureSafely } from './services/openai/logging.js';
 
 function jsonRouteNotFound(context: Context) {
   return context.json(
@@ -66,7 +68,17 @@ export function createApp(env: AppEnv) {
     '/api/llm/*',
     bodyLimit({
       maxSize: rawRequestMaxBytes,
-      onError(context) {
+      async onError(context) {
+        const requestId = getRequestIdFromContext(context);
+        const requestBytes = getRequestBytesFromContext(context) ?? rawRequestMaxBytes + 1;
+
+        await writePromptIoIntakeFailureSafely(env, {
+          errorCode: 'validation_error',
+          errorMessage: `Request body exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`,
+          requestBytes,
+          requestId,
+        });
+
         const publicError = toPublicErrorPayload(
           createRequestBodyTooLargeError(
             `Request body exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`,

@@ -92,6 +92,7 @@ const testHarness = vi.hoisted(() => {
   return {
     HookRuntime,
     activeRuntimeRef,
+    commitTelemetryMock: vi.fn(),
     configRef: { current: undefined as unknown },
     generateMock: vi.fn(),
     storeRef: {
@@ -214,6 +215,10 @@ vi.mock('@features/builder/api/streamGenerate', () => {
     streamBuilderDefinition: (...args: Parameters<typeof testHarness.streamMock>) => testHarness.streamMock(...args),
   };
 });
+
+vi.mock('@features/builder/api/commitTelemetry', () => ({
+  postCommitTelemetry: (...args: Parameters<typeof testHarness.commitTelemetryMock>) => testHarness.commitTelemetryMock(...args),
+}));
 
 import { builderActions, builderReducer } from '@features/builder/store/builderSlice';
 import { builderSessionActions, builderSessionReducer } from '@features/builder/store/builderSessionSlice';
@@ -794,6 +799,7 @@ function getComposerSubmitState(submission: ReturnType<typeof createSubmissionHa
 }
 
 beforeEach(() => {
+  testHarness.commitTelemetryMock.mockReset();
   testHarness.storeRef.current = createTestStore();
   testHarness.configRef.current = DEFAULT_CONFIG;
   testHarness.streamMock.mockReset();
@@ -810,8 +816,15 @@ describe('useBuilderSubmission', () => {
     });
 
     await submission.result().handleSubmit(createFormEvent());
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(testHarness.commitTelemetryMock).toHaveBeenCalledWith({
+      commitSource: 'streaming',
+      committed: true,
+      requestId: initialRequestId,
+      validationIssues: [],
+    });
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
     expect(getBuilderState().history).toHaveLength(2);
@@ -1040,12 +1053,29 @@ describe('useBuilderSubmission', () => {
     });
 
     await submission.result().handleSubmit(createFormEvent());
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
 
-    const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
+    const repairCall = testHarness.generateMock.mock.calls[0]?.[0] as {
       request: { mode?: string; prompt: string; validationIssues?: string[] };
-    }).request;
+      requestId?: string;
+    };
+    const repairRequest = repairCall.request;
+
+    expect(repairCall.requestId).not.toBe(initialRequestId);
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
+      commitSource: 'streaming',
+      committed: false,
+      requestId: initialRequestId,
+      validationIssues: ['undefined-state-reference'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
+      commitSource: 'fallback',
+      committed: true,
+      requestId: repairCall.requestId,
+      validationIssues: [],
+    });
 
     expect(repairRequest.mode).toBe('repair');
     expect(repairRequest.validationIssues).toContain('undefined-state-reference');

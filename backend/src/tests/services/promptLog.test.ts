@@ -28,10 +28,16 @@ describe('promptLog.write', () => {
       {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-123',
+        parentRequestId: null,
+        repairAttempt: 1,
         mode: 'repair',
+        phase: null,
         rawUserRequest: 'u'.repeat(40),
         currentSourceLen: 50_000,
         chatHistoryLen: 7,
+        requestBytes: 1_200,
+        compactedRequestBytes: 800,
+        compactionTrimmedItems: 2,
         systemPromptHash: 'abc123def456',
         modelInput: {
           input: [
@@ -107,7 +113,9 @@ describe('promptLog.write', () => {
       ts: '2026-04-21T10:00:00.000Z',
       requestId: 'request-optimized',
       parentRequestId: null,
+      repairAttempt: 0 as const,
       mode: request.mode,
+      phase: null,
       currentSourceLen: request.currentSource.length,
       chatHistoryLen: request.chatHistory.length,
       systemPromptHash: 'hash123',
@@ -134,6 +142,7 @@ describe('promptLog.write', () => {
         output_tokens: 45,
         total_tokens: 168,
       },
+      validationIssues: [],
       durationMs: 321,
     };
     const legacyEntryLine = JSON.stringify({
@@ -178,10 +187,15 @@ describe('promptLog.write', () => {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-failure',
         parentRequestId: 'request-parent',
+        repairAttempt: 1,
         mode: 'repair',
+        phase: 'stream',
         rawUserRequest: 'Repair the invalid app',
         currentSourceLen: 123,
         chatHistoryLen: 4,
+        requestBytes: 900,
+        compactedRequestBytes: 700,
+        compactionTrimmedItems: 1,
         systemPromptHash: 'hash123',
         modelInput: {
           input: [{ content: [{ text: 'model input body', type: 'input_text' }], role: 'user' }],
@@ -192,7 +206,6 @@ describe('promptLog.write', () => {
         validationIssues: ['unresolved-reference'],
         errorCode: 'timeout_error',
         errorMessage: 'The model request timed out.',
-        phase: 'stream',
         durationMs: 456,
       },
       {
@@ -227,7 +240,10 @@ describe('promptLog.write', () => {
       {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-disabled',
+        parentRequestId: null,
+        repairAttempt: 0,
         mode: 'initial',
+        phase: null,
         rawUserRequest: 'Build a todo app',
         currentSourceLen: 0,
         chatHistoryLen: 0,
@@ -235,6 +251,7 @@ describe('promptLog.write', () => {
         modelOutputRaw: '{"source":"root = AppShell([])"}',
         parsedEnvelope: null,
         usage: null,
+        validationIssues: [],
         durationMs: 12,
       },
       {
@@ -246,5 +263,82 @@ describe('promptLog.write', () => {
     await expect(access(filePath)).rejects.toMatchObject({
       code: 'ENOENT',
     });
+  });
+
+  it('serializes intake failures with empty validationIssues arrays', async () => {
+    const { cleanup, filePath } = await createTempLogFilePath();
+    cleanupTasks.push(cleanup);
+
+    await promptLog.writeFailure(
+      {
+        ts: '2026-04-21T10:00:00.000Z',
+        requestId: 'request-intake',
+        parentRequestId: null,
+        repairAttempt: 0,
+        mode: null,
+        phase: 'intake',
+        requestBytes: 512,
+        validationIssues: [],
+        errorCode: 'validation_error',
+        errorMessage: 'Request body must be valid JSON.',
+      },
+      {
+        enabled: true,
+        filePath,
+      },
+    );
+
+    const serializedLog = await readFile(filePath, 'utf8');
+    const [line] = serializedLog.trim().split('\n');
+    const entry = JSON.parse(line ?? '{}') as {
+      errorCode: string;
+      phase: string;
+      requestBytes: number;
+      validationIssues: string[];
+    };
+
+    expect(entry.phase).toBe('intake');
+    expect(entry.errorCode).toBe('validation_error');
+    expect(entry.requestBytes).toBe(512);
+    expect(entry.validationIssues).toEqual([]);
+  });
+
+  it('serializes client commit telemetry entries', async () => {
+    const { cleanup, filePath } = await createTempLogFilePath();
+    cleanupTasks.push(cleanup);
+
+    await promptLog.write(
+      {
+        ts: '2026-04-21T10:00:00.000Z',
+        requestId: 'request-commit',
+        parentRequestId: 'request-parent',
+        repairAttempt: 0,
+        mode: null,
+        phase: 'client-commit',
+        validationIssues: [],
+        committed: true,
+        commitSource: 'streaming',
+      },
+      {
+        enabled: true,
+        filePath,
+      },
+    );
+
+    const serializedLog = await readFile(filePath, 'utf8');
+    const [line] = serializedLog.trim().split('\n');
+    const entry = JSON.parse(line ?? '{}') as {
+      commitSource: string;
+      committed: boolean;
+      parentRequestId: string;
+      phase: string;
+      validationIssues: string[];
+    };
+
+    expect(entry.phase).toBe('client-commit');
+    expect(entry.parentRequestId).toBe('request-parent');
+    expect(entry.committed).toBe(true);
+    expect(entry.commitSource).toBe('streaming');
+    expect(entry.validationIssues).toEqual([]);
   });
 });

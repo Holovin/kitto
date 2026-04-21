@@ -1,5 +1,6 @@
 import type { FormEvent, MutableRefObject } from 'react';
 import { useConfigQuery } from '@api/apiSlice';
+import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import {
   BuilderStreamTimeoutError,
   streamBuilderDefinition,
@@ -26,9 +27,9 @@ import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import type {
   BuilderChatNotice,
+  BuilderGeneratedDraft,
   BuilderLlmRequest,
   BuilderLlmRequestCompaction,
-  BuilderLlmResponse,
   BuilderRequestId,
 } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
@@ -104,7 +105,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   async function commitGeneratedSource(
-    response: Pick<BuilderLlmResponse, 'compaction' | 'notes' | 'source' | 'summary'>,
+    response: BuilderGeneratedDraft,
     request: BuilderLlmRequest,
     requestId: BuilderRequestId,
   ) {
@@ -131,6 +132,12 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         warnings: validatedResult.warnings,
       }),
     );
+    void postCommitTelemetry({
+      commitSource: validatedResult.commitSource,
+      committed: true,
+      requestId: validatedResult.requestId,
+      validationIssues: [],
+    });
     generationLifecycle.completeGeneration(requestId);
   }
 
@@ -188,7 +195,15 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         },
       });
 
-      await commitGeneratedSource(streamResult, request, requestId);
+      await commitGeneratedSource(
+        {
+          ...streamResult,
+          commitSource: 'streaming',
+          requestId,
+        },
+        request,
+        requestId,
+      );
     } catch (error) {
       if (error instanceof BuilderStreamTimeoutError) {
         if (generationLifecycle.isActiveRequest(requestId)) {

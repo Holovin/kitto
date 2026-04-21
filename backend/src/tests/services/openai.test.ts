@@ -347,7 +347,7 @@ describe('generateOpenUiSource', () => {
       usage,
     });
 
-    await expect(generateOpenUiSource(env, request, undefined, 'builder-request-1')).resolves.toEqual({
+    await expect(generateOpenUiSource(env, request, undefined, { requestId: 'builder-request-1' })).resolves.toEqual({
       notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
@@ -368,6 +368,7 @@ describe('generateOpenUiSource', () => {
           source: 'root = AppShell([])',
         },
         usage,
+        validationIssues: [],
         durationMs: expect.any(Number),
       }),
       {
@@ -395,7 +396,7 @@ describe('generateOpenUiSource', () => {
       },
     });
 
-    await expect(generateOpenUiSource(env, repairRequestWithContext, undefined, 'builder-request-repair')).rejects.toBeInstanceOf(
+    await expect(generateOpenUiSource(env, repairRequestWithContext, undefined, { requestId: 'builder-request-repair' })).rejects.toBeInstanceOf(
       UpstreamFailureError,
     );
 
@@ -429,7 +430,7 @@ describe('generateOpenUiSource', () => {
     promptLogWriteFailureMock.mockResolvedValue(undefined);
     responsesCreateMock.mockRejectedValue(timeoutError);
 
-    await expect(generateOpenUiSource(env, request, undefined, 'builder-request-timeout')).rejects.toBe(timeoutError);
+    await expect(generateOpenUiSource(env, request, undefined, { requestId: 'builder-request-timeout' })).rejects.toBe(timeoutError);
 
     expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -640,6 +641,44 @@ describe('streamOpenUiSource', () => {
     expect(stream.finalResponse).not.toHaveBeenCalled();
   });
 
+  it('logs client_aborted stream failures when the client aborts an in-flight stream', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-client-abort-log',
+      PROMPT_IO_LOG: true,
+    });
+    const abortController = new AbortController();
+    const onTextDelta = vi.fn((delta: string) => {
+      if (delta.includes('"source":"root = ')) {
+        abortController.abort();
+      }
+    });
+    const stream = createMockResponseStream(
+      [
+        { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
+        { type: 'response.output_text.delta', delta: 'AppShell([])","notes":[]}' },
+      ],
+      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])","notes":[]}' },
+    );
+
+    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(
+      streamOpenUiSource(env, request, onTextDelta, abortController.signal, { requestId: 'builder-request-client-abort' }),
+    ).rejects.toBeInstanceOf(MockApiUserAbortError);
+
+    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorCode: 'client_aborted',
+        phase: 'stream',
+        requestId: 'builder-request-client-abort',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
   it('accumulates structured JSON chunks but returns the extracted source', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-11',
@@ -836,7 +875,7 @@ describe('streamOpenUiSource', () => {
     promptLogWriteMock.mockResolvedValue(undefined);
     responsesStreamMock.mockReturnValue(stream);
 
-    await expect(streamOpenUiSource(env, request, onTextDelta, undefined, 'builder-request-stream')).resolves.toEqual({
+    await expect(streamOpenUiSource(env, request, onTextDelta, undefined, { requestId: 'builder-request-stream' })).resolves.toEqual({
       notes: [],
       summary: 'Builds a blank app shell.',
       source: 'root = AppShell([])',
@@ -880,7 +919,7 @@ describe('streamOpenUiSource', () => {
       },
     });
 
-    await expect(streamOpenUiSource(env, request, vi.fn(), undefined, 'builder-request-stream-failure')).rejects.toBe(
+    await expect(streamOpenUiSource(env, request, vi.fn(), undefined, { requestId: 'builder-request-stream-failure' })).rejects.toBe(
       streamTimeoutError,
     );
 

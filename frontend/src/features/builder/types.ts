@@ -2,6 +2,7 @@ export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
 export type BuilderRequestId = string;
 export type BuilderLlmRequestMode = 'initial' | 'repair';
 export type BuilderTabId = 'preview' | 'definition' | 'app-state';
+export type BuilderCommitSource = 'fallback' | 'streaming';
 type BuilderMessageRole = 'assistant' | 'system' | 'user';
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 
@@ -80,6 +81,11 @@ export interface BuilderLlmResponse {
   notes?: string[];
   source: string;
   summary?: string;
+}
+
+export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'notes' | 'source' | 'summary'> {
+  commitSource: BuilderCommitSource;
+  requestId: BuilderRequestId;
 }
 
 export interface BuilderConfigResponse {

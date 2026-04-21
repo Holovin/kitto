@@ -3,6 +3,7 @@ import type { Context, Next } from 'hono';
 const DEFAULT_RATE_LIMIT_CLEANUP_INTERVAL_REQUESTS = 100;
 
 interface RateLimitOptions {
+  onRejected?: (context: Context, details: { key: string; retryAfterSeconds: number }) => Promise<void> | void;
   maxEntries?: number;
   maxRequests: number;
   windowMs: number;
@@ -83,6 +84,7 @@ export function createInMemoryRateLimitMiddleware({
   maxRequests,
   windowMs,
   cleanupIntervalRequests = DEFAULT_RATE_LIMIT_CLEANUP_INTERVAL_REQUESTS,
+  onRejected,
 }: RateLimitOptions) {
   const entries = new Map<string, RateLimitEntry>();
   const cleanupInterval = Math.max(1, cleanupIntervalRequests);
@@ -126,7 +128,10 @@ export function createInMemoryRateLimitMiddleware({
     }
 
     if (existingEntry.count >= maxRequests) {
-      context.header('Retry-After', String(Math.max(1, Math.ceil((existingEntry.resetAt - now) / 1000))));
+      const retryAfterSeconds = Math.max(1, Math.ceil((existingEntry.resetAt - now) / 1000));
+
+      context.header('Retry-After', String(retryAfterSeconds));
+      await onRejected?.(context, { key, retryAfterSeconds });
       return context.json(
         {
           error: 'Too many LLM requests. Please wait a moment and try again.',
