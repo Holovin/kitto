@@ -39,7 +39,7 @@ export const builderOpenUiLibrary = createLibrary({
     {
       name: 'Actions',
       components: ['Button', 'Link'],
-      notes: ['Use Button with Action([...]) for Query and Mutation flows. Default buttons invert the inherited theme pair automatically.'],
+      notes: ['Use Button with Action([...]) for Query and Mutation flows. When appearance is present, all button variants use mainColor for background and contrastColor for text.'],
     },
   ],
   components: [

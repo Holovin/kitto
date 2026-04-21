@@ -20,34 +20,27 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
   const disabledField = useStateField(`__button_disabled__:${props.id}`, props.disabled);
   const { getRegisteredFieldNames, markSubmitLikeInteraction } = useKittoValidationInteraction();
   const appearanceScope = useKittoAppearanceScope();
-  const isThemeDrivenVariant = props.variant === 'default' || props.variant === 'secondary';
-  const isDestructiveAppearanceOverride = props.variant === 'destructive' && Boolean(props.appearance);
-  const shouldApplyButtonAppearance = isThemeDrivenVariant || isDestructiveAppearanceOverride;
-  const backgroundRole = shouldApplyButtonAppearance
-    ? props.variant === 'secondary'
-      ? 'main'
-      : 'contrast'
-    : undefined;
-  const textRole = shouldApplyButtonAppearance
-    ? props.variant === 'secondary'
-      ? 'contrast'
-      : 'main'
-    : undefined;
+  const shouldApplyButtonAppearance = Boolean(props.appearance) || appearanceScope.hasMainColor || appearanceScope.hasContrastColor;
+  const openUiButtonClassName =
+    props.variant === 'secondary'
+      ? 'border border-slate-200 !ring-0 !shadow-none hover:!shadow-none'
+      : 'border border-slate-200 !shadow-none hover:!shadow-none';
   const buttonStyle = getAppearanceStyle({
     appearance: props.appearance,
-    backgroundRole,
+    backgroundRole: shouldApplyButtonAppearance ? 'main' : undefined,
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
     hasInheritedMainColor: appearanceScope.hasMainColor,
   });
   const labelStyle = getAppearanceStyle({
     appearance: props.appearance,
-    textRole,
+    textRole: shouldApplyButtonAppearance ? 'contrast' : undefined,
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
     hasInheritedMainColor: appearanceScope.hasMainColor,
   });
 
   return (
     <ButtonUI
+      className={openUiButtonClassName}
       disabled={isStreaming || Boolean(disabledField.value)}
       style={buttonStyle}
       variant={props.variant}
@@ -66,11 +59,11 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
 export const ButtonComponent = defineComponent({
   name: 'Button',
   description:
-    'Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps.',
+    'Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button background and contrastColor sets the button text.',
   props: z.object({
     id: z.string().describe('Stable action and state key. Required first argument.'),
     label: z.string().describe('Visible button label.'),
-    variant: variantSchema.describe('Visual style: default, secondary, or destructive.'),
+    variant: variantSchema.describe('Fallback visual style when no appearance override is present: default, secondary, or destructive.'),
     action: z.unknown().optional().describe('Usually Action([...]) with one or more @Run, @Set, @Reset, or @ToAssistant steps executed in order.'),
     disabled: reactive(z.boolean().optional().default(false).describe('Whether the button is disabled.')),
     appearance: appearanceSchema,

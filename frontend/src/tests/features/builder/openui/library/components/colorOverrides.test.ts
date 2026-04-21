@@ -65,7 +65,7 @@ describe('OpenUI appearance inheritance', () => {
     expect(html).toMatch(/background-color:var\(--kitto-main-color\)/i);
   });
 
-  it('lets shared-theme controls inherit AppShell colors and maps button variants through the theme pair', () => {
+  it('lets shared-theme controls inherit AppShell colors and applies the same button appearance mapping across variants', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
     Input("todoText", "New todo", $todoText, "What needs to be done?"),
@@ -87,23 +87,23 @@ $filter = "all"`);
     expect(html).toMatch(
       /<button[^>]+role="combobox"[^>]+style="(?=[^"]*background-color:var\(--kitto-main-color\))(?=[^"]*color:var\(--kitto-contrast-color\))[^"]*"/i,
     );
-    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-contrast-color\)[^"]*"[^>]*><span style="color:var\(--kitto-main-color\)">Submit<\/span><\/button>/i);
+    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Submit<\/span><\/button>/i);
     expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Cancel<\/span><\/button>/i);
-    expect(html).toMatch(/<button class="[^"]*bg-rose-600[^"]*"[^>]*><span>Delete<\/span><\/button>/i);
+    expect(html).toMatch(/<button[^>]+style="[^"]*background-color:var\(--kitto-main-color\)[^"]*"[^>]*><span style="color:var\(--kitto-contrast-color\)">Delete<\/span><\/button>/i);
     expect(html).toMatch(/<a[^>]+href="https:\/\/example.com"[^>]+color:var\(--kitto-contrast-color\);background-color:var\(--kitto-main-color\)/i);
   });
 
   it('lets local appearance override inherited colors', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("main", "Main", [
-    Button("publish", "Publish", "default", Action([]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
+    Button("publish", "Publish", "default", Action([]), false, { mainColor: "#2563EB", contrastColor: "#FFFFFF" })
   ])
 ], { mainColor: "#111827", contrastColor: "#FFFFFF" })`);
 
-    expect(html).toMatch(/--kitto-main-color:#FFFFFF/i);
-    expect(html).toMatch(/--kitto-contrast-color:#2563EB/i);
-    expect(html).toMatch(/background-color:var\(--kitto-contrast-color\)/i);
-    expect(html).toMatch(/<span style="[^"]*color:var\(--kitto-main-color\)[^"]*">Publish<\/span>/i);
+    expect(html).toMatch(/--kitto-main-color:#2563EB/i);
+    expect(html).toMatch(/--kitto-contrast-color:#FFFFFF/i);
+    expect(html).toMatch(/background-color:var\(--kitto-main-color\)/i);
+    expect(html).toMatch(/<span style="[^"]*color:var\(--kitto-contrast-color\)[^"]*">Publish<\/span>/i);
   });
 
   it('accepts appearance props on supported components and rejects mainColor on Text', () => {

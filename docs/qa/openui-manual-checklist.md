@@ -363,9 +363,10 @@ Do use:
 - `Select(..., item.filter, ..., [], Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row filters that must write through `$lastChoice`
 - declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
-- `Button(..., "default", ...)` when the primary action should invert the theme pair automatically
-- `Button(..., "secondary", ...)` when the button should stay on the normal theme pair
-- conditional `appearance` such as `{ mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for an active red theme toggle, with the inactive toggle falling back to `appTheme`
+- for any `Button(..., variant, ..., appearance)` use `appearance.mainColor` as the button background and `appearance.contrastColor` as the button text
+- `Button(..., "default", ...)` when you want the filled fallback button style without appearance
+- `Button(..., "secondary", ...)` when you want the outlined fallback button style without appearance
+- conditional `appearance` such as `{ mainColor: "#DC2626", contrastColor: "#FFFFFF" }` for an active red theme toggle, with the inactive toggle falling back to `appTheme`
 - do not manually pass the same `appearance` to every `Input`, `Select`, `RadioGroup`, or other control when the goal is one shared app theme
 - local control `appearance` only when a specific control must override the inherited theme
 - conditional `appearance` for active buttons or selected theme toggles

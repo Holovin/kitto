@@ -381,7 +381,7 @@ $preferredContact = "email"
 lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
 darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
 appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
-activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }
+activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }
 inactiveThemeButton = appTheme
 
 contactOptions = [
@@ -601,7 +601,7 @@ const additionalRules = [
   'Never put `"block"` or `"inline"` in the second Group argument.',
   'Use Group variant "block" for standalone visual sections.',
   'Do not over-nest block Groups.',
-  'Destructive buttons keep their semantic fallback colors unless a local appearance override is provided.',
+  'Without appearance, button variants keep their semantic fallback styles such as filled, outlined, or destructive.',
   'TOOL MINIMALITY:',
   'Use $variables for ephemeral UI state.',
   'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
@@ -619,7 +619,7 @@ const additionalRules = [
   'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, date comparisons, or other compute-specific behavior.',
   'APPEARANCE / THEME CONTRACT:',
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
-  'Use `activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
+  'Use `activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
   'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
   'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
   'Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.',
@@ -630,10 +630,9 @@ const additionalRules = [
   'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
   'Only use #RRGGBB colors.',
   'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
-  'For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.',
-  'For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.',
+  'For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.',
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
-  'Local appearance overrides inherited theme colors, and buttons still map the theme pair according to their variant.',
+  'Local appearance overrides inherited theme colors, and buttons use the same main/background + contrast/text mapping as other controls.',
   'Variants are fallback styles, not the primary mechanism for theme switching.',
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',

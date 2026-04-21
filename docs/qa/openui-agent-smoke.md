@@ -145,7 +145,7 @@ Build an app with every control you know. Add a separate top group with two butt
 ### Expected
 
 - There are light and dark theme buttons.
-- Active theme button is red with white text.
+- The first committed draft already shows the active theme button as red background with white text.
 - Inactive theme button is not red.
 - Clicking theme buttons changes theme locally.
 - Theme affects visible app colors, not only text labels.
@@ -186,6 +186,7 @@ Record:
 
 - pass/fail;
 - whether active button styling worked;
+- whether the active red/white button was correct on the first commit;
 - whether all controls remained readable;
 - whether theme required too many manual corrections.
 
@@ -205,8 +206,10 @@ Create a form with name, email, quantity, due date, description and required agr
 - Due date uses date input.
 - Description uses textarea.
 - Agreement uses checkbox.
+- Freshly committed required controls are not red before the user touches them or presses a primary submit/next button.
 - Required validation is visible.
 - Validation marks invalid controls with error styling and `aria-invalid` without inserting inline error text that shifts layout.
+- In multi-screen flows, a primary submit/next button only lights up invalid controls from the current screen, not hidden or unrelated screens.
 - Email validation works.
 - Number validation works if min/max is generated.
 - Due date stores a `YYYY-MM-DD` value.

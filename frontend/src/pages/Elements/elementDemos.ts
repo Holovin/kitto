@@ -12,7 +12,7 @@ $theme = "light"
 lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
 darkTheme = { mainColor: "#0F172A", contrastColor: "#F9FAFB" }
 appTheme = $theme == "dark" ? darkTheme : lightTheme
-activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }
+activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }
 
 root = AppShell([
   Screen("overview", "Overview", [
@@ -88,7 +88,7 @@ root = AppShell([
     ]),
     Group("Dark section", "vertical", [
       Text("Appearance overrides support dark-looking sections without exposing raw CSS.", "body", "start"),
-      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
+      Button("save-dark", "Save changes", "default", Action([@Set($role, "designer")]), false, { mainColor: "#2563EB", contrastColor: "#FFFFFF" })
     ], "block", { mainColor: "#111827", contrastColor: "#F9FAFB" })
   ])
 ])`,
@@ -397,7 +397,7 @@ root = AppShell([
         Button("increment", "Increment", "default", Action([@Set($count, $count + 1), @Set($lastModifier, "+")]), false),
         Button("decrease", "Decrease", "secondary", Action([@Set($count, $count - 1), @Set($lastModifier, "-")]), false),
         Button("reset-count", "Reset", "destructive", Action([@Set($count, 0)]), false),
-        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, { mainColor: "#FFFFFF", contrastColor: "#2563EB" })
+        Button("publish", "Publish", "default", Action([@Set($lastModifier, "publish")]), false, { mainColor: "#2563EB", contrastColor: "#FFFFFF" })
       ], "inline")
     ])
   ])

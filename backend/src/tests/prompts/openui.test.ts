@@ -111,13 +111,12 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.');
     expect(prompt).toContain('Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.');
     expect(prompt).toContain('Use conditional appearance for active or selected buttons instead of inventing activeColor props.');
-    expect(prompt).toContain('For `Button(..., "default", ...)`, background uses contrastColor and text uses mainColor.');
-    expect(prompt).toContain('For `Button(..., "secondary", ...)`, background uses mainColor and text uses contrastColor.');
+    expect(prompt).toContain('For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.');
     expect(prompt).toContain('Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {');
     expect(prompt).toContain('Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.');
     expect(prompt).toContain('lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }');
     expect(prompt).toContain('darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }');
-    expect(prompt).toContain('activeThemeButton = { mainColor: "#FFFFFF", contrastColor: "#DC2626" }');
+    expect(prompt).toContain('activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }');
     expect(prompt).toContain('inactiveThemeButton = appTheme');
     expect(prompt).toContain(
       'Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton)',

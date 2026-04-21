@@ -76,8 +76,8 @@ Steps:
   - `Text(...)` accepts only `appearance.contrastColor`
   - `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept `appearance.mainColor` and `appearance.contrastColor`
   - `appearance.mainColor` and `appearance.contrastColor` must be strict `#RRGGBB` hex strings only
-  - `Button(..., "default", ...)` inverts the pair so background uses `contrastColor` and text uses `mainColor`
-  - `Button(..., "secondary", ...)` uses the pair as-is
+  - for any `Button` variant with `appearance`, `mainColor` is the button background and `contrastColor` is the button text
+  - `default`, `secondary`, and `destructive` differ only by their fallback no-appearance styles
   - parent `AppShell`, `Screen`, `Group`, and `Repeater` appearance values recolor nested controls automatically unless a child sets its own local appearance
   - use existing variants first when enough, and never expose or generate `style`, `className`, CSS strings, named colors, `rgb()`, `hsl()`, `var()`, or layout props
 - Repeater collection guidance:
