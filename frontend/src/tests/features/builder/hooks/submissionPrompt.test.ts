@@ -5,6 +5,7 @@ describe('submissionPrompt', () => {
   it('enables Repeat after a failed request when the composer is empty', () => {
     expect(
       getBuilderComposerSubmitState({
+        configStatus: 'loaded',
         draftPrompt: '',
         hasCommittedSource: true,
         isSubmitting: false,
@@ -20,6 +21,7 @@ describe('submissionPrompt', () => {
   it('switches back to Send as soon as the user types a new prompt', () => {
     expect(
       getBuilderComposerSubmitState({
+        configStatus: 'loaded',
         draftPrompt: ' ',
         hasCommittedSource: true,
         isSubmitting: false,
@@ -35,6 +37,7 @@ describe('submissionPrompt', () => {
   it('shows the in-flight generation labels while submitting', () => {
     expect(
       getBuilderComposerSubmitState({
+        configStatus: 'loaded',
         draftPrompt: '',
         hasCommittedSource: false,
         isSubmitting: true,
@@ -48,6 +51,7 @@ describe('submissionPrompt', () => {
 
     expect(
       getBuilderComposerSubmitState({
+        configStatus: 'loaded',
         draftPrompt: '',
         hasCommittedSource: true,
         isSubmitting: true,
@@ -57,6 +61,38 @@ describe('submissionPrompt', () => {
       disabled: true,
       label: 'Updating...',
       mode: 'updating',
+    });
+  });
+
+  it('keeps the submit action disabled while runtime config is loading', () => {
+    expect(
+      getBuilderComposerSubmitState({
+        configStatus: 'loading',
+        draftPrompt: 'Ship a new version',
+        hasCommittedSource: true,
+        isSubmitting: false,
+        retryPrompt: null,
+      }),
+    ).toEqual({
+      disabled: true,
+      label: 'Loading config...',
+      mode: 'config-loading',
+    });
+  });
+
+  it('keeps the submit action disabled when runtime config failed to load', () => {
+    expect(
+      getBuilderComposerSubmitState({
+        configStatus: 'failed',
+        draftPrompt: 'Ship a new version',
+        hasCommittedSource: true,
+        isSubmitting: false,
+        retryPrompt: null,
+      }),
+    ).toEqual({
+      disabled: true,
+      label: 'Send unavailable',
+      mode: 'config-unavailable',
     });
   });
 

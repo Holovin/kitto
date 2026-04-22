@@ -33,9 +33,9 @@ describe('GET /api/prompts/info', () => {
     });
     expect(payload.systemPrompt.hash).toHaveLength(16);
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
-    expect(payload.userPromptTemplate).toContain('<user_request>');
-    expect(payload.userPromptTemplate).toContain('<current_source>');
-    expect(payload.userPromptTemplate).toContain('<recent_history>');
+    expect(payload.requestPromptTemplate).toContain('<user_request>');
+    expect(payload.requestPromptTemplate).toContain('<current_source>');
+    expect(payload.requestPromptTemplate).toContain('<recent_history>');
     expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
     expect(payload.repairPromptTemplate).toContain('Quality-only repair example');
     expect(payload.repairPromptTemplate).toContain('Mixed repair example');

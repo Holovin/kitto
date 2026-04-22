@@ -5,6 +5,7 @@ import type { AppEnv } from '../env.js';
 import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
 import { getByteLength } from '../limits.js';
 import {
+  detectOpenUiQualityIssues,
   filterPromptBuildChatHistory,
   type PromptBuildRequest,
   type PromptBuildValidationIssue,
@@ -216,10 +217,12 @@ async function logIntakeFailure(
 
 function createLlmResponsePayload(env: AppEnv, invocation: PreparedLlmInvocation, responseEnvelope: OpenUiGenerationEnvelope) {
   assertModelOutputWithinLimit(responseEnvelope.source, env);
+  const qualityIssues = detectOpenUiQualityIssues(responseEnvelope.source, invocation.request.prompt);
 
   return {
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
+    qualityIssues,
     ...responseEnvelope,
   };
 }

@@ -38,7 +38,7 @@ const promptsInfoState = vi.hoisted(() => ({
         signature: 'read_state(path)',
       },
     ],
-    userPromptTemplate: '<user_request>\n[latest user request text]\n</user_request>',
+    requestPromptTemplate: '<user_request>\n[latest user request text]\n</user_request>',
   },
 }));
 

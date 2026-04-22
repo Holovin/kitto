@@ -59,6 +59,12 @@ export interface BuilderParseIssue {
   source?: 'mutation' | 'parser' | 'quality' | 'query' | 'runtime';
 }
 
+export type BuilderQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
+
+export interface BuilderQualityIssue extends BuilderParseIssue {
+  severity: BuilderQualityIssueSeverity;
+}
+
 export interface BuilderLlmRequest {
   prompt: string;
   currentSource: string;
@@ -79,11 +85,12 @@ export interface BuilderLlmRequestCompaction {
 export interface BuilderLlmResponse {
   compaction?: BuilderLlmRequestCompaction;
   model: string;
+  qualityIssues?: BuilderQualityIssue[];
   source: string;
   summary?: string;
 }
 
-export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'source' | 'summary'> {
+export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary'> {
   commitSource: BuilderCommitSource;
   requestId: BuilderRequestId;
 }
@@ -133,5 +140,5 @@ export interface PromptsInfoResponse {
     text: string;
   };
   toolSpecs: PromptInfoToolSpec[];
-  userPromptTemplate: string;
+  requestPromptTemplate: string;
 }

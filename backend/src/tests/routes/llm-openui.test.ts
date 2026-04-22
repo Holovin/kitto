@@ -407,6 +407,7 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: 2,
       },
       model: 'gpt-test-model',
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -464,6 +465,7 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: 1,
       },
       model: 'gpt-test-model',
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
     });
@@ -644,6 +646,7 @@ describe('createLlmOpenUiRoutes', () => {
         omittedChatMessages: chatHistory.length - calledRequest.chatHistory.length,
       },
       model: 'gpt-5.4-mini',
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: '',
     });
@@ -702,8 +705,53 @@ describe('createLlmOpenUiRoutes', () => {
     expect(events[2]?.event).toBe('done');
     expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
       model: 'gpt-stream-model',
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+    });
+  });
+
+  it('returns prompt-aware quality issues in the response payload', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: `root = AppShell([
+  Screen("main", "Todo", [
+    Text("Todo", "title", "start")
+  ])
+])`,
+      summary: 'Builds a todo draft.',
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'Build a todo app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      model: 'gpt-5.4-mini',
+      qualityIssues: [
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          severity: 'blocking-quality',
+          source: 'quality',
+        },
+      ],
+      source: `root = AppShell([
+  Screen("main", "Todo", [
+    Text("Todo", "title", "start")
+  ])
+])`,
+      summary: 'Builds a todo draft.',
     });
   });
 
@@ -784,6 +832,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       model: 'gpt-test-model',
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Adds a welcome screen.',
     });

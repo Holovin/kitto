@@ -8,10 +8,19 @@ import type { BuilderChatMessage, BuilderParseIssue, BuilderRequestId, BuilderSn
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 
 const MAX_HISTORY_ITEMS = 25;
-const MAX_MESSAGES = 40;
+// UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
+export const MAX_UI_MESSAGES = 200;
 
 function trimHistory(history: BuilderSnapshot[]) {
   return history.slice(-MAX_HISTORY_ITEMS);
+}
+
+function trimUiMessages(messages: BuilderChatMessage[]) {
+  if (messages.length > MAX_UI_MESSAGES) {
+    messages.splice(0, messages.length - MAX_UI_MESSAGES);
+  }
+
+  return messages;
 }
 
 function cloneForState<T>(value: T): T {
@@ -37,19 +46,13 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         tone: message.tone,
       });
 
-      if (messages.length > MAX_MESSAGES) {
-        messages.splice(0, messages.length - MAX_MESSAGES);
-      }
-
+      trimUiMessages(messages);
       return;
     }
   }
 
   messages.push(message);
-
-  if (messages.length > MAX_MESSAGES) {
-    messages.splice(0, messages.length - MAX_MESSAGES);
-  }
+  trimUiMessages(messages);
 }
 
 function createMessage(
@@ -101,7 +104,7 @@ function normalizeChatMessages(value: unknown) {
     ];
   });
 
-  return normalizedMessages.length > 0 ? normalizedMessages : createInitialChatMessages();
+  return normalizedMessages.length > 0 ? trimUiMessages(normalizedMessages) : createInitialChatMessages();
 }
 
 function validateRestoredSource(source: string) {

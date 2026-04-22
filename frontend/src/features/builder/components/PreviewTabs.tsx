@@ -3,7 +3,6 @@ import type { MutableRefObject } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useConfigQuery } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
@@ -12,7 +11,6 @@ import { PreviewEmptyState } from '@features/builder/components/PreviewEmptyStat
 import { PreviewErrorFallback } from '@features/builder/components/PreviewErrorFallback';
 import { resolvePreviewCanvasState } from '@features/builder/components/previewCanvasState';
 import { PreviewUnavailableState } from '@features/builder/components/PreviewUnavailableState';
-import { getBuilderStreamTimeouts } from '@features/builder/config';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
@@ -79,11 +77,6 @@ function formatByteCount(bytes: number) {
 
 export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
-  const configState = useConfigQuery(undefined, {
-    selectFromResult: ({ data }) => ({
-      data,
-    }),
-  });
   const activeTab = useAppSelector(selectActiveTab);
   const definitionWarnings = useAppSelector(selectDefinitionWarnings);
   const definitionSource = useAppSelector(selectDefinitionSource);
@@ -103,7 +96,6 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
   const [elapsedStreamingSeconds, setElapsedStreamingSeconds] = useState(0);
   const [streamingClockMs, setStreamingClockMs] = useState(0);
-  const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
@@ -124,11 +116,7 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
     runtimeIssues,
   });
   const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
-  const streamMaxDurationSeconds = Math.max(1, Math.ceil(streamTimeouts.streamMaxDurationMs / 1_000));
-  const previewOverlayTimerLabel =
-    elapsedStreamingSeconds >= 20
-      ? `${elapsedStreamingSeconds} / ${streamMaxDurationSeconds}s`
-      : `${elapsedStreamingSeconds}s elapsed`;
+  const previewOverlayTimerLabel = `${elapsedStreamingSeconds}s elapsed`;
   const streamedSourceBytes = getByteLength(streamedSource);
   const streamAgeMs =
     lastStreamChunkAt === null ? null : Math.max(0, (streamingClockMs || lastStreamChunkAt) - lastStreamChunkAt);

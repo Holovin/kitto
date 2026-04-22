@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BACKEND_RECONNECTED_NOTICE } from '@features/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { builderActions, builderReducer, normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { builderActions, builderReducer, MAX_UI_MESSAGES, normalizeBuilderState } from '@features/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 
 const validSource = `root = AppShell([
@@ -257,6 +257,32 @@ describe('builderSlice', () => {
         excludeFromLlmContext: true,
       }),
     ]);
+  });
+
+  it('keeps a UI-only chat retention window and evicts the oldest rendered messages beyond it', () => {
+    let state = createInitialState();
+
+    for (let index = 0; index < MAX_UI_MESSAGES + 5; index += 1) {
+      state = builderReducer(
+        state,
+        builderActions.appendChatMessage({
+          content: `Message ${index}`,
+          role: 'system',
+        }),
+      );
+    }
+
+    expect(state.chatMessages).toHaveLength(MAX_UI_MESSAGES);
+    expect(state.chatMessages.at(0)).toEqual(
+      expect.objectContaining({
+        content: 'Message 5',
+      }),
+    );
+    expect(state.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: `Message ${MAX_UI_MESSAGES + 4}`,
+      }),
+    );
   });
 
   it('appends export success messages with the file name to the end of chat history', () => {

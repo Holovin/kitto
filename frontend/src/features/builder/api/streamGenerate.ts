@@ -1,4 +1,4 @@
-import type { BuilderLlmRequest, BuilderLlmRequestCompaction } from '@features/builder/types';
+import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
 import { createBuilderRequestError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
 
@@ -19,12 +19,14 @@ interface StreamBuilderDefinitionOptions {
 interface StreamDonePayload {
   compaction?: BuilderLlmRequestCompaction;
   model?: string;
+  qualityIssues?: BuilderQualityIssue[];
   source?: string;
   summary?: string;
 }
 
 interface StreamBuilderDefinitionResult {
   compaction?: BuilderLlmRequestCompaction;
+  qualityIssues: BuilderQualityIssue[];
   source: string;
   summary?: string;
 }
@@ -504,6 +506,7 @@ export async function streamBuilderDefinition({
 
       return {
         compaction: donePayload.compaction,
+        qualityIssues: donePayload.qualityIssues ?? [],
         source: donePayload.source,
         summary: donePayload.summary,
       };

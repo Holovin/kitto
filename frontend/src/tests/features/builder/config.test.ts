@@ -2,15 +2,28 @@ import { describe, expect, it } from 'vitest';
 import {
   getBuilderMaxRepairAttempts,
   getApproximateBuilderRequestSizeBytes,
+  getBuilderRequestLimits,
+  getBuilderRuntimeConfigStatus,
+  getBuilderStreamTimeouts,
   type BuilderRequestLimits,
   validateBuilderLlmRequest,
 } from '@features/builder/config';
-import type { BuilderLlmRequest } from '@features/builder/types';
+import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
 
-const DEFAULT_LIMITS: BuilderRequestLimits = {
+const TEST_LIMITS: BuilderRequestLimits = {
   chatHistoryMaxItems: 40,
   promptMaxChars: 4_096,
   requestMaxBytes: 300_000,
+};
+const TEST_CONFIG: BuilderConfigResponse = {
+  limits: TEST_LIMITS,
+  repair: {
+    maxRepairAttempts: 3,
+  },
+  timeouts: {
+    streamIdleTimeoutMs: 45_000,
+    streamMaxDurationMs: 120_000,
+  },
 };
 
 function createRequest(overrides: Partial<BuilderLlmRequest> = {}): BuilderLlmRequest {
@@ -24,20 +37,33 @@ function createRequest(overrides: Partial<BuilderLlmRequest> = {}): BuilderLlmRe
 }
 
 describe('builder request preflight', () => {
-  it('reads the max repair-attempt count from runtime config with a safe fallback', () => {
-    expect(getBuilderMaxRepairAttempts()).toBe(1);
+  it('stays unresolved until /api/config has loaded', () => {
+    expect(getBuilderMaxRepairAttempts()).toBeNull();
+    expect(getBuilderRequestLimits()).toBeNull();
+    expect(getBuilderStreamTimeouts()).toBeNull();
+    expect(getBuilderRuntimeConfigStatus({})).toBe('loading');
+  });
+
+  it('resolves runtime config only from /api/config data', () => {
+    expect(getBuilderMaxRepairAttempts(TEST_CONFIG)).toBe(3);
+    expect(getBuilderRequestLimits(TEST_CONFIG)).toEqual(TEST_LIMITS);
+    expect(getBuilderStreamTimeouts(TEST_CONFIG)).toEqual(TEST_CONFIG.timeouts);
+    expect(getBuilderRuntimeConfigStatus({ data: TEST_CONFIG })).toBe('loaded');
+  });
+
+  it('reports a failed runtime-config state when no usable config is available', () => {
+    expect(getBuilderRuntimeConfigStatus({ isError: true })).toBe('failed');
     expect(
-      getBuilderMaxRepairAttempts({
-        limits: DEFAULT_LIMITS,
-        repair: {
-          maxRepairAttempts: 3,
-        },
-        timeouts: {
-          streamIdleTimeoutMs: 45_000,
-          streamMaxDurationMs: 120_000,
-        },
+      getBuilderRuntimeConfigStatus({
+        data: {
+          ...TEST_CONFIG,
+          limits: {
+            ...TEST_LIMITS,
+            promptMaxChars: 0,
+          },
+        } as BuilderConfigResponse,
       }),
-    ).toBe(3);
+    ).toBe('failed');
   });
 
   it('measures approximate request bytes from the serialized payload', () => {
@@ -57,7 +83,7 @@ describe('builder request preflight', () => {
 
     expect(
       validateBuilderLlmRequest(request, {
-        ...DEFAULT_LIMITS,
+        ...TEST_LIMITS,
         promptMaxChars: 8,
         requestMaxBytes: 64,
       }),
@@ -71,7 +97,7 @@ describe('builder request preflight', () => {
 
     expect(
       validateBuilderLlmRequest(request, {
-        ...DEFAULT_LIMITS,
+        ...TEST_LIMITS,
         requestMaxBytes: 128,
       }),
     ).toBe(
@@ -80,6 +106,6 @@ describe('builder request preflight', () => {
   });
 
   it('allows requests that stay within both prompt and byte limits', () => {
-    expect(validateBuilderLlmRequest(createRequest(), DEFAULT_LIMITS)).toBeNull();
+    expect(validateBuilderLlmRequest(createRequest(), TEST_LIMITS)).toBeNull();
   });
 });

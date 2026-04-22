@@ -27,7 +27,7 @@ export interface PromptInfoSnapshot {
     text: string;
   };
   toolSpecs: PromptToolSpecSummary[];
-  userPromptTemplate: string;
+  requestPromptTemplate: string;
 }
 
 let cachedPromptInfoSnapshot: { cacheKey: string; snapshot: PromptInfoSnapshot } | null = null;
@@ -66,7 +66,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
       text: buildOpenUiSystemPrompt({ structuredOutput }),
     },
     toolSpecs: [...getPromptToolSpecSummaries()],
-    userPromptTemplate: buildOpenUiUserPromptTemplate({ structuredOutput }),
+    requestPromptTemplate: buildOpenUiUserPromptTemplate({ structuredOutput }),
   };
 
   cachedPromptInfoSnapshot = {

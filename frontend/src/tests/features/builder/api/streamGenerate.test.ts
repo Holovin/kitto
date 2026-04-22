@@ -97,7 +97,7 @@ describe('streamBuilderDefinition', () => {
         createTextStream([
           'event: chunk\ndata: {"summary":"Builds a blank app shell.","source":"root = App',
           'Shell([])"}\n\n',
-          'event: done\ndata: {"summary":"Builds a blank app shell.","source":"root = AppShell([])","compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
+          'event: done\ndata: {"summary":"Builds a blank app shell.","source":"root = AppShell([])","qualityIssues":[{"code":"quality-missing-todo-controls","message":"Todo request did not generate required todo controls.","severity":"blocking-quality","source":"quality"}],"compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
         ]),
         {
           headers: {
@@ -120,6 +120,14 @@ describe('streamBuilderDefinition', () => {
         compactedByItemLimit: true,
         omittedChatMessages: 2,
       },
+      qualityIssues: [
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          severity: 'blocking-quality',
+          source: 'quality',
+        },
+      ],
       source: 'root = AppShell([])',
       summary: 'Builds a blank app shell.',
     });
@@ -143,6 +151,7 @@ describe('streamBuilderDefinition', () => {
         }),
       ),
     ).resolves.toEqual({
+      qualityIssues: [],
       source: 'root = AppShell([])',
     });
 
@@ -339,6 +348,7 @@ describe('streamBuilderDefinition', () => {
         ...createStreamRequestOptions({ onChunk }),
       }),
     ).resolves.toEqual({
+      qualityIssues: [],
       source: '  Text("hero", "Leading spaces matter")',
     });
 
@@ -404,6 +414,7 @@ describe('streamBuilderDefinition', () => {
     await expect(
       streamPromise,
     ).resolves.toEqual({
+      qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a todo list',
     });

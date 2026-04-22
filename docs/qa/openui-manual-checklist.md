@@ -19,7 +19,7 @@ Guardrails:
 - when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial/repair prompt text
-- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, summary, compaction? }`
+- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, summary, qualityIssues, compaction? }`
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 
 ## Prompt docs page
@@ -34,16 +34,19 @@ Guardrails:
 ## Runtime invariants
 
 - Preview renders committed source only.
+- After the initial health check resolves, the builder shell must stay usable even if `GET /api/config` is still loading or has failed.
+- While `GET /api/config` is unresolved or failed, chat send stays disabled with an explicit composer hint, while import, undo/redo history, committed Preview, and `/elements` remain available.
+- The header shows a runtime-config status badge while `GET /api/config` is loading and a red unavailable badge when that request fails.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Structural nesting is hard-invalid: keep exactly one `root = AppShell([...])` statement, never nest `AppShell(...)`, never put `Screen(...)` inside another `Screen(...)`, and never put `Repeater(...)` inside another `Repeater(...)`.
 - `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
 - Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
-- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model` and optional `compaction`.
+- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `compaction`.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
-- Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups.
-- Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.`.
+- Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.
+- Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.` when backend prompt-aware quality validation classifies it as a warning instead of a blocker.
 - Trivial parser issues that carry deterministic local `suggestion` patches may be auto-fixed in the builder before any repair request is sent.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.

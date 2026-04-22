@@ -93,6 +93,7 @@ const testHarness = vi.hoisted(() => {
     HookRuntime,
     activeRuntimeRef,
     commitTelemetryMock: vi.fn(),
+    configErrorRef: { current: false },
     configRef: { current: undefined as unknown },
     generateMock: vi.fn(),
     storeRef: {
@@ -134,6 +135,7 @@ vi.mock('react', async () => {
 vi.mock('@api/apiSlice', () => ({
   useConfigQuery: () => ({
     data: testHarness.configRef.current,
+    isError: testHarness.configErrorRef.current,
   }),
 }));
 
@@ -256,8 +258,7 @@ const PARSER_INVALID_SOURCE = 'root = AppShell([';
 
 const QUALITY_BLOCKED_SOURCE = `root = AppShell([
   Screen("main", "Todo list", [
-    Text("Todo list", "title", "start"),
-    Text("Start by describing your tasks here.", "body", "start")
+    Text("Selected priority: " + $lastChoice, "body", "start")
   ])
 ])`;
 
@@ -724,6 +725,23 @@ function setDraftPrompt(prompt: string) {
   store.dispatch(builderActions.setDraftPrompt(prompt));
 }
 
+function appendChatMessages(messages: Array<{ content: string; role: 'assistant' | 'system' | 'user' }>) {
+  const store = testHarness.storeRef.current;
+
+  if (!store) {
+    throw new Error('Test store is not initialized.');
+  }
+
+  for (const message of messages) {
+    store.dispatch(
+      builderActions.appendChatMessage({
+        content: message.content,
+        role: message.role,
+      }),
+    );
+  }
+}
+
 function createSubmissionHarness() {
   const abortControllerRef = { current: null as AbortController | null };
   const cancelActiveRequestRef = { current: null as (() => void) | null };
@@ -804,6 +822,7 @@ function getComposerSubmitState(submission: ReturnType<typeof createSubmissionHa
   const result = submission.rerender();
 
   return getBuilderComposerSubmitState({
+    configStatus: result.configStatus,
     draftPrompt: result.draftPrompt,
     hasCommittedSource: getBuilderState().committedSource.trim().length > 0,
     isSubmitting: result.isSubmitting,
@@ -813,6 +832,7 @@ function getComposerSubmitState(submission: ReturnType<typeof createSubmissionHa
 
 beforeEach(() => {
   testHarness.commitTelemetryMock.mockReset();
+  testHarness.configErrorRef.current = false;
   testHarness.storeRef.current = createTestStore();
   testHarness.configRef.current = DEFAULT_CONFIG;
   testHarness.streamMock.mockReset();
@@ -940,6 +960,80 @@ describe('useBuilderSubmission', () => {
     });
     expect(getBuilderState().isStreaming).toBe(false);
     expect(getBuilderState().committedSource).toBe('x'.repeat(512));
+
+    submission.unmount();
+  });
+
+  it('sends the full retained chat history to the backend without frontend LLM-window trimming', async () => {
+    appendChatMessages(
+      Array.from({ length: 60 }, (_, index) => ({
+        content: `Context message ${index}`,
+        role: index % 2 === 0 ? 'assistant' : 'system',
+      })),
+    );
+    setDraftPrompt('Add a welcome screen.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { chatHistory: Array<{ content: string }> };
+    }).request;
+
+    expect(request.chatHistory).toHaveLength(60);
+    expect(request.chatHistory[0]?.content).toBe('Context message 0');
+    expect(request.chatHistory.at(-1)?.content).toBe('Context message 59');
+
+    submission.unmount();
+  });
+
+  it('keeps chat send unavailable until the first runtime config load completes', async () => {
+    setDraftPrompt('Build a small app.');
+    testHarness.configRef.current = undefined;
+    const submission = createSubmissionHarness();
+
+    expect(getComposerSubmitState(submission)).toEqual({
+      disabled: true,
+      label: 'Loading config...',
+      mode: 'config-loading',
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.streamMock).not.toHaveBeenCalled();
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(submission.onSystemNotice).toHaveBeenCalledWith({
+      content: 'Chat send is unavailable until the runtime config finishes loading.',
+      tone: 'error',
+    });
+
+    submission.unmount();
+  });
+
+  it('keeps chat send unavailable when the runtime config request fails', async () => {
+    setDraftPrompt('Build a small app.');
+    testHarness.configErrorRef.current = true;
+    testHarness.configRef.current = undefined;
+    const submission = createSubmissionHarness();
+
+    expect(getComposerSubmitState(submission)).toEqual({
+      disabled: true,
+      label: 'Send unavailable',
+      mode: 'config-unavailable',
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.streamMock).not.toHaveBeenCalled();
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(submission.onSystemNotice).toHaveBeenCalledWith({
+      content: 'Chat send is unavailable because the runtime config could not be loaded.',
+      tone: 'error',
+    });
 
     submission.unmount();
   });
@@ -1176,10 +1270,10 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
     expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
-    expect(getBuilderState().streamError).toContain('quality-missing-todo-controls');
+    expect(getBuilderState().streamError).toContain('reserved-last-choice-outside-action-mode');
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: expect.stringContaining('quality-missing-todo-controls'),
+        content: expect.stringContaining('reserved-last-choice-outside-action-mode'),
         role: 'system',
         tone: 'error',
       }),
@@ -1284,7 +1378,6 @@ describe('useBuilderSubmission', () => {
     expect(repairCalls).toHaveLength(1);
     expect((repairCalls[0]?.[0] as { request: { validationIssues?: Array<{ code: string }> } }).request.validationIssues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'quality-random-result-not-visible' }),
         expect.objectContaining({ code: 'reserved-last-choice-outside-action-mode' }),
       ]),
     );

@@ -15,7 +15,7 @@ interface UseGenerationLifecycleOptions {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   clearStreamingSummaryMessage: (requestId: BuilderRequestId) => void;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
-  streamMaxDurationMs: number;
+  streamMaxDurationMs: number | null;
 }
 
 export class BuilderRequestAbortedError extends Error {
@@ -150,6 +150,11 @@ export function useGenerationLifecycle({
     options?: { transportRequestId?: BuilderRequestId },
   ): Promise<BuilderGeneratedDraft> {
     throwIfInactiveRequest(requestId);
+
+    if (streamMaxDurationMs === null) {
+      throw new Error('Chat send is unavailable until the runtime config has loaded.');
+    }
+
     const transportRequestId = options?.transportRequestId ?? requestId;
     const response = await generateBuilderDefinition({
       apiBaseUrl: getBackendApiBaseUrl(),

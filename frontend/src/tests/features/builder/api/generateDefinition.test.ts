@@ -185,6 +185,7 @@ describe('generateBuilderDefinition', () => {
       ),
     ).resolves.toEqual({
       model: 'gpt-5.4-mini',
+      qualityIssues: [],
       source: 'root = AppShell([])',
     });
 
@@ -264,6 +265,47 @@ describe('generateBuilderDefinition', () => {
           source: 'quality',
         },
       ],
+    });
+  });
+
+  it('returns backend qualityIssues from the fallback response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            model: 'gpt-5.4-mini',
+            qualityIssues: [
+              {
+                code: 'quality-missing-todo-controls',
+                message: 'Todo request did not generate required todo controls.',
+                severity: 'blocking-quality',
+                source: 'quality',
+              },
+            ],
+            source: 'root = AppShell([])',
+          } satisfies BuilderLlmResponse),
+          {
+            headers: {
+              'content-type': 'application/json',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(generateBuilderDefinition(createGenerateRequestOptions())).resolves.toEqual({
+      model: 'gpt-5.4-mini',
+      qualityIssues: [
+        {
+          code: 'quality-missing-todo-controls',
+          message: 'Todo request did not generate required todo controls.',
+          severity: 'blocking-quality',
+          source: 'quality',
+        },
+      ],
+      source: 'root = AppShell([])',
     });
   });
 });

@@ -5,7 +5,13 @@ import {
   BuilderStreamTimeoutError,
   streamBuilderDefinition,
 } from '@features/builder/api/streamGenerate';
-import { getBuilderMaxRepairAttempts, getBuilderRequestLimits, getBuilderStreamTimeouts, validateBuilderLlmRequest } from '@features/builder/config';
+import {
+  getBuilderMaxRepairAttempts,
+  getBuilderRequestLimits,
+  getBuilderRuntimeConfigStatus,
+  getBuilderStreamTimeouts,
+  validateBuilderLlmRequest,
+} from '@features/builder/config';
 import {
   BuilderRequestAbortedError,
   isAbortError,
@@ -67,10 +73,12 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
   const configState = useConfigQuery(undefined, {
-    selectFromResult: ({ data }) => ({
+    selectFromResult: ({ data, isError }) => ({
       data,
+      isError,
     }),
   });
+  const configStatus = getBuilderRuntimeConfigStatus(configState);
   const requestLimits = getBuilderRequestLimits(configState.data);
   const maxRepairAttempts = getBuilderMaxRepairAttempts(configState.data);
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
@@ -80,7 +88,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     cancelActiveRequestRef,
     clearStreamingSummaryMessage: streamingSummary.clearStreamingSummaryMessage,
     onSystemNotice,
-    streamMaxDurationMs: streamTimeouts.streamMaxDurationMs,
+    streamMaxDurationMs: streamTimeouts?.streamMaxDurationMs ?? null,
   });
   const validationRepair = useValidationRepair({
     maxRepairAttempts,
@@ -150,6 +158,17 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     });
 
     if (!nextPrompt || generationLifecycle.isSubmitting) {
+      return;
+    }
+
+    if (configStatus !== 'loaded' || requestLimits === null || streamTimeouts === null || maxRepairAttempts === null) {
+      onSystemNotice({
+        content:
+          configStatus === 'failed'
+            ? 'Chat send is unavailable because the runtime config could not be loaded.'
+            : 'Chat send is unavailable until the runtime config finishes loading.',
+        tone: 'error',
+      });
       return;
     }
 
@@ -271,12 +290,13 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   }
 
   return {
+    configStatus,
     draftPrompt,
     handleDraftPromptChange,
     handleCancel: generationLifecycle.handleCancel,
     handleSubmit,
     isSubmitting: generationLifecycle.isSubmitting,
-    promptMaxChars: requestLimits.promptMaxChars,
+    promptMaxChars: requestLimits?.promptMaxChars,
     retryPrompt,
   };
 }

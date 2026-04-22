@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@components/ui/button';
 import { BootLoader } from '@features/builder/components/BootLoader';
+import { ConfigStatusBadge } from '@features/builder/components/ConfigStatusBadge';
 import { useBuilderBootstrap } from '@features/builder/hooks/useBuilderBootstrap';
 import { StatusBadge } from '@features/builder/components/StatusBadge';
 import { cn } from '@lib/utils';
@@ -8,7 +9,7 @@ import { SiteRoutes } from '@router/siteRoutes';
 
 export function BaseLayout() {
   const location = useLocation();
-  const { connectionStatus, hasResolvedBootstrap, model } = useBuilderBootstrap();
+  const { configStatus, connectionStatus, hasResolvedBootstrap, model } = useBuilderBootstrap();
   const activePath = location.pathname;
   const isChatRoute = activePath === SiteRoutes.home.path || activePath === SiteRoutes.chat.path;
   const isChatActive = isChatRoute;
@@ -27,6 +28,7 @@ export function BaseLayout() {
             <strong className="block text-2xl font-semibold tracking-tight text-slate-950">Kitto</strong>
             <span className="text-xs font-medium tracking-[0.08em] text-slate-500">(openui)</span>
             <StatusBadge model={model} status={connectionStatus} />
+            <ConfigStatusBadge status={configStatus} />
           </div>
 
           <nav className="flex flex-wrap items-center gap-2">

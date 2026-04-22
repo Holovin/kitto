@@ -1,4 +1,5 @@
 import { useConfigQuery, useHealthQuery } from '@api/apiSlice';
+import { getBuilderRuntimeConfigStatus } from '@features/builder/config';
 import type { BuilderConnectionStatus } from '@features/builder/types';
 
 const HEALTH_POLLING_OPTIONS = {
@@ -18,9 +19,9 @@ export function useBackendConnectionState() {
 
 export function useBuilderBootstrap() {
   const configState = useConfigQuery(undefined, {
-    selectFromResult: ({ isError, isSuccess }) => ({
+    selectFromResult: ({ data, isError }) => ({
+      data,
       isError,
-      isSuccess,
     }),
   });
   const healthState = useHealthQuery(undefined, {
@@ -31,7 +32,6 @@ export function useBuilderBootstrap() {
       model: data?.model,
     }),
   });
-  const hasResolvedConfig = configState.isSuccess || configState.isError;
   const hasResolvedHealthCheck = healthState.isSuccess || healthState.isError;
   const connectionStatus: BuilderConnectionStatus = !hasResolvedHealthCheck
     ? 'loading'
@@ -41,7 +41,8 @@ export function useBuilderBootstrap() {
 
   return {
     connectionStatus,
-    hasResolvedBootstrap: hasResolvedConfig && hasResolvedHealthCheck,
+    configStatus: getBuilderRuntimeConfigStatus(configState),
+    hasResolvedBootstrap: hasResolvedHealthCheck,
     model: healthState.model,
   };
 }

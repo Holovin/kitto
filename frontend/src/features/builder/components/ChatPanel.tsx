@@ -166,18 +166,27 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
 }
 
 function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: ChatComposerProps) {
-  const { draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } = useBuilderSubmission({
-    abortControllerRef,
-    cancelActiveRequestRef,
-    onSystemNotice,
-  });
+  const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } =
+    useBuilderSubmission({
+      abortControllerRef,
+      cancelActiveRequestRef,
+      onSystemNotice,
+    });
   const committedSource = useAppSelector(selectCommittedSource);
   const submitButtonState = getBuilderComposerSubmitState({
+    configStatus,
     draftPrompt,
     hasCommittedSource: Boolean(committedSource.trim()),
     isSubmitting,
     retryPrompt,
   });
+  const composerHint =
+    configStatus === 'loading'
+      ? 'Runtime config is still loading. Chat send will unlock after /api/config is ready.'
+      : configStatus === 'failed'
+        ? 'Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.'
+        : 'Press Cmd/Ctrl+Enter to send.';
+  const composerHintToneClassName = configStatus === 'failed' ? 'text-rose-600' : configStatus === 'loading' ? 'text-amber-700' : 'text-slate-500';
 
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
@@ -198,7 +207,9 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
         }}
       />
       <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">Press Cmd/Ctrl+Enter to send.</p>
+        <p aria-live="polite" className={`text-xs ${composerHintToneClassName}`}>
+          {composerHint}
+        </p>
         <div className="flex items-center gap-2">
           {isSubmitting ? (
             <Button type="button" variant="ghost" onClick={handleCancel}>
@@ -206,10 +217,12 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
               Cancel
             </Button>
           ) : null}
-          <Button disabled={submitButtonState.disabled} type="submit">
-            <Send className="h-4 w-4" />
-            {submitButtonState.label}
-          </Button>
+          <span title={configStatus === 'loaded' ? undefined : composerHint}>
+            <Button disabled={submitButtonState.disabled} type="submit">
+              <Send className="h-4 w-4" />
+              {submitButtonState.label}
+            </Button>
+          </span>
         </div>
       </div>
     </form>

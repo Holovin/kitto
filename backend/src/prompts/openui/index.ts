@@ -10,6 +10,7 @@ export { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.
 export { filterPromptBuildChatHistory, isLegacyExcludedAssistantMessage } from './chatHistoryFilter.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairPromptTemplate, REPAIR_PROMPT_CRITICAL_RULES } from './repairPrompt.js';
 export { buildCompactChatHistoryContent, buildOpenUiRawUserRequest, buildOpenUiUserPrompt, buildOpenUiUserPromptTemplate } from './userPrompt.js';
+export { detectOpenUiQualityIssues, detectOpenUiQualityWarnings, type OpenUiQualityIssue, type OpenUiQualityIssueSeverity } from './qualityIssues.js';
 export type {
   PromptBuildChatHistoryMessage,
   PromptBuildRequest,

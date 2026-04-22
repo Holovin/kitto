@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const bootstrapState = vi.hoisted(() => ({
   connectionStatus: 'connected' as const,
+  configStatus: 'loaded' as 'loaded' | 'loading' | 'failed',
   hasResolvedBootstrap: true,
   model: 'gpt-test',
 }));
@@ -46,5 +47,15 @@ describe('BaseLayout', () => {
     const html = renderLayoutAt('/elements');
 
     expect(html).toMatch(/<a[^>]+aria-current="page"[^>]+class="[^"]*!text-white[^"]*"[^>]*>Schema<\/a>/i);
+  });
+
+  it('shows a runtime-config error badge when /api/config failed', () => {
+    bootstrapState.configStatus = 'failed';
+
+    const html = renderLayoutAt('/');
+
+    expect(html).toContain('Runtime config: unavailable');
+
+    bootstrapState.configStatus = 'loaded';
   });
 });

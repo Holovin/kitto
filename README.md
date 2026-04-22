@@ -62,11 +62,11 @@ Notes:
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
 - By default, the backend requests a structured model envelope shaped like `{"summary":"...","source":"..."}` from the OpenAI Responses API.
-- The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","compaction"?:{...}}`.
+- The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","qualityIssues":[...],"compaction"?:{...}}`.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
-- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done.source`.
+- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done.source` plus `done.qualityIssues`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 - Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.

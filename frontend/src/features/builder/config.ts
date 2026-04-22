@@ -3,9 +3,11 @@ import { serializeBuilderLlmRequest } from './api/requestBody';
 
 const textEncoder = new TextEncoder();
 
-function parsePositiveInteger(value: unknown, fallback: number) {
+export type BuilderRuntimeConfigStatus = 'loading' | 'loaded' | 'failed';
+
+function parsePositiveInteger(value: unknown) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    return fallback;
+    return null;
   }
 
   return value;
@@ -15,51 +17,68 @@ function formatLimitValue(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-const DEFAULT_BUILDER_REQUEST_LIMITS = {
-  promptMaxChars: 4_096,
-  chatHistoryMaxItems: 40,
-  requestMaxBytes: 300_000,
-};
-const DEFAULT_BUILDER_STREAM_TIMEOUTS = {
-  streamIdleTimeoutMs: 45_000,
-  streamMaxDurationMs: 120_000,
-};
-const DEFAULT_BUILDER_MAX_REPAIR_ATTEMPTS = 1;
-
 export interface BuilderRequestLimits {
   chatHistoryMaxItems: number;
   promptMaxChars: number;
   requestMaxBytes: number;
 }
 
-interface BuilderStreamTimeouts {
+export interface BuilderStreamTimeouts {
   streamIdleTimeoutMs: number;
   streamMaxDurationMs: number;
 }
 
 export function getBuilderMaxRepairAttempts(config?: BuilderConfigResponse) {
-  return parsePositiveInteger(config?.repair.maxRepairAttempts, DEFAULT_BUILDER_MAX_REPAIR_ATTEMPTS);
+  return parsePositiveInteger(config?.repair.maxRepairAttempts);
 }
 
-export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits {
+export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits | null {
+  const promptMaxChars = parsePositiveInteger(config?.limits.promptMaxChars);
+  const chatHistoryMaxItems = parsePositiveInteger(config?.limits.chatHistoryMaxItems);
+  const requestMaxBytes = parsePositiveInteger(config?.limits.requestMaxBytes);
+
+  if (promptMaxChars === null || chatHistoryMaxItems === null || requestMaxBytes === null) {
+    return null;
+  }
+
   return {
-    promptMaxChars: parsePositiveInteger(config?.limits.promptMaxChars, DEFAULT_BUILDER_REQUEST_LIMITS.promptMaxChars),
-    chatHistoryMaxItems: parsePositiveInteger(config?.limits.chatHistoryMaxItems, DEFAULT_BUILDER_REQUEST_LIMITS.chatHistoryMaxItems),
-    requestMaxBytes: parsePositiveInteger(config?.limits.requestMaxBytes, DEFAULT_BUILDER_REQUEST_LIMITS.requestMaxBytes),
+    promptMaxChars,
+    chatHistoryMaxItems,
+    requestMaxBytes,
   };
 }
 
-export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): BuilderStreamTimeouts {
+export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): BuilderStreamTimeouts | null {
+  const streamIdleTimeoutMs = parsePositiveInteger(config?.timeouts.streamIdleTimeoutMs);
+  const streamMaxDurationMs = parsePositiveInteger(config?.timeouts.streamMaxDurationMs);
+
+  if (streamIdleTimeoutMs === null || streamMaxDurationMs === null) {
+    return null;
+  }
+
   return {
-    streamIdleTimeoutMs: parsePositiveInteger(
-      config?.timeouts.streamIdleTimeoutMs,
-      DEFAULT_BUILDER_STREAM_TIMEOUTS.streamIdleTimeoutMs,
-    ),
-    streamMaxDurationMs: parsePositiveInteger(
-      config?.timeouts.streamMaxDurationMs,
-      DEFAULT_BUILDER_STREAM_TIMEOUTS.streamMaxDurationMs,
-    ),
+    streamIdleTimeoutMs,
+    streamMaxDurationMs,
   };
+}
+
+export function getBuilderRuntimeConfigStatus(queryState: {
+  data?: BuilderConfigResponse;
+  isError?: boolean;
+}): BuilderRuntimeConfigStatus {
+  const hasResolvedLimits = getBuilderRequestLimits(queryState.data) !== null;
+  const hasResolvedTimeouts = getBuilderStreamTimeouts(queryState.data) !== null;
+  const hasResolvedRepairPolicy = getBuilderMaxRepairAttempts(queryState.data) !== null;
+
+  if (hasResolvedLimits && hasResolvedTimeouts && hasResolvedRepairPolicy) {
+    return 'loaded';
+  }
+
+  if (queryState.isError || queryState.data) {
+    return 'failed';
+  }
+
+  return 'loading';
 }
 
 export function getApproximateBuilderRequestSizeBytes(request: BuilderLlmRequest) {

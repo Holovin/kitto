@@ -5,13 +5,13 @@ import { validateBuilderLlmRequest } from '@features/builder/config';
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { builderActions } from '@features/builder/store/builderSlice';
-import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderRequestId } from '@features/builder/types';
+import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderQualityIssue, BuilderRequestId } from '@features/builder/types';
 import { useAppDispatch } from '@store/hooks';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
-  maxRepairAttempts: number;
-  requestLimits: BuilderRequestLimits;
+  maxRepairAttempts: number | null;
+  requestLimits: BuilderRequestLimits | null;
   runGenerateRequest: (
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
@@ -25,6 +25,12 @@ export class OpenUiValidationError extends Error {
     super(message);
     this.name = 'OpenUiValidationError';
   }
+}
+
+function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
+  const { severity, ...strippedIssue } = issue;
+  void severity;
+  return strippedIssue;
 }
 
 function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
@@ -87,6 +93,10 @@ export function useValidationRepair({
     }
 
     async function runRepairRequest(issues: BuilderParseIssue[], attemptNumber: number) {
+      if (requestLimits === null) {
+        throw new Error('Chat send is unavailable until the runtime config has loaded.');
+      }
+
       reportRejectedCandidate(issues);
       const repairRequest: BuilderLlmRequest = {
         prompt: request.prompt,
@@ -148,29 +158,19 @@ export function useValidationRepair({
       }
 
       if (validation.isValid) {
-        const qualityIssues = detectOpenUiQualityIssues(candidateResponse.source, request.prompt);
+        const qualityIssues = [
+          ...detectOpenUiQualityIssues(candidateResponse.source),
+          ...(candidateResponse.qualityIssues ?? []),
+        ];
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
         const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
-        const qualityWarnings = qualityIssues
-          .filter((issue) => issue.severity === 'soft-warning')
-          .map(({ severity, ...issue }) => {
-            void severity;
-            return issue;
-          });
+        const qualityWarnings = qualityIssues.filter((issue) => issue.severity === 'soft-warning').map(stripQualitySeverity);
 
         if (fatalQualityIssues.length > 0) {
-          reportRejectedCandidate(
-            fatalQualityIssues.map(({ severity, ...issue }) => {
-              void severity;
-              return issue;
-            }),
-          );
+          reportRejectedCandidate(fatalQualityIssues.map(stripQualitySeverity));
           throw new OpenUiValidationError(
             createValidationFailureMessage(
-              fatalQualityIssues.map(({ severity, ...issue }) => {
-                void severity;
-                return issue;
-              }),
+              fatalQualityIssues.map(stripQualitySeverity),
               parserRepairCount + qualityRepairCount,
             ),
           );
@@ -178,31 +178,17 @@ export function useValidationRepair({
 
         if (blockingQualityIssues.length > 0) {
           if (qualityRepairCount >= 1) {
-            reportRejectedCandidate(
-              blockingQualityIssues.map(({ severity, ...issue }) => {
-                void severity;
-                return issue;
-              }),
-            );
+            reportRejectedCandidate(blockingQualityIssues.map(stripQualitySeverity));
             throw new OpenUiValidationError(
               createValidationFailureMessage(
-                blockingQualityIssues.map(({ severity, ...issue }) => {
-                  void severity;
-                  return issue;
-                }),
+                blockingQualityIssues.map(stripQualitySeverity),
                 parserRepairCount + qualityRepairCount,
               ),
             );
           }
 
           qualityRepairCount += 1;
-          await runRepairRequest(
-            blockingQualityIssues.map(({ severity, ...issue }) => {
-              void severity;
-              return issue;
-            }),
-            qualityRepairCount,
-          );
+          await runRepairRequest(blockingQualityIssues.map(stripQualitySeverity), qualityRepairCount);
           continue;
         }
 
@@ -214,6 +200,10 @@ export function useValidationRepair({
           summary: candidateResponse.summary,
           warnings: qualityWarnings,
         };
+      }
+
+      if (maxRepairAttempts === null) {
+        throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
       if (parserRepairCount >= maxRepairAttempts) {

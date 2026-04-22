@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   applyOpenUiIssueSuggestions,
   detectOpenUiQualityIssues,
-  detectOpenUiQualityWarnings,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
 
@@ -760,252 +759,9 @@ ${validSource}`);
   });
 });
 
-describe('detectOpenUiQualityWarnings', () => {
-  it('does not warn for a simple todo request that stays on one screen', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `$draft = ""
-items = Query("read_state", { path: "app.items" }, [])
-addItem = Mutation("append_state", {
-  path: "app.items",
-  value: { title: $draft, completed: false }
-})
-rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
-], "inline"))
-
-root = AppShell([
-  Screen("main", "Todo list", [
-    Group("Add task", "horizontal", [
-      Input("draft", "Task", $draft, "New task"),
-      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
-    ], "inline"),
-    Repeater(rows, "No items yet.")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual([]);
-  });
-
-  it('does not warn for a simple todo request that uses append_item', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `$draft = ""
-items = Query("read_state", { path: "app.items" }, [])
-addItem = Mutation("append_item", {
-  path: "app.items",
-  value: { title: $draft, completed: false }
-})
-rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start"),
-  Text(item.completed ? "Done" : "Open", "muted", "end")
-], "inline"))
-
-root = AppShell([
-  Screen("main", "Todo list", [
-    Group("Add task", "horizontal", [
-      Input("draft", "Task", $draft, "New task"),
-      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
-    ], "inline"),
-    Repeater(rows, "No items yet.")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual([]);
-  });
-
-  it('warns when a simple todo request generates multiple screens', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `root = AppShell([
-  Screen("main", "Todo list", [
-    Text("Tasks", "title", "start")
-  ]),
-  Screen("details", "Details", [
-    Text("Task details", "body", "start")
-  ], false),
-  Screen("settings", "Settings", [
-    Text("Preferences", "body", "start")
-  ], false)
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-too-many-screens',
-          message: 'Simple request generated multiple screens.',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('does not warn about theme styling when the prompt asks for a theme', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `$currentTheme = "dark"
-root = AppShell([
-  Screen("main", "Todo list", [
-    Text("Theme preview", "body", "start")
-  ])
-], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`,
-      'Create a todo list with a dark theme.',
-    );
-
-    expect(warnings.find((warning) => warning.code === 'quality-unrequested-theme')).toBeUndefined();
-  });
-
-  it('warns when theme styling was added without being requested', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `$currentTheme = "dark"
-root = AppShell([
-  Screen("main", "Todo list", [
-    Text("Theme preview", "body", "start")
-  ])
-], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-unrequested-theme',
-          message: 'Theme styling was added even though not requested.',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('does not warn about compute tools when the prompt asks for randomness', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `rollDice = Mutation("write_computed_state", {
-  path: "app.roll",
-  op: "random_int",
-  options: { min: 1, max: 6 },
-  returnType: "number"
-})
-rollValue = Query("read_state", { path: "app.roll" }, null)
-
-root = AppShell([
-  Screen("main", "Dice", [
-    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
-    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
-  ])
-])`,
-      'Create a random dice roller.',
-    );
-
-    expect(warnings.find((warning) => warning.code === 'quality-unrequested-compute')).toBeUndefined();
-  });
-
-  it('warns when compute tools were added without being requested', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `rollDice = Mutation("write_computed_state", {
-  path: "app.roll",
-  op: "random_int",
-  options: { min: 1, max: 6 },
-  returnType: "number"
-})
-rollValue = Query("read_state", { path: "app.roll" }, null)
-
-root = AppShell([
-  Screen("main", "Dice", [
-    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
-    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-unrequested-compute',
-          message: 'Compute tools were added even though not requested.',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('warns when filtering was added without being requested', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `items = [
-  { title: "Write tests", completed: true },
-  { title: "Ship changes", completed: false }
-]
-visibleItems = @Filter(items, "completed", "==", true)
-rows = @Each(visibleItems, "item", Text(item.title, "body", "start"))
-
-root = AppShell([
-  Screen("main", "Tasks", [
-    Repeater(rows, "No tasks")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-unrequested-filter',
-          message: 'Filtering was added even though not requested.',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('warns when validation rules were added without being requested', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `$email = ""
-root = AppShell([
-  Screen("main", "Signup", [
-    Input("email", "Email", $email, "name@example.com", "Enter email", "email", [
-      { type: "required", message: "Email is required" },
-      { type: "email", message: "Enter a valid email" }
-    ])
-  ])
-])`,
-      'Create a signup form.',
-    );
-
-    expect(warnings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-unrequested-validation',
-          message: 'Validation rules were added even though not requested.',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('does not surface blocking quality gates through the soft warning list', () => {
-    const warnings = detectOpenUiQualityWarnings(
-      `root = AppShell([
-  Screen("main", "Todo list", [
-    Text("Todo list", "title", "start"),
-    Text("Start by describing your tasks here.", "body", "start")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(warnings.find((warning) => warning.code === 'quality-missing-todo-controls')).toBeUndefined();
-  });
-});
-
 describe('detectOpenUiQualityIssues', () => {
   it('marks logged IQ drafts that use $currentScreen without a top-level declaration', () => {
-    const issues = detectOpenUiQualityIssues(
-      LOGGED_IQ_SOURCE,
-      'Create an IQ-like test with a quiz screen and a result screen.',
-    );
+    const issues = detectOpenUiQualityIssues(LOGGED_IQ_SOURCE);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1026,16 +782,12 @@ describe('detectOpenUiQualityIssues', () => {
       issues: [],
     });
     expect(
-      detectOpenUiQualityIssues(
-        REPAIRED_LOGGED_IQ_SOURCE,
-        'Create an IQ-like test with a quiz screen and a result screen.',
-      ).find((issue) => issue.code === 'undefined-state-reference'),
+      detectOpenUiQualityIssues(REPAIRED_LOGGED_IQ_SOURCE).find((issue) => issue.code === 'undefined-state-reference'),
     ).toBeUndefined();
   });
 
   it('does not mark the canonical todo recipe when its local state is declared', () => {
-    const issues = detectOpenUiQualityIssues(
-      `$draft = ""
+    const issues = detectOpenUiQualityIssues(`$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
   path: "app.items",
@@ -1054,62 +806,15 @@ root = AppShell([
     ], "inline"),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues.find((issue) => issue.code === 'undefined-state-reference')).toBeUndefined();
   });
 
   it('does not mark a declared language switcher state as undefined', () => {
-    const issues = detectOpenUiQualityIssues(LANGUAGE_SWITCHER_SOURCE, 'Create a language switcher.');
+    const issues = detectOpenUiQualityIssues(LANGUAGE_SWITCHER_SOURCE);
 
     expect(issues.find((issue) => issue.code === 'undefined-state-reference')).toBeUndefined();
-  });
-
-  it('marks missing todo controls as blocking for a simple todo intent', () => {
-    const issues = detectOpenUiQualityIssues(
-      `root = AppShell([
-  Screen("main", "Todo list", [
-    Text("Todo list", "title", "start"),
-    Text("Start by describing your tasks here.", "body", "start")
-  ])
-])`,
-      'Create a todo list.',
-    );
-
-    expect(issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-missing-todo-controls',
-          message: 'Todo request did not generate required todo controls.',
-          severity: 'blocking-quality',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('keeps missing todo controls as a soft warning when anti-keywords make the prompt non-simple', () => {
-    const issues = detectOpenUiQualityIssues(
-      `root = AppShell([
-  Screen("main", "CRM", [
-    Text("CRM overview", "title", "start")
-  ])
-])`,
-      'Create a CRM with a task list module.',
-    );
-
-    expect(issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-missing-todo-controls',
-          message: 'Todo request did not generate required todo controls.',
-          severity: 'soft-warning',
-          source: 'quality',
-        }),
-      ]),
-    );
   });
 
   it('marks Checkbox action mode plus writable binding as blocking quality', () => {
@@ -1120,9 +825,7 @@ root = AppShell([
   Screen("main", "Main", [
     Checkbox("accepted", "Persist acceptance", $accepted, "Persists acceptance", [], Action([]))
   ])
-])`,
-      'Create a checkbox that saves persisted acceptance.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1155,9 +858,7 @@ root = AppShell([
     RadioGroup("plan", "Plan", $plan, planOptions, null, [], Action([])),
     Select("filter", "Filter", $filter, filterOptions, null, [], Action([]))
   ])
-])`,
-      'Create persisted choice controls.',
-    );
+])`);
 
     expect(issues.filter((issue) => issue.code === 'control-action-and-binding')).toHaveLength(2);
     expect(issues).toEqual(
@@ -1202,7 +903,7 @@ root = AppShell([
       isValid: true,
       issues: [],
     });
-    expect(detectOpenUiQualityIssues(source, 'Create persisted choice controls.')).toEqual([]);
+    expect(detectOpenUiQualityIssues(source)).toEqual([]);
   });
 
   it('accepts a logged kanban draft that routes Select actions through a top-level $lastChoice mutation', () => {
@@ -1281,10 +982,7 @@ root = AppShell([
       issues: [],
     });
     expect(
-      detectOpenUiQualityIssues(
-        source,
-        'Create a kanban task board app with columns Todo, Doing, Done, quick add, and a colorful theme.',
-      ),
+      detectOpenUiQualityIssues(source),
     ).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1306,9 +1004,7 @@ root = AppShell([
     Button("apply-filter", "Apply", "default", Action([@Run(setFilter)]), false),
     Text("Last choice: " + $lastChoice, "body", "start")
   ])
-])`,
-      'Create a saved filter control.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1334,9 +1030,7 @@ root = AppShell([
   Screen("main", "Items", [
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create an item browser with row actions.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1363,9 +1057,7 @@ root = AppShell([
   Screen("main", "Items", [
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create an item browser with row actions.',
-    );
+])`);
 
     expect(issues.find((issue) => issue.code === 'item-bound-control-without-action')).toBeUndefined();
   });
@@ -1381,9 +1073,7 @@ root = AppShell([
   Screen("main", "Items", [
     Text("Items", "body", "start")
   ])
-])`,
-      'Create an item browser with row actions.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1410,9 +1100,7 @@ root = AppShell([
   Screen("main", "Items", [
     Text("Items", "body", "start")
   ])
-])`,
-      'Create an item browser with row actions.',
-    );
+])`);
 
     expect(issues.find((issue) => issue.code === 'mutation-uses-array-index-path')).toBeUndefined();
   });
@@ -1437,7 +1125,7 @@ root = AppShell([
 ])`;
 
     const validation = validateOpenUiSource(source);
-    const issues = detectOpenUiQualityIssues(source, 'Create an item browser with row actions.');
+    const issues = detectOpenUiQualityIssues(source);
     const parserCaughtInlineTool = validation.issues.some((issue) => issue.code === 'inline-reserved');
     const qualityIssue = issues.find((issue) => issue.code === 'inline-tool-in-each');
 
@@ -1474,9 +1162,7 @@ root = AppShell([
     Button("add-task", "Add", "default", Action([@Run(addItem), @Reset($draft)]), $draft == ""),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1512,9 +1198,7 @@ root = AppShell([
     Button("toggle-first", "Toggle first", "default", Action([@Set($targetItemId, "task-1"), @Run(toggleItem)]), false),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1549,9 +1233,7 @@ root = AppShell([
     Button("add-task", "Add", "default", Action([@Run(items), @Run(addItem), @Reset($draft)]), $draft == ""),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1585,9 +1267,7 @@ root = AppShell([
     Button("toggle-first", "Toggle first", "default", Action([@Run(toggleFirst), @Set($flash, "done")]), false),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1616,9 +1296,7 @@ root = AppShell([
     Button("save-settings", "Save settings", "default", Action([@Run(saveSettings)]), false),
     Text("Theme: " + themeValue, "body", "start")
   ])
-])`,
-      'Create a settings app.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -1652,413 +1330,9 @@ root = AppShell([
     Button("toggle-first", "Toggle first", "default", Action([@Run(toggleFirst), @Reset($flash), @Run(items)]), false),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
-  });
-
-  it('marks missing random refresh as blocking and flags the missing visible recipe', () => {
-    const issues = detectOpenUiQualityIssues(
-      `rollDice = Mutation("write_computed_state", {
-  path: "app.roll",
-  op: "random_int",
-  options: { min: 1, max: 6 },
-  returnType: "number"
-})
-rollValue = Query("read_state", { path: "app.roll" }, null)
-
-root = AppShell([
-  Screen("main", "Dice", [
-    Button("roll", "Roll", "default", Action([@Run(rollDice)]), false),
-    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
-  ])
-])`,
-      'Create a random dice roller.',
-    );
-
-    expect(issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-stale-persisted-query',
-          message:
-            'Persisted mutation may not refresh visible query. After @Run(rollDice), also run @Run(rollValue) later in the same Action for affected path "app.roll".',
-          severity: 'blocking-quality',
-          source: 'quality',
-          statementId: 'rollDice',
-        }),
-        expect.objectContaining({
-          code: 'quality-random-result-not-visible',
-          severity: 'blocking-quality',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('marks theme prompts as blocking when theme state does not drive container appearance', () => {
-    const issues = detectOpenUiQualityIssues(
-      `$currentTheme = "light"
-appTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
-
-root = AppShell([
-  Screen("main", "Theme demo", [
-    Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false),
-    Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false),
-    Text("Current theme: " + $currentTheme, "body", "start")
-  ])
-], appTheme)`,
-      'Add dark mode with a light and dark theme switch.',
-    );
-
-    expect(issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-theme-state-not-applied',
-          severity: 'blocking-quality',
-          source: 'quality',
-        }),
-      ]),
-    );
-  });
-
-  it('does not mark a valid random refresh recipe as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
-      `rollDice = Mutation("write_computed_state", {
-  path: "app.roll",
-  op: "random_int",
-  options: { min: 1, max: 6 },
-  returnType: "number"
-})
-rollValue = Query("read_state", { path: "app.roll" }, null)
-
-root = AppShell([
-  Screen("main", "Dice", [
-    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
-    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
-  ])
-])`,
-      'Create a random dice roller.',
-    );
-
-    expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
-    expect(issues.find((issue) => issue.code === 'quality-random-result-not-visible')).toBeUndefined();
-  });
-
-  it('does not mark a valid theme appearance binding as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
-      `$currentTheme = "light"
-appTheme = $currentTheme == "dark"
-  ? { mainColor: "#111827", contrastColor: "#F9FAFB" }
-  : { mainColor: "#F9FAFB", contrastColor: "#111827" }
-
-root = AppShell([
-  Screen("main", "Theme demo", [
-    Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false),
-    Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false)
-  ])
-], appTheme)`,
-      'Add dark mode with a light and dark theme switch.',
-    );
-
-    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
-  });
-
-  it('does not block a static dark-theme restyle from log f9e52bac', () => {
-    const issues = detectOpenUiQualityIssues(
-      `root = AppShell([
-  Screen("main", "Task board", [
-    Group("Summary", "vertical", [
-      Text("Tasks by column", "title", "start"),
-      Text("Todo: 0", "body", "start"),
-      Text("Doing: 0", "body", "start"),
-      Text("Done: 0", "body", "start")
-    ]),
-    Group("Filters", "horizontal", [
-      Input("taskSearch", "Search tasks", $taskSearch, "Search by title", "Type a task title to filter"),
-      Select("priorityFilter", "Priority filter", $priorityFilter, priorityFilterOptions, "Filter tasks by priority"),
-      Select("statusFilter", "Status filter", $statusFilter, statusFilterOptions, "Filter tasks by status")
-    ], "inline"),
-    Group("Add task", "vertical", [
-      Input("draft", "Task", $draft, "New task"),
-      Select("priority", "Priority", $priority, priorityOptions, "Choose task priority"),
-      Input("dueDate", "Due date", $dueDate, "YYYY-MM-DD", "Choose a due date", "date")
-    ]),
-    Button("archive-completed", "Archive completed tasks", "secondary", Action([]), false),
-    Button("open-details", "Open task details", "secondary", Action([@Set($currentScreen, "details")]), false)
-  ], $currentScreen == "main"),
-  Screen("details", "Task details", [
-    Group("Selected task", "vertical", [
-      Text($selectedTaskTitle == "" ? "No task selected." : $selectedTaskTitle, "title", "start"),
-      Text("Priority: " + $selectedTaskPriority, "body", "start"),
-      Text("Status: " + $selectedTaskStatus, "body", "start"),
-      TextArea("notes", "Notes", $notes, "Add notes for this task")
-    ]),
-    Button("back-to-board", "Back to board", "secondary", Action([@Set($currentScreen, "main")]), false)
-  ], $currentScreen == "details")
-], { mainColor: "#0F172A", contrastColor: "#60A5FA" }),
-
-$currentScreen = "main"
-$draft = ""
-$priority = "medium"
-$dueDate = ""
-$priorityFilter = "all"
-$statusFilter = "all"
-$taskSearch = ""
-$selectedTaskTitle = "Sample task"
-$selectedTaskPriority = "medium"
-$selectedTaskStatus = "todo"
-$notes = ""
-priorityOptions = [
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" }
-]
-priorityFilterOptions = [
-  { label: "All priorities", value: "all" },
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" }
-]
-statusFilterOptions = [
-  { label: "All statuses", value: "all" },
-  { label: "Todo", value: "todo" },
-  { label: "Doing", value: "doing" },
-  { label: "Done", value: "done" }
-]
-starterTasks = [
-  { title: "Plan project kickoff", priority: "high", status: "todo", dueDate: "2026-04-25" },
-  { title: "Draft first design mockup", priority: "medium", status: "doing", dueDate: "2026-04-24" },
-  { title: "Review launch checklist", priority: "low", status: "done", dueDate: "2026-04-22" }
-]`,
-      'Switch the look to a compact dark theme with blue accents.',
-    );
-
-    expect(issues).toEqual([]);
-  });
-
-  it('treats local color-tag requests as appearance styling, not shared theme-state flows', () => {
-    const issues = detectOpenUiQualityIssues(
-      `mealTypeTag = { mainColor: "#DBEAFE", contrastColor: "#1D4ED8" }
-effortTag = { mainColor: "#FEF3C7", contrastColor: "#92400E" }
-
-root = AppShell([
-  Screen("main", "Meals", [
-    Group("Meal card", "horizontal", [
-      Text("Soup", "body", "start"),
-      Button("type-tag", "Lunch", "secondary", null, false, mealTypeTag),
-      Button("effort-tag", "Quick", "secondary", null, false, effortTag)
-    ], "inline")
-  ])
-])`,
-      'Add color tags for meal type and prep effort.',
-    );
-
-    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
-    expect(issues.find((issue) => issue.code === 'quality-unrequested-theme')).toBeUndefined();
-  });
-
-  it('does not block meal color tags from log 650c50ad but keeps unrelated filter warning', () => {
-    const issues = detectOpenUiQualityIssues(
-      `$selectedDay = "Monday"
-$mealName = ""
-$mealNotes = ""
-$vegetarianOnly = false
-
-mealTypeTags = [
-  { label: "Breakfast", value: "Breakfast" },
-  { label: "Lunch", value: "Lunch" },
-  { label: "Dinner", value: "Dinner" }
-]
-
-prepEffortTags = [
-  { label: "Quick", value: "Quick" },
-  { label: "Moderate", value: "Moderate" },
-  { label: "More involved", value: "More involved" }
-]
-
-dayOptions = [
-  { label: "Monday", value: "Monday" },
-  { label: "Tuesday", value: "Tuesday" },
-  { label: "Wednesday", value: "Wednesday" },
-  { label: "Thursday", value: "Thursday" },
-  { label: "Friday", value: "Friday" },
-  { label: "Saturday", value: "Saturday" },
-  { label: "Sunday", value: "Sunday" }
-]
-
-ingredientGroups = [
-  { label: "Breakfast ingredients", value: "Breakfast ingredients" },
-  { label: "Lunch ingredients", value: "Lunch ingredients" },
-  { label: "Dinner ingredients", value: "Dinner ingredients" }
-]
-
-breakfastIngredients = [
-  "Eggs",
-  "Oats",
-  "Berries",
-  "Yogurt",
-  "Bread",
-  "Avocado"
-]
-
-lunchIngredients = [
-  "Chicken",
-  "Greens",
-  "Wraps",
-  "Grain bowl mix",
-  "Tomatoes",
-  "Soup bread"
-]
-
-dinnerIngredients = [
-  "Salmon",
-  "Rice",
-  "Pasta",
-  "Tofu",
-  "Vegetables",
-  "Garlic"
-]
-
-shoppingItems = [
-  { label: "Eggs", value: "Eggs" },
-  { label: "Oats", value: "Oats" },
-  { label: "Berries", value: "Berries" },
-  { label: "Yogurt", value: "Yogurt" },
-  { label: "Bread", value: "Bread" },
-  { label: "Avocado", value: "Avocado" },
-  { label: "Chicken", value: "Chicken" },
-  { label: "Greens", value: "Greens" },
-  { label: "Wraps", value: "Wraps" },
-  { label: "Grain bowl mix", value: "Grain bowl mix" },
-  { label: "Tomatoes", value: "Tomatoes" },
-  { label: "Soup bread", value: "Soup bread" },
-  { label: "Salmon", value: "Salmon" },
-  { label: "Rice", value: "Rice" },
-  { label: "Pasta", value: "Pasta" },
-  { label: "Tofu", value: "Tofu" },
-  { label: "Vegetables", value: "Vegetables" },
-  { label: "Garlic", value: "Garlic" }
-]
-
-weeklyMealExamples = [
-  { day: "Monday", breakfast: "Oatmeal with berries", lunch: "Chicken salad wrap", dinner: "Salmon with rice and greens", vegetarian: false, mealType: "Dinner", prepEffort: "Moderate" },
-  { day: "Tuesday", breakfast: "Avocado toast", lunch: "Veggie grain bowl", dinner: "Pasta primavera", vegetarian: true, mealType: "Lunch", prepEffort: "Quick" },
-  { day: "Wednesday", breakfast: "Yogurt parfait", lunch: "Tomato soup and sandwich", dinner: "Stir-fry with tofu and vegetables", vegetarian: true, mealType: "Dinner", prepEffort: "More involved" },
-  { day: "Thursday", breakfast: "Scrambled eggs with bread", lunch: "Chicken and greens bowl", dinner: "Garlic pasta with vegetables", vegetarian: false, mealType: "Breakfast", prepEffort: "Quick" },
-  { day: "Friday", breakfast: "Overnight oats with berries", lunch: "Wrap with chicken and tomatoes", dinner: "Baked salmon with rice", vegetarian: false, mealType: "Dinner", prepEffort: "Moderate" }
-]
-
-visibleMealExamples = $vegetarianOnly ? @Filter(weeklyMealExamples, "vegetarian", "==", true) : weeklyMealExamples
-mealExampleRows = @Each(visibleMealExamples, "item", Group(null, "vertical", [
-  Text(item.day, "title", "start"),
-  Group(null, "horizontal", [
-    Text(item.mealType, "body", "start", { contrastColor: "#92400E" }),
-    Text(item.prepEffort, "body", "start", { contrastColor: "#1D4ED8" })
-  ], "inline"),
-  Text("Breakfast: " + item.breakfast, "body", "start"),
-  Text("Lunch: " + item.lunch, "body", "start"),
-  Text("Dinner: " + item.dinner, "body", "start")
-], "inline"))
-
-breakfastRows = @Each(breakfastIngredients, "item", Text("• " + item, "body", "start"))
-lunchRows = @Each(lunchIngredients, "item", Text("• " + item, "body", "start"))
-dinnerRows = @Each(dinnerIngredients, "item", Text("• " + item, "body", "start"))
-shoppingRows = @Each(shoppingItems, "item", Text("• " + item, "body", "start"))
-
-root = AppShell([
-  Screen("main", "Meal planner", [
-    Group("Week day", "vertical", [
-      Select("selectedDay", "Day of the week", $selectedDay, dayOptions),
-      Text("Planning for " + $selectedDay, "muted", "start")
-    ], "block"),
-    Group("Filters", "vertical", [
-      Checkbox("vegetarianOnly", "Vegetarian meals only", $vegetarianOnly, "Show only vegetarian starter meal examples")
-    ], "block"),
-    Group("Custom meal", "vertical", [
-      Text("Create a custom meal", "title", "start"),
-      Group(null, "horizontal", [
-        Text("Meal type", "muted", "start"),
-        Text("Breakfast", "body", "start", { contrastColor: "#92400E" }),
-        Text("Lunch", "body", "start", { contrastColor: "#166534" }),
-        Text("Dinner", "body", "start", { contrastColor: "#7C3AED" })
-      ], "inline"),
-      Group(null, "horizontal", [
-        Text("Prep effort", "muted", "start"),
-        Text("Quick", "body", "start", { contrastColor: "#1D4ED8" }),
-        Text("Moderate", "body", "start", { contrastColor: "#B45309" }),
-        Text("More involved", "body", "start", { contrastColor: "#B91C1C" })
-      ], "inline"),
-      Input("mealName", "Meal name", $mealName, "e.g. Lemon tofu bowl", "Name your custom meal"),
-      TextArea("mealNotes", "Notes", $mealNotes, "Add ingredients, prep steps, or serving ideas", "Optional notes for this meal"),
-      Button("save-meal", "Save meal", "default", Action([]), false)
-    ], "block"),
-    Group("Starter meal examples", "vertical", [
-      Text("Starter meal examples", "title", "start"),
-      Repeater(mealExampleRows, "No meal examples match this filter.")
-    ], "block"),
-    Group("Breakfast", "vertical", [
-      Text("Breakfast ideas", "title", "start"),
-      Text("• Oatmeal with berries", "body", "start"),
-      Text("• Yogurt parfait", "body", "start"),
-      Text("• Avocado toast", "body", "start"),
-      Repeater(breakfastRows, "")
-    ], "block"),
-    Group("Lunch", "vertical", [
-      Text("Lunch ideas", "title", "start"),
-      Text("• Chicken salad wrap", "body", "start"),
-      Text("• Veggie grain bowl", "body", "start"),
-      Text("• Tomato soup and sandwich", "body", "start"),
-      Repeater(lunchRows, "")
-    ], "block"),
-    Group("Dinner", "vertical", [
-      Text("Dinner ideas", "title", "start"),
-      Text("• Salmon with rice and greens", "body", "start"),
-      Text("• Pasta primavera", "body", "start"),
-      Text("• Stir-fry with tofu and vegetables", "body", "start"),
-      Repeater(dinnerRows, "")
-    ], "block"),
-    Group("Quick shopping list by ingredients", "vertical", [
-      Text("Quick shopping list by ingredients", "title", "start"),
-      Text("Breakfast ingredients", "muted", "start"),
-      Text("• Eggs", "body", "start"),
-      Text("• Oats", "body", "start"),
-      Text("• Berries", "body", "start"),
-      Text("• Yogurt", "body", "start"),
-      Text("• Bread", "body", "start"),
-      Text("• Avocado", "body", "start"),
-      Text("Lunch ingredients", "muted", "start"),
-      Text("• Chicken", "body", "start"),
-      Text("• Greens", "body", "start"),
-      Text("• Wraps", "body", "start"),
-      Text("• Grain bowl mix", "body", "start"),
-      Text("• Tomatoes", "body", "start"),
-      Text("• Soup bread", "body", "start"),
-      Text("Dinner ingredients", "muted", "start"),
-      Text("• Salmon", "body", "start"),
-      Text("• Rice", "body", "start"),
-      Text("• Pasta", "body", "start"),
-      Text("• Tofu", "body", "start"),
-      Text("• Vegetables", "body", "start"),
-      Text("• Garlic", "body", "start"),
-      Repeater(shoppingRows, "")
-    ], "block")
-  ], true, { mainColor: "#FFF7ED", contrastColor: "#1F2937" })
-], { mainColor: "#FFF7ED", contrastColor: "#1F2937" })`,
-      'Add color tags for meal type and prep effort.',
-    );
-
-    expect(issues.find((issue) => issue.code === 'quality-theme-state-not-applied')).toBeUndefined();
-    expect(issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'quality-unrequested-filter',
-          severity: 'soft-warning',
-          source: 'quality',
-        }),
-      ]),
-    );
   });
 
   it('does not mark persisted refresh as blocking when the matching query reruns later in the same Action', () => {
@@ -2081,9 +1355,7 @@ root = AppShell([
     Button("add-task", "Add", "default", Action([@Run(addItem), @Set($flash, "saving"), @Run(items), @Reset($draft)]), $draft == ""),
     Repeater(rows, "No items yet.")
   ])
-])`,
-      'Create a todo list.',
-    );
+])`);
 
     expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
   });

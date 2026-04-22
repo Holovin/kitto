@@ -1,0 +1,960 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "AppShell": {
+      "$ref": "#/$defs/AppShell"
+    },
+    "Screen": {
+      "$ref": "#/$defs/Screen"
+    },
+    "Group": {
+      "$ref": "#/$defs/Group"
+    },
+    "Repeater": {
+      "$ref": "#/$defs/Repeater"
+    },
+    "Text": {
+      "$ref": "#/$defs/Text"
+    },
+    "Input": {
+      "$ref": "#/$defs/Input"
+    },
+    "TextArea": {
+      "$ref": "#/$defs/TextArea"
+    },
+    "Checkbox": {
+      "$ref": "#/$defs/Checkbox"
+    },
+    "RadioGroup": {
+      "$ref": "#/$defs/RadioGroup"
+    },
+    "Select": {
+      "$ref": "#/$defs/Select"
+    },
+    "Button": {
+      "$ref": "#/$defs/Button"
+    },
+    "Link": {
+      "$ref": "#/$defs/Link"
+    }
+  },
+  "required": [
+    "AppShell",
+    "Screen",
+    "Group",
+    "Repeater",
+    "Text",
+    "Input",
+    "TextArea",
+    "Checkbox",
+    "RadioGroup",
+    "Select",
+    "Button",
+    "Link"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "AppShell": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "default": [],
+          "description": "Screen or Group children rendered inside the shell.",
+          "type": "array",
+          "items": {}
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "id": "AppShell"
+    },
+    "Screen": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable screen identifier such as intro, form, results, or summary."
+        },
+        "title": {
+          "type": "string",
+          "description": "Visible heading for this screen. Required."
+        },
+        "children": {
+          "default": [],
+          "description": "Content groups and controls for the screen.",
+          "type": "array",
+          "items": {}
+        },
+        "isActive": {
+          "description": "Optional visibility gate. When false the screen is hidden; when omitted the screen renders normally.",
+          "type": "boolean"
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "children"
+      ],
+      "additionalProperties": false,
+      "id": "Screen"
+    },
+    "Group": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "Optional section title shown above the group content.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "direction": {
+          "default": "vertical",
+          "description": "Layout direction for the children: vertical or horizontal.",
+          "type": "string",
+          "enum": [
+            "vertical",
+            "horizontal"
+          ]
+        },
+        "children": {
+          "default": [],
+          "description": "Child nodes rendered inside the group.",
+          "type": "array",
+          "items": {}
+        },
+        "variant": {
+          "default": "block",
+          "description": "Visual weight: block for card-like sections, or inline for lightweight nested layout.",
+          "type": "string",
+          "enum": [
+            "block",
+            "inline"
+          ]
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "direction",
+        "children",
+        "variant"
+      ],
+      "additionalProperties": false,
+      "id": "Group"
+    },
+    "Repeater": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "default": [],
+          "description": "Array of already-built row or card nodes, typically returned by @Each(collection, \"item\", ...).",
+          "type": "array",
+          "items": {}
+        },
+        "emptyText": {
+          "description": "Fallback message shown when the repeated rows array is empty.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "id": "Repeater"
+    },
+    "Text": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "description": "Text or expression result to display.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "variant": {
+          "default": "body",
+          "description": "Visual style: body, muted, title, or code.",
+          "type": "string",
+          "enum": [
+            "body",
+            "code",
+            "muted",
+            "title"
+          ]
+        },
+        "align": {
+          "default": "start",
+          "description": "Text alignment.",
+          "type": "string",
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "appearance": {
+          "description": "Optional appearance override with contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "variant",
+        "align"
+      ],
+      "additionalProperties": false,
+      "id": "Text"
+    },
+    "Input": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable field name used for persistence and bindings."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible label for the field."
+        },
+        "value": {
+          "description": "Current value, often bound to a $variable. Input values always stay strings.",
+          "type": "string"
+        },
+        "placeholder": {
+          "description": "Placeholder text shown when empty.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "helper": {
+          "description": "Optional helper text shown below the control when there is no validation error.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "default": "text",
+          "description": "HTML input type. Allowed values: text, email, number, date, time, password. Defaults to text.",
+          "type": "string",
+          "enum": [
+            "text",
+            "email",
+            "number",
+            "date",
+            "time",
+            "password"
+          ]
+        },
+        "validation": {
+          "description": "Optional declarative validation rules. Use only rules supported by the component and input type.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "minLength",
+                  "maxLength",
+                  "minNumber",
+                  "maxNumber",
+                  "dateOnOrAfter",
+                  "dateOnOrBefore",
+                  "email"
+                ],
+                "description": "Validation rule name."
+              },
+              "value": {
+                "description": "Rule value for length, number, or date comparisons.",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "message": {
+                "description": "Optional custom validation message shown when the rule fails.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "type"
+      ],
+      "additionalProperties": false,
+      "id": "Input"
+    },
+    "TextArea": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable field name used for persistence and bindings."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible label for the field."
+        },
+        "value": {
+          "description": "Current value, often bound to a $variable.",
+          "type": "string"
+        },
+        "placeholder": {
+          "description": "Placeholder text shown when empty.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "helper": {
+          "description": "Optional helper text shown below the control when there is no validation error.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validation": {
+          "description": "Optional declarative validation rules. Use only rules supported by the component and input type.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "minLength",
+                  "maxLength",
+                  "minNumber",
+                  "maxNumber",
+                  "dateOnOrAfter",
+                  "dateOnOrBefore",
+                  "email"
+                ],
+                "description": "Validation rule name."
+              },
+              "value": {
+                "description": "Rule value for length, number, or date comparisons.",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "message": {
+                "description": "Optional custom validation message shown when the rule fails.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "label"
+      ],
+      "additionalProperties": false,
+      "id": "TextArea"
+    },
+    "Checkbox": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable field name used for persistence and bindings."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible label shown next to the checkbox."
+        },
+        "checked": {
+          "description": "Writable $binding<boolean> for form state, or a display-only boolean when action mode runs an explicit Action([...]).",
+          "type": "boolean"
+        },
+        "helper": {
+          "description": "Optional helper text shown below the control when there is no validation error.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validation": {
+          "description": "Optional declarative validation rules. Use only rules supported by the component and input type.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "minLength",
+                  "maxLength",
+                  "minNumber",
+                  "maxNumber",
+                  "dateOnOrAfter",
+                  "dateOnOrBefore",
+                  "email"
+                ],
+                "description": "Validation rule name."
+              },
+              "value": {
+                "description": "Rule value for length, number, or date comparisons.",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "message": {
+                "description": "Optional custom validation message shown when the rule fails.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "action": {
+          "description": "Optional Action([...]) for persisted row toggles or other explicit checkbox-triggered flows."
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "label"
+      ],
+      "additionalProperties": false,
+      "id": "Checkbox"
+    },
+    "RadioGroup": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable field name used for persistence and bindings."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible label for the option set."
+        },
+        "value": {
+          "description": "Writable $binding<string> for form state, or a display-only string when action mode runs an explicit Action([...]).",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "description": "Option list with label/value pairs.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "helper": {
+          "description": "Optional helper text shown below the control when there is no validation error.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validation": {
+          "description": "Optional declarative validation rules. Use only rules supported by the component and input type.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "minLength",
+                  "maxLength",
+                  "minNumber",
+                  "maxNumber",
+                  "dateOnOrAfter",
+                  "dateOnOrBefore",
+                  "email"
+                ],
+                "description": "Validation rule name."
+              },
+              "value": {
+                "description": "Rule value for length, number, or date comparisons.",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "message": {
+                "description": "Optional custom validation message shown when the rule fails.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "action": {
+          "description": "Optional Action([...]) for persisted choice updates. Action mode writes the selected option to `$lastChoice` before the action runs."
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "options"
+      ],
+      "additionalProperties": false,
+      "id": "RadioGroup"
+    },
+    "Select": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable field name used for persistence and bindings."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible label for the select field."
+        },
+        "value": {
+          "description": "Writable $binding<string> for form state, or a display-only string when action mode runs an explicit Action([...]).",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "description": "Option list with label/value pairs.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "helper": {
+          "description": "Optional helper text shown below the control when there is no validation error.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validation": {
+          "description": "Optional declarative validation rules. Use only rules supported by the component and input type.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "minLength",
+                  "maxLength",
+                  "minNumber",
+                  "maxNumber",
+                  "dateOnOrAfter",
+                  "dateOnOrBefore",
+                  "email"
+                ],
+                "description": "Validation rule name."
+              },
+              "value": {
+                "description": "Rule value for length, number, or date comparisons.",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "message": {
+                "description": "Optional custom validation message shown when the rule fails.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "action": {
+          "description": "Optional Action([...]) for persisted choice updates. Action mode writes the selected option to `$lastChoice` before the action runs."
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "options"
+      ],
+      "additionalProperties": false,
+      "id": "Select"
+    },
+    "Button": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable action and state key. Required first argument."
+        },
+        "label": {
+          "type": "string",
+          "description": "Visible button label."
+        },
+        "variant": {
+          "default": "default",
+          "description": "Fallback visual style when no appearance override is present: default, secondary, or destructive.",
+          "type": "string",
+          "enum": [
+            "default",
+            "secondary",
+            "destructive"
+          ]
+        },
+        "action": {
+          "description": "Usually Action([...]) with one or more @Run, @Set, @Reset, or @ToAssistant steps executed in order."
+        },
+        "disabled": {
+          "default": false,
+          "description": "Whether the button is disabled.",
+          "type": "boolean"
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "variant",
+        "disabled"
+      ],
+      "additionalProperties": false,
+      "id": "Button"
+    },
+    "Link": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Visible link label."
+        },
+        "url": {
+          "type": "string",
+          "description": "Destination URL or route."
+        },
+        "newTab": {
+          "default": true,
+          "description": "Open in a new tab when true.",
+          "type": "boolean"
+        },
+        "appearance": {
+          "description": "Optional appearance override with mainColor and contrastColor as #RRGGBB.",
+          "type": "object",
+          "properties": {
+            "mainColor": {
+              "description": "Optional main theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "contrastColor": {
+              "description": "Optional contrast theme color override as #RRGGBB.",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "label",
+        "url",
+        "newTab"
+      ],
+      "additionalProperties": false,
+      "id": "Link"
+    }
+  }
+}

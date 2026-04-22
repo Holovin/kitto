@@ -120,16 +120,13 @@ root = AppShell([
   });
 
   it('surfaces structural nesting violations as fatal quality issues', () => {
-    const issues = detectOpenUiQualityIssues(
-      `root = AppShell([
+    const issues = detectOpenUiQualityIssues(`root = AppShell([
   Screen("main", "Main", [
     Group("Body", "vertical", [
       Screen("details", "Details", [])
     ])
   ])
-])`,
-      'Build a small app.',
-    );
+])`);
 
     expect(issues).toEqual(
       expect.arrayContaining([

@@ -74,7 +74,12 @@ export async function generateBuilderDefinition({
             throw await getResponseError(response);
           }
 
-          return (await response.json()) as BuilderLlmResponse;
+          const payload = (await response.json()) as BuilderLlmResponse;
+
+          return {
+            ...payload,
+            qualityIssues: payload.qualityIssues ?? [],
+          };
         },
       },
       timeoutMs,

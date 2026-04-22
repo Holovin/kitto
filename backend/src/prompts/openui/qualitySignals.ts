@@ -1,6 +1,6 @@
-import type { ParseResult } from '@openuidev/react-lang';
-import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from '../qualityIntents';
-import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from './shared';
+import type { ParseResult } from '@openuidev/lang-core';
+import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from './qualityIntents.js';
+import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from './quality/shared.js';
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;

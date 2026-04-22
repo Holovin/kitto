@@ -1,6 +1,15 @@
-export type BuilderComposerSubmitMode = 'send' | 'repeat' | 'generating' | 'updating';
+import type { BuilderRuntimeConfigStatus } from '@features/builder/config';
+
+export type BuilderComposerSubmitMode =
+  | 'send'
+  | 'repeat'
+  | 'generating'
+  | 'updating'
+  | 'config-loading'
+  | 'config-unavailable';
 
 interface BuilderComposerSubmitStateOptions {
+  configStatus: BuilderRuntimeConfigStatus;
   draftPrompt: string;
   hasCommittedSource: boolean;
   isSubmitting: boolean;
@@ -23,6 +32,7 @@ export function resolveBuilderComposerPrompt({ draftPrompt, retryPrompt }: Resol
 }
 
 export function getBuilderComposerSubmitState({
+  configStatus,
   draftPrompt,
   hasCommittedSource,
   isSubmitting,
@@ -30,7 +40,11 @@ export function getBuilderComposerSubmitState({
 }: BuilderComposerSubmitStateOptions) {
   let mode: BuilderComposerSubmitMode;
 
-  if (isSubmitting) {
+  if (configStatus === 'loading') {
+    mode = 'config-loading';
+  } else if (configStatus === 'failed') {
+    mode = 'config-unavailable';
+  } else if (isSubmitting) {
     mode = hasCommittedSource ? 'updating' : 'generating';
   } else if (draftPrompt.length > 0) {
     mode = 'send';
@@ -41,9 +55,13 @@ export function getBuilderComposerSubmitState({
   }
 
   return {
-    disabled: isSubmitting || (!normalizePrompt(draftPrompt) && mode !== 'repeat'),
+    disabled: mode === 'config-loading' || mode === 'config-unavailable' || isSubmitting || (!normalizePrompt(draftPrompt) && mode !== 'repeat'),
     label:
-      mode === 'generating'
+      mode === 'config-loading'
+        ? 'Loading config...'
+        : mode === 'config-unavailable'
+          ? 'Send unavailable'
+          : mode === 'generating'
         ? 'Generating...'
         : mode === 'updating'
           ? 'Updating...'

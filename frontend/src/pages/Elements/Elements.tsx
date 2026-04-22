@@ -86,7 +86,7 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'User prompt template',
     description: 'Readable skeleton of the wrapped user prompt with data blocks, without injecting live builder content.',
-    formatBody: (data) => data.userPromptTemplate,
+    formatBody: (data) => data.requestPromptTemplate,
   },
   {
     title: 'Tool specs',
