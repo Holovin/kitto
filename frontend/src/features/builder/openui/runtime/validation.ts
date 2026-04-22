@@ -1,7 +1,7 @@
 export {
   applyOpenUiIssueSuggestions,
-  detectOpenUiQualityIssues,
-  detectOpenUiQualityWarnings,
+  detectLocalRuntimeQualityIssues,
+  detectLocalRuntimeQualityWarnings,
   validateOpenUiSource,
 } from './validation/index';
 export type {

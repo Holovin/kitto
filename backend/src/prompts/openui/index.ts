@@ -16,7 +16,12 @@ export {
   buildOpenUiUserPrompt,
   buildOpenUiUserPromptTemplate,
 } from './userPrompt.js';
-export { detectOpenUiQualityIssues, detectOpenUiQualityWarnings, type OpenUiQualityIssue, type OpenUiQualityIssueSeverity } from './qualityIssues.js';
+export {
+  detectPromptAwareQualityIssues,
+  detectPromptAwareQualityWarnings,
+  type OpenUiQualityIssue,
+  type OpenUiQualityIssueSeverity,
+} from './qualityIssues.js';
 export type {
   PromptBuildChatHistoryMessage,
   PromptBuildRequest,

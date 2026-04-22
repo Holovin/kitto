@@ -24,7 +24,7 @@ import { appendAutoFixSuggestionIssues, applyOpenUiIssueSuggestions } from './su
 export { applyOpenUiIssueSuggestions };
 export type { OpenUiQualityIssue, OpenUiQualityIssueSeverity, OpenUiValidationResult } from './shared';
 
-export function detectOpenUiQualityIssues(source: string): OpenUiQualityIssue[] {
+export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
 
   if (!trimmedSource) {
@@ -70,8 +70,8 @@ export function detectOpenUiQualityIssues(source: string): OpenUiQualityIssue[] 
   return issues;
 }
 
-export function detectOpenUiQualityWarnings(source: string) {
-  return detectOpenUiQualityIssues(source)
+export function detectLocalRuntimeQualityWarnings(source: string) {
+  return detectLocalRuntimeQualityIssues(source)
     .filter((issue) => issue.severity === 'soft-warning')
     .map(stripQualityIssueSeverity);
 }

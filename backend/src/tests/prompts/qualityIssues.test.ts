@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { detectOpenUiQualityIssues, detectOpenUiQualityWarnings } from '../../prompts/openui.js';
+import {
+  detectPromptAwareQualityIssues,
+  detectPromptAwareQualityWarnings,
+} from '../../prompts/openui.js';
 
-describe('detectOpenUiQualityWarnings', () => {
+describe('detectPromptAwareQualityWarnings', () => {
   it('warns when a simple todo request generates multiple screens', () => {
-    const warnings = detectOpenUiQualityWarnings(
+    const warnings = detectPromptAwareQualityWarnings(
       `root = AppShell([
   Screen("main", "Todo list", [
     Text("Tasks", "title", "start")
@@ -30,7 +33,7 @@ describe('detectOpenUiQualityWarnings', () => {
   });
 
   it('warns when theme styling was added without being requested', () => {
-    const warnings = detectOpenUiQualityWarnings(
+    const warnings = detectPromptAwareQualityWarnings(
       `$currentTheme = "dark"
 root = AppShell([
   Screen("main", "Todo list", [
@@ -52,9 +55,9 @@ root = AppShell([
   });
 });
 
-describe('detectOpenUiQualityIssues', () => {
+describe('detectPromptAwareQualityIssues', () => {
   it('marks missing todo controls as blocking for a simple todo intent', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `root = AppShell([
   Screen("main", "Todo list", [
     Text("Todo list", "title", "start"),
@@ -77,7 +80,7 @@ describe('detectOpenUiQualityIssues', () => {
   });
 
   it('keeps missing todo controls as a soft warning when anti-keywords make the prompt non-simple', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `root = AppShell([
   Screen("main", "CRM", [
     Text("CRM overview", "title", "start")
@@ -99,7 +102,7 @@ describe('detectOpenUiQualityIssues', () => {
   });
 
   it('still evaluates prompt-aware issues after applying auto-fixable source rewrites', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `root = AppShell([
   Screen("main", "Todo list")
 ])`,
@@ -118,7 +121,7 @@ describe('detectOpenUiQualityIssues', () => {
   });
 
   it('marks bare top-level string option arrays for RadioGroup and Select as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `$answer = ""
 $filter = ""
 rickrollOptions = [
@@ -149,7 +152,7 @@ root = AppShell([
   });
 
   it('marks collection-backed string option arrays as blocking quality and points to the declaration', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `$currentQuestion = 0
 $answer = ""
 questions = [
@@ -184,7 +187,7 @@ root = AppShell([
   });
 
   it('marks missing random refresh as blocking when the prompt requests randomness', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `rollDice = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
@@ -214,7 +217,7 @@ root = AppShell([
   });
 
   it('does not mark a valid random refresh recipe as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `rollDice = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
@@ -236,7 +239,7 @@ root = AppShell([
   });
 
   it('marks theme-switch requests as blocking when theme state does not drive container appearance', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `$currentTheme = "light"
 appTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
 
@@ -262,7 +265,7 @@ root = AppShell([
   });
 
   it('does not mark a valid theme appearance binding as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectPromptAwareQualityIssues(
       `$currentTheme = "light"
 appTheme = $currentTheme == "dark"
   ? { mainColor: "#111827", contrastColor: "#F9FAFB" }

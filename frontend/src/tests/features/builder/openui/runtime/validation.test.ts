@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyOpenUiIssueSuggestions,
-  detectOpenUiQualityIssues,
+  detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
 
@@ -759,9 +759,9 @@ ${validSource}`);
   });
 });
 
-describe('detectOpenUiQualityIssues', () => {
+describe('detectLocalRuntimeQualityIssues', () => {
   it('marks logged IQ drafts that use $currentScreen without a top-level declaration', () => {
-    const issues = detectOpenUiQualityIssues(LOGGED_IQ_SOURCE);
+    const issues = detectLocalRuntimeQualityIssues(LOGGED_IQ_SOURCE);
 
     expect(issues).toEqual(
       expect.arrayContaining([
@@ -782,12 +782,12 @@ describe('detectOpenUiQualityIssues', () => {
       issues: [],
     });
     expect(
-      detectOpenUiQualityIssues(REPAIRED_LOGGED_IQ_SOURCE).find((issue) => issue.code === 'undefined-state-reference'),
+      detectLocalRuntimeQualityIssues(REPAIRED_LOGGED_IQ_SOURCE).find((issue) => issue.code === 'undefined-state-reference'),
     ).toBeUndefined();
   });
 
   it('does not mark the canonical todo recipe when its local state is declared', () => {
-    const issues = detectOpenUiQualityIssues(`$draft = ""
+    const issues = detectLocalRuntimeQualityIssues(`$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
   path: "app.items",
@@ -812,13 +812,13 @@ root = AppShell([
   });
 
   it('does not mark a declared language switcher state as undefined', () => {
-    const issues = detectOpenUiQualityIssues(LANGUAGE_SWITCHER_SOURCE);
+    const issues = detectLocalRuntimeQualityIssues(LANGUAGE_SWITCHER_SOURCE);
 
     expect(issues.find((issue) => issue.code === 'undefined-state-reference')).toBeUndefined();
   });
 
   it('marks Checkbox action mode plus writable binding as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$accepted = false
 
 root = AppShell([
@@ -841,7 +841,7 @@ root = AppShell([
   });
 
   it('marks RadioGroup and Select action mode plus writable binding as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$plan = "pro"
 $filter = "all"
 planOptions = [
@@ -892,7 +892,7 @@ root = AppShell([
       issues: [],
     });
 
-    expect(detectOpenUiQualityIssues(source)).toEqual(
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
@@ -929,7 +929,7 @@ root = AppShell([
       issues: [],
     });
 
-    expect(detectOpenUiQualityIssues(source)).toEqual(
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
@@ -973,7 +973,7 @@ root = AppShell([
       isValid: true,
       issues: [],
     });
-    expect(detectOpenUiQualityIssues(source)).toEqual([]);
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual([]);
   });
 
   it('accepts a logged kanban draft that routes Select actions through a top-level $lastChoice mutation', () => {
@@ -1052,7 +1052,7 @@ root = AppShell([
       issues: [],
     });
     expect(
-      detectOpenUiQualityIssues(source),
+      detectLocalRuntimeQualityIssues(source),
     ).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1063,7 +1063,7 @@ root = AppShell([
   });
 
   it('marks $lastChoice outside Select/RadioGroup action mode flows as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `setFilter = Mutation("write_state", {
   path: "demo.filter",
   value: $lastChoice
@@ -1089,7 +1089,7 @@ root = AppShell([
   });
 
   it('marks item-bound controls inside @Each without action as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `items = Query("read_state", { path: "app.items" }, [])
 rows = @Each(items, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
@@ -1116,7 +1116,7 @@ root = AppShell([
   });
 
   it('does not mark item-bound controls inside @Each when action mode is used', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `items = Query("read_state", { path: "app.items" }, [])
 rows = @Each(items, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
@@ -1133,7 +1133,7 @@ root = AppShell([
   });
 
   it('marks index-based persisted mutation paths as blocking quality', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `toggleFirst = Mutation("merge_state", {
   path: "app.items.0",
   patch: { completed: true }
@@ -1160,7 +1160,7 @@ root = AppShell([
   });
 
   it('does not mark collection-level persisted mutation paths as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `saveItems = Mutation("write_state", {
   path: "app.items",
   value: []
@@ -1195,7 +1195,7 @@ root = AppShell([
 ])`;
 
     const validation = validateOpenUiSource(source);
-    const issues = detectOpenUiQualityIssues(source);
+    const issues = detectLocalRuntimeQualityIssues(source);
     const parserCaughtInlineTool = validation.issues.some((issue) => issue.code === 'inline-reserved');
     const qualityIssue = issues.find((issue) => issue.code === 'inline-tool-in-each');
 
@@ -1214,7 +1214,7 @@ root = AppShell([
   });
 
   it('marks stale append_state refresh as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
@@ -1249,7 +1249,7 @@ root = AppShell([
   });
 
   it('marks stale toggle_item_field refresh as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$targetItemId = ""
 items = Query("read_state", { path: "app.items" }, [])
 toggleItem = Mutation("toggle_item_field", {
@@ -1285,7 +1285,7 @@ root = AppShell([
   });
 
   it('marks a query that runs before the mutation as blocking stale refresh', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$draft = ""
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_state", {
@@ -1320,7 +1320,7 @@ root = AppShell([
   });
 
   it('marks a child-path mutation without parent-path refresh as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$flash = ""
 items = Query("read_state", { path: "app.items" }, [])
 toggleFirst = Mutation("merge_state", {
@@ -1354,7 +1354,7 @@ root = AppShell([
   });
 
   it('marks a parent-path mutation without child-path refresh as blocking', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `themeValue = Query("read_state", { path: "app.settings.theme" }, "light")
 saveSettings = Mutation("write_state", {
   path: "app.settings",
@@ -1383,7 +1383,7 @@ root = AppShell([
   });
 
   it('does not mark a child-path mutation as stale when a parent-path query reruns later in the same Action', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$flash = ""
 items = Query("read_state", { path: "app.items" }, [])
 toggleFirst = Mutation("merge_state", {
@@ -1406,7 +1406,7 @@ root = AppShell([
   });
 
   it('does not mark persisted refresh as blocking when the matching query reruns later in the same Action', () => {
-    const issues = detectOpenUiQualityIssues(
+    const issues = detectLocalRuntimeQualityIssues(
       `$draft = ""
 $flash = ""
 items = Query("read_state", { path: "app.items" }, [])

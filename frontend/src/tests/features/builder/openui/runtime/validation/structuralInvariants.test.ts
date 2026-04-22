@@ -1,5 +1,8 @@
 import { BUILDER_DEMO_PRESETS } from '@features/builder/openui/runtime/demos';
-import { detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
+import {
+  detectLocalRuntimeQualityIssues,
+  validateOpenUiSource,
+} from '@features/builder/openui/runtime/validation';
 import { ELEMENT_DEMO_DEFINITIONS } from '@pages/Elements/elementDemos';
 import { describe, expect, it } from 'vitest';
 
@@ -120,7 +123,7 @@ root = AppShell([
   });
 
   it('surfaces structural nesting violations as fatal quality issues', () => {
-    const issues = detectOpenUiQualityIssues(`root = AppShell([
+    const issues = detectLocalRuntimeQualityIssues(`root = AppShell([
   Screen("main", "Main", [
     Group("Body", "vertical", [
       Screen("details", "Details", [])

@@ -6,7 +6,7 @@ import { validateBuilderLlmRequest } from '@features/builder/config';
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import {
   applyOpenUiIssueSuggestions,
-  detectOpenUiQualityIssues,
+  detectLocalRuntimeQualityIssues,
   type OpenUiValidationResult,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
@@ -404,7 +404,7 @@ export function useValidationRepair({
 
       if (validation.isValid) {
         const qualityIssues = [
-          ...detectOpenUiQualityIssues(candidateResponse.source),
+          ...detectLocalRuntimeQualityIssues(candidateResponse.source),
           ...(candidateResponse.qualityIssues ?? []),
         ];
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');

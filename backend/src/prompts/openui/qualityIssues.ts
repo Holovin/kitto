@@ -29,7 +29,7 @@ const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
 
 export type { OpenUiQualityIssue, OpenUiQualityIssueSeverity } from './quality/shared.js';
 
-export function detectOpenUiQualityIssues(source: string, userPrompt: string): OpenUiQualityIssue[] {
+export function detectPromptAwareQualityIssues(source: string, userPrompt: string): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
 
@@ -139,8 +139,8 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   return issues;
 }
 
-export function detectOpenUiQualityWarnings(source: string, userPrompt: string) {
-  return detectOpenUiQualityIssues(source, userPrompt)
+export function detectPromptAwareQualityWarnings(source: string, userPrompt: string) {
+  return detectPromptAwareQualityIssues(source, userPrompt)
     .filter((issue) => issue.severity === 'soft-warning')
     .map(stripQualityIssueSeverity);
 }
