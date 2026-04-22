@@ -8,7 +8,6 @@ import {
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
-  retainPromptBuildChatHistory,
   type PromptBuildRequest,
 } from '../../prompts/openui.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '../../prompts/openui/requestConfig.js';
@@ -26,8 +25,6 @@ const STRUCTURED_SYSTEM_PROMPT_HASH = getOpenUiSystemPromptHash();
 const PLAIN_TEXT_SYSTEM_PROMPT_HASH = getOpenUiSystemPromptHash({ structuredOutput: false });
 const STRUCTURED_SYSTEM_PROMPT_CACHE_KEY = getOpenUiSystemPromptCacheKey();
 const PLAIN_TEXT_SYSTEM_PROMPT_CACHE_KEY = getOpenUiSystemPromptCacheKey({ structuredOutput: false });
-const INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS = 4;
-
 function getSystemPrompt(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_SYSTEM_PROMPT : PLAIN_TEXT_SYSTEM_PROMPT;
 }
@@ -84,7 +81,7 @@ export function getClient(env: AppEnv) {
   return cachedClient.client;
 }
 
-function createTextInputMessage(role: 'system' | 'user', text: string): ResponseInput[number] {
+function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: string): ResponseInput[number] {
   return {
     role,
     content: [
@@ -93,13 +90,6 @@ function createTextInputMessage(role: 'system' | 'user', text: string): Response
         text,
       },
     ],
-  };
-}
-
-function createAssistantHistoryMessage(text: string): ResponseInput[number] {
-  return {
-    role: 'assistant',
-    content: text,
   };
 }
 
@@ -122,16 +112,13 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
     ];
   }
 
-  const recentHistory = retainPromptBuildChatHistory(
-    filterPromptBuildChatHistory(request.chatHistory),
-    Math.min(env.LLM_CHAT_HISTORY_MAX_ITEMS, INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS),
-  );
+  const recentHistory = filterPromptBuildChatHistory(request.chatHistory);
 
   return [
     systemMessage,
     ...recentHistory.map((message) =>
       message.role === 'assistant'
-        ? createAssistantHistoryMessage(buildOpenUiAssistantSummaryMessage(message.content))
+        ? createTextInputMessage('assistant', buildOpenUiAssistantSummaryMessage(message.content))
         : createTextInputMessage('user', message.content),
     ),
     createTextInputMessage(

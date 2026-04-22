@@ -9,13 +9,12 @@ export { getPromptToolSpecSummaries, type PromptToolSpecSummary } from './toolSp
 export { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
 export {
   filterPromptBuildChatHistory,
-  isLegacyExcludedAssistantMessage,
   retainPromptBuildChatHistory,
   retainPromptBuildChatHistoryTail,
 } from './chatHistoryFilter.js';
+export { shouldExcludeSummaryFromLlmContext } from './summaryContext.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairPromptTemplate, REPAIR_PROMPT_CRITICAL_RULES } from './repairPrompt.js';
 export {
-  buildCompactChatHistoryContent,
   buildOpenUiAssistantSummaryMessage,
   buildOpenUiRawUserRequest,
   buildOpenUiUserPrompt,

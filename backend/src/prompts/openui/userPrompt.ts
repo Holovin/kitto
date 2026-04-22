@@ -1,7 +1,7 @@
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
 import { STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION } from './summaryRules.js';
-import type { PromptBuildChatHistoryMessage, PromptBuildRequest } from './types.js';
+import type { PromptBuildRequest } from './types.js';
 
 interface BuildOpenUiUserPromptOptions {
   chatHistoryMaxItems?: number;
@@ -47,12 +47,6 @@ function getUserPromptOutputInstruction(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_OUTPUT_INSTRUCTION : PLAIN_OUTPUT_INSTRUCTION;
 }
 
-export function buildCompactChatHistoryContent(messages: PromptBuildChatHistoryMessage[]) {
-  return messages
-    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
-    .join('\n\n');
-}
-
 export function buildOpenUiRawUserRequest(request: PromptBuildRequest) {
   const promptValue = typeof request.prompt === 'string' ? request.prompt : '';
 
@@ -63,7 +57,7 @@ export function buildOpenUiAssistantSummaryMessage(summary: string) {
   return buildPromptDataBlock('assistant_summary', [...ASSISTANT_SUMMARY_PREFIX_LINES, summary.trim()].join('\n'));
 }
 
-function buildOpenUiInitialUserPrompt(currentSource: string, userRequest: string, structuredOutput: boolean) {
+function buildOpenUiLatestUserTurn(currentSource: string, userRequest: string, structuredOutput: boolean) {
   const relevantExemplars = getRelevantRequestExemplars(userRequest);
 
   return [
@@ -83,10 +77,10 @@ export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOpti
   return [
     'Initial generation input shape:',
     '1. Stable system prompt (sent separately and reused for caching).',
-    '2. Optional earlier conversation turns (context only).',
-    '3. Final user turn (the only turn that defines the new task).',
+    '2. Optional earlier conversation turns, each sent as its own role-based message (context only).',
+    '3. Final user turn containing only the latest request, current source, optional relevant patterns, and output instructions.',
     '',
-    'Optional earlier conversation turns:',
+    'Optional earlier conversation turns sent to the model:',
     'User: [recent user message]',
     `Assistant:\n${buildOpenUiAssistantSummaryMessage('[recent assistant summary]')}`,
     '(repeat earlier User/Assistant turns as needed)',
@@ -95,7 +89,7 @@ export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOpti
     '[intent-specific examples only when they help the latest request]',
     '',
     'Final user turn sent to the model:',
-    buildOpenUiInitialUserPrompt(
+    buildOpenUiLatestUserTurn(
       '[current committed OpenUI source, or the blank-canvas placeholder when empty]',
       '[latest user request text]',
       structuredOutput,
@@ -127,5 +121,5 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';
 
-  return buildOpenUiInitialUserPrompt(currentSource, rawUserRequest, structuredOutput);
+  return buildOpenUiLatestUserTurn(currentSource, rawUserRequest, structuredOutput);
 }

@@ -143,6 +143,46 @@ const requestWithLongHistory: PromptBuildRequest = {
   ],
 };
 
+const requestWithSignupIterationHistory: PromptBuildRequest = {
+  ...request,
+  prompt: 'Кнопка продолжить должна быть неактивной пока почта не валидная',
+  currentSource: 'root = AppShell([])',
+  chatHistory: [
+    {
+      role: 'user',
+      content: 'Create a signup form with name, email, and a required agreement checkbox.',
+    },
+    {
+      role: 'assistant',
+      content: 'A simple signup form with name, email, and a required agreement checkbox.',
+    },
+    {
+      role: 'user',
+      content: 'Добавь экран после заполнения формы',
+    },
+    {
+      role: 'assistant',
+      content: 'A signup form with name, email, and required agreement checkbox. After submission, it now shows a confirmation screen.',
+    },
+    {
+      role: 'user',
+      content: 'Для email сделай фильтр почты',
+    },
+    {
+      role: 'assistant',
+      content: 'The signup form now includes an email filter dropdown. You can choose the email type before continuing to the confirmation screen.',
+    },
+    {
+      role: 'user',
+      content: 'Remove filter, add email validation',
+    },
+    {
+      role: 'assistant',
+      content: 'The signup form now has name, email, and a required agreement checkbox. Email validation is enabled, and the email filter control has been removed.',
+    },
+  ],
+};
+
 const repairRequest: PromptBuildRequest = {
   ...request,
   invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
@@ -335,7 +375,7 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: expect.stringContaining('<assistant_summary>'),
+        content: [{ type: 'input_text', text: expect.stringContaining('<assistant_summary>') }],
       },
       {
         role: 'user',
@@ -351,15 +391,15 @@ describe('generateOpenUiSource', () => {
         ],
       },
     ]);
-    expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
-    expect(initialCall?.input?.[2]?.content).not.toContain('Applied the latest chat instruction');
+    expect(initialCall?.input?.[2]?.content?.[0]?.text).toContain('Built a one-screen todo app.');
+    expect(initialCall?.input?.[2]?.content?.[0]?.text).not.toContain('Applied the latest chat instruction');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(2);
     expect(repairCall?.input?.[1]?.role).toBe('user');
     expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 1.');
   });
 
-  it('pins the first user request in role-based initial input when history exceeds the role-based window', async () => {
+  it('keeps the full filtered role-based history when request compaction has already finished upstream', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-pinned-role-based',
     });
@@ -377,7 +417,7 @@ describe('generateOpenUiSource', () => {
 
     const initialCall = responsesCreateMock.mock.calls[0]?.[0];
 
-    expect(initialCall?.input).toHaveLength(6);
+    expect(initialCall?.input).toHaveLength(8);
     expect(initialCall?.input?.[0]).toEqual({
       role: 'system',
       content: [{ type: 'input_text', text: expect.any(String) }],
@@ -388,22 +428,106 @@ describe('generateOpenUiSource', () => {
     });
     expect(initialCall?.input?.[2]).toEqual({
       role: 'assistant',
-      content: expect.stringContaining('Added filters and a settings screen.'),
+      content: [{ type: 'input_text', text: expect.stringContaining('Built a one-screen todo app.') }],
     });
     expect(initialCall?.input?.[3]).toEqual({
       role: 'user',
-      content: [{ type: 'input_text', text: 'Add a dark mode toggle.' }],
+      content: [{ type: 'input_text', text: 'Add filters and a settings screen.' }],
     });
     expect(initialCall?.input?.[4]).toEqual({
       role: 'assistant',
-      content: expect.stringContaining('Added dark mode support.'),
+      content: [{ type: 'input_text', text: expect.stringContaining('Added filters and a settings screen.') }],
     });
     expect(initialCall?.input?.[5]).toEqual({
+      role: 'user',
+      content: [{ type: 'input_text', text: 'Add a dark mode toggle.' }],
+    });
+    expect(initialCall?.input?.[6]).toEqual({
+      role: 'assistant',
+      content: [{ type: 'input_text', text: expect.stringContaining('Added dark mode support.') }],
+    });
+    expect(initialCall?.input?.[7]).toEqual({
       role: 'user',
       content: [
         {
           type: 'input_text',
           text: expect.stringContaining('<latest_user_request>\nBuild a todo app\n</latest_user_request>'),
+        },
+      ],
+    });
+  });
+
+  it('does not silently trim signup iteration history down to a stale assistant summary window', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-signup-history-window',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Keeps the Continue button disabled until the email is valid.',
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, requestWithSignupIterationHistory)).resolves.toEqual({
+      summary: 'Keeps the Continue button disabled until the email is valid.',
+      source: 'root = AppShell([])',
+    });
+
+    const initialCall = responsesCreateMock.mock.calls[0]?.[0];
+
+    expect(initialCall?.input).toHaveLength(10);
+    expect(initialCall?.input?.slice(1, -1)).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Create a signup form with name, email, and a required agreement checkbox.' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'input_text',
+            text: expect.stringContaining('A simple signup form with name, email, and a required agreement checkbox.'),
+          },
+        ],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Добавь экран после заполнения формы' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'input_text', text: expect.stringContaining('After submission, it now shows a confirmation screen.') }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Для email сделай фильтр почты' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'input_text', text: expect.stringContaining('email filter dropdown') }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Remove filter, add email validation' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'input_text',
+            text: expect.stringContaining('Email validation is enabled, and the email filter control has been removed.'),
+          },
+        ],
+      },
+    ]);
+    expect(initialCall?.input?.at(-1)).toEqual({
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: expect.stringContaining(
+            '<latest_user_request>\nКнопка продолжить должна быть неактивной пока почта не валидная\n</latest_user_request>',
+          ),
         },
       ],
     });

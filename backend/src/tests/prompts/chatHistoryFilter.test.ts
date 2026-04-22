@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  filterPromptBuildChatHistory,
-  retainPromptBuildChatHistory,
-  retainPromptBuildChatHistoryTail,
-  type RawPromptBuildChatHistoryMessage,
-} from '../../prompts/openui.js';
+import { filterPromptBuildChatHistory, retainPromptBuildChatHistory, retainPromptBuildChatHistoryTail, type RawPromptBuildChatHistoryMessage } from '../../prompts/openui.js';
 
 function createMessage(
   role: RawPromptBuildChatHistoryMessage['role'],
@@ -62,7 +57,7 @@ describe('filterPromptBuildChatHistory', () => {
     ]);
   });
 
-  it('falls back to filtering legacy and generic low-signal assistant summaries by template text', () => {
+  it('does not exclude assistant messages by template text alone', () => {
     expect(
       filterPromptBuildChatHistory(
         [
@@ -78,13 +73,37 @@ describe('filterPromptBuildChatHistory', () => {
       ),
     ).toEqual([
       {
+        content: 'Applied the latest chat instruction to the app definition.',
+        role: 'assistant',
+      },
+      {
+        content: 'Building: Adds a welcome screen…',
+        role: 'assistant',
+      },
+      {
+        content: 'Updated the app definition from the latest chat instruction.',
+        role: 'assistant',
+      },
+      {
+        content: 'Updated the app.',
+        role: 'assistant',
+      },
+      {
+        content: 'Made the requested changes.',
+        role: 'assistant',
+      },
+      {
+        content: 'The first draft had parser issues, so it was repaired automatically before commit.',
+        role: 'assistant',
+      },
+      {
         content: 'Kept the existing counter and added a reset button.',
         role: 'assistant',
       },
     ]);
   });
 
-  it('does not apply legacy assistant-summary fallback rules to user messages', () => {
+  it('keeps user messages that match historical assistant-only templates', () => {
     expect(filterPromptBuildChatHistory([createMessage('user', 'Import failed, try a different layout instead.')], 10)).toEqual([
       {
         content: 'Import failed, try a different layout instead.',
@@ -93,13 +112,15 @@ describe('filterPromptBuildChatHistory', () => {
     ]);
   });
 
-  it('respects the max item limit after excluding system and low-signal assistant messages', () => {
+  it('respects the max item limit after excluding system and flagged assistant messages', () => {
     expect(
       filterPromptBuildChatHistory(
         [
           createMessage('user', 'First request'),
           createMessage('system', 'The model returned an invalid draft. Sending one automatic repair request now.'),
-          createMessage('assistant', 'Updated the app definition from the latest chat instruction.'),
+          createMessage('assistant', 'Updated the app definition from the latest chat instruction.', {
+            excludeFromLlmContext: true,
+          }),
           createMessage('assistant', 'Preserved the todo flow and added filters.'),
           createMessage('system', 'The chat context was compacted to the most recent window, so 1 older message was omitted from this request.'),
           createMessage('user', 'Add sorting'),
@@ -139,6 +160,29 @@ describe('retainPromptBuildChatHistory', () => {
     ]);
   });
 
+  it('does not keep an assistant summary after dropping its paired user request', () => {
+    expect(
+      retainPromptBuildChatHistory(
+        [
+          { role: 'user', content: 'Create a signup form' },
+          { role: 'assistant', content: 'Built the initial signup form.' },
+          { role: 'user', content: 'Add a confirmation screen' },
+          { role: 'assistant', content: 'Added a confirmation screen after submit.' },
+          { role: 'user', content: 'Add an email filter' },
+          { role: 'assistant', content: 'Added an email filter dropdown.' },
+          { role: 'user', content: 'Remove filter and add validation' },
+          { role: 'assistant', content: 'Removed the filter and added email validation.' },
+        ],
+        4,
+      ),
+    ).toEqual([
+      { role: 'user', content: 'Create a signup form' },
+      { role: 'user', content: 'Add an email filter' },
+      { role: 'user', content: 'Remove filter and add validation' },
+      { role: 'assistant', content: 'Removed the filter and added email validation.' },
+    ]);
+  });
+
   it('falls back to the newest tail when no user message exists', () => {
     expect(
       retainPromptBuildChatHistory(
@@ -157,7 +201,7 @@ describe('retainPromptBuildChatHistory', () => {
 });
 
 describe('retainPromptBuildChatHistoryTail', () => {
-  it('can shrink to the first user request plus the newest tail', () => {
+  it('can shrink to the first user request plus the newest user turn without orphaning an assistant summary', () => {
     expect(
       retainPromptBuildChatHistoryTail(
         [
@@ -170,7 +214,7 @@ describe('retainPromptBuildChatHistoryTail', () => {
       ),
     ).toEqual([
       { role: 'user', content: 'Build a todo app' },
-      { role: 'assistant', content: 'Added filters.' },
+      { role: 'user', content: 'Add filters' },
     ]);
   });
 });

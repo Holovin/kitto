@@ -369,7 +369,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(JSON.stringify(payload)).not.toContain(fakeApiKey);
   });
 
-  it('compacts chat history by item limit while preserving the first user request', async () => {
+  it('compacts chat history by item limit while preserving the first user request without orphaning an assistant summary', async () => {
     const { app, env } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 2,
       OPENAI_MODEL: 'gpt-test-model',
@@ -417,7 +417,7 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'build a compact app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: [chatHistory[0], chatHistory[3]],
+      chatHistory: [chatHistory[0], chatHistory[2]],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
@@ -482,7 +482,7 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
-  it('filters excludeFromLlmContext and low-signal assistant summaries before compaction and generation', async () => {
+  it('filters excludeFromLlmContext before compaction and generation', async () => {
     const { app } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 5,
     });
@@ -497,8 +497,8 @@ describe('createLlmOpenUiRoutes', () => {
         prompt: 'build a compact app',
         currentSource: '',
         chatHistory: [
-          { role: 'assistant', content: 'Updated the app definition from the latest chat instruction.' },
-          { role: 'assistant', content: 'Updated the app.' },
+          { role: 'assistant', content: 'Updated the app definition from the latest chat instruction.', excludeFromLlmContext: true },
+          { role: 'assistant', content: 'Updated the app.', excludeFromLlmContext: true },
           { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
           { role: 'assistant', content: 'Keep this out of context.', excludeFromLlmContext: true },
           { role: 'user', content: 'Add sorting controls.' },
@@ -516,6 +516,38 @@ describe('createLlmOpenUiRoutes', () => {
         { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
         { role: 'user', content: 'Add sorting controls.' },
       ],
+    });
+  });
+
+  it('marks low-signal non-stream summaries to stay out of LLM context', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-test-model',
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Updated the app.',
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'build a compact app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      model: 'gpt-test-model',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Updated the app.',
+      summaryExcludeFromLlmContext: true,
+      temperature: 0.6,
     });
   });
 
@@ -720,6 +752,43 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      temperature: 0.6,
+    });
+  });
+
+  it('includes summaryExcludeFromLlmContext in done events for low-signal streamed summaries', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-stream-model',
+    });
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      await onTextDelta('{"summary":"Updated the app.","source":"root = ');
+      await onTextDelta('AppShell([])"}');
+      return {
+        source: 'root = AppShell([])',
+        summary: 'Updated the app.',
+      };
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'stream a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
+      model: 'gpt-stream-model',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Updated the app.',
+      summaryExcludeFromLlmContext: true,
       temperature: 0.6,
     });
   });

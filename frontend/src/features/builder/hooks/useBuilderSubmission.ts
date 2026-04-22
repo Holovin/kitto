@@ -123,9 +123,15 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     generationLifecycle.throwIfInactiveRequest(requestId);
     const snapshot = createBuilderSnapshot(validatedResult.source, {}, store.getState().domain.data);
     const committedSummary = streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
+    const committedSummaryExcludeFromLlmContext =
+      validatedResult.summary !== undefined
+        ? validatedResult.summaryExcludeFromLlmContext
+        : response.summaryExcludeFromLlmContext;
 
     if (committedSummary) {
-      streamingSummary.upsertStreamingSummaryMessage(requestId, committedSummary);
+      streamingSummary.upsertStreamingSummaryMessage(requestId, committedSummary, {
+        excludeFromLlmContext: committedSummaryExcludeFromLlmContext,
+      });
     }
 
     applyCompactionNotice(requestId, response.compaction);

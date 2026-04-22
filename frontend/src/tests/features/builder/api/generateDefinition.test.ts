@@ -202,6 +202,38 @@ describe('generateBuilderDefinition', () => {
     );
   });
 
+  it('passes through summaryExcludeFromLlmContext when the backend marks the summary as technical', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            model: 'gpt-5.4-mini',
+            source: 'root = AppShell([])',
+            summary: 'Updated the app.',
+            summaryExcludeFromLlmContext: true,
+            temperature: 0.6,
+          } satisfies BuilderLlmResponse),
+          {
+            headers: {
+              'content-type': 'application/json',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(generateBuilderDefinition(createGenerateRequestOptions())).resolves.toEqual({
+      model: 'gpt-5.4-mini',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Updated the app.',
+      summaryExcludeFromLlmContext: true,
+      temperature: 0.6,
+    });
+  });
+
   it('marks automatic repair requests with a dedicated transport header', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

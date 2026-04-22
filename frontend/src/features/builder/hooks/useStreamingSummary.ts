@@ -7,6 +7,7 @@ import { store } from '@store/store';
 const PENDING_SUMMARY_THROTTLE_MS = 150;
 
 interface PendingSummaryState {
+  excludeFromLlmContext?: boolean;
   lastFlushedAt: number | null;
   latestSummary: string;
   timerId: ReturnType<typeof setTimeout> | null;
@@ -72,6 +73,7 @@ export function useStreamingSummary() {
     }
 
     const nextState: PendingSummaryState = {
+      excludeFromLlmContext: undefined,
       lastFlushedAt: null,
       latestSummary: '',
       timerId: null,
@@ -98,6 +100,7 @@ export function useStreamingSummary() {
     dispatch(
       builderActions.appendChatMessage({
         content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
+        excludeFromLlmContext: pendingSummaryState.excludeFromLlmContext,
         messageKey: getStreamingSummaryMessageKey(requestId),
         role: 'assistant',
       }),
@@ -145,7 +148,11 @@ export function useStreamingSummary() {
     return normalizeCommittedSummary(pendingSummaryMessage.content);
   }
 
-  function upsertStreamingSummaryMessage(requestId: BuilderRequestId, summary: string, options?: { pending?: boolean }) {
+  function upsertStreamingSummaryMessage(
+    requestId: BuilderRequestId,
+    summary: string,
+    options?: { excludeFromLlmContext?: boolean; pending?: boolean },
+  ) {
     const trimmedSummary = summary.trim();
 
     if (!trimmedSummary) {
@@ -153,6 +160,7 @@ export function useStreamingSummary() {
     }
 
     const pendingSummaryState = getPendingSummaryState(requestId);
+    pendingSummaryState.excludeFromLlmContext = options?.pending ? true : options?.excludeFromLlmContext;
     pendingSummaryState.latestSummary = trimmedSummary;
 
     if (!options?.pending) {

@@ -88,10 +88,12 @@ export interface BuilderLlmResponse {
   qualityIssues?: BuilderQualityIssue[];
   source: string;
   summary?: string;
+  summaryExcludeFromLlmContext?: boolean;
   temperature: number;
 }
 
-export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary'> {
+export interface BuilderGeneratedDraft
+  extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary' | 'summaryExcludeFromLlmContext'> {
   commitSource: BuilderCommitSource;
   requestId: BuilderRequestId;
 }

@@ -182,6 +182,33 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
+  it('returns summaryExcludeFromLlmContext from the done event when present', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\ndata: {"summary":"Updated the app.","source":"root = AppShell([])"}\n\n',
+            'event: done\ndata: {"summary":"Updated the app.","summaryExcludeFromLlmContext":true,"source":"root = AppShell([])"}\n\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(streamBuilderDefinition(createStreamRequestOptions())).resolves.toEqual({
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Updated the app.',
+      summaryExcludeFromLlmContext: true,
+    });
+  });
+
   it('normalizes CRLF-delimited SSE events before parsing them', async () => {
     const onChunk = vi.fn();
 

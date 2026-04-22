@@ -1,17 +1,5 @@
 import type { PromptBuildChatHistoryMessage, RawPromptBuildChatHistoryMessage } from './types.js';
 
-const LEGACY_EXCLUDED_ASSISTANT_MESSAGE_PATTERNS = [
-  /^Applied the latest chat instruction\b/,
-  /^Building:/,
-  /^Updated the app definition\b/,
-  /^(?:Updated|Changed|Modified) the (?:current )?(?:app|app definition|ui|interface)\.?$/i,
-  /^(?:Made|Applied|Implemented|Completed) the requested (?:changes|update)\.?$/i,
-  /^The model returned\b/,
-  /^The first draft\b/,
-  /^Definition exported\b/,
-  /^Import failed\b/,
-] as const;
-
 function isPromptConversationChatMessage(
   message: RawPromptBuildChatHistoryMessage,
 ): message is RawPromptBuildChatHistoryMessage & { role: PromptBuildChatHistoryMessage['role'] } {
@@ -30,6 +18,75 @@ function getFirstUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
   return messages.findIndex((message) => message.role === 'user');
 }
 
+interface PromptBuildChatHistoryTurn {
+  assistants: PromptBuildChatHistoryMessage[];
+  user: PromptBuildChatHistoryMessage;
+}
+
+function buildPromptBuildChatHistoryTurns(messages: PromptBuildChatHistoryMessage[]) {
+  const turns: PromptBuildChatHistoryTurn[] = [];
+  let currentTurn: PromptBuildChatHistoryTurn | null = null;
+
+  for (const message of messages) {
+    if (message.role === 'user') {
+      currentTurn = {
+        assistants: [],
+        user: message,
+      };
+      turns.push(currentTurn);
+      continue;
+    }
+
+    if (!currentTurn) {
+      continue;
+    }
+
+    currentTurn.assistants.push(message);
+  }
+
+  return turns;
+}
+
+function retainNewestTurnAwareTail(
+  messages: PromptBuildChatHistoryMessage[],
+  maxItems: number,
+): PromptBuildChatHistoryMessage[] {
+  const normalizedMaxItems = normalizeMaxItems(maxItems);
+
+  if (normalizedMaxItems <= 0) {
+    return [];
+  }
+
+  if (!Number.isFinite(normalizedMaxItems) || messages.length <= normalizedMaxItems) {
+    return messages;
+  }
+
+  const turns = buildPromptBuildChatHistoryTurns(messages);
+
+  if (turns.length === 0) {
+    return messages.slice(-normalizedMaxItems);
+  }
+
+  const retainedTurns: PromptBuildChatHistoryMessage[][] = [];
+  let remainingItems = normalizedMaxItems;
+
+  for (let index = turns.length - 1; index >= 0 && remainingItems > 0; index -= 1) {
+    const turn = turns[index];
+
+    if (!turn) {
+      continue;
+    }
+
+    const turnMessages = [turn.user, ...turn.assistants];
+    const retainedTurnMessages = turnMessages.slice(0, remainingItems);
+
+    retainedTurns.unshift(retainedTurnMessages);
+    remainingItems -= retainedTurnMessages.length;
+  }
+
+  return retainedTurns.flat();
+}
+
 export function retainPromptBuildChatHistoryTail(
   messages: PromptBuildChatHistoryMessage[],
   latestTailCount: number,
@@ -46,17 +103,11 @@ export function retainPromptBuildChatHistoryTail(
     return firstUserMessage ? [firstUserMessage] : [];
   }
 
-  const tailMessages = messages.slice(-normalizedTailCount);
-
   if (!firstUserMessage) {
-    return tailMessages;
+    return retainNewestTurnAwareTail(messages, normalizedTailCount);
   }
 
-  const tailStartIndex = messages.length - tailMessages.length;
-
-  if (firstUserMessageIndex >= tailStartIndex) {
-    return tailMessages;
-  }
+  const tailMessages = retainNewestTurnAwareTail(messages.slice(firstUserMessageIndex + 1), normalizedTailCount);
 
   return [firstUserMessage, ...tailMessages];
 }
@@ -82,27 +133,11 @@ export function retainPromptBuildChatHistory(
     return messages.slice(-normalizedMaxItems);
   }
 
-  const newestWindowStartIndex = messages.length - normalizedMaxItems;
-
-  if (firstUserMessageIndex >= newestWindowStartIndex) {
-    return messages.slice(-normalizedMaxItems);
-  }
-
   if (normalizedMaxItems === 1) {
     return [firstUserMessage];
   }
 
-  return [firstUserMessage, ...messages.slice(-(normalizedMaxItems - 1))];
-}
-
-export function isLegacyExcludedAssistantMessage(message: Pick<RawPromptBuildChatHistoryMessage, 'content' | 'role'>) {
-  if (message.role !== 'assistant') {
-    return false;
-  }
-
-  const normalizedContent = message.content.trim();
-
-  return LEGACY_EXCLUDED_ASSISTANT_MESSAGE_PATTERNS.some((pattern) => pattern.test(normalizedContent));
+  return retainPromptBuildChatHistoryTail(messages, normalizedMaxItems - 1);
 }
 
 export function filterPromptBuildChatHistory(
@@ -119,7 +154,6 @@ export function filterPromptBuildChatHistory(
     .filter(isPromptConversationChatMessage)
     .filter((message) => message.content.trim().length > 0)
     .filter((message) => message.excludeFromLlmContext !== true)
-    .filter((message) => !isLegacyExcludedAssistantMessage(message))
     .map(({ content, role }) => ({ content, role }));
 
   if (!Number.isFinite(normalizedMaxItems)) {

@@ -22,6 +22,7 @@ interface StreamDonePayload {
   qualityIssues?: BuilderQualityIssue[];
   source?: string;
   summary?: string;
+  summaryExcludeFromLlmContext?: boolean;
   temperature?: number;
 }
 
@@ -30,6 +31,7 @@ interface StreamBuilderDefinitionResult {
   qualityIssues: BuilderQualityIssue[];
   source: string;
   summary?: string;
+  summaryExcludeFromLlmContext?: boolean;
 }
 
 interface PartialJsonStringValue {
@@ -556,6 +558,7 @@ export async function streamBuilderDefinition({
         qualityIssues: donePayload.qualityIssues ?? [],
         source: donePayload.source,
         summary: donePayload.summary,
+        summaryExcludeFromLlmContext: donePayload.summaryExcludeFromLlmContext,
       };
     }
 

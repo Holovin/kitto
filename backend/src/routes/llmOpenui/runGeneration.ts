@@ -1,6 +1,10 @@
 import type { Context } from 'hono';
 import type { AppEnv } from '../../env.js';
-import { detectPromptAwareQualityIssues, getOpenUiTemperature } from '../../prompts/openui.js';
+import {
+  detectPromptAwareQualityIssues,
+  getOpenUiTemperature,
+  shouldExcludeSummaryFromLlmContext,
+} from '../../prompts/openui.js';
 import { getRequestClientKey } from '../../requestMetadata.js';
 import { assertModelOutputWithinLimit } from '../../services/openai/envelope.js';
 import { generateOpenUiSource, type OpenUiGenerationEnvelope } from '../../services/openai.js';
@@ -21,6 +25,7 @@ export function createLlmResponsePayload(
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
     qualityIssues: detectPromptAwareQualityIssues(responseEnvelope.source, invocation.request.prompt),
+    summaryExcludeFromLlmContext: shouldExcludeSummaryFromLlmContext(responseEnvelope.summary) || undefined,
     temperature: getOpenUiTemperature(invocation.request.mode),
     ...responseEnvelope,
   };

@@ -36,6 +36,7 @@ describe('GET /api/prompts/info', () => {
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
+    expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');

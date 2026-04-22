@@ -19,7 +19,7 @@ Guardrails:
 - when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial conversation input plus repair prompt text
-- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, qualityIssues, compaction? }`
+- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 
 ## Prompt docs page
@@ -29,7 +29,7 @@ Guardrails:
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
-- Confirm the user prompt template documents the role-based initial input shape, including assistant summary wrapping plus final `<latest_user_request>` and `<current_source>` blocks.
+- Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and rejects generic phrasing such as `Updated the app`.
 - Confirm the repair-prompt block carries the same structured-summary guidance when structured output is enabled, and falls back to raw-only repair instructions when structured output is disabled.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
@@ -53,7 +53,7 @@ Guardrails:
 - `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
 - Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
-- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `compaction`.
+- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 - When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Committed assistant summaries that stay in LLM context should describe concrete user-visible changes; generic status-only summaries such as `Updated the app` or `Made the requested changes` should not survive as context.

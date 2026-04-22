@@ -443,6 +443,7 @@ export function useValidationRepair({
           requestId: candidateResponse.requestId,
           source: candidateResponse.source,
           summary: candidateResponse.summary,
+          summaryExcludeFromLlmContext: candidateResponse.summaryExcludeFromLlmContext,
           warnings: qualityWarnings,
         };
       }

@@ -24,7 +24,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
 6. While a generation is streaming, Chat should surface one human-readable pending assistant summary, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
-7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `compaction`.
+7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 8. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
 9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no repair LLM request is sent.
 
@@ -54,7 +54,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
   - `Output envelope schema`.
 - The system-prompt block shows a visible `systemPromptHash`.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
-- The user prompt template shows the role-based initial input shape, including assistant summary wrapping plus final `<latest_user_request>` and `<current_source>` blocks.
+- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and must not use generic phrases like `Updated the app`.
 - The `Repair prompt` section carries the same structured-summary quality guidance when structured output is enabled.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.

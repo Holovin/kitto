@@ -898,6 +898,7 @@ describe('useBuilderSubmission', () => {
     expect(findChatMessage('Building: Adds a welcome…')).toEqual(
       expect.objectContaining({
         content: 'Building: Adds a welcome…',
+        excludeFromLlmContext: true,
         role: 'assistant',
       }),
     );
@@ -942,6 +943,32 @@ describe('useBuilderSubmission', () => {
       }),
     );
     expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
+
+    submission.unmount();
+  });
+
+  it('keeps low-signal committed summaries out of future LLM context when the backend marks them as technical', async () => {
+    setDraftPrompt('Do a tiny update.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+      summary: 'Updated the app.',
+      summaryExcludeFromLlmContext: true,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(findChatMessage('Updated the app.')).toEqual(
+      expect.objectContaining({
+        content: 'Updated the app.',
+        excludeFromLlmContext: true,
+        role: 'assistant',
+      }),
+    );
+    expect(getBuilderState().chatMessages.some((message) => message.content === 'Applied the latest chat instruction to the app definition.')).toBe(
+      false,
+    );
 
     submission.unmount();
   });
