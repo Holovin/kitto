@@ -112,6 +112,37 @@ const requestWithHistory: PromptBuildRequest = {
   ],
 };
 
+const requestWithLongHistory: PromptBuildRequest = {
+  ...request,
+  currentSource: 'root = AppShell([])',
+  chatHistory: [
+    {
+      role: 'user',
+      content: 'Start with a tiny todo app.',
+    },
+    {
+      role: 'assistant',
+      content: 'Built a one-screen todo app.',
+    },
+    {
+      role: 'user',
+      content: 'Add filters and a settings screen.',
+    },
+    {
+      role: 'assistant',
+      content: 'Added filters and a settings screen.',
+    },
+    {
+      role: 'user',
+      content: 'Add a dark mode toggle.',
+    },
+    {
+      role: 'assistant',
+      content: 'Added dark mode support.',
+    },
+  ],
+};
+
 const repairRequest: PromptBuildRequest = {
   ...request,
   invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
@@ -326,6 +357,56 @@ describe('generateOpenUiSource', () => {
     expect(repairCall?.input).toHaveLength(2);
     expect(repairCall?.input?.[1]?.role).toBe('user');
     expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 1.');
+  });
+
+  it('pins the first user request in role-based initial input when history exceeds the role-based window', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-pinned-role-based',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, requestWithLongHistory)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    const initialCall = responsesCreateMock.mock.calls[0]?.[0];
+
+    expect(initialCall?.input).toHaveLength(6);
+    expect(initialCall?.input?.[0]).toEqual({
+      role: 'system',
+      content: [{ type: 'input_text', text: expect.any(String) }],
+    });
+    expect(initialCall?.input?.[1]).toEqual({
+      role: 'user',
+      content: [{ type: 'input_text', text: 'Start with a tiny todo app.' }],
+    });
+    expect(initialCall?.input?.[2]).toEqual({
+      role: 'assistant',
+      content: expect.stringContaining('Added filters and a settings screen.'),
+    });
+    expect(initialCall?.input?.[3]).toEqual({
+      role: 'user',
+      content: [{ type: 'input_text', text: 'Add a dark mode toggle.' }],
+    });
+    expect(initialCall?.input?.[4]).toEqual({
+      role: 'assistant',
+      content: expect.stringContaining('Added dark mode support.'),
+    });
+    expect(initialCall?.input?.[5]).toEqual({
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: expect.stringContaining('<latest_user_request>\nBuild a todo app\n</latest_user_request>'),
+        },
+      ],
+    });
   });
 
   it('keeps the same cached system prefix and prompt cache key across initial and repair requests', async () => {

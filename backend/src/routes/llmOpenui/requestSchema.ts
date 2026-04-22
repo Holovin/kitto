@@ -5,6 +5,8 @@ import { RequestValidationError } from '../../errors/publicError.js';
 import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
 import {
   filterPromptBuildChatHistory,
+  retainPromptBuildChatHistory,
+  retainPromptBuildChatHistoryTail,
   type PromptBuildRequest,
   type PromptBuildValidationIssue,
   type RawPromptBuildChatHistoryMessage,
@@ -110,12 +112,13 @@ function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedL
   let compactedByBytes = false;
   let compactedByItemLimit = false;
   let omittedChatMessages = 0;
-  let chatHistory = request.chatHistory;
+  let chatHistory = filterPromptBuildChatHistory(request.chatHistory);
 
   if (chatHistory.length > env.LLM_CHAT_HISTORY_MAX_ITEMS) {
-    omittedChatMessages += chatHistory.length - env.LLM_CHAT_HISTORY_MAX_ITEMS;
+    const retainedChatHistory = retainPromptBuildChatHistory(chatHistory, env.LLM_CHAT_HISTORY_MAX_ITEMS);
+    omittedChatMessages += chatHistory.length - retainedChatHistory.length;
     compactedByItemLimit = true;
-    chatHistory = chatHistory.slice(-env.LLM_CHAT_HISTORY_MAX_ITEMS);
+    chatHistory = retainedChatHistory;
   }
 
   let compactedRequest: PromptBuildRequest = {
@@ -125,31 +128,36 @@ function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedL
 
   if (getRequestSizeBytes(compactedRequest) > env.LLM_REQUEST_MAX_BYTES && compactedRequest.chatHistory.length > 0) {
     compactedByBytes = true;
-    const chatHistoryForCompaction = compactedRequest.chatHistory;
-    let minimumRemovedMessages = chatHistoryForCompaction.length;
-    let lowerBound = 1;
+    const chatHistoryForCompaction = filterPromptBuildChatHistory(compactedRequest.chatHistory);
+    let maximumRetainedTailCount: number | null = null;
+    let lowerBound = 0;
     let upperBound = chatHistoryForCompaction.length;
 
-    // Request size decreases monotonically as older history entries are removed.
+    // Request size grows monotonically as we retain a larger newest-tail window.
     while (lowerBound <= upperBound) {
-      const removedMessages = Math.floor((lowerBound + upperBound) / 2);
+      const retainedTailCount = Math.floor((lowerBound + upperBound) / 2);
+      const retainedChatHistory = retainPromptBuildChatHistoryTail(chatHistoryForCompaction, retainedTailCount);
       const candidateRequest = {
         ...compactedRequest,
-        chatHistory: chatHistoryForCompaction.slice(removedMessages),
+        chatHistory: retainedChatHistory,
       };
 
       if (getRequestSizeBytes(candidateRequest) <= env.LLM_REQUEST_MAX_BYTES) {
-        minimumRemovedMessages = removedMessages;
-        upperBound = removedMessages - 1;
-      } else {
-        lowerBound = removedMessages + 1;
+        maximumRetainedTailCount = retainedTailCount;
+        lowerBound = retainedTailCount + 1;
+        continue;
       }
+
+      upperBound = retainedTailCount - 1;
     }
 
-    omittedChatMessages += minimumRemovedMessages;
+    const retainedChatHistory =
+      maximumRetainedTailCount === null ? [] : retainPromptBuildChatHistoryTail(chatHistoryForCompaction, maximumRetainedTailCount);
+
+    omittedChatMessages += chatHistoryForCompaction.length - retainedChatHistory.length;
     compactedRequest = {
       ...compactedRequest,
-      chatHistory: chatHistoryForCompaction.slice(minimumRemovedMessages),
+      chatHistory: retainedChatHistory,
     };
   }
 

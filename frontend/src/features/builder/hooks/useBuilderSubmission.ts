@@ -54,7 +54,7 @@ function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
   }
 
   if (compaction.compactedByItemLimit) {
-    return `The chat context was compacted to the most recent window, so ${omittedLabel} ${omittedVerb} omitted from this request.`;
+    return `The chat context was compacted to keep the earliest user request and the newest context, so ${omittedLabel} ${omittedVerb} omitted from this request.`;
   }
 
   return null;

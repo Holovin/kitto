@@ -369,7 +369,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(JSON.stringify(payload)).not.toContain(fakeApiKey);
   });
 
-  it('compacts chat history by item limit before generation', async () => {
+  it('compacts chat history by item limit while preserving the first user request', async () => {
     const { app, env } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 2,
       OPENAI_MODEL: 'gpt-test-model',
@@ -417,7 +417,7 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'build a compact app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: chatHistory.slice(-2),
+      chatHistory: [chatHistory[0], chatHistory[3]],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
@@ -476,7 +476,7 @@ describe('createLlmOpenUiRoutes', () => {
       currentSource: '',
       mode: 'initial',
       chatHistory: [
-        { role: 'assistant', content: 'recent assistant reply' },
+        { role: 'user', content: 'oldest user message' },
         { role: 'user', content: 'most recent user message' },
       ],
     });
@@ -614,7 +614,7 @@ describe('createLlmOpenUiRoutes', () => {
     );
   });
 
-  it('compacts oversized requests by bytes while keeping the newest chat messages', async () => {
+  it('compacts oversized requests by bytes while preserving the first user request when possible', async () => {
     const { app } = createRouteApp({
       LLM_REQUEST_MAX_BYTES: 260,
     });
@@ -648,12 +648,13 @@ describe('createLlmOpenUiRoutes', () => {
     const [, calledRequest] = generateCall;
 
     expect(calledRequest.chatHistory.length).toBeLessThan(chatHistory.length);
-    expect(calledRequest.chatHistory).toEqual(chatHistory.slice(-calledRequest.chatHistory.length));
+    expect(calledRequest.chatHistory[0]).toEqual(chatHistory[0]);
+    expect(calledRequest.chatHistory).toEqual([chatHistory[0]]);
     expect(payload).toEqual({
       compaction: {
         compactedByBytes: true,
         compactedByItemLimit: false,
-        omittedChatMessages: chatHistory.length - calledRequest.chatHistory.length,
+        omittedChatMessages: 2,
       },
       model: 'gpt-5.4-mini',
       qualityIssues: [],

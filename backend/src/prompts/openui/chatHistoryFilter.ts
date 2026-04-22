@@ -26,6 +26,75 @@ function normalizeMaxItems(maxItems?: number) {
   return Math.max(0, Math.floor(maxItems));
 }
 
+function getFirstUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
+  return messages.findIndex((message) => message.role === 'user');
+}
+
+export function retainPromptBuildChatHistoryTail(
+  messages: PromptBuildChatHistoryMessage[],
+  latestTailCount: number,
+): PromptBuildChatHistoryMessage[] {
+  if (messages.length === 0) {
+    return [];
+  }
+
+  const normalizedTailCount = Math.max(0, Math.min(messages.length, Math.floor(latestTailCount)));
+  const firstUserMessageIndex = getFirstUserMessageIndex(messages);
+  const firstUserMessage = firstUserMessageIndex >= 0 ? messages[firstUserMessageIndex] : null;
+
+  if (normalizedTailCount === 0) {
+    return firstUserMessage ? [firstUserMessage] : [];
+  }
+
+  const tailMessages = messages.slice(-normalizedTailCount);
+
+  if (!firstUserMessage) {
+    return tailMessages;
+  }
+
+  const tailStartIndex = messages.length - tailMessages.length;
+
+  if (firstUserMessageIndex >= tailStartIndex) {
+    return tailMessages;
+  }
+
+  return [firstUserMessage, ...tailMessages];
+}
+
+export function retainPromptBuildChatHistory(
+  messages: PromptBuildChatHistoryMessage[],
+  maxItems?: number,
+): PromptBuildChatHistoryMessage[] {
+  const normalizedMaxItems = normalizeMaxItems(maxItems);
+
+  if (normalizedMaxItems <= 0) {
+    return [];
+  }
+
+  if (!Number.isFinite(normalizedMaxItems) || messages.length <= normalizedMaxItems) {
+    return messages;
+  }
+
+  const firstUserMessageIndex = getFirstUserMessageIndex(messages);
+  const firstUserMessage = firstUserMessageIndex >= 0 ? messages[firstUserMessageIndex] : null;
+
+  if (!firstUserMessage) {
+    return messages.slice(-normalizedMaxItems);
+  }
+
+  const newestWindowStartIndex = messages.length - normalizedMaxItems;
+
+  if (firstUserMessageIndex >= newestWindowStartIndex) {
+    return messages.slice(-normalizedMaxItems);
+  }
+
+  if (normalizedMaxItems === 1) {
+    return [firstUserMessage];
+  }
+
+  return [firstUserMessage, ...messages.slice(-(normalizedMaxItems - 1))];
+}
+
 export function isLegacyExcludedAssistantMessage(message: Pick<RawPromptBuildChatHistoryMessage, 'content' | 'role'>) {
   if (message.role !== 'assistant') {
     return false;

@@ -8,6 +8,7 @@ import {
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
+  retainPromptBuildChatHistory,
   type PromptBuildRequest,
 } from '../../prompts/openui.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '../../prompts/openui/requestConfig.js';
@@ -121,8 +122,9 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
     ];
   }
 
-  const recentHistory = filterPromptBuildChatHistory(request.chatHistory, env.LLM_CHAT_HISTORY_MAX_ITEMS).slice(
-    -INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS,
+  const recentHistory = retainPromptBuildChatHistory(
+    filterPromptBuildChatHistory(request.chatHistory),
+    Math.min(env.LLM_CHAT_HISTORY_MAX_ITEMS, INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS),
   );
 
   return [

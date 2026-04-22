@@ -54,6 +54,7 @@ Guardrails:
 - Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
 - Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `compaction`.
+- When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Committed assistant summaries that stay in LLM context should describe concrete user-visible changes; generic status-only summaries such as `Updated the app` or `Made the requested changes` should not survive as context.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.

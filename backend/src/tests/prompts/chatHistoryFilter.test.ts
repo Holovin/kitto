@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { filterPromptBuildChatHistory, type RawPromptBuildChatHistoryMessage } from '../../prompts/openui.js';
+import {
+  filterPromptBuildChatHistory,
+  retainPromptBuildChatHistory,
+  retainPromptBuildChatHistoryTail,
+  type RawPromptBuildChatHistoryMessage,
+} from '../../prompts/openui.js';
 
 function createMessage(
   role: RawPromptBuildChatHistoryMessage['role'],
@@ -111,6 +116,61 @@ describe('filterPromptBuildChatHistory', () => {
         content: 'Add sorting',
         role: 'user',
       },
+    ]);
+  });
+});
+
+describe('retainPromptBuildChatHistory', () => {
+  it('pins the first user request while keeping the newest remaining context', () => {
+    expect(
+      retainPromptBuildChatHistory(
+        [
+          { role: 'user', content: 'Build a todo app' },
+          { role: 'assistant', content: 'Built the initial todo app.' },
+          { role: 'user', content: 'Add filters' },
+          { role: 'assistant', content: 'Added filters.' },
+        ],
+        3,
+      ),
+    ).toEqual([
+      { role: 'user', content: 'Build a todo app' },
+      { role: 'user', content: 'Add filters' },
+      { role: 'assistant', content: 'Added filters.' },
+    ]);
+  });
+
+  it('falls back to the newest tail when no user message exists', () => {
+    expect(
+      retainPromptBuildChatHistory(
+        [
+          { role: 'assistant', content: 'First summary' },
+          { role: 'assistant', content: 'Second summary' },
+          { role: 'assistant', content: 'Third summary' },
+        ],
+        2,
+      ),
+    ).toEqual([
+      { role: 'assistant', content: 'Second summary' },
+      { role: 'assistant', content: 'Third summary' },
+    ]);
+  });
+});
+
+describe('retainPromptBuildChatHistoryTail', () => {
+  it('can shrink to the first user request plus the newest tail', () => {
+    expect(
+      retainPromptBuildChatHistoryTail(
+        [
+          { role: 'user', content: 'Build a todo app' },
+          { role: 'assistant', content: 'Built the initial todo app.' },
+          { role: 'user', content: 'Add filters' },
+          { role: 'assistant', content: 'Added filters.' },
+        ],
+        1,
+      ),
+    ).toEqual([
+      { role: 'user', content: 'Build a todo app' },
+      { role: 'assistant', content: 'Added filters.' },
     ]);
   });
 });

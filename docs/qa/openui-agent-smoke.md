@@ -25,7 +25,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
    - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
 6. While a generation is streaming, Chat should surface one human-readable pending assistant summary, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
 7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `compaction`.
-8. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no repair LLM request is sent.
+8. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
+9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no repair LLM request is sent.
 
 ## MCP automation notes
 

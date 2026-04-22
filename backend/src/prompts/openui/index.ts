@@ -7,7 +7,12 @@ export {
 export { getPromptInfoSnapshot, type PromptInfoSnapshot } from './promptInfo.js';
 export { getPromptToolSpecSummaries, type PromptToolSpecSummary } from './toolSpecs.js';
 export { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
-export { filterPromptBuildChatHistory, isLegacyExcludedAssistantMessage } from './chatHistoryFilter.js';
+export {
+  filterPromptBuildChatHistory,
+  isLegacyExcludedAssistantMessage,
+  retainPromptBuildChatHistory,
+  retainPromptBuildChatHistoryTail,
+} from './chatHistoryFilter.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairPromptTemplate, REPAIR_PROMPT_CRITICAL_RULES } from './repairPrompt.js';
 export {
   buildCompactChatHistoryContent,
