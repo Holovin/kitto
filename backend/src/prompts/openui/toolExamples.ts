@@ -107,6 +107,9 @@ root = AppShell([
     Repeater(itemRows, "No matching items.")
   ])
 ])`,
+  `saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })
+addTag = Mutation("append_state", { path: "app.tags", value: "urgent" })
+removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })`,
   `$email = ""
 $priority = "normal"
 

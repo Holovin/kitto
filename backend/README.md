@@ -80,7 +80,29 @@ Accepts:
 }
 ```
 
-Returns a full JSON payload with `source`, `model`, `summary`, and optional `compaction`.
+The model first returns a structured envelope shaped like:
+
+```json
+{
+  "summary": "Builds a todo app.",
+  "source": "root = AppShell([])"
+}
+```
+
+The backend then returns a response payload shaped like:
+
+```json
+{
+  "source": "root = AppShell([])",
+  "model": "gpt-5.4-mini",
+  "summary": "Builds a todo app.",
+  "compaction": {
+    "compactedByBytes": false,
+    "compactedByItemLimit": true,
+    "omittedChatMessages": 2
+  }
+}
+```
 
 `summary` is always present.
 
@@ -88,8 +110,8 @@ Returns a full JSON payload with `source`, `model`, `summary`, and optional `com
 
 Accepts the same request shape and streams Server-Sent Events:
 
-- `chunk` - incremental raw model text; with structured output enabled this is a partial JSON envelope that the frontend parses into `summary` / `source`
-- `done` - final JSON payload with `source`, `model`, `summary`, and optional `compaction`
+- `chunk` - incremental raw model text; with structured output enabled this is a partial model envelope carrying `summary` / `source`
+- `done` - final backend response payload with `source`, `model`, `summary`, and optional `compaction`
 - `error` - terminal public error payload
 
 ## Current behavior

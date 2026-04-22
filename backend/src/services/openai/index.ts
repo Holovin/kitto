@@ -18,7 +18,7 @@ import {
 
 interface PromptIoRequestMetrics {
   compactedRequestBytes?: number | null;
-  compactionTrimmedItems?: number | null;
+  omittedChatMessages?: number | null;
   requestBytes?: number | null;
 }
 
@@ -40,7 +40,7 @@ async function finalizeOpenUiModelResponse(
     assertModelOutputWithinLimit(parsedEnvelope.source, env);
     await writePromptIoLogSafely(env, request, responseRequest, rawModelText, {
       compactedRequestBytes: options.compactedRequestBytes,
-      compactionTrimmedItems: options.compactionTrimmedItems,
+      omittedChatMessages: options.omittedChatMessages,
       durationMs: options.durationMs,
       parsedEnvelope,
       requestId: options.requestId,
@@ -51,7 +51,7 @@ async function finalizeOpenUiModelResponse(
   } catch (error) {
     await writePromptIoFailureSafely(env, request, responseRequest, rawModelText, {
       compactedRequestBytes: options.compactedRequestBytes,
-      compactionTrimmedItems: options.compactionTrimmedItems,
+      omittedChatMessages: options.omittedChatMessages,
       durationMs: options.durationMs,
       error,
       parsedEnvelope,
@@ -86,7 +86,7 @@ export async function generateOpenUiSource(
     if (!isAbortedRequestError(error, signal)) {
       await writePromptIoFailureSafely(env, request, responseRequest, '', {
         compactedRequestBytes: telemetry?.compactedRequestBytes,
-        compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+        omittedChatMessages: telemetry?.omittedChatMessages,
         durationMs: Date.now() - startedAt,
         error,
         phase: 'request',
@@ -102,7 +102,7 @@ export async function generateOpenUiSource(
 
   return finalizeOpenUiModelResponse(env, request, responseRequest, extractResponseText(response), {
     compactedRequestBytes: telemetry?.compactedRequestBytes,
-    compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+    omittedChatMessages: telemetry?.omittedChatMessages,
     durationMs: Date.now() - startedAt,
     requestId: telemetry?.requestId,
     requestBytes: telemetry?.requestBytes,
@@ -133,7 +133,7 @@ export async function streamOpenUiSource(
     if (!isAbortedRequestError(error, signal)) {
       await writePromptIoFailureSafely(env, request, responseRequest, '', {
         compactedRequestBytes: telemetry?.compactedRequestBytes,
-        compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+        omittedChatMessages: telemetry?.omittedChatMessages,
         durationMs: Date.now() - startedAt,
         error,
         phase: 'request',
@@ -158,7 +158,7 @@ export async function streamOpenUiSource(
   } catch (error) {
     await writePromptIoFailureSafely(env, request, responseRequest, streamState.streamedText, {
       compactedRequestBytes: telemetry?.compactedRequestBytes,
-      compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+      omittedChatMessages: telemetry?.omittedChatMessages,
       durationMs: Date.now() - startedAt,
       error,
       errorCode: isAbortedRequestError(error, signal) ? 'client_aborted' : undefined,
@@ -173,7 +173,7 @@ export async function streamOpenUiSource(
 
   return finalizeOpenUiModelResponse(env, request, responseRequest, finalResponseText, {
     compactedRequestBytes: telemetry?.compactedRequestBytes,
-    compactionTrimmedItems: telemetry?.compactionTrimmedItems,
+    omittedChatMessages: telemetry?.omittedChatMessages,
     durationMs: Date.now() - startedAt,
     requestId: telemetry?.requestId,
     requestBytes: telemetry?.requestBytes,

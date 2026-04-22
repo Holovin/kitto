@@ -36,7 +36,7 @@ interface RawParsedLlmRequest {
 interface PreparedLlmInvocation {
   compaction?: LlmRequestCompaction;
   compactedRequestBytes: number;
-  compactionTrimmedItems: number;
+  omittedChatMessages: number;
   request: PromptBuildRequest;
   requestBytes: number;
   requestId: string;
@@ -194,7 +194,7 @@ async function logIntakeFailure(
   env: AppEnv,
   options: {
     compactedRequestBytes?: number | null;
-    compactionTrimmedItems?: number | null;
+    omittedChatMessages?: number | null;
     error: unknown;
     partialBody?: unknown;
     requestBytes?: number | null;
@@ -205,7 +205,7 @@ async function logIntakeFailure(
 
   await writePromptIoIntakeFailureSafely(env, {
     compactedRequestBytes: options.compactedRequestBytes,
-    compactionTrimmedItems: options.compactionTrimmedItems,
+    omittedChatMessages: options.omittedChatMessages,
     errorCode: publicError.code,
     errorMessage: publicError.error,
     partialBody: options.partialBody,
@@ -286,7 +286,7 @@ async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<Prep
 
   const compactedRequest = compactLlmRequest(request, env);
   const compactedRequestBytes = getRequestSizeBytes(compactedRequest.request);
-  const compactionTrimmedItems = compactedRequest.compaction?.omittedChatMessages ?? 0;
+  const omittedChatMessages = compactedRequest.compaction?.omittedChatMessages ?? 0;
 
   if (compactedRequestBytes > env.LLM_REQUEST_MAX_BYTES) {
     const compactionError = new RequestValidationError(
@@ -299,7 +299,7 @@ async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<Prep
 
     await logIntakeFailure(env, {
       compactedRequestBytes,
-      compactionTrimmedItems,
+      omittedChatMessages,
       error: compactionError,
       partialBody: parsedBody,
       requestBytes,
@@ -311,7 +311,7 @@ async function prepareLlmInvocation(context: Context, env: AppEnv): Promise<Prep
   return {
     ...compactedRequest,
     compactedRequestBytes,
-    compactionTrimmedItems,
+    omittedChatMessages,
     requestBytes,
     requestId,
   };
@@ -480,7 +480,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         context.req.raw.signal,
         {
           compactedRequestBytes: invocation.compactedRequestBytes,
-          compactionTrimmedItems: invocation.compactionTrimmedItems,
+          omittedChatMessages: invocation.omittedChatMessages,
           requestBytes: invocation.requestBytes,
           requestId: invocation.requestId,
         },
@@ -506,7 +506,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
         (onDelta, signal, requestId) =>
           streamOpenUiSource(env, invocation.request, onDelta, signal, {
             compactedRequestBytes: invocation.compactedRequestBytes,
-            compactionTrimmedItems: invocation.compactionTrimmedItems,
+            omittedChatMessages: invocation.omittedChatMessages,
             requestBytes: invocation.requestBytes,
             requestId,
           }),

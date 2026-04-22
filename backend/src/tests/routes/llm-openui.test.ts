@@ -420,7 +420,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
       compactedRequestBytes: expect.any(Number),
-      compactionTrimmedItems: 2,
+      omittedChatMessages: 2,
       requestBytes: expect.any(Number),
       requestId: expect.any(String),
     });
@@ -691,7 +691,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(calledTelemetry).toEqual(
       expect.objectContaining({
         compactedRequestBytes: expect.any(Number),
-        compactionTrimmedItems: 0,
+        omittedChatMessages: 0,
         requestBytes: expect.any(Number),
         requestId: expect.any(String),
       }),

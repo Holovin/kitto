@@ -183,7 +183,7 @@ function getPromptLogErrorMessage(error: unknown) {
 
 interface PromptIoRequestMetrics {
   compactedRequestBytes?: number | null;
-  compactionTrimmedItems?: number | null;
+  omittedChatMessages?: number | null;
   requestBytes?: number | null;
 }
 
@@ -224,7 +224,7 @@ export async function writePromptIoLogSafely(
   rawModelText: unknown,
   options: {
     compactedRequestBytes?: number | null;
-    compactionTrimmedItems?: number | null;
+    omittedChatMessages?: number | null;
     durationMs: number;
     parsedEnvelope: OpenUiGenerationEnvelope | null;
     requestId?: string | null;
@@ -249,7 +249,7 @@ export async function writePromptIoLogSafely(
         chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
-        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
+        omittedChatMessages: options.omittedChatMessages ?? null,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -274,7 +274,7 @@ export async function writePromptIoFailureSafely(
   rawModelText: unknown,
   options: {
     compactedRequestBytes?: number | null;
-    compactionTrimmedItems?: number | null;
+    omittedChatMessages?: number | null;
     durationMs: number;
     error: unknown;
     errorCode?: string;
@@ -302,7 +302,7 @@ export async function writePromptIoFailureSafely(
         chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
-        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
+        omittedChatMessages: options.omittedChatMessages ?? null,
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -347,7 +347,7 @@ export async function writePromptIoIntakeFailureSafely(
         chatHistoryLen: partialContext.chatHistoryLen,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
-        compactionTrimmedItems: options.compactionTrimmedItems ?? null,
+        omittedChatMessages: options.omittedChatMessages ?? null,
         validationIssues: partialContext.validationIssues,
         errorCode: options.errorCode,
         errorMessage: options.errorMessage,

@@ -61,11 +61,12 @@ Notes:
 ## 5. AI usage note
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
-- By default, the backend requests a structured Responses API envelope shaped like `{"source":"..."}` and extracts `.source` before OpenUI validation, quality checks, repair, and commit.
+- By default, the backend requests a structured model envelope shaped like `{"summary":"...","source":"..."}` from the OpenAI Responses API.
+- The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","compaction"?:{...}}`.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers at most one repair pass before commit.
-- During streaming, Definition may temporarily show raw structured JSON draft chunks; commit still happens only from the final extracted `done.source`.
+- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done.source`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 - Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.
@@ -111,7 +112,7 @@ Notes:
 - `appearance.mainColor` is the main surface/background color, and `appearance.contrastColor` is the contrasting text/action color.
 - `Text(value, variant?, align?, appearance?)` accepts only `appearance.contrastColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.mainColor` and `appearance.contrastColor`.
 - `Checkbox` supports both local form bindings and explicit action-mode toggles: use a writable `$binding<boolean>` for form state, or a display-only boolean plus `Action([...])` for persisted row updates.
-- `Button(..., "default", ...)` inverts the pair so background uses `contrastColor` and text uses `mainColor`; `Button(..., "secondary", ...)` uses the pair as-is.
+- For any `Button(..., variant, ..., appearance)`, `appearance.mainColor` sets the button background and `appearance.contrastColor` sets the button text. Variants differ only by fallback styling when no `appearance` is provided.
 - Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.

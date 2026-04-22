@@ -37,7 +37,7 @@ describe('promptLog.write', () => {
         chatHistoryLen: 7,
         requestBytes: 1_200,
         compactedRequestBytes: 800,
-        compactionTrimmedItems: 2,
+        omittedChatMessages: 2,
         systemPromptHash: 'abc123def456',
         modelInput: {
           input: [
@@ -75,12 +75,16 @@ describe('promptLog.write', () => {
     const entry = JSON.parse(line ?? '{}') as {
       modelInput: { input: Array<{ content: Array<{ text: string }> }> };
       modelOutputRaw: string;
+      omittedChatMessages: number;
       parsedEnvelope: { source: string; summary: string };
       rawUserRequest: string;
       validationIssues: string[];
+      compactionTrimmedItems?: unknown;
     };
 
     expect(entry.rawUserRequest).toBe('uuuuuuuuuuuuuuuu… [truncated 24 chars]');
+    expect(entry.omittedChatMessages).toBe(2);
+    expect(entry).not.toHaveProperty('compactionTrimmedItems');
     expect(entry.modelInput.input[0]?.content[0]?.text).toBe('mmmmmmmmmmmmmmmm… [truncated 24 chars]');
     expect(entry.modelOutputRaw).toBe('oooooooooooooooo… [truncated 24 chars]');
     expect(entry.parsedEnvelope.source).toBe('ssssssssssssssss… [truncated 24 chars]');
@@ -192,7 +196,7 @@ describe('promptLog.write', () => {
         chatHistoryLen: 4,
         requestBytes: 900,
         compactedRequestBytes: 700,
-        compactionTrimmedItems: 1,
+        omittedChatMessages: 1,
         systemPromptHash: 'hash123',
         modelInput: {
           input: [{ content: [{ text: 'model input body', type: 'input_text' }], role: 'user' }],
@@ -218,11 +222,15 @@ describe('promptLog.write', () => {
       errorCode: string;
       errorMessage: string;
       modelOutputRaw: string;
+      omittedChatMessages: number;
       parentRequestId: string;
       phase: string;
+      compactionTrimmedItems?: unknown;
     };
 
     expect(entry.parentRequestId).toBe('request-parent');
+    expect(entry.omittedChatMessages).toBe(1);
+    expect(entry).not.toHaveProperty('compactionTrimmedItems');
     expect(entry.errorCode).toBe('timeout_error');
     expect(entry.errorMessage).toBe('The model reques… [truncated 12 chars]');
     expect(entry.phase).toBe('stream');

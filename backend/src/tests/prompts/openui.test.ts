@@ -46,6 +46,10 @@ describe('openui prompts', () => {
     expect(buildOpenUiSystemPrompt()).toMatchSnapshot();
   });
 
+  it('keeps the structured system prompt under the current size budget', () => {
+    expect(buildOpenUiSystemPrompt().length).toBeLessThan(49_000);
+  });
+
   it('builds stable system prompt cache keys per prompt variant', () => {
     const structuredKey = getOpenUiSystemPromptCacheKey();
     const plainTextKey = getOpenUiSystemPromptCacheKey({ structuredOutput: false });
@@ -59,8 +63,8 @@ describe('openui prompts', () => {
     expect(structuredKey).not.toBe(plainTextKey);
     expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
       {
-        "plainTextKey": "kitto:openui:pl:f22bd520f637:ed304a5b566f5cf5",
-        "structuredKey": "kitto:openui:st:f22bd520f637:237df68c1101b8f9",
+        "plainTextKey": "kitto:openui:pl:f22bd520f637:d58b26b28f853362",
+        "structuredKey": "kitto:openui:st:f22bd520f637:e876b488554eebea",
       }
     `);
   });
@@ -172,14 +176,11 @@ describe('openui prompts', () => {
       'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
     );
     expect(prompt).toContain(
-      'Use compute tools only when the user asks for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
+      'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
     );
-    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough.');
+    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
     expect(prompt).toContain(
-      'Use `write_computed_state` only when a button must compute and persist a primitive value.',
-    );
-    expect(prompt).toContain(
-      'Do not add compute tools to simple CRUD/list apps unless the user asks for calculations, random values, date comparisons, or other compute-specific behavior.',
+      'Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.',
     );
     expect(prompt).toContain('Use only documented shallow objects:');
     expect(prompt).toContain('Do not invent any other nested config objects.');
@@ -388,13 +389,20 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');
   });
 
+  it('includes short examples for merge_state, append_state, and remove_state', () => {
+    const prompt = buildOpenUiSystemPrompt();
+
+    expect(prompt).toContain('saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })');
+    expect(prompt).toContain('addTag = Mutation("append_state", { path: "app.tags", value: "urgent" })');
+    expect(prompt).toContain('removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })');
+  });
+
   it('documents the safe compute tools with built-ins-first guidance', () => {
     const prompt = buildOpenUiSystemPrompt();
 
     expect(prompt).toContain('Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.');
-    expect(prompt).toContain('Use `compute_value` only for safe primitive calculations that OpenUI built-ins and normal expressions do not already cover well.');
-    expect(prompt).toContain('Use `write_computed_state` when an action such as a button should compute a primitive value and persist it for later rendering.');
-    expect(prompt).toContain('Do not use compute tools for simple list CRUD, basic screen navigation, filtering, or normal input display.');
+    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
+    expect(prompt).toContain('Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.');
     expect(prompt).toContain(
       'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
     );
@@ -404,16 +412,13 @@ describe('openui prompts', () => {
     expect(prompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
     expect(prompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
     expect(prompt).toContain('4. `Text(...)` reads `rollValue`, not the Mutation ref.');
-    expect(prompt).toContain('Do not render a Mutation statement reference directly in UI text');
-    expect(prompt).toContain('can stringify as `[object Object]`');
-    expect(prompt).toContain('For button-triggered random values, use `write_computed_state` with `op: "random_int"`.');
-    expect(prompt).toContain('Do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.');
-    expect(prompt).toContain('For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`.');
-    expect(prompt).toContain('Do not expect a Mutation result object to automatically refresh visible text.');
-    expect(prompt).toContain('When a `write_computed_state` result should be displayed after a click, read the persisted primitive through `Query("read_state", { path: "..." }, defaultValue)` after the mutation.');
-    expect(prompt).toContain('Do not rely on `mutationRef.data.value` to refresh visible text for persisted compute flows; the canonical path is state write plus `Query("read_state", ...)` re-read.');
-    expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
-    expect(prompt).toContain('Use `random_int` only with integer min/max options.');
+    expect(prompt).toContain(
+      'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
+    );
+    expect(prompt).toContain(
+      'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`; display the persisted primitive, not a Mutation ref or `mutationRef.data.value`.',
+    );
+    expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.');
     expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
     expect(prompt).toContain(
       'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',
