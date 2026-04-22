@@ -54,6 +54,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The system-prompt block shows a visible `systemPromptHash`.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The user prompt template shows the role-based initial input shape, including assistant summary wrapping plus final `<latest_user_request>` and `<current_source>` blocks.
+- The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and must not use generic phrases like `Updated the app`.
+- The `Repair prompt` section carries the same structured-summary quality guidance when structured output is enabled.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` keeps the runtime-config badge visible.
@@ -125,6 +127,7 @@ Add a required checkbox confirmation before the result screen.
 - Checkbox appears before result/submit.
 - Checkbox affects the flow or validation.
 - The pre-commit chat summary stays readable and the committed assistant summary remains in chat after success.
+- The committed assistant summary says what changed in concrete user terms rather than generic status text such as `Updated the app`.
 - Final committed source is valid.
 - If repair runs, final repaired app still works.
 - No broken actions or unresolved refs remain.

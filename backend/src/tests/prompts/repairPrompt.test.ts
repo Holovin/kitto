@@ -50,6 +50,11 @@ describe('buildOpenUiRepairPrompt', () => {
       promptMaxChars: 4_000,
     });
 
+    expect(prompt).toContain('Place the full corrected OpenUI Lang program in `source`.');
+    expect(prompt).not.toContain('Return only raw OpenUI Lang.');
+    expect(prompt).toContain(
+      'Make `summary` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.',
+    );
     expect(prompt).toContain('AppShell signature is AppShell(children, appearance?).');
     expect(prompt).toContain(
       'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
@@ -73,6 +78,23 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain('Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.');
     expect(prompt).toContain('Invalid model draft:');
     expect(prompt).toContain('Validation issues:');
+  });
+
+  it('keeps repair prompts raw-only when structured output is disabled', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Repair the broken draft.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([])',
+      issues: [],
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_000,
+      structuredOutput: false,
+    });
+
+    expect(prompt).toContain('Return only raw OpenUI Lang.');
+    expect(prompt).not.toContain('Place the full corrected OpenUI Lang program in `source`.');
+    expect(prompt).not.toContain('Make `summary` a short user-facing description of the visible app/change with concrete features/screens');
   });
 
   it('adds targeted hints when Group.direction fails validation', () => {
@@ -262,9 +284,7 @@ root = AppShell([
     });
 
     expect(prompt).toContain('Targeted repair hints:');
-    expect(prompt).toContain(
-      'Wrap each option in `{ label: "...", value: "..." }`. The `value` is what gets stored in `$binding`; the `label` is what users see.',
-    );
+    expect(prompt).toContain('Wrap each option in `{ label: "...", value: "..." }`.');
     expect(prompt).toContain(
       'quality-options-shape in questions: RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
     );

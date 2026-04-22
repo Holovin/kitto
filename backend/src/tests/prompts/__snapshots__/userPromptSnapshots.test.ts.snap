@@ -21,7 +21,7 @@ Build a compact todo app
 root = AppShell([])
 </current_source>
 
-Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\` of the resulting app or change."
+Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in 1-2 short user-facing sentences. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition"."
 `;
 
 exports[`buildOpenUiUserPrompt snapshots > keeps the repair prompt snapshot stable 1`] = `
@@ -48,14 +48,13 @@ Targeted repair hints:
 - If you need Group variant "block" or "inline", place it in the optional fourth argument.
 - Never put "block" or "inline" in the second Group argument.
 - The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add @Run(items) later in the same Action after @Run(addItem).
-- A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.
+- A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(…
 
 Model draft to repair:
 root = AppShell([Group("Todo", "block", [])])
 
 Current critical syntax rules:
-- Return only raw OpenUI Lang.
-- Return the full updated program.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.

@@ -62,7 +62,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
       temperature: getOpenUiTemperature('initial'),
     },
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
-    repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),
+    repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS, { structuredOutput }),
     systemPrompt: {
       hash: getOpenUiSystemPromptHash({ structuredOutput }),
       text: buildOpenUiSystemPrompt({ structuredOutput }),

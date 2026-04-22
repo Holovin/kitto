@@ -38,7 +38,7 @@ Quality issues:
 - undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
 
 Targeted repair hints:
-- Add every missing \`$var\` as a top-level literal declaration before root.
+- Add every missing \`$var\` before root.
 - Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
 
 Model draft to repair:
@@ -123,13 +123,10 @@ Group("Question 11", "vertical", [
 ]),
 Group("Question 12", "vertical", [
   Text("Question 12", "body", "start"),
-  RadioGroup("question-12", "Question 12", $q12, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }…
+  RadioGroup("quest…
 
 Current critical syntax rules:
-- Return only raw OpenUI Lang.
-- Return the full updated program.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -193,7 +190,7 @@ Quality issues:
 - undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
 
 Targeted repair hints:
-- Add every missing \`$var\` as a top-level literal declaration before root.
+- Add every missing \`$var\` before root.
 - Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
 
 Model draft to repair:
@@ -226,14 +223,10 @@ Group("Question 4", "vertical", [
     { label: "Yes", value: "yes" },
     { label: "No", value: "no" }
   ])
-]),
-Group("Question 5", "vertical", [
-  Text("Question 5", "body", "start"),
-  RadioGroup("question-5…
+]…
 
 Current critical syntax rules:
-- Return only raw OpenUI Lang.
-- Return the full updated program.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -283,8 +276,7 @@ Model draft to repair:
 root = AppShell([])
 
 Current critical syntax rules:
-- Return only raw OpenUI Lang.
-- Return the full updated program.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.

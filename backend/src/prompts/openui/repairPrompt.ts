@@ -1,5 +1,6 @@
 import { MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
+import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
@@ -25,12 +26,13 @@ const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'Do not read `$lastChoice` directly in Text(...), disabled expressions, or unrelated statements.',
 ] as const;
 
-export const REPAIR_PROMPT_CRITICAL_RULES = [
-  'Return only raw OpenUI Lang.',
-  'Return the full updated program.',
+const REPAIR_CORE_CRITICAL_RULES = [
   'Use only supported components and tools.',
   'Every @Run(ref) must reference a defined Query or Mutation.',
   'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
+] as const;
+
+const REPAIR_LAYOUT_CRITICAL_RULES = [
   'AppShell signature is AppShell(children, appearance?).',
   'Screen signature is Screen(id, title, children, isActive?, appearance?).',
   'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
@@ -39,17 +41,43 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put "block" or "inline" in the second Group argument.',
   'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
+] as const;
+
+const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
   'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
+] as const;
+
+const REPAIR_APPEARANCE_CRITICAL_RULES = [
   'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
   'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
   BUTTON_APPEARANCE_RULE,
   'Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
+] as const;
+
+const REPAIR_STATE_CRITICAL_RULES = [
   'Use $currentScreen + @Set for screen navigation.',
   'Declare every `$var` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.',
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
 ] as const;
+
+function buildRepairPromptCriticalRules(structuredOutput: boolean) {
+  const repairOutputRules = structuredOutput
+    ? [`Place the full corrected OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`]
+    : ['Return only raw OpenUI Lang.', 'Return the full updated program.'];
+
+  return [
+    ...repairOutputRules,
+    ...REPAIR_CORE_CRITICAL_RULES,
+    ...REPAIR_LAYOUT_CRITICAL_RULES,
+    ...REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES,
+    ...REPAIR_APPEARANCE_CRITICAL_RULES,
+    ...REPAIR_STATE_CRITICAL_RULES,
+  ] as const;
+}
+
+export const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules(true);
 
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
@@ -291,6 +319,29 @@ function allocateRepairSectionBudgets(
   let remainingChars = totalChars;
 
   if (remainingChars <= minimumTotal) {
+    if (hasHints) {
+      const issueBudget = Math.min(cappedMinimums.issues, Math.floor(remainingChars * 0.1));
+      const draftBudget = Math.min(cappedMinimums.invalidSource, Math.max(0, remainingChars - issueBudget) > 0 ? 1 : 0);
+      const hintBudget = Math.min(cappedMinimums.hints, remainingChars - issueBudget - draftBudget);
+
+      budgets.issues = issueBudget;
+      budgets.hints = hintBudget;
+      budgets.invalidSource = draftBudget;
+      remainingChars -= issueBudget + hintBudget + draftBudget;
+
+      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && candidate !== 'invalidSource')) {
+        if (remainingChars <= 0) {
+          break;
+        }
+
+        const allocation = Math.min(cappedMinimums[key], remainingChars);
+        budgets[key] = allocation;
+        remainingChars -= allocation;
+      }
+
+      return budgets;
+    }
+
     for (const key of priority) {
       if (remainingChars <= 0) {
         break;
@@ -395,7 +446,7 @@ function buildRepairHints(issues: PromptBuildValidationIssue[], invalidSource: s
       addUniqueLine(
         hints,
         seenHints,
-        'Wrap each option in `{ label: "...", value: "..." }`. The `value` is what gets stored in `$binding`; the `label` is what users see.',
+        'Wrap each option in `{ label: "...", value: "..." }`.',
       );
       continue;
     }
@@ -519,7 +570,7 @@ function buildRepairHints(issues: PromptBuildValidationIssue[], invalidSource: s
     addUniqueLine(
       hints,
       seenHints,
-      'Add every missing `$var` as a top-level literal declaration before root.',
+      'Add every missing `$var` before root.',
     );
     addUniqueLine(
       hints,
@@ -614,11 +665,13 @@ interface BuildOpenUiRepairPromptArgs {
   issues: PromptBuildValidationIssue[];
   maxRepairAttempts: number;
   promptMaxChars: number;
+  structuredOutput?: boolean;
   userPrompt: string;
 }
 
 export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
+  const structuredOutput = args.structuredOutput ?? true;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
@@ -627,7 +680,9 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const rulesSection = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
+  const rulesSection = buildRepairPromptCriticalRules(structuredOutput)
+    .map((rule) => `- ${rule}`)
+    .join('\n');
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
     repairHints.map((hint) => `- ${hint}`),
@@ -685,7 +740,8 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   );
 }
 
-export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
+export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number, options: { structuredOutput?: boolean } = {}) {
+  const structuredOutput = options.structuredOutput ?? true;
   const parserExampleIssues: PromptBuildValidationIssue[] = [
     {
       code: 'invalid-prop',
@@ -713,6 +769,7 @@ export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
       issues,
       maxRepairAttempts,
       promptMaxChars: REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
+      structuredOutput,
       userPrompt: '{{userPrompt}}',
     })].join('\n\n');
 

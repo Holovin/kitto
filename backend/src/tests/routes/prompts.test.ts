@@ -39,10 +39,12 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
+    expect(payload.requestPromptTemplate).toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
     expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
     expect(payload.repairPromptTemplate).toContain('Quality-only repair example');
     expect(payload.repairPromptTemplate).toContain('Mixed repair example');
     expect(payload.repairPromptTemplate).toContain('Current critical syntax rules:');
+    expect(payload.repairPromptTemplate).toContain('Place the full corrected OpenUI Lang program in `source`.');
     expect(payload.toolSpecs).toEqual(getPromptToolSpecSummaries());
     expect(payload.envelopeSchema).toEqual({
       additionalProperties: false,
@@ -72,5 +74,9 @@ describe('GET /api/prompts/info', () => {
     expect(response.status).toBe(200);
     expect(payload).toEqual(getPromptInfoSnapshot(env));
     expect(payload.config.structuredOutput).toBe(false);
+    expect(payload.requestPromptTemplate).toContain('Return the full updated OpenUI Lang program only.');
+    expect(payload.requestPromptTemplate).not.toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
+    expect(payload.repairPromptTemplate).toContain('Return only raw OpenUI Lang.');
+    expect(payload.repairPromptTemplate).not.toContain('Place the full corrected OpenUI Lang program in `source`.');
   });
 });

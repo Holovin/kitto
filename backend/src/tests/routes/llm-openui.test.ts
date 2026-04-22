@@ -482,7 +482,7 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
-  it('filters excludeFromLlmContext and legacy assistant summaries before compaction and generation', async () => {
+  it('filters excludeFromLlmContext and low-signal assistant summaries before compaction and generation', async () => {
     const { app } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 5,
     });
@@ -498,6 +498,7 @@ describe('createLlmOpenUiRoutes', () => {
         currentSource: '',
         chatHistory: [
           { role: 'assistant', content: 'Updated the app definition from the latest chat instruction.' },
+          { role: 'assistant', content: 'Updated the app.' },
           { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
           { role: 'assistant', content: 'Keep this out of context.', excludeFromLlmContext: true },
           { role: 'user', content: 'Add sorting controls.' },

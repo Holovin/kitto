@@ -57,13 +57,15 @@ describe('filterPromptBuildChatHistory', () => {
     ]);
   });
 
-  it('falls back to filtering legacy persisted assistant summaries by template text', () => {
+  it('falls back to filtering legacy and generic low-signal assistant summaries by template text', () => {
     expect(
       filterPromptBuildChatHistory(
         [
           createMessage('assistant', 'Applied the latest chat instruction to the app definition.'),
           createMessage('assistant', 'Building: Adds a welcome screen…'),
           createMessage('assistant', 'Updated the app definition from the latest chat instruction.'),
+          createMessage('assistant', 'Updated the app.'),
+          createMessage('assistant', 'Made the requested changes.'),
           createMessage('assistant', 'The first draft had parser issues, so it was repaired automatically before commit.'),
           createMessage('assistant', 'Kept the existing counter and added a reset button.'),
         ],

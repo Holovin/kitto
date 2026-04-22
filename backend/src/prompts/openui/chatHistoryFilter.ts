@@ -4,6 +4,8 @@ const LEGACY_EXCLUDED_ASSISTANT_MESSAGE_PATTERNS = [
   /^Applied the latest chat instruction\b/,
   /^Building:/,
   /^Updated the app definition\b/,
+  /^(?:Updated|Changed|Modified) the (?:current )?(?:app|app definition|ui|interface)\.?$/i,
+  /^(?:Made|Applied|Implemented|Completed) the requested (?:changes|update)\.?$/i,
   /^The model returned\b/,
   /^The first draft\b/,
   /^Definition exported\b/,

@@ -1,4 +1,5 @@
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
+import { STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION } from './summaryRules.js';
 import type { PromptBuildChatHistoryMessage, PromptBuildRequest } from './types.js';
 
 interface BuildOpenUiUserPromptOptions {
@@ -26,8 +27,7 @@ const ASSISTANT_SUMMARY_PREFIX_LINES = [
   'The authoritative app state is always in the final `<current_source>` block.',
 ] as const;
 
-const STRUCTURED_OUTPUT_INSTRUCTION =
-  'Place the full updated OpenUI Lang program in `source`. Always include a concise human-readable `summary` of the resulting app or change.';
+const STRUCTURED_OUTPUT_INSTRUCTION = `Place the full updated OpenUI Lang program in \`source\`. ${STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION}`;
 const PLAIN_OUTPUT_INSTRUCTION = 'Return the full updated OpenUI Lang program only.';
 
 function getUserPromptOutputInstruction(structuredOutput: boolean) {
@@ -96,6 +96,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
         typeof options.maxRepairAttempts === 'number' && options.maxRepairAttempts > 0 ? Math.floor(options.maxRepairAttempts) : 1,
       promptMaxChars:
         typeof options.promptMaxChars === 'number' && options.promptMaxChars > 0 ? Math.floor(options.promptMaxChars) : 4_096,
+      structuredOutput: options.structuredOutput ?? true,
       userPrompt: buildOpenUiRawUserRequest(request),
     });
   }
