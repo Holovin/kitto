@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BuilderLlmRequest } from '@features/builder/types';
-import { streamBuilderDefinition } from '@features/builder/api/streamGenerate';
+import {
+  BuilderStreamTimeoutError,
+  parseServerSentEvent,
+  streamBuilderDefinition,
+} from '@features/builder/api/streamGenerate';
 
 const request: BuilderLlmRequest = {
   prompt: 'Build a todo app',
@@ -83,6 +87,51 @@ function createStreamRequestOptions(overrides: Partial<Parameters<typeof streamB
     ...overrides,
   };
 }
+
+describe('parseServerSentEvent', () => {
+  it('defaults to a message event for bare data payloads', () => {
+    expect(parseServerSentEvent('data: {"source":"root = AppShell([])"}')).toEqual({
+      event: 'message',
+      data: '{"source":"root = AppShell([])"}',
+    });
+  });
+
+  it('joins multiline data lines with newlines', () => {
+    expect(parseServerSentEvent('data: first line\ndata: second line')).toEqual({
+      event: 'message',
+      data: 'first line\nsecond line',
+    });
+  });
+
+  it('parses explicit chunk events', () => {
+    expect(parseServerSentEvent('event: chunk\ndata: partial')).toEqual({
+      event: 'chunk',
+      data: 'partial',
+    });
+  });
+
+  it('parses explicit error events', () => {
+    expect(parseServerSentEvent('event: error\ndata: {"code":"upstream_error"}')).toEqual({
+      event: 'error',
+      data: '{"code":"upstream_error"}',
+    });
+  });
+});
+
+describe('BuilderStreamTimeoutError', () => {
+  it('sets the right message for each timeout kind', () => {
+    expect(new BuilderStreamTimeoutError('idle')).toMatchObject({
+      kind: 'idle',
+      message: 'The generation stream went idle for too long. Please try again.',
+      name: 'BuilderStreamTimeoutError',
+    });
+    expect(new BuilderStreamTimeoutError('max-duration')).toMatchObject({
+      kind: 'max-duration',
+      message: 'The generation stream exceeded the maximum duration. Please try again.',
+      name: 'BuilderStreamTimeoutError',
+    });
+  });
+});
 
 describe('streamBuilderDefinition', () => {
   afterEach(() => {
@@ -424,6 +473,43 @@ describe('streamBuilderDefinition', () => {
     expect(onChunk).toHaveBeenCalledWith('root = AppShell([])');
   });
 
+  it('logs and skips malformed structured chunk events before continuing the stream', async () => {
+    const onChunk = vi.fn();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\ndata: {"source": }\n\n',
+            'event: chunk\ndata: {"source":"root = AppShell([])"}\n\n',
+            'event: done\ndata: {"source":"root = AppShell([])"}\n\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        ...createStreamRequestOptions({ onChunk }),
+      }),
+    ).resolves.toEqual({
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith('root = AppShell([])');
+    expect(warnSpy).toHaveBeenCalledWith('[builder.stream] Ignoring malformed structured chunk.');
+  });
+
   it('throws when the stream ends without a done event', async () => {
     vi.stubGlobal(
       'fetch',
@@ -473,6 +559,124 @@ describe('streamBuilderDefinition', () => {
     ).rejects.toMatchObject({
       name: 'AbortError',
     });
+  });
+
+  it('cancels the reader and removes abort listeners when aborted mid-stream', async () => {
+    const abortController = new AbortController();
+    const addEventListenerSpy = vi.spyOn(abortController.signal, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(abortController.signal, 'removeEventListener');
+    const readResult = createDeferred<ReadableStreamReadResult<Uint8Array>>();
+    const reader = {
+      read: vi.fn(() => readResult.promise),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    let requestSignal: AbortSignal | undefined;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+        requestSignal = init?.signal as AbortSignal;
+        requestSignal?.addEventListener(
+          'abort',
+          () => {
+            readResult.reject(new DOMException('This operation was aborted', 'AbortError'));
+          },
+          { once: true },
+        );
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            'content-type': 'text/event-stream',
+          }),
+          body: {
+            getReader: () => reader,
+          },
+        } as Response);
+      }),
+    );
+
+    const streamPromise = streamBuilderDefinition(
+      createStreamRequestOptions({
+        signal: abortController.signal,
+      }),
+    );
+
+    abortController.abort();
+
+    await expect(streamPromise).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(reader.cancel).toHaveBeenCalledTimes(1);
+    expect(addEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
+  it('removes the linked abort listener after a successful stream', async () => {
+    const abortController = new AbortController();
+    const addEventListenerSpy = vi.spyOn(abortController.signal, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(abortController.signal, 'removeEventListener');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+          headers: {
+            'content-type': 'text/event-stream',
+          },
+          status: 200,
+        }),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        ...createStreamRequestOptions({
+          signal: abortController.signal,
+        }),
+      }),
+    ).resolves.toEqual({
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+    });
+
+    expect(addEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
+  it('removes the linked abort listener after a stream error', async () => {
+    const abortController = new AbortController();
+    const addEventListenerSpy = vi.spyOn(abortController.signal, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(abortController.signal, 'removeEventListener');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(createTextStream(['event: error\ndata: {"error":"Upstream failed","code":"upstream_error"}\n\n']), {
+          headers: {
+            'content-type': 'text/event-stream',
+          },
+          status: 200,
+        }),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        ...createStreamRequestOptions({
+          signal: abortController.signal,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: 'upstream_error',
+      message: 'Upstream failed',
+    });
+
+    expect(addEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function), { once: true });
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function));
   });
 
   it('fails the stream on idle timeout and aborts the request signal', async () => {

@@ -1,5 +1,11 @@
 import type { ParseResult } from '@openuidev/react-lang';
-import { createOpenUiQualityIssue, escapeRegExp, isAstNode, maskStringLiterals, type OpenUiQualityIssue } from '../shared';
+import {
+  createOpenUiQualityIssue,
+  escapeRegExp,
+  isAstNode,
+  maskStringLiterals,
+  type OpenUiQualityIssue,
+} from '@features/builder/openui/runtime/validation/shared';
 
 const RESERVED_STATE_REF_NAMES = new Set(['$lastChoice']);
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;

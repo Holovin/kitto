@@ -711,6 +711,71 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
+  it('matches the baseline full SSE stream payload', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-stream-model',
+    });
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      await onTextDelta('{"summary":"Builds a tiny app.","source":"root = ');
+      await onTextDelta('AppShell([])"}');
+      return {
+        source: 'root = AppShell([])',
+        summary: 'Builds a tiny app.',
+      };
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'stream a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text()).map((event) =>
+      event.event === 'done' ? { ...event, data: JSON.parse(event.data) } : event,
+    );
+
+    expect({
+      headers: {
+        contentType: response.headers.get('content-type'),
+        xAccelBuffering: response.headers.get('x-accel-buffering'),
+      },
+      status: response.status,
+      events,
+    }).toMatchInlineSnapshot(`
+      {
+        "events": [
+          {
+            "data": "{"summary":"Builds a tiny app.","source":"root = ",
+            "event": "chunk",
+          },
+          {
+            "data": "AppShell([])"}",
+            "event": "chunk",
+          },
+          {
+            "data": {
+              "model": "gpt-stream-model",
+              "qualityIssues": [],
+              "source": "root = AppShell([])",
+              "summary": "Builds a tiny app.",
+            },
+            "event": "done",
+          },
+        ],
+        "headers": {
+          "contentType": "text/event-stream; charset=utf-8",
+          "xAccelBuffering": "no",
+        },
+        "status": 200,
+      }
+    `);
+  });
+
   it('returns prompt-aware quality issues in the response payload', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({
@@ -836,6 +901,43 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Adds a welcome screen.',
     });
+  });
+
+  it('matches the baseline non-stream response payload', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-test-model',
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Adds a welcome screen.',
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'add a welcome screen',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    expect({
+      payload: await response.json(),
+      status: response.status,
+    }).toMatchInlineSnapshot(`
+      {
+        "payload": {
+          "model": "gpt-test-model",
+          "qualityIssues": [],
+          "source": "root = AppShell([])",
+          "summary": "Adds a welcome screen.",
+        },
+        "status": 200,
+      }
+    `);
   });
 
   it('emits an error SSE event when the backend stream hits the output limit', async () => {

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { migrateRememberedState, REMEMBER_KEYS } from '@store/persistence';
+import { migrateRememberedState, REMEMBER_KEYS, unserializeRememberedState } from '@store/persistence';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -19,6 +19,10 @@ function createPersistedBuilder(snapshot: ReturnType<typeof createBuilderSnapsho
 }
 
 describe('store persistence', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('restores runtimeSessionState across a simulated reload migration', async () => {
     const snapshot = createBuilderSnapshot(
       validSource,
@@ -32,13 +36,13 @@ describe('store persistence', () => {
 
     const migrated = await migrateRememberedState({
       builder: createPersistedBuilder(snapshot),
-      builderSession: { runtimeSessionState: liveRuntimeState },
+      builderSession: unserializeRememberedState(JSON.stringify({ runtimeSessionState: liveRuntimeState }), 'builderSession'),
     });
 
     expect(migrated.builder.committedSource).toBe(validSource);
     expect(migrated.builder.history).toHaveLength(1);
     expect(migrated.builderSession.runtimeSessionState).toEqual(liveRuntimeState);
-    expect(migrated.domain.data).toEqual(snapshot.domainData);
+    expect(migrated.domain.data).toEqual({});
   });
 
   it('restores domain.data across a simulated reload migration', async () => {
@@ -55,29 +59,85 @@ describe('store persistence', () => {
 
     const migrated = await migrateRememberedState({
       builder: createPersistedBuilder(snapshot),
-      domain: { data: liveDomainData },
+      domain: unserializeRememberedState(JSON.stringify({ data: liveDomainData }), 'domain'),
     });
 
     expect(migrated.builder.committedSource).toBe(validSource);
-    expect(migrated.builderSession.runtimeSessionState).toEqual(snapshot.runtimeState);
+    expect(migrated.builderSession.runtimeSessionState).toEqual({});
     expect(migrated.domain.data).toEqual(liveDomainData);
   });
 
-  it('falls back to the latest snapshot when remembered builderSession/domain slices are corrupted', async () => {
-    const snapshot = createBuilderSnapshot(
-      validSource,
-      { currentScreen: 'main', selectedPlan: 'basic' },
-      { app: { submissions: [{ answer: 'Grace' }] } },
-    );
+  it('drops builderSession to the default state when the restored shape is invalid', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const migrated = await migrateRememberedState({
-      builder: createPersistedBuilder(snapshot),
-      builderSession: { runtimeSessionState: 'broken-state' },
-      domain: { data: ['broken-domain'] },
+      builderSession: unserializeRememberedState('"oops"', 'builderSession'),
     });
 
-    expect(migrated.builderSession.runtimeSessionState).toEqual(snapshot.runtimeState);
-    expect(migrated.domain.data).toEqual(snapshot.domainData);
+    expect(migrated.builderSession.runtimeSessionState).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[app.recovery]',
+      expect.objectContaining({
+        kind: 'persistence/dropped',
+        reason: expect.any(String),
+        slice: 'builderSession',
+      }),
+    );
+  });
+
+  it('drops corrupted JSON to the default domain state without crashing restore', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const migrated = await migrateRememberedState({
+      domain: unserializeRememberedState('{"data"', 'domain'),
+    });
+
+    expect(migrated.domain.data).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[app.recovery]',
+      expect.objectContaining({
+        kind: 'persistence/dropped',
+        reason: expect.any(String),
+        slice: 'domain',
+      }),
+    );
+  });
+
+  it('drops prototype-polluting domain payloads without mutating Object.prototype', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const migrated = await migrateRememberedState({
+      domain: unserializeRememberedState('{"__proto__":{"x":1}}', 'domain'),
+    });
+
+    expect(migrated.domain.data).toEqual({});
+    expect(({} as { x?: number }).x).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[app.recovery]',
+      expect.objectContaining({
+        kind: 'persistence/dropped',
+        reason: expect.stringContaining('__proto__'),
+        slice: 'domain',
+      }),
+    );
+  });
+
+  it('drops partial domain shapes to the default state', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const migrated = await migrateRememberedState({
+      domain: unserializeRememberedState('{"data":[]}', 'domain'),
+    });
+
+    expect(migrated.domain.data).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[app.recovery]',
+      expect.objectContaining({
+        kind: 'persistence/dropped',
+        reason: expect.any(String),
+        slice: 'domain',
+      }),
+    );
   });
 
   it('keeps the persistence whitelist aligned with the slices restored on reload', () => {

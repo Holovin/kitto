@@ -4,6 +4,12 @@ const INDEX_SEGMENT_PATTERN = /^\d+$/;
 
 export const MAX_DOMAIN_PATH_DEPTH = 10;
 
+interface PersistedStateTreeValidationOptions {
+  allowRootArray?: boolean;
+  label?: string;
+  maxDepth?: number;
+}
+
 export class DomainStateError extends Error {
   constructor(message: string) {
     super(message);
@@ -114,6 +120,91 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
 
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+function validatePersistedStateTreeNode(
+  value: unknown,
+  path: string,
+  depth: number,
+  { allowRootArray, label, maxDepth }: Required<PersistedStateTreeValidationOptions>,
+  isRoot: boolean,
+): string | null {
+  if (depth > maxDepth) {
+    return `${label} exceeds the maximum depth of ${maxDepth}.`;
+  }
+
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? null : `${path} must contain only finite numbers.`;
+  }
+
+  if (Array.isArray(value)) {
+    if (isRoot && !allowRootArray) {
+      return `${label} must be a plain object.`;
+    }
+
+    for (const [index, item] of value.entries()) {
+      const failure = validatePersistedStateTreeNode(item, `${path}[${index}]`, depth + 1, { allowRootArray, label, maxDepth }, false);
+
+      if (failure) {
+        return failure;
+      }
+    }
+
+    return null;
+  }
+
+  if (!isPlainObject(value)) {
+    return `${path} must be JSON-compatible plain data.`;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (!PATH_SEGMENT_PATTERN.test(key)) {
+      return `${path} contains the invalid key "${key}".`;
+    }
+
+    if (FORBIDDEN_PATH_SEGMENTS.has(key)) {
+      return `${path} contains the forbidden key "${key}".`;
+    }
+
+    const failure = validatePersistedStateTreeNode(
+      nestedValue,
+      `${path}.${key}`,
+      depth + 1,
+      { allowRootArray, label, maxDepth },
+      false,
+    );
+
+    if (failure) {
+      return failure;
+    }
+  }
+
+  return null;
+}
+
+export function validatePersistedStateTree(
+  value: unknown,
+  { allowRootArray = false, label = 'Persisted state', maxDepth = MAX_DOMAIN_PATH_DEPTH }: PersistedStateTreeValidationOptions = {},
+) {
+  return validatePersistedStateTreeNode(value, label, 0, { allowRootArray, label, maxDepth }, true);
+}
+
+export function validatePersistedStateObjectKeys(value: Record<string, unknown>, label = 'Persisted state') {
+  for (const key of Object.keys(value)) {
+    if (!PATH_SEGMENT_PATTERN.test(key)) {
+      return `${label} contains the invalid key "${key}".`;
+    }
+
+    if (FORBIDDEN_PATH_SEGMENTS.has(key)) {
+      return `${label} contains the forbidden key "${key}".`;
+    }
+  }
+
+  return null;
 }
 
 export function cloneJsonCompatibleValue(value: unknown): unknown {

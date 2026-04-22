@@ -9,7 +9,7 @@ import {
   extractPathLiteral,
   extractStringLiteral,
   type PersistedPathStatementRef,
-} from '../shared';
+} from '@features/builder/openui/runtime/validation/shared';
 
 export function detectRandomResultVisibilityIssues(result: ParseResult): BuilderParseIssue[] {
   if (result.meta.incomplete || !result.root) {

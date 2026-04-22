@@ -3,10 +3,15 @@ import { builderSessionActions } from '@features/builder/store/builderSessionSli
 import { domainActions } from '@features/builder/store/domainSlice';
 import { REMEMBER_KEYS, REMEMBER_PREFIX } from './persistence';
 import { store } from './store';
+export { logRecoveryEvent, type RecoveryLogEntry } from './recoveryEvents';
+
+export function clearPersistedSliceState(key: (typeof REMEMBER_KEYS)[number]) {
+  window.localStorage.removeItem(`${REMEMBER_PREFIX}${key}`);
+}
 
 function clearPersistedAppState() {
   for (const key of REMEMBER_KEYS) {
-    window.localStorage.removeItem(`${REMEMBER_PREFIX}${key}`);
+    clearPersistedSliceState(key);
   }
 }
 

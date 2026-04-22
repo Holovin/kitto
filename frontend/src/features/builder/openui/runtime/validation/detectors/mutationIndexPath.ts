@@ -5,7 +5,7 @@ import {
   extractStringLiteral,
   pathUsesArrayIndexSegment,
   type OpenUiQualityIssue,
-} from '../shared';
+} from '@features/builder/openui/runtime/validation/shared';
 
 const ARRAY_INDEX_PATH_MUTATION_TOOL_NAMES = new Set(['merge_state', 'remove_state', 'write_state']);
 

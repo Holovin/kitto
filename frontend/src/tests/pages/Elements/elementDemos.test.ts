@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
 import { ELEMENT_DEMO_DEFINITIONS } from '@pages/Elements/elementDemos';
-import { createMutationRefreshHarness } from '../../testUtils/createMutationRefreshHarness';
+import { createMutationRefreshHarness } from '@src/tests/testUtils/createMutationRefreshHarness';
 
 describe('element demos', () => {
   it('keeps Checkbox repeater rows in sync through action-mode persisted toggles', async () => {

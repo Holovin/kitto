@@ -1,6 +1,10 @@
 import { normalizeBuilderState } from '@features/builder/store/builderSlice';
-import { normalizeBuilderSessionState } from '@features/builder/store/builderSessionSlice';
-import { normalizeDomainState } from '@features/builder/store/domainSlice';
+import {
+  normalizeBuilderSessionState,
+  validateRestoredBuilderSessionResult,
+} from '@features/builder/store/builderSessionSlice';
+import { normalizeDomainState, validateRestoredDomainResult } from '@features/builder/store/domainSlice';
+import { logRecoveryEvent } from './recoveryEvents';
 
 export const REMEMBER_PREFIX = '@@remember-';
 export const REMEMBER_KEYS = ['builder', 'builderSession', 'domain'] as const;
@@ -9,15 +13,63 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+type RememberKey = (typeof REMEMBER_KEYS)[number];
+type RecoverableRememberKey = Exclude<RememberKey, 'builder'>;
+
+function isRememberKey(key: string): key is RememberKey {
+  return REMEMBER_KEYS.some((rememberKey) => rememberKey === key);
+}
+
+function logDroppedRememberedSlice(slice: RecoverableRememberKey, reason: string) {
+  logRecoveryEvent({
+    kind: 'persistence/dropped',
+    reason,
+    slice,
+  });
+}
+
+function getInitialRememberedSliceState(slice: RecoverableRememberKey) {
+  return slice === 'builderSession' ? normalizeBuilderSessionState(undefined) : normalizeDomainState(undefined);
+}
+
+export function unserializeRememberedState(data: string, key: string) {
+  let parsedValue: unknown;
+
+  try {
+    parsedValue = JSON.parse(data);
+  } catch (error) {
+    if (key === 'builderSession' || key === 'domain') {
+      logDroppedRememberedSlice(key, error instanceof Error ? error.message : 'Persisted state was not valid JSON.');
+      return getInitialRememberedSliceState(key);
+    }
+
+    throw error;
+  }
+
+  if (!isRememberKey(key) || key === 'builder') {
+    return parsedValue;
+  }
+
+  const validationResult =
+    key === 'builderSession'
+      ? validateRestoredBuilderSessionResult(parsedValue)
+      : validateRestoredDomainResult(parsedValue);
+
+  if (validationResult.state) {
+    return validationResult.state;
+  }
+
+  logDroppedRememberedSlice(key, validationResult.reason ?? 'Persisted state had an invalid shape.');
+  return getInitialRememberedSliceState(key);
+}
+
 export async function migrateRememberedState(state: unknown) {
   const persistedState = isRecord(state) ? state : {};
-  const builder = normalizeBuilderState(persistedState.builder);
-  const latestSnapshot = builder.history.at(-1);
 
   return {
     ...persistedState,
-    builder,
-    builderSession: normalizeBuilderSessionState(persistedState.builderSession, latestSnapshot?.runtimeState ?? {}),
-    domain: normalizeDomainState(persistedState.domain, latestSnapshot?.domainData ?? {}),
+    builder: normalizeBuilderState(persistedState.builder),
+    builderSession: normalizeBuilderSessionState(persistedState.builderSession),
+    domain: normalizeDomainState(persistedState.domain),
   };
 }

@@ -1,3 +1,4 @@
+import { MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
@@ -46,6 +47,22 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
 
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
+const REPAIR_BLOCKING_QUALITY_CODES = new Set([
+  'control-action-and-binding',
+  'inline-tool-in-each',
+  'inline-tool-in-prop',
+  'inline-tool-in-repeater',
+  'item-bound-control-without-action',
+  'mutation-uses-array-index-path',
+  'quality-options-shape',
+  'quality-stale-persisted-query',
+  'reserved-last-choice-outside-action-mode',
+  'undefined-state-reference',
+]);
+
+type RepairPromptIssue = PromptBuildValidationIssue & {
+  severity?: 'blocking-quality' | 'fatal-quality' | 'soft-warning';
+};
 
 function addUniqueLine(lines: string[], seenLines: Set<string>, line: string) {
   if (seenLines.has(line)) {
@@ -204,6 +221,30 @@ function summarizeRepairIssues(issues: PromptBuildValidationIssue[]) {
   }
 
   return summaries;
+}
+
+function getRepairIssuePriority(issue: RepairPromptIssue) {
+  if (issue.source === 'parser' && issue.code !== 'unresolved-reference') {
+    return 0;
+  }
+
+  if (issue.severity === 'blocking-quality' || REPAIR_BLOCKING_QUALITY_CODES.has(issue.code)) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function sanitizeRepairPromptIssues(issues: PromptBuildValidationIssue[]) {
+  return issues
+    .map((issue, index) => ({
+      index,
+      issue,
+      priority: getRepairIssuePriority(issue as RepairPromptIssue),
+    }))
+    .sort((left, right) => left.priority - right.priority || left.index - right.index)
+    .slice(0, MAX_REPAIR_VALIDATION_ISSUES)
+    .map(({ issue }) => issue);
 }
 
 function allocateRepairSectionBudgets(
@@ -557,15 +598,16 @@ interface BuildOpenUiRepairPromptArgs {
 
 export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
-  const issueMode = getRepairIssueMode(issues);
-  const repairHints = buildRepairHints(issues);
-  const hasUndefinedStateReferenceIssues = issues.some((issue) => issue.code === 'undefined-state-reference');
+  const sanitizedIssues = sanitizeRepairPromptIssues(issues);
+  const issueMode = getRepairIssueMode(sanitizedIssues);
+  const repairHints = buildRepairHints(sanitizedIssues);
+  const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
   const rulesSection = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
-  const fullIssuesSectionContent = buildRepairIssueSection(issues, Number.MAX_SAFE_INTEGER);
+  const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
     repairHints.map((hint) => `- ${hint}`),
     Number.MAX_SAFE_INTEGER,
@@ -595,7 +637,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     budgets.committedSource,
     '(blank canvas, no committed OpenUI source yet)',
   );
-  const issuesSectionContent = buildRepairIssueSection(issues, budgets.issues);
+  const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues);
   const hintsSectionContent =
     repairHints.length > 0
       ? buildBoundedSectionContent(

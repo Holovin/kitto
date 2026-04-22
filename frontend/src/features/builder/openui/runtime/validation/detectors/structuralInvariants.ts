@@ -1,7 +1,7 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import type { BuilderParseIssue } from '@features/builder/types';
-import { visitOpenUiValue } from '../astWalk';
-import { createQualityIssue, isAstNode, isElementNode } from '../shared';
+import { visitOpenUiValue } from '@features/builder/openui/runtime/validation/astWalk';
+import { createQualityIssue, isAstNode, isElementNode } from '@features/builder/openui/runtime/validation/shared';
 
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 

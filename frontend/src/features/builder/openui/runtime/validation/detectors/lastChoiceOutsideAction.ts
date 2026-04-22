@@ -12,7 +12,7 @@ import {
   maskStringLiterals,
   type OwnedActionRunRefGroup,
   type OpenUiQualityIssue,
-} from '../shared';
+} from '@features/builder/openui/runtime/validation/shared';
 
 function createReservedLastChoiceIssue(statementId?: string): OpenUiQualityIssue {
   return createOpenUiQualityIssue('blocking-quality', {

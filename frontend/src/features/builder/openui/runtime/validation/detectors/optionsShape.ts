@@ -1,4 +1,10 @@
-import { createOpenUiQualityIssue, escapeRegExp, isElementNode, parser, type OpenUiQualityIssue } from '../shared';
+import {
+  createOpenUiQualityIssue,
+  escapeRegExp,
+  isElementNode,
+  parser,
+  type OpenUiQualityIssue,
+} from '@features/builder/openui/runtime/validation/shared';
 
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const CHOICE_CONTROL_TYPE_NAMES = ['RadioGroup', 'Select'] as const;

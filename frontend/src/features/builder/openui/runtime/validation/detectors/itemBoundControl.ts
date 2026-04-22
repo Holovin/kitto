@@ -1,4 +1,9 @@
-import { createOpenUiQualityIssue, escapeRegExp, maskStringLiterals, type OpenUiQualityIssue } from '../shared';
+import {
+  createOpenUiQualityIssue,
+  escapeRegExp,
+  maskStringLiterals,
+  type OpenUiQualityIssue,
+} from '@features/builder/openui/runtime/validation/shared';
 
 const ITEM_SCOPED_CONTROL_TYPE_NAMES = new Set(['Checkbox', 'Input', 'RadioGroup', 'Select', 'TextArea']);
 

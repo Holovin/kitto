@@ -1,44 +1,88 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
-import { appendPathValue, clonePlainObject, mergePathValue, removePathValue, writePathValue } from './path';
+import {
+  appendPathValue,
+  cloneJsonCompatibleValue,
+  clonePlainObject,
+  isPlainObject,
+  mergePathValue,
+  removePathValue,
+  validatePersistedStateObjectKeys,
+  validatePersistedStateTree,
+  writePathValue,
+} from './path';
 
-interface DomainState {
+export interface DomainState {
   data: Record<string, unknown>;
+}
+
+export interface RestoredDomainValidationResult {
+  reason: string | null;
+  state: DomainState | null;
 }
 
 const initialState: DomainState = {
   data: clonePlainObject(DEFAULT_DOMAIN_DATA, 'Domain data must be a plain object.'),
 };
 
+function createDomainState(data: Record<string, unknown>): DomainState {
+  return {
+    data: cloneJsonCompatibleValue(data) as Record<string, unknown>,
+  };
+}
+
+export function validateRestoredDomainResult(value: unknown): RestoredDomainValidationResult {
+  if (!isPlainObject(value)) {
+    return {
+      reason: 'domain must be a plain object.',
+      state: null,
+    };
+  }
+
+  const wrapperFailure = validatePersistedStateObjectKeys(value, 'domain');
+
+  if (wrapperFailure) {
+    return {
+      reason: wrapperFailure,
+      state: null,
+    };
+  }
+
+  const candidateData = 'data' in value ? value.data : value;
+  const label = 'data' in value ? 'domain.data' : 'domain';
+
+  if (!isPlainObject(candidateData)) {
+    return {
+      reason: `${label} must be a plain object.`,
+      state: null,
+    };
+  }
+
+  const failure = validatePersistedStateTree(candidateData, { label });
+
+  if (failure) {
+    return {
+      reason: failure,
+      state: null,
+    };
+  }
+
+  return {
+    reason: null,
+    state: createDomainState(candidateData),
+  };
+}
+
+export function validateRestoredDomain(value: unknown): DomainState | null {
+  return validateRestoredDomainResult(value).state;
+}
+
 export function normalizeDomainState(
   value: unknown,
   fallbackData: Record<string, unknown> = DEFAULT_DOMAIN_DATA,
 ): DomainState {
   const safeFallbackData = clonePlainObject(fallbackData, 'Domain data must be a plain object.');
-
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {
-      data: safeFallbackData,
-    };
-  }
-
-  const candidateData = (value as { data?: unknown }).data;
-
-  try {
-    if (candidateData && typeof candidateData === 'object' && !Array.isArray(candidateData)) {
-      return {
-        data: clonePlainObject(candidateData, 'Domain data must be a plain object.'),
-      };
-    }
-  } catch {
-    return {
-      data: safeFallbackData,
-    };
-  }
-
-  return {
-    data: safeFallbackData,
-  };
+  return validateRestoredDomain(value) ?? createDomainState(safeFallbackData);
 }
 
 export const domainSlice = createSlice({

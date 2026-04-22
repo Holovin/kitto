@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
 import { ELEMENT_DEMO_DEFINITIONS } from '@pages/Elements/elementDemos';
-import { createMutationRefreshHarness } from '../../../../testUtils/createMutationRefreshHarness';
+import { createMutationRefreshHarness } from '@src/tests/testUtils/createMutationRefreshHarness';
 
 describe('mutation to query refresh behavior', () => {
   afterEach(() => {

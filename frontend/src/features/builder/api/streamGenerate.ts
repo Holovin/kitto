@@ -88,7 +88,22 @@ function createLinkedAbortController(signal?: AbortSignal) {
   };
 }
 
-function parseServerSentEvent(eventBlock: string) {
+function isMalformedStructuredChunk(chunk: string) {
+  const trimmedChunk = chunk.trim();
+
+  if (!trimmedChunk.startsWith('{') || !trimmedChunk.endsWith('}')) {
+    return false;
+  }
+
+  if (!trimmedChunk.includes('"source"') && !trimmedChunk.includes('"summary"')) {
+    return false;
+  }
+
+  const parsedChunk = parsePartialOpenUiEnvelope(trimmedChunk);
+  return parsedChunk.source === undefined && parsedChunk.summary === undefined;
+}
+
+export function parseServerSentEvent(eventBlock: string) {
   const lines = eventBlock.split('\n').filter(Boolean);
   let event = 'message';
   const data: string[] = [];
@@ -333,6 +348,8 @@ export async function streamBuilderDefinition({
   let idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let maxDurationTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let timeoutError: BuilderStreamTimeoutError | null = null;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let receivedDone = false;
 
   const clearIdleTimeout = () => {
     if (!idleTimeoutId) {
@@ -404,13 +421,12 @@ export async function streamBuilderDefinition({
       throw new Error('Streaming response body is not available.');
     }
 
-    const reader = response.body.getReader();
+    reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     let rawStructuredEnvelope = '';
     let lastParsedSource = '';
     let lastParsedSummary = '';
-    let receivedDone = false;
     let donePayload: StreamDonePayload | undefined;
     let streamMode: 'plain' | 'structured' | 'unknown' = 'unknown';
 
@@ -442,6 +458,11 @@ export async function streamBuilderDefinition({
           }
 
           if (streamMode === 'structured') {
+            if (isMalformedStructuredChunk(parsedEvent.data)) {
+              console.warn('[builder.stream] Ignoring malformed structured chunk.');
+              continue;
+            }
+
             rawStructuredEnvelope += parsedEvent.data;
             const partialEnvelope = parsePartialOpenUiEnvelope(rawStructuredEnvelope);
             const nextSource = partialEnvelope.source?.value ?? '';
@@ -528,6 +549,14 @@ export async function streamBuilderDefinition({
 
     throw error;
   } finally {
+    if (reader && abortController.signal.aborted && !receivedDone) {
+      try {
+        await reader.cancel();
+      } catch {
+        // Ignore reader cancellation failures during abort cleanup.
+      }
+    }
+
     clearTimeouts();
     cleanup();
   }

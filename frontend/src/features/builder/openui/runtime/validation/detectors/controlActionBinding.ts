@@ -1,5 +1,10 @@
-import { visitOpenUiValue } from '../astWalk';
-import { createOpenUiQualityIssue, isElementNode, isWritableBindingValue, type OpenUiQualityIssue } from '../shared';
+import { visitOpenUiValue } from '@features/builder/openui/runtime/validation/astWalk';
+import {
+  createOpenUiQualityIssue,
+  isElementNode,
+  isWritableBindingValue,
+  type OpenUiQualityIssue,
+} from '@features/builder/openui/runtime/validation/shared';
 
 export function detectControlActionBindingConflicts(value: unknown): OpenUiQualityIssue[] {
   const issues: OpenUiQualityIssue[] = [];

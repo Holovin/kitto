@@ -4,7 +4,7 @@ import {
   collectThemeAppearanceRefNames,
   createQualityIssue,
   hasThemeDependentContainerAppearance,
-} from '../shared';
+} from '@features/builder/openui/runtime/validation/shared';
 
 export function detectThemeAppearanceIssues(source: string, result: ParseResult): BuilderParseIssue[] {
   if (result.meta.incomplete || !result.root) {

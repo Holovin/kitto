@@ -1,7 +1,7 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue } from '@features/builder/types';
-import { ALLOWED_TOOLS, OPENUI_SOURCE_LIMITS, UNSAFE_SOURCE_PATTERNS } from '../validationLimits';
+import { ALLOWED_TOOLS, OPENUI_SOURCE_LIMITS, UNSAFE_SOURCE_PATTERNS } from '@features/builder/openui/runtime/validationLimits';
 import {
   componentSchemaDefinitions,
   createParserIssue,

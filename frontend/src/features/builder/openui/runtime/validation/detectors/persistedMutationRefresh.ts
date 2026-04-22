@@ -6,7 +6,7 @@ import {
   collectRefreshablePersistedMutationPaths,
   createQualityIssue,
   doPathsOverlapByPrefix,
-} from '../shared';
+} from '@features/builder/openui/runtime/validation/shared';
 
 const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
   'append_state',
