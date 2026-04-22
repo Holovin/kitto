@@ -199,6 +199,48 @@ describe('buildOpenUiRepairPrompt', () => {
     );
   });
 
+  it('keeps $lastChoice rules visible when repairing persisted choice controls', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      {
+        code: 'control-action-and-binding',
+        message:
+          'Form-control cannot have both action and a writable $binding. Use $binding for form state, or action for persisted updates.',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Create a persisted filter control.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: `savedFilter = Query("read_state", { path: "prefs.filter" }, "all")
+saveFilter = Mutation("write_state", {
+  path: "prefs.filter",
+  value: $lastChoice
+})
+
+root = AppShell([
+  Screen("main", "Main", [
+    Select("filter", "Filter", $filter, filterOptions, null, [], Action([@Run(saveFilter), @Run(savedFilter)]))
+  ])
+])`,
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_500,
+    });
+
+    expect(prompt).toContain(
+      'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
+    );
+    expect(prompt).toContain(
+      'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
+    );
+    expect(prompt).toContain(
+      'If a RadioGroup/Select repair removes `action`, also remove or rewrite any top-level Mutation(...) / Query(...) helpers that still reference `$lastChoice`. Otherwise the repaired draft will still fail quality checks.',
+    );
+  });
+
   it('adds targeted hints for bare RadioGroup/Select option arrays', () => {
     const issues: PromptBuildValidationIssue[] = [
       {

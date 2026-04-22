@@ -125,20 +125,7 @@ Group("Question 12", "vertical", [
   Text("Question 12", "body", "start"),
   RadioGroup("question-12", "Question 12", $q12, [
     { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 13", "vertical", [
-  Text("Question 13", "body", "start"),
-  RadioGroup("question-13", "Question 13", $q13, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 14", "vertical", [
-  Text("Question 14", "body", "start"),
-  RadioGroup("question-14", "Question 14", $q14, [
-    { label: "Yes", value: "yes" },…
+    { label: "No", value: "no" }…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.
@@ -156,6 +143,9 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
+- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
+- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
@@ -239,20 +229,7 @@ Group("Question 4", "vertical", [
 ]),
 Group("Question 5", "vertical", [
   Text("Question 5", "body", "start"),
-  RadioGroup("question-5", "Question 5", $q5, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 6", "vertical", [
-  Text("Question 6", "body", "start"),
-  RadioGroup("question-6", "Question 6", $q6, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 7", "vertical", [
-  Text("Question 7", "body", "start"),…
+  RadioGroup("question-5…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.
@@ -270,6 +247,9 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
+- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
+- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
@@ -318,6 +298,9 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
+- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
+- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.

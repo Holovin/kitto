@@ -19,6 +19,11 @@ interface UndefinedStateReferenceSummary {
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
 const UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN =
   /State reference `(\$[A-Za-z_][\w$]*)` is missing a top-level declaration with a literal initial value\.(?: For example, add `\$\w+ = ([^`]+)`\.)?/;
+const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
+  'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
+  'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
+  'Do not read `$lastChoice` directly in Text(...), disabled expressions, or unrelated statements.',
+] as const;
 
 export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Return only raw OpenUI Lang.',
@@ -36,6 +41,7 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
   'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
+  ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
   'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
   'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
   BUTTON_APPEARANCE_RULE,
@@ -47,6 +53,8 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
 
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
+const CONTROL_ACTION_AND_BINDING_LAST_CHOICE_REPAIR_HINT =
+  'If a RadioGroup/Select repair removes `action`, also remove or rewrite any top-level Mutation(...) / Query(...) helpers that still reference `$lastChoice`. Otherwise the repaired draft will still fail quality checks.';
 const REPAIR_BLOCKING_QUALITY_CODES = new Set([
   'control-action-and-binding',
   'inline-tool-in-each',
@@ -336,10 +344,15 @@ function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars:
   );
 }
 
-function buildRepairHints(issues: PromptBuildValidationIssue[]) {
+function hasChoiceActionModeLastChoiceSource(source: string) {
+  return source.includes('$lastChoice') && (source.includes('Select(') || source.includes('RadioGroup('));
+}
+
+function buildRepairHints(issues: PromptBuildValidationIssue[], invalidSource: string) {
   const hints: string[] = [];
   const seenHints = new Set<string>();
   const undefinedStateReferenceSummaries = summarizeUndefinedStateReferenceIssues(issues);
+  const hasChoiceActionModeLastChoice = hasChoiceActionModeLastChoiceSource(invalidSource);
 
   for (const issue of issues) {
     if (issue.code === 'app-shell-not-root' || issue.code === 'multiple-app-shells') {
@@ -384,6 +397,14 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
         seenHints,
         'Wrap each option in `{ label: "...", value: "..." }`. The `value` is what gets stored in `$binding`; the `label` is what users see.',
       );
+      continue;
+    }
+
+    if (issue.code === 'control-action-and-binding') {
+      if (hasChoiceActionModeLastChoice) {
+        addUniqueLine(hints, seenHints, CONTROL_ACTION_AND_BINDING_LAST_CHOICE_REPAIR_HINT);
+      }
+
       continue;
     }
 
@@ -600,7 +621,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
-  const repairHints = buildRepairHints(sanitizedIssues);
+  const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
