@@ -204,6 +204,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     }
 
     let streamedChars = 0;
+    let hasCompletedStreamRequest = false;
     const { abortController, requestId } = generationLifecycle.beginGeneration(nextPrompt);
 
     try {
@@ -226,6 +227,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
           streamingSummary.upsertStreamingSummaryMessage(requestId, summary, { pending: true });
         },
       });
+      hasCompletedStreamRequest = true;
 
       await commitGeneratedSource(
         {
@@ -261,7 +263,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         return;
       }
 
-      if (streamedChars <= STREAM_FAILURE_FALLBACK_MAX_CHARS) {
+      if (!hasCompletedStreamRequest && streamedChars <= STREAM_FAILURE_FALLBACK_MAX_CHARS) {
         try {
           const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, request);
           await commitGeneratedSource(fallbackResponse, request, requestId);

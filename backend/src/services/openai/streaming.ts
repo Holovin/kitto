@@ -9,6 +9,7 @@ interface AbortableStream {
 }
 
 interface FinalizableStreamResponse {
+  _request_id?: unknown;
   usage?: unknown;
 }
 
@@ -103,6 +104,18 @@ export function extractResponseText(response: unknown) {
   return collectedText || null;
 }
 
+function logStreamFinalResponseMismatch(response: FinalizableStreamResponse, streamedText: string, finalResponseText: string | null) {
+  if (!finalResponseText || !streamedText || finalResponseText === streamedText) {
+    return;
+  }
+
+  const requestId = typeof response._request_id === 'string' && response._request_id.trim() ? response._request_id : 'unknown';
+
+  console.warn(
+    `[openai.responses.stream] finalized response text differed from streamed deltas; request_id=${requestId} streamed_bytes=${getByteLength(streamedText)} final_bytes=${getByteLength(finalResponseText)}`,
+  );
+}
+
 export async function consumeOpenAiResponseStream(
   env: AppEnv,
   stream: OpenAiResponseStream,
@@ -147,7 +160,9 @@ export async function consumeOpenAiResponseStream(
     throwIfAborted(signal, { abort: abortStream });
     state.finalResponse = await stream.finalResponse();
     throwIfAborted(signal, { abort: abortStream });
-    return extractResponseText(state.finalResponse) || state.streamedText;
+    const finalResponseText = extractResponseText(state.finalResponse);
+    logStreamFinalResponseMismatch(state.finalResponse, state.streamedText, finalResponseText);
+    return finalResponseText || state.streamedText;
   } finally {
     signal?.removeEventListener('abort', handleAbort);
   }

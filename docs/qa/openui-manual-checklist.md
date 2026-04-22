@@ -58,6 +58,7 @@ Guardrails:
 - Trivial parser issues that carry deterministic local `suggestion` patches may be auto-fixed in the builder before any repair request is sent.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
+- When an automatic repair request is in flight, chat should show one info-status message indicating that the builder is repairing the draft automatically and remove that pending status once the repair resolves.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
@@ -69,6 +70,7 @@ Guardrails:
 - Typing any new prompt into the composer changes that primary action back to `Send` immediately.
 - If a rejected cached/imported definition is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state.
 - Frontend stream idle timeout or max-duration timeout must abort the in-flight request, surface a controlled failure message, and keep the last committed Preview visible.
+- Automatic repair timeout or backend-reachability failures must keep the last committed Preview visible and surface repair-specific failure text instead of retrying the whole initial request as a silent fallback.
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
 - Rejected imported source in Definition must not mix in stale runtime issues from the previous committed preview.
 - Renderer/component exceptions inside Preview or `/elements` demos must stay contained to a local fallback UI instead of crashing the surrounding shell or route.

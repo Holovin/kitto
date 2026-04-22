@@ -1,6 +1,7 @@
 import type { BuilderRequestLimits } from '@features/builder/config';
 import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import { createRequestId } from '@features/builder/api/requestId';
+import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { validateBuilderLlmRequest } from '@features/builder/config';
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { applyOpenUiIssueSuggestions, detectOpenUiQualityIssues, validateOpenUiSource } from '@features/builder/openui/runtime/validation';
@@ -16,7 +17,7 @@ interface UseValidationRepairOptions {
   runGenerateRequest: (
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
-    options?: { transportRequestId?: BuilderRequestId },
+    options?: { requestKind?: 'automatic-repair'; transportRequestId?: BuilderRequestId },
   ) => Promise<BuilderGeneratedDraft>;
   throwIfInactiveRequest: (requestId: BuilderRequestId) => void;
 }
@@ -57,6 +58,18 @@ const REPAIR_BLOCKING_QUALITY_CODES = new Set([
 ]);
 
 type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
+type RepairIssueMode = 'parser' | 'quality';
+
+const REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
+const REPAIR_NETWORK_MESSAGE = 'The builder could not reach the backend while repairing the draft. The previous valid app was kept.';
+const REPAIR_UPSTREAM_MESSAGE = 'The model service failed while repairing the draft. The previous valid app was kept. Please retry.';
+const REQUEST_TIMEOUT_MESSAGE = 'The model took too long to respond. Try again with a shorter or more specific prompt.';
+const BACKEND_UNREACHABLE_MESSAGE = 'The builder could not reach the backend. Check that the server is running and try again.';
+const UPSTREAM_FAILURE_MESSAGE = 'The model service failed while generating the draft. Please retry in a moment.';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
   if (issue.source === 'parser' && issue.code !== 'unresolved-reference') {
@@ -82,6 +95,58 @@ function sortRepairValidationIssues(issues: RepairValidationIssue[]) {
     }))
     .sort((left, right) => left.priority - right.priority || left.index - right.index)
     .map(({ issue }) => issue);
+}
+
+function getRepairStatusMessageKey(requestId: BuilderRequestId) {
+  return `generation-repair:${requestId}`;
+}
+
+function formatRepairPendingMessage(issueMode: RepairIssueMode, attemptNumber: number, maxRepairAttempts: number | null) {
+  if (issueMode === 'quality') {
+    return `Repairing draft automatically (blocking-quality pass ${attemptNumber} of 1)…`;
+  }
+
+  const maxAttempts = Math.max(1, maxRepairAttempts ?? 1);
+  return `Repairing draft automatically (parser pass ${attemptNumber} of ${maxAttempts})…`;
+}
+
+function isRepairAbortError(error: unknown) {
+  return error instanceof Error && (error.name === 'AbortError' || error.name === 'BuilderRequestAbortedError');
+}
+
+function wrapRepairRequestError(error: unknown) {
+  if (isRepairAbortError(error)) {
+    return error;
+  }
+
+  if (isRecord(error)) {
+    const code = typeof error.code === 'string' ? error.code : undefined;
+    const status = typeof error.status === 'number' ? error.status : undefined;
+
+    if (code === 'timeout_error' || status === 504) {
+      return new Error(REPAIR_TIMEOUT_MESSAGE);
+    }
+
+    if (status === 502 || code === 'upstream_error') {
+      return new Error(REPAIR_UPSTREAM_MESSAGE);
+    }
+  }
+
+  const message = getBuilderRequestErrorMessage(error);
+
+  if (message === REQUEST_TIMEOUT_MESSAGE) {
+    return new Error(REPAIR_TIMEOUT_MESSAGE);
+  }
+
+  if (message === BACKEND_UNREACHABLE_MESSAGE) {
+    return new Error(REPAIR_NETWORK_MESSAGE);
+  }
+
+  if (message === UPSTREAM_FAILURE_MESSAGE) {
+    return new Error(REPAIR_UPSTREAM_MESSAGE);
+  }
+
+  return new Error(`The automatic repair failed before commit. ${message}`);
 }
 
 export function sanitizeRepairValidationIssues(
@@ -170,7 +235,7 @@ export function useValidationRepair({
       });
     }
 
-    async function runRepairRequest(issues: RepairValidationIssue[], attemptNumber: number) {
+    async function runRepairRequest(issues: RepairValidationIssue[], attemptNumber: number, issueMode: RepairIssueMode) {
       if (requestLimits === null) {
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
@@ -202,18 +267,38 @@ export function useValidationRepair({
           builderActions.appendChatMessage({
             role: 'system',
             tone: 'info',
-            content: 'The model returned a draft that cannot be committed yet. Sending one automatic repair request now.',
+            content: 'The model returned a draft that cannot be committed yet. Sending an automatic repair request now.',
           }),
         );
         hasAnnouncedRepair = true;
       }
 
-      const repairedResponse = await runGenerateRequest(requestId, repairRequest, {
-        transportRequestId: createRequestId(),
-      });
-      throwIfInactiveRequest(requestId);
-      hasCompletedRepairRequest = true;
-      candidateResponse = repairedResponse;
+      dispatch(
+        builderActions.appendChatMessage({
+          content: formatRepairPendingMessage(issueMode, attemptNumber, maxRepairAttempts),
+          messageKey: getRepairStatusMessageKey(requestId),
+          role: 'system',
+          tone: 'info',
+        }),
+      );
+
+      try {
+        const repairedResponse = await runGenerateRequest(requestId, repairRequest, {
+          requestKind: 'automatic-repair',
+          transportRequestId: createRequestId(),
+        });
+        throwIfInactiveRequest(requestId);
+        hasCompletedRepairRequest = true;
+        candidateResponse = repairedResponse;
+      } catch (error) {
+        throw wrapRepairRequestError(error);
+      } finally {
+        dispatch(
+          builderActions.removeChatMessageByKey({
+            messageKey: getRepairStatusMessageKey(requestId),
+          }),
+        );
+      }
     }
 
     while (true) {
@@ -270,7 +355,7 @@ export function useValidationRepair({
           }
 
           qualityRepairCount += 1;
-          await runRepairRequest(blockingQualityIssues, qualityRepairCount);
+          await runRepairRequest(blockingQualityIssues, qualityRepairCount, 'quality');
           continue;
         }
 
@@ -294,7 +379,7 @@ export function useValidationRepair({
       }
 
       parserRepairCount += 1;
-      await runRepairRequest(validation.issues, parserRepairCount);
+      await runRepairRequest(validation.issues, parserRepairCount, 'parser');
     }
   }
 

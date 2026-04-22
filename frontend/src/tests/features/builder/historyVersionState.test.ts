@@ -10,7 +10,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 0,
       }),
     ).toEqual({
@@ -31,7 +30,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: true,
         historyVersionCount: 1,
-        isStreaming: false,
         redoVersionCount: 1,
       }),
     ).toEqual({
@@ -52,7 +50,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 2,
       }),
     ).toEqual({
@@ -73,7 +70,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: true,
         historyVersionCount: 3,
-        isStreaming: true,
         redoVersionCount: 0,
       }),
     ).toEqual({
@@ -93,7 +89,6 @@ describe('getBuilderHistoryVersionState', () => {
       hasRejectedDefinition: false,
       hasUndoSnapshot: false,
       historyVersionCount: 0,
-      isStreaming: false,
       redoVersionCount: 2,
     });
 
@@ -109,7 +104,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: true,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 0,
       }),
     ).toEqual({
@@ -131,7 +125,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 0,
       }),
     ).toEqual({
@@ -152,7 +145,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 0,
       }),
     ).toEqual({
@@ -173,7 +165,6 @@ describe('getBuilderHistoryVersionState', () => {
         hasRejectedDefinition: false,
         hasUndoSnapshot: false,
         historyVersionCount: 0,
-        isStreaming: false,
         redoVersionCount: 0,
       }),
     ).toEqual({

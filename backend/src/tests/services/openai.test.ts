@@ -957,6 +957,32 @@ describe('streamOpenUiSource', () => {
     );
   });
 
+  it('warns when the finalized stream text differs from the streamed deltas', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-stream-mismatch',
+    });
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const onTextDelta = vi.fn();
+    const stream = createMockResponseStream(
+      [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' }],
+      {
+        _request_id: 'req_stream_mismatch',
+        output_text: '{"summary":"Builds a different app shell.","source":"root = AppShell([Text(\\"Changed\\", \\"body\\", \\"start\\")])"}',
+      },
+    );
+
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
+      summary: 'Builds a different app shell.',
+      source: 'root = AppShell([Text("Changed", "body", "start")])',
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[openai.responses.stream] finalized response text differed from streamed deltas; request_id=req_stream_mismatch'),
+    );
+  });
+
   it('writes prompt I/O logs after a finalized stream response', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-stream-prompt-log',

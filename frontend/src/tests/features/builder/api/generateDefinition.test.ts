@@ -202,6 +202,46 @@ describe('generateBuilderDefinition', () => {
     );
   });
 
+  it('marks automatic repair requests with a dedicated transport header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          model: 'gpt-5.4-mini',
+          source: 'root = AppShell([])',
+          temperature: 0.2,
+        } satisfies BuilderLlmResponse),
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+          status: 200,
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await generateBuilderDefinition(
+      createGenerateRequestOptions({
+        requestId: 'builder-request-repair',
+        requestKind: 'automatic-repair',
+        request: {
+          ...request,
+          mode: 'repair',
+        },
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/llm/generate',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-kitto-automatic-repair': '1',
+          'x-kitto-request-id': 'builder-request-repair',
+        }),
+      }),
+    );
+  });
+
   it('serializes repair linkage fields into the fallback request body', async () => {
     const repairRequest: BuilderLlmRequest = {
       ...request,

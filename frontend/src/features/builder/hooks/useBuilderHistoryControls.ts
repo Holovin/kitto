@@ -17,7 +17,6 @@ import {
   selectHasChatMessages,
   selectHasRejectedDefinition,
   selectHistory,
-  selectIsStreaming,
   selectRedoHistory,
 } from '@features/builder/store/selectors';
 import type { BuilderChatNotice } from '@features/builder/types';
@@ -91,7 +90,6 @@ export function useBuilderHistoryControls({
   const history = useAppSelector(selectHistory);
   const hasRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const redoHistory = useAppSelector(selectRedoHistory);
-  const isStreaming = useAppSelector(selectIsStreaming);
   const previousSnapshot = history.at(-2);
   const redoSnapshot = redoHistory.at(-1);
   const historyVersionCount = countCommittedVersions(history);
@@ -103,7 +101,6 @@ export function useBuilderHistoryControls({
     hasRedoSnapshot: Boolean(redoSnapshot),
     hasUndoSnapshot: Boolean(previousSnapshot),
     historyVersionCount,
-    isStreaming,
     redoVersionCount,
   });
   const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;

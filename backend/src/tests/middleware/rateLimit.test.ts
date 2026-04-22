@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 import {
   createInMemoryRateLimitMiddleware,
@@ -11,6 +11,7 @@ function createRateLimitedApp(options: {
   cleanupIntervalRequests?: number;
   maxEntries?: number;
   maxRequests: number;
+  shouldCount?: (context: Context) => boolean;
   windowMs: number;
 }) {
   const app = new Hono();
@@ -58,6 +59,26 @@ describe('rate limit middleware', () => {
 
     expect(firstResponse.status).toBe(200);
     expect(secondResponse.status).toBe(200);
+  });
+
+  it('can skip counting requests that the caller marks as exempt', async () => {
+    const app = createRateLimitedApp({
+      maxRequests: 1,
+      shouldCount: (context) => context.req.header('x-skip-rate-limit') !== '1',
+      windowMs: 60_000,
+    });
+
+    const skippedResponse = await app.request('/limited', {
+      headers: {
+        'x-skip-rate-limit': '1',
+      },
+    });
+    const firstCountedResponse = await app.request('/limited');
+    const secondCountedResponse = await app.request('/limited');
+
+    expect(skippedResponse.status).toBe(200);
+    expect(firstCountedResponse.status).toBe(200);
+    expect(secondCountedResponse.status).toBe(429);
   });
 
   it('cleans expired rate-limit entries before handling the next request', () => {

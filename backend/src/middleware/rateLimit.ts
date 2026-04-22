@@ -6,6 +6,7 @@ interface RateLimitOptions {
   onRejected?: (context: Context, details: { key: string; retryAfterSeconds: number }) => Promise<void> | void;
   maxEntries?: number;
   maxRequests: number;
+  shouldCount?: (context: Context) => Promise<boolean> | boolean;
   windowMs: number;
   cleanupIntervalRequests?: number;
 }
@@ -85,12 +86,18 @@ export function createInMemoryRateLimitMiddleware({
   windowMs,
   cleanupIntervalRequests = DEFAULT_RATE_LIMIT_CLEANUP_INTERVAL_REQUESTS,
   onRejected,
+  shouldCount,
 }: RateLimitOptions) {
   const entries = new Map<string, RateLimitEntry>();
   const cleanupInterval = Math.max(1, cleanupIntervalRequests);
   let requestsSinceCleanup = 0;
 
   return async function rateLimitMiddleware(context: Context, next: Next) {
+    if ((await shouldCount?.(context)) === false) {
+      await next();
+      return;
+    }
+
     const now = Date.now();
     const key = getRateLimitKey(context);
     requestsSinceCleanup += 1;

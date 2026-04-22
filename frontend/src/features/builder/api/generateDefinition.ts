@@ -6,6 +6,7 @@ import { unwrapAbortableRequestWithTimeout } from './requestTimeout';
 interface GenerateBuilderDefinitionOptions {
   apiBaseUrl: string;
   requestId?: string;
+  requestKind?: 'automatic-repair' | 'default';
   request: BuilderLlmRequest;
   signal?: AbortSignal;
   timeoutMs: number;
@@ -48,6 +49,7 @@ async function getResponseError(response: Response) {
 export async function generateBuilderDefinition({
   apiBaseUrl,
   requestId,
+  requestKind = 'default',
   request,
   signal,
   timeoutMs,
@@ -64,6 +66,7 @@ export async function generateBuilderDefinition({
             headers: {
               'Content-Type': 'application/json',
               Accept: 'application/json',
+              ...(requestKind === 'automatic-repair' ? { 'x-kitto-automatic-repair': '1' } : {}),
               ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
             },
             body: serializeBuilderLlmRequest(request),

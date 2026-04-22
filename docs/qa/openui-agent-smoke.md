@@ -325,8 +325,10 @@ Create a complex app with two screens, filtering, a random number button, valida
 - If the first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
 - Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that one-repair path instead of failing immediately on the first draft.
 - Trivial parser issues with local `suggestion` patches may be fixed in the browser before repair; in that case no repair request should run.
+- If repair runs, chat shows one repair-start notice plus one pending repair-status message while waiting, and that pending status disappears after success or failure.
 - If repair succeeds, the final app is valid and usable.
 - If repair fails, the previous Preview remains visible and `Repeat` stays available.
+- If repair fails because the repair request itself times out, the error text should explicitly mention the automatic repair timing out rather than a generic initial-generation timeout.
 - Partial or bad draft is not committed.
 - The UI does not get stuck in loading/generating state.
 - If a clearly fatal structural draft occurs instead, such as nested `AppShell`, `Screen` inside `Screen`, or `Repeater` inside `Repeater`, the builder should fail cleanly without an automatic repair attempt.

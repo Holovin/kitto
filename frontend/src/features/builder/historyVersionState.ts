@@ -7,7 +7,6 @@ export interface BuilderHistoryVersionStateInput {
   hasRedoSnapshot: boolean;
   hasUndoSnapshot: boolean;
   historyVersionCount: number;
-  isStreaming: boolean;
   redoVersionCount: number;
 }
 

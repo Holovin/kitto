@@ -107,6 +107,9 @@ const testHarness = vi.hoisted(() => {
 });
 
 const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
+const AUTOMATIC_REPAIR_NOTICE = 'The model returned a draft that cannot be committed yet. Sending an automatic repair request now.';
+const AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE = 'Repairing draft automatically (parser pass 1 of 1)…';
+const AUTOMATIC_REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
 
 vi.mock('react', async () => {
   const actual = await vi.importActual<typeof import('react')>('react');
@@ -964,7 +967,7 @@ describe('useBuilderSubmission', () => {
         'The request is too large to send as-is. Limit: 128 bytes for the full request payload. Shorten the prompt or reduce recent context and try again.',
       tone: 'error',
     });
-    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().currentRequestId).toBeNull();
     expect(getBuilderState().committedSource).toBe('x'.repeat(512));
 
     submission.unmount();
@@ -1060,7 +1063,7 @@ describe('useBuilderSubmission', () => {
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had parser issues, so it was repaired automatically before commit.',
@@ -1068,6 +1071,65 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('shows and clears the in-progress automatic repair status while waiting for the repair response', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+    const repairResult = createDeferred<{ source: string }>();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: PARSER_INVALID_SOURCE,
+    });
+    testHarness.generateMock.mockImplementationOnce(() => repairResult.promise);
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+    await flushMicrotasks();
+
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toEqual(
+      expect.objectContaining({
+        content: AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE,
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+
+    repairResult.resolve({
+      source: VALID_TODO_SOURCE,
+    });
+    await requestPromise;
+
+    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toBeUndefined();
+    expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
+
+    submission.unmount();
+  });
+
+  it('surfaces a repair-specific timeout message when the automatic repair request times out', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: PARSER_INVALID_SOURCE,
+    });
+    testHarness.generateMock.mockRejectedValue({
+      code: 'timeout_error',
+      message: 'The model request timed out.',
+      status: 504,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
+    expect(getBuilderState().streamError).toBe(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toBeUndefined();
 
     submission.unmount();
   });
@@ -1088,7 +1150,7 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().retryPrompt).toBe('Create a small app.');
     expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
     expect(getBuilderState().streamError).toContain('screen-inside-screen');
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeUndefined();
 
     submission.unmount();
   });
@@ -1108,7 +1170,7 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.streamMock).toHaveBeenCalledTimes(1);
     expect(testHarness.generateMock).not.toHaveBeenCalled();
     expect(getBuilderState().committedSource).toBe(AUTO_FIXED_SOURCE);
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeUndefined();
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeUndefined();
     expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('auto-fixed locally'));
 
     consoleInfoSpy.mockRestore();
@@ -1162,7 +1224,7 @@ describe('useBuilderSubmission', () => {
     expect((testHarness.generateMock.mock.calls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
@@ -1312,7 +1374,7 @@ describe('useBuilderSubmission', () => {
       expect((repairCalls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
       expect(getBuilderState().committedSource).toBe(repairedSource);
       expect(getBuilderState().streamError).toBeNull();
-      expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+      expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
       expect(getBuilderState().chatMessages.at(-1)).toEqual(
         expect.objectContaining({
           content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
@@ -1349,7 +1411,7 @@ describe('useBuilderSubmission', () => {
       expect(getBuilderState().retryPrompt).toBe(prompt);
       expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
       expect(getBuilderState().streamError).toContain('control-action-and-binding');
-      expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+      expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
       expect(getComposerSubmitState(submission)).toEqual({
         disabled: false,
         label: 'Repeat',
@@ -1389,7 +1451,7 @@ describe('useBuilderSubmission', () => {
     );
     expect(getBuilderState().committedSource).toBe(REPAIRED_SMOKE_COMPLEX_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
-    expect(findChatMessage('The model returned a draft that cannot be committed yet. Sending one automatic repair request now.')).toBeTruthy();
+    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
@@ -1648,7 +1710,7 @@ describe('useBuilderSubmission', () => {
 
     expect(requestSignal?.aborted).toBe(true);
     expect(getBuilderState().committedSource).toBe(IMPORTED_SOURCE);
-    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().currentRequestId).toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
@@ -1746,7 +1808,7 @@ describe('useBuilderSubmission', () => {
 
     expect(requestSignal?.aborted).toBe(true);
     expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
-    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().currentRequestId).toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
@@ -1785,7 +1847,7 @@ describe('useBuilderSubmission', () => {
 
     expect(requestSignal?.aborted).toBe(true);
     expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
-    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().currentRequestId).toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
@@ -1817,7 +1879,7 @@ describe('useBuilderSubmission', () => {
 
     expect(requestSignal?.aborted).toBe(true);
     expect(getBuilderState().committedSource).toBe('');
-    expect(getBuilderState().isStreaming).toBe(false);
+    expect(getBuilderState().currentRequestId).toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,

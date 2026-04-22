@@ -62,7 +62,7 @@ describe('builderSlice', () => {
       }),
     );
 
-    expect(started.isStreaming).toBe(true);
+    expect(started.currentRequestId).toBe('request-1');
     expect(started.lastStreamChunkAt).toBeNull();
     expect(started.chatMessages).toEqual(
       expect.arrayContaining([
@@ -103,7 +103,7 @@ describe('builderSlice', () => {
     );
 
     expect(canceled.currentRequestId).toBeNull();
-    expect(canceled.isStreaming).toBe(false);
+    expect(canceled.currentRequestId).toBeNull();
     expect(canceled.lastStreamChunkAt).toBeNull();
     expect(canceled.committedSource).toBe(initialState.committedSource);
     expect(canceled.streamedSource).toBe(initialState.committedSource);
@@ -144,7 +144,7 @@ describe('builderSlice', () => {
     );
 
     expect(completed.currentRequestId).toBeNull();
-    expect(completed.isStreaming).toBe(false);
+    expect(completed.currentRequestId).toBeNull();
     expect(completed.lastStreamChunkAt).toBeNull();
     expect(completed.committedSource).toBe(validSource);
     expect(completed.streamedSource).toBe(validSource);
@@ -530,7 +530,7 @@ describe('builderSlice', () => {
     );
 
     expect(failed.currentRequestId).toBeNull();
-    expect(failed.isStreaming).toBe(false);
+    expect(failed.currentRequestId).toBeNull();
     expect(failed.lastStreamChunkAt).toBeNull();
     expect(failed.activeTab).toBe(initialState.activeTab);
     expect(failed.hasRejectedDefinition).toBe(false);
@@ -764,7 +764,7 @@ describe('builderSlice', () => {
     );
 
     expect(staleCompletion.currentRequestId).toBe('request-6');
-    expect(staleCompletion.isStreaming).toBe(true);
+    expect(staleCompletion.currentRequestId).toBe('request-6');
     expect(staleCompletion.committedSource).toBe(createInitialState().committedSource);
     expect(staleCompletion.history).toHaveLength(1);
   });
@@ -795,7 +795,7 @@ describe('builderSlice', () => {
     );
 
     expect(staleCompletion.currentRequestId).toBeNull();
-    expect(staleCompletion.isStreaming).toBe(false);
+    expect(staleCompletion.currentRequestId).toBeNull();
     expect(staleCompletion.committedSource).toBe(initialState.committedSource);
     expect(staleCompletion.streamedSource).toBe(initialState.committedSource);
     expect(staleCompletion.history).toHaveLength(1);

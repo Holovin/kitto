@@ -147,7 +147,7 @@ export function useGenerationLifecycle({
   async function runGenerateRequest(
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
-    options?: { transportRequestId?: BuilderRequestId },
+    options?: { requestKind?: 'automatic-repair'; transportRequestId?: BuilderRequestId },
   ): Promise<BuilderGeneratedDraft> {
     throwIfInactiveRequest(requestId);
 
@@ -159,6 +159,7 @@ export function useGenerationLifecycle({
     const response = await generateBuilderDefinition({
       apiBaseUrl: getBackendApiBaseUrl(),
       requestId: transportRequestId,
+      requestKind: options?.requestKind,
       request,
       signal: abortControllerRef.current?.signal,
       timeoutMs: streamMaxDurationMs,
