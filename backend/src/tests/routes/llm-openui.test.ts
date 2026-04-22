@@ -983,6 +983,44 @@ describe('createLlmOpenUiRoutes', () => {
     ]);
   });
 
+  it('emits chunk events before the error event when final stream validation fails after partial output', async () => {
+    const { app } = createRouteApp();
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      await onTextDelta('{"summary":"","source":"root = ');
+      await onTextDelta('AppShell([])"}');
+      throw new UpstreamFailureError('Model output size 100001 bytes exceeded the backend limit of 100000 bytes.');
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'overflow the extracted source after streaming chunks',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      {
+        event: 'chunk',
+        data: '{"summary":"","source":"root = ',
+      },
+      {
+        event: 'chunk',
+        data: 'AppShell([])"}',
+      },
+      {
+        event: 'error',
+        data: '{"code":"upstream_error","error":"The model service could not complete the request.","status":502}',
+      },
+    ]);
+  });
+
   it('emits an error SSE event when the backend stream times out', async () => {
     const { app } = createRouteApp();
     const timeoutError = new Error('Timed out while waiting for the model.');

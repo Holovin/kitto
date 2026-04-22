@@ -396,6 +396,40 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
+  it('rejects chunked partial source when the stream ends with an error instead of done', async () => {
+    const onChunk = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\ndata: {"summary":"","source":"root = AppShell([])"}\n\n',
+            'event: error\ndata: {"error":"Upstream failed","code":"upstream_error"}\n\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition({
+        ...createStreamRequestOptions({ onChunk }),
+      }),
+    ).rejects.toMatchObject({
+      code: 'upstream_error',
+      message: 'Upstream failed',
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith('root = AppShell([])');
+  });
+
   it('throws the parsed backend error for non-ok JSON responses', async () => {
     vi.stubGlobal(
       'fetch',

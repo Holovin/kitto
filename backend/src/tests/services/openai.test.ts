@@ -864,6 +864,38 @@ describe('streamOpenUiSource', () => {
     expect(stream.finalResponse).not.toHaveBeenCalled();
   });
 
+  it('rejects streamed structured output when the extracted source exceeds the final source limit', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-16b',
+      LLM_OUTPUT_MAX_BYTES: 50,
+    });
+    const onTextDelta = vi.fn();
+    const oversizedSource = 'x'.repeat(51);
+    const rawEnvelope = JSON.stringify({
+      summary: '',
+      source: oversizedSource,
+    });
+    const midpoint = Math.floor(rawEnvelope.length / 2);
+    const stream = createMockResponseStream(
+      [
+        { type: 'response.output_text.delta', delta: rawEnvelope.slice(0, midpoint) },
+        { type: 'response.output_text.delta', delta: rawEnvelope.slice(midpoint) },
+      ],
+      {
+        output_text: rawEnvelope,
+      },
+    );
+
+    responsesStreamMock.mockReturnValue(stream);
+
+    await expect(streamOpenUiSource(env, request, onTextDelta)).rejects.toBeInstanceOf(UpstreamFailureError);
+
+    expect(onTextDelta).toHaveBeenNthCalledWith(1, rawEnvelope.slice(0, midpoint));
+    expect(onTextDelta).toHaveBeenNthCalledWith(2, rawEnvelope.slice(midpoint));
+    expect(stream.abort).not.toHaveBeenCalled();
+    expect(stream.finalResponse).toHaveBeenCalledTimes(1);
+  });
+
   it('normalizes the plain-text streaming path to an empty summary default when structured output is disabled', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-17',

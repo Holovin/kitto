@@ -37,6 +37,9 @@ async function finalizeOpenUiModelResponse(
 
   try {
     parsedEnvelope = extractOpenUiEnvelopeFromModelText(rawModelText, env);
+    // Streaming enforces a raw envelope byte cap while deltas are in flight, but
+    // structured responses still need a final extracted-source check here before
+    // callers can treat the result as eligible for a `done` event or JSON reply.
     assertModelOutputWithinLimit(parsedEnvelope.source, env);
     await writePromptIoLogSafely(env, request, responseRequest, rawModelText, {
       compactedRequestBytes: options.compactedRequestBytes,
