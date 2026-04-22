@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { generatePrompt, type PromptSpec } from '@openuidev/lang-core';
-import { additionalRules } from './rules.js';
+import { PLAIN_OUTPUT_ADDITIONAL_RULES, STRUCTURED_OUTPUT_ADDITIONAL_RULES } from './rules.js';
 import { toolExamples } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
 
@@ -23,15 +23,7 @@ const preamble =
 function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
   const structuredOutput = options.structuredOutput ?? true;
 
-  if (structuredOutput) {
-    return additionalRules;
-  }
-
-  return [
-    ...additionalRules.slice(0, 5),
-    'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
-    ...additionalRules.slice(5),
-  ];
+  return structuredOutput ? STRUCTURED_OUTPUT_ADDITIONAL_RULES : PLAIN_OUTPUT_ADDITIONAL_RULES;
 }
 
 function getSystemPromptVariant(options: BuildOpenUiPromptOptions = {}): SystemPromptVariant {

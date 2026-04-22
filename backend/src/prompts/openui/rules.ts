@@ -1,12 +1,15 @@
 export const BUTTON_APPEARANCE_RULE =
   'For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.';
 
-export const additionalRules = [
+export const SIMPLE_APP_RULES = [
   'SIMPLE APP RULE:',
   'Prefer the smallest working app that satisfies the latest user request.',
   'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
   'For simple apps, use one Screen and one or two Groups.',
   'If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.',
+] as const;
+
+export const CORE_PROGRAM_RULES = [
   'Return the full updated program every time, not a patch.',
   'The root statement must be `root = AppShell([...])`.',
   'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
@@ -17,6 +20,9 @@ export const additionalRules = [
   '- compute options',
   '- validation rule objects',
   'Do not invent any other nested config objects.',
+] as const;
+
+const TODO_TASK_LIST_RECIPE_RULES = [
   'TODO / TASK LIST RECIPE:',
   'For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:',
   '- `$draft`',
@@ -31,6 +37,9 @@ export const additionalRules = [
   '- `Repeater(rows, "No tasks yet.")`',
   'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
   'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
+] as const;
+
+const CONTROL_ACTION_MODE_RULES = [
   'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
   'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
   'RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.',
@@ -45,6 +54,9 @@ export const additionalRules = [
   'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`, `setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })`, then `Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))`.',
   'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
   'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
+] as const;
+
+const LAYOUT_RULES = [
   'LAYOUT RULES:',
   'Use Screen for top-level app sections.',
   'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
@@ -61,6 +73,9 @@ export const additionalRules = [
   'Use Group variant "block" for standalone visual sections.',
   'Do not over-nest block Groups.',
   'Without appearance, button variants keep their semantic fallback styles such as filled, outlined, or destructive.',
+] as const;
+
+const TOOL_MINIMALITY_RULES = [
   'TOOL MINIMALITY:',
   'Use $variables for ephemeral UI state.',
   'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
@@ -68,6 +83,9 @@ export const additionalRules = [
   'Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions on persisted object collections instead of rebuilding whole arrays manually.',
   'Compute tools are opt-in. Do not use `compute_value` or `write_computed_state` unless the requested task needs them.',
   'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
+] as const;
+
+const APPEARANCE_AND_THEME_RULES = [
   'APPEARANCE / THEME CONTRACT:',
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
   'Only introduce `$currentTheme`, `lightTheme`, `darkTheme`, and theme-toggle buttons when the user asks for app-wide light/dark switching or a theme toggle.',
@@ -87,6 +105,9 @@ export const additionalRules = [
   'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Local appearance overrides inherited theme colors, and buttons use the same main/background + contrast/text mapping as other controls.',
   'Variants are fallback styles, not the primary mechanism for theme switching.',
+] as const;
+
+const COLLECTION_AND_FILTER_RULES = [
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
@@ -103,6 +124,9 @@ export const additionalRules = [
   'Use `remove_item` for id-based deletion of persisted object rows.',
   'For row-level persisted actions inside `@Each(...)`, keep the Mutation top-level and relay `item.id` through local state before `@Run(...)`.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
+] as const;
+
+const INPUT_AND_VALIDATION_RULES = [
   'Use `Checkbox(..., validation)` with a writable `$binding<boolean>` for agreement, consent, confirmation, or acknowledgement fields backed by local form state.',
   'Use Checkbox action mode with a display-only boolean plus `Action([...])` when the checkbox itself should trigger a persisted row toggle.',
   'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
@@ -126,6 +150,9 @@ export const additionalRules = [
   'For date inputs, use only `required`, `dateOnOrAfter`, and `dateOnOrBefore`, and rule values must be literal `YYYY-MM-DD` strings.',
   'For time inputs, selects, and radio groups, use only `required`.',
   'For checkboxes, `required` means the checkbox must be checked.',
+] as const;
+
+const SCREEN_AND_COMPONENT_RULES = [
   'Screen signature is `Screen(id, title, children, isActive?, appearance?)`.',
   'Use `Screen(id, title, children, isActive?, appearance?)` when you need screen-level sections.',
   'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
@@ -136,6 +163,9 @@ export const additionalRules = [
   'Use `$currentScreen` + `@Set(...)` for screen navigation.',
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
   'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
+] as const;
+
+const COMPUTE_TOOL_RULES = [
   'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
   'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
   'Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.',
@@ -150,6 +180,9 @@ export const additionalRules = [
   'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
   'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`; display the persisted primitive, not a Mutation ref or `mutationRef.data.value`.',
   'Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.',
+] as const;
+
+const PERSISTED_TOOL_AND_COMPLETENESS_RULES = [
   'Use write_state, merge_state, append_state, append_item, toggle_item_field, update_item_field, remove_item, remove_state, and write_computed_state for exportable persistent data.',
   'Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.',
   'Each persisted path segment may only use letters, numbers, `_`, or `-`. Numeric segments are array indexes only.',
@@ -171,4 +204,37 @@ export const additionalRules = [
   'Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.',
   'Generated apps must stay browser-safe and must not depend on server-side execution after generation.',
   'Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them.',
-];
+] as const;
+
+export const STRUCTURED_OUTPUT_ADDITIONAL_RULES = [
+  ...SIMPLE_APP_RULES,
+  ...CORE_PROGRAM_RULES,
+  ...TODO_TASK_LIST_RECIPE_RULES,
+  ...CONTROL_ACTION_MODE_RULES,
+  ...LAYOUT_RULES,
+  ...TOOL_MINIMALITY_RULES,
+  ...APPEARANCE_AND_THEME_RULES,
+  ...COLLECTION_AND_FILTER_RULES,
+  ...INPUT_AND_VALIDATION_RULES,
+  ...SCREEN_AND_COMPONENT_RULES,
+  ...COMPUTE_TOOL_RULES,
+  ...PERSISTED_TOOL_AND_COMPLETENESS_RULES,
+] as const;
+
+export const PLAIN_OUTPUT_ADDITIONAL_RULES = [
+  ...SIMPLE_APP_RULES,
+  'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
+  ...CORE_PROGRAM_RULES,
+  ...TODO_TASK_LIST_RECIPE_RULES,
+  ...CONTROL_ACTION_MODE_RULES,
+  ...LAYOUT_RULES,
+  ...TOOL_MINIMALITY_RULES,
+  ...APPEARANCE_AND_THEME_RULES,
+  ...COLLECTION_AND_FILTER_RULES,
+  ...INPUT_AND_VALIDATION_RULES,
+  ...SCREEN_AND_COMPONENT_RULES,
+  ...COMPUTE_TOOL_RULES,
+  ...PERSISTED_TOOL_AND_COMPLETENESS_RULES,
+] as const;
+
+export const additionalRules = STRUCTURED_OUTPUT_ADDITIONAL_RULES;
