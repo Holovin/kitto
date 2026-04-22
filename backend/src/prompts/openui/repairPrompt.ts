@@ -2,33 +2,63 @@ import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
+type RepairSectionKey = 'committedSource' | 'hints' | 'invalidSource' | 'issues' | 'userPrompt';
+
+interface RepairIssueSummary {
+  issue: PromptBuildValidationIssue;
+  repeatCount: number;
+}
+
+interface UndefinedStateReferenceSummary {
+  exampleInitializer: string | null;
+  refName: string;
+  repeatCount: number;
+}
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
+const UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN =
+  /State reference `(\$[A-Za-z_][\w$]*)` is missing a top-level declaration with a literal initial value\.(?: For example, add `\$\w+ = ([^`]+)`\.)?/;
 
 export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Return only raw OpenUI Lang.',
   'Return the full updated program.',
   'Use only supported components and tools.',
   'Every @Run(ref) must reference a defined Query or Mutation.',
+  'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
   'AppShell signature is AppShell(children, appearance?).',
   'Screen signature is Screen(id, title, children, isActive?, appearance?).',
+  'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
   'Group signature is Group(title, direction, children, variant?, appearance?).',
   'The second Group argument is direction and must be "vertical" or "horizontal".',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put "block" or "inline" in the second Group argument.',
+  'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
+  'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
   'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
   'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
   BUTTON_APPEARANCE_RULE,
   'Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
   'Use $currentScreen + @Set for screen navigation.',
+  'Declare every `$var` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.',
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
 ] as const;
 
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
 
-function formatValidationIssue(issue: PromptBuildValidationIssue) {
-  return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
+function addUniqueLine(lines: string[], seenLines: Set<string>, line: string) {
+  if (seenLines.has(line)) {
+    return;
+  }
+
+  seenLines.add(line);
+  lines.push(line);
+}
+
+function formatValidationIssue(summary: RepairIssueSummary) {
+  const { issue, repeatCount } = summary;
+  const repeatedSuffix = repeatCount > 1 ? ` [reported ${repeatCount} times]` : '';
+  return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}${repeatedSuffix}`;
 }
 
 function truncateText(value: string, maxChars: number) {
@@ -49,96 +79,205 @@ function buildRepairSection(title: string, content: string) {
 
 function buildRepairSourceSectionContent(value: string, maxChars: number, fallback: string) {
   if (maxChars <= 0) {
-    return fallback;
+    return truncateText(fallback, maxChars);
   }
 
-  return value.trim() ? truncateText(value, maxChars) : fallback;
+  return value.trim() ? truncateText(value, maxChars) : truncateText(fallback, maxChars);
 }
 
-function allocateRepairSectionBudgets(totalChars: number) {
-  const sectionKeys = ['userPrompt', 'committedSource', 'invalidSource', 'issues'] as const;
-  const minimumBudgets = {
+function buildBoundedSectionContent(lines: string[], maxChars: number, fallback: string) {
+  if (maxChars <= 0) {
+    return truncateText(fallback, maxChars);
+  }
+
+  if (!lines.length) {
+    return truncateText(fallback, maxChars);
+  }
+
+  const selectedLines: string[] = [];
+
+  for (const line of lines) {
+    const candidateSection = [...selectedLines, line].join('\n');
+
+    if (candidateSection.length > maxChars) {
+      const currentLength = selectedLines.join('\n').length;
+      const remainingChars = maxChars - currentLength - (selectedLines.length > 0 ? 1 : 0);
+
+      if (remainingChars > 0) {
+        selectedLines.push(truncateText(line, remainingChars));
+      }
+
+      break;
+    }
+
+    selectedLines.push(line);
+  }
+
+  return selectedLines.length ? selectedLines.join('\n') : truncateText(lines[0] ?? fallback, maxChars);
+}
+
+function parseUndefinedStateReferenceIssue(issue: PromptBuildValidationIssue) {
+  if (issue.code !== 'undefined-state-reference') {
+    return null;
+  }
+
+  const match = issue.message.match(UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return {
+    exampleInitializer: match[2] ?? null,
+    refName: match[1],
+  };
+}
+
+function summarizeUndefinedStateReferenceIssues(issues: PromptBuildValidationIssue[]) {
+  const summaries: UndefinedStateReferenceSummary[] = [];
+  const indexesByRefName = new Map<string, number>();
+
+  for (const issue of issues) {
+    const parsedIssue = parseUndefinedStateReferenceIssue(issue);
+
+    if (!parsedIssue) {
+      continue;
+    }
+
+    const existingIndex = indexesByRefName.get(parsedIssue.refName);
+
+    if (existingIndex != null) {
+      const existingSummary = summaries[existingIndex];
+
+      if (!existingSummary) {
+        continue;
+      }
+
+      existingSummary.repeatCount += 1;
+
+      if (!existingSummary.exampleInitializer && parsedIssue.exampleInitializer) {
+        existingSummary.exampleInitializer = parsedIssue.exampleInitializer;
+      }
+
+      continue;
+    }
+
+    indexesByRefName.set(parsedIssue.refName, summaries.length);
+    summaries.push({
+      exampleInitializer: parsedIssue.exampleInitializer,
+      refName: parsedIssue.refName,
+      repeatCount: 1,
+    });
+  }
+
+  return summaries;
+}
+
+function summarizeRepairIssues(issues: PromptBuildValidationIssue[]) {
+  const summaries: RepairIssueSummary[] = [];
+  const undefinedStateIssueIndexes = new Map<string, number>();
+
+  for (const issue of issues) {
+    const parsedUndefinedStateIssue = parseUndefinedStateReferenceIssue(issue);
+
+    if (parsedUndefinedStateIssue) {
+      const existingIndex = undefinedStateIssueIndexes.get(parsedUndefinedStateIssue.refName);
+
+      if (existingIndex != null) {
+        const existingSummary = summaries[existingIndex];
+
+        if (existingSummary) {
+          existingSummary.repeatCount += 1;
+        }
+
+        continue;
+      }
+
+      undefinedStateIssueIndexes.set(parsedUndefinedStateIssue.refName, summaries.length);
+    }
+
+    summaries.push({
+      issue,
+      repeatCount: 1,
+    });
+  }
+
+  return summaries;
+}
+
+function allocateRepairSectionBudgets(
+  totalChars: number,
+  desiredLengths: Record<RepairSectionKey, number>,
+  hasHints: boolean,
+) {
+  const priority: RepairSectionKey[] = ['issues', 'hints', 'userPrompt', 'committedSource', 'invalidSource'];
+  const minimumBudgets: Record<RepairSectionKey, number> = {
     userPrompt: 120,
     committedSource: 180,
-    invalidSource: 300,
-    issues: 200,
-  } as const;
-  const weights = {
-    userPrompt: 1,
-    committedSource: 1.2,
-    invalidSource: 2.8,
-    issues: 1.6,
-  } as const;
-  const budgets = {
+    invalidSource: 160,
+    issues: 360,
+    hints: hasHints ? 360 : 0,
+  };
+  const budgets: Record<RepairSectionKey, number> = {
     userPrompt: 0,
     committedSource: 0,
     invalidSource: 0,
     issues: 0,
+    hints: 0,
   };
 
   if (totalChars <= 0) {
     return budgets;
   }
 
-  const minimumTotal = sectionKeys.reduce((sum, key) => sum + minimumBudgets[key], 0);
-  const totalWeight = sectionKeys.reduce((sum, key) => sum + weights[key], 0);
+  const cappedMinimums: Record<RepairSectionKey, number> = {
+    userPrompt: Math.min(desiredLengths.userPrompt, minimumBudgets.userPrompt),
+    committedSource: Math.min(desiredLengths.committedSource, minimumBudgets.committedSource),
+    invalidSource: Math.min(desiredLengths.invalidSource, minimumBudgets.invalidSource),
+    issues: Math.min(desiredLengths.issues, minimumBudgets.issues),
+    hints: Math.min(desiredLengths.hints, minimumBudgets.hints),
+  };
+  const minimumTotal = priority.reduce((sum, key) => sum + cappedMinimums[key], 0);
+  let remainingChars = totalChars;
 
-  if (totalChars <= minimumTotal) {
-    let allocated = 0;
-
-    for (const key of sectionKeys) {
-      const nextBudget = Math.floor((totalChars * weights[key]) / totalWeight);
-      budgets[key] = nextBudget;
-      allocated += nextBudget;
-    }
-
-    let remainder = totalChars - allocated;
-
-    for (const key of ['invalidSource', 'issues', 'committedSource', 'userPrompt'] as const) {
-      if (remainder <= 0) {
+  if (remainingChars <= minimumTotal) {
+    for (const key of priority) {
+      if (remainingChars <= 0) {
         break;
       }
 
-      budgets[key] += 1;
-      remainder -= 1;
+      const allocation = Math.min(cappedMinimums[key], remainingChars);
+      budgets[key] = allocation;
+      remainingChars -= allocation;
     }
 
     return budgets;
   }
 
-  let allocated = minimumTotal;
-
-  for (const key of sectionKeys) {
-    budgets[key] = minimumBudgets[key];
+  for (const key of priority) {
+    budgets[key] = cappedMinimums[key];
+    remainingChars -= cappedMinimums[key];
   }
 
-  const remainingChars = totalChars - minimumTotal;
-
-  for (const key of sectionKeys) {
-    const extraBudget = Math.floor((remainingChars * weights[key]) / totalWeight);
-    budgets[key] += extraBudget;
-    allocated += extraBudget;
-  }
-
-  let remainder = totalChars - allocated;
-
-  for (const key of ['invalidSource', 'issues', 'committedSource', 'userPrompt'] as const) {
-    if (remainder <= 0) {
-      break;
+  for (const key of priority) {
+    if (remainingChars <= 0) {
+      return budgets;
     }
 
-    budgets[key] += 1;
-    remainder -= 1;
+    const additionalBudget = Math.min(desiredLengths[key] - budgets[key], remainingChars);
+
+    if (additionalBudget <= 0) {
+      continue;
+    }
+
+    budgets[key] += additionalBudget;
+    remainingChars -= additionalBudget;
   }
 
   return budgets;
 }
 
 function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars: number) {
-  if (maxChars <= 0) {
-    return '- Validation issues were detected, but they could not be enumerated in full.';
-  }
-
   const inlineHintLines = [
     ...new Set(
       issues
@@ -146,67 +285,83 @@ function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars:
         .map(() => `- ${CONTROL_ACTION_AND_BINDING_REPAIR_HINT}`),
     ),
   ];
-  const selectedIssueLines: string[] = [];
+  const issueLines = summarizeRepairIssues(issues).map((summary) => `- ${formatValidationIssue(summary)}`);
 
-  for (const issue of issues) {
-    const nextLine = `- ${formatValidationIssue(issue)}`;
-    const candidateSection = [...selectedIssueLines, nextLine, ...inlineHintLines].join('\n');
-
-    if (candidateSection.length > maxChars) {
-      break;
-    }
-
-    selectedIssueLines.push(nextLine);
-  }
-
-  if (!selectedIssueLines.length && issues[0]) {
-    selectedIssueLines.push(`- ${truncateText(formatValidationIssue(issues[0]), Math.max(1, maxChars - 2))}`);
-  }
-
-  const sectionLines = [...selectedIssueLines];
-
-  for (const inlineHintLine of inlineHintLines) {
-    const candidateSection = [...sectionLines, inlineHintLine].join('\n');
-
-    if (candidateSection.length > maxChars) {
-      const currentLength = sectionLines.join('\n').length;
-      const remainingChars = maxChars - currentLength - (sectionLines.length > 0 ? 1 : 0);
-
-      if (remainingChars > 0) {
-        sectionLines.push(truncateText(inlineHintLine, remainingChars));
-      }
-
-      break;
-    }
-
-    sectionLines.push(inlineHintLine);
-  }
-
-  return sectionLines.length ? sectionLines.join('\n') : '- Validation issues were detected, but they could not be enumerated in full.';
+  return buildBoundedSectionContent(
+    [...issueLines, ...inlineHintLines],
+    maxChars,
+    '- Validation issues were detected, but they could not be enumerated in full.',
+  );
 }
 
 function buildRepairHints(issues: PromptBuildValidationIssue[]) {
-  const hints = new Set<string>();
+  const hints: string[] = [];
+  const seenHints = new Set<string>();
+  const undefinedStateReferenceSummaries = summarizeUndefinedStateReferenceIssues(issues);
 
   for (const issue of issues) {
+    if (issue.code === 'app-shell-not-root' || issue.code === 'multiple-app-shells') {
+      addUniqueLine(
+        hints,
+        seenHints,
+        'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
+      );
+      continue;
+    }
+
+    if (issue.code === 'screen-inside-screen') {
+      addUniqueLine(
+        hints,
+        seenHints,
+        'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
+      );
+      continue;
+    }
+
+    if (issue.code === 'repeater-inside-repeater') {
+      addUniqueLine(
+        hints,
+        seenHints,
+        'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
+      );
+      continue;
+    }
+
+    if (issue.code === 'inline-tool-in-each' || issue.code === 'inline-tool-in-prop' || issue.code === 'inline-tool-in-repeater') {
+      addUniqueLine(
+        hints,
+        seenHints,
+        'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
+      );
+      continue;
+    }
+
     if (issue.code === 'invalid-prop') {
-      hints.add('Check component argument order against the documented signature before returning.');
+      addUniqueLine(hints, seenHints, 'Check component argument order against the documented signature before returning.');
 
       if (issue.message.includes('Group.direction')) {
-        hints.add('For Group(...), the second argument is direction and must be "vertical" or "horizontal".');
-        hints.add('If you need Group variant "block" or "inline", place it in the optional fourth argument.');
-        hints.add('Never put "block" or "inline" in the second Group argument.');
+        addUniqueLine(hints, seenHints, 'For Group(...), the second argument is direction and must be "vertical" or "horizontal".');
+        addUniqueLine(hints, seenHints, 'If you need Group variant "block" or "inline", place it in the optional fourth argument.');
+        addUniqueLine(hints, seenHints, 'Never put "block" or "inline" in the second Group argument.');
       }
 
       if (issue.message.includes('Group.variant')) {
-        hints.add('Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
+        addUniqueLine(hints, seenHints, 'Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
       }
 
       if (issue.message.includes('.appearance.') || issue.message.includes('.color') || issue.message.includes('.background')) {
-        hints.add('Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".');
-        hints.add('Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.');
-        hints.add('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
-        hints.add(BUTTON_APPEARANCE_RULE);
+        addUniqueLine(
+          hints,
+          seenHints,
+          'Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".',
+        );
+        addUniqueLine(
+          hints,
+          seenHints,
+          'Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.',
+        );
+        addUniqueLine(hints, seenHints, 'Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
+        addUniqueLine(hints, seenHints, BUTTON_APPEARANCE_RULE);
       }
 
       if (
@@ -215,13 +370,19 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
         issue.message.includes('Text.appearance.bgColor') ||
         issue.message.includes('Text.background')
       ) {
-        hints.add(
+        addUniqueLine(
+          hints,
+          seenHints,
           'Text supports only appearance.contrastColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.',
         );
       }
 
       if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
-        hints.add('Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).');
+        addUniqueLine(
+          hints,
+          seenHints,
+          'Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).',
+        );
       }
 
       continue;
@@ -232,50 +393,77 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
       const suggestedQueryRuns = referencedRuns.filter((statementId) => statementId !== issue.statementId);
 
       if (issue.statementId && suggestedQueryRuns.length > 0) {
-        hints.add(
+        addUniqueLine(
+          hints,
+          seenHints,
           `The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add ${suggestedQueryRuns
             .map((statementId) => `@Run(${statementId})`)
             .join(' or ')} later in the same Action after @Run(${issue.statementId}).`,
         );
       } else {
-        hints.add('If a mutation updates persisted state that visible UI reads, re-run a matching Query("read_state", ...) later in the same Action.');
+        addUniqueLine(
+          hints,
+          seenHints,
+          'If a mutation updates persisted state that visible UI reads, re-run a matching Query("read_state", ...) later in the same Action.',
+        );
       }
 
-      hints.add(
+      addUniqueLine(
+        hints,
+        seenHints,
         'A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.',
       );
       continue;
     }
 
     if (issue.code === 'quality-missing-todo-controls') {
-      hints.add(
-        'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_state` mutation, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'undefined-state-reference') {
-      hints.add(
-        'Every `$var` reference must have a top-level declaration with a literal initial value before it is used, such as `$draft = ""` or `$currentScreen = "main"`.',
+      addUniqueLine(
+        hints,
+        seenHints,
+        'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_item` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
       );
       continue;
     }
 
     if (issue.code === 'quality-random-result-not-visible') {
-      hints.add(
+      addUniqueLine(
+        hints,
+        seenHints,
         'For button-triggered randomness, use the canonical persisted recipe: `Mutation("write_computed_state", { op: "random_int", ... })`, `Query("read_state", { path: "..." }, defaultValue)`, and a button `Action(...)` that runs both in order.',
       );
       continue;
     }
 
     if (issue.code === 'quality-theme-state-not-applied') {
-      hints.add(
+      addUniqueLine(
+        hints,
+        seenHints,
         'When the user asks to switch or toggle between themes, introduce a theme state such as `$currentTheme`, derive a theme object from it, and bind `appearance` on `AppShell` or another top-level container to that derived theme.',
       );
     }
   }
 
-  return [...hints];
+  if (undefinedStateReferenceSummaries.length > 0) {
+    addUniqueLine(
+      hints,
+      seenHints,
+      'Every `$var` reference must have a top-level declaration with a literal initial value before it is used, such as `$draft = ""` or `$currentScreen = "main"`.',
+    );
+    addUniqueLine(
+      hints,
+      seenHints,
+      'Declare every `$var` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.',
+    );
+    addUniqueLine(
+      hints,
+      seenHints,
+      `Missing top-level state declarations to add before returning: ${undefinedStateReferenceSummaries
+        .map(({ exampleInitializer, refName }) => `\`${refName} = ${exampleInitializer ?? '""'}\``)
+        .join(', ')}.`,
+    );
+  }
+
+  return hints;
 }
 
 function getRepairIssueMode(issues: PromptBuildValidationIssue[]): RepairIssueMode {
@@ -289,10 +477,21 @@ function getRepairIssueMode(issues: PromptBuildValidationIssue[]): RepairIssueMo
   return hasQualityIssues ? 'quality' : 'parser';
 }
 
-function buildRepairIntroSection(mode: RepairIssueMode, attemptNumber: number, maxRepairAttempts: number) {
+function buildRepairIntroSection(
+  mode: RepairIssueMode,
+  attemptNumber: number,
+  maxRepairAttempts: number,
+  hasUndefinedStateReferenceIssues: boolean,
+) {
   const introLines = [
     `The previous OpenUI draft cannot be committed yet. Automatic repair attempt ${attemptNumber} of ${maxRepairAttempts}.`,
   ];
+
+  if (hasUndefinedStateReferenceIssues) {
+    introLines.push(
+      'The draft excerpt below may be truncated. Fix every listed missing `$var` declaration even when some references are not visible in the excerpt.',
+    );
+  }
 
   if (mode === 'quality') {
     introLines.push('The draft is syntactically valid but fails a product-quality check.');
@@ -355,39 +554,61 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
   const issueMode = getRepairIssueMode(issues);
   const repairHints = buildRepairHints(issues);
-  const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts);
+  const hasUndefinedStateReferenceIssues = issues.some((issue) => issue.code === 'undefined-state-reference');
+  const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
   const rulesSection = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`).join('\n');
-  const hintsSection = repairHints.map((hint) => `- ${hint}`).join('\n');
-  const sectionHeaders = [
-    'Original user request:',
-    'Current committed valid OpenUI source:',
-    `${draftSectionTitle}:`,
-    `${issuesSectionTitle}:`,
-    ...(repairHints.length > 0 ? ['Targeted repair hints:'] : []),
-    'Current critical syntax rules:',
-  ];
-  const fixedChars =
-    introSection.length +
-    rulesSection.length +
-    hintsSection.length +
-    sectionHeaders.reduce((sum, header) => sum + header.length + 1, 0) +
-    10;
-  const budgets = allocateRepairSectionBudgets(promptMaxChars - fixedChars);
+  const fullIssuesSectionContent = buildRepairIssueSection(issues, Number.MAX_SAFE_INTEGER);
+  const fullHintsSectionContent = buildBoundedSectionContent(
+    repairHints.map((hint) => `- ${hint}`),
+    Number.MAX_SAFE_INTEGER,
+    '- No targeted repair hints were available.',
+  );
+  const sectionSkeleton = [
+    introSection,
+    buildRepairSection('Original user request', ''),
+    buildRepairSection('Current committed valid OpenUI source', ''),
+    buildRepairSection(issuesSectionTitle, ''),
+    repairHints.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
+    buildRepairSection(draftSectionTitle, ''),
+    buildRepairSection('Current critical syntax rules', rulesSection),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+  const budgets = allocateRepairSectionBudgets(promptMaxChars - sectionSkeleton.length, {
+    userPrompt: (userPrompt.trim() ? userPrompt : '(empty user request)').length,
+    committedSource: (committedSource.trim() ? committedSource : '(blank canvas, no committed OpenUI source yet)').length,
+    invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
+    issues: fullIssuesSectionContent.length,
+    hints: repairHints.length > 0 ? fullHintsSectionContent.length : 0,
+  }, repairHints.length > 0);
+  const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
+  const committedSourceSectionContent = buildRepairSourceSectionContent(
+    committedSource,
+    budgets.committedSource,
+    '(blank canvas, no committed OpenUI source yet)',
+  );
+  const issuesSectionContent = buildRepairIssueSection(issues, budgets.issues);
+  const hintsSectionContent =
+    repairHints.length > 0
+      ? buildBoundedSectionContent(
+          repairHints.map((hint) => `- ${hint}`),
+          budgets.hints,
+          '- No targeted repair hints were available.',
+        )
+      : '';
+  const draftSectionContent = buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback);
 
   return truncateText(
     [
       introSection,
-      buildRepairSection('Original user request', buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)')),
-      buildRepairSection(
-        'Current committed valid OpenUI source',
-        buildRepairSourceSectionContent(committedSource, budgets.committedSource, '(blank canvas, no committed OpenUI source yet)'),
-      ),
-      buildRepairSection(draftSectionTitle, buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback)),
-      buildRepairSection(issuesSectionTitle, buildRepairIssueSection(issues, budgets.issues)),
-      repairHints.length > 0 ? buildRepairSection('Targeted repair hints', hintsSection) : null,
+      buildRepairSection('Original user request', userRequestSectionContent),
+      buildRepairSection('Current committed valid OpenUI source', committedSourceSectionContent),
+      buildRepairSection(issuesSectionTitle, issuesSectionContent),
+      repairHints.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
+      buildRepairSection(draftSectionTitle, draftSectionContent),
       buildRepairSection('Current critical syntax rules', rulesSection),
     ]
       .filter(Boolean)

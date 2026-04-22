@@ -80,7 +80,7 @@ root = AppShell([
       Input("name", "Name", $name, "Ada", "Enter your full name"),
       RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)
     ])
-  ], true)
+  ])
 ], appTheme)`,
   `savedFilter = Query("read_state", { path: "ui.filter" }, "all")
 setFilter = Mutation("write_state", {
@@ -126,7 +126,7 @@ root = AppShell([
       Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }]),
       Button("submit-button", "Submit", "default", Action([]), false)
     ])
-  ], true)
+  ])
 ])`,
   `roll = Mutation("write_computed_state", {
   path: "app.roll",

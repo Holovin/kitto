@@ -2,6 +2,42 @@ import { describe, expect, it } from 'vitest';
 import type { PromptBuildValidationIssue } from '../../prompts/openui.js';
 import { buildOpenUiRepairPrompt } from '../../prompts/openui.js';
 
+function buildUndefinedStateReferenceIssues(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const refName = `$q${index + 1}`;
+
+    return {
+      code: 'undefined-state-reference',
+      message: `State reference \`${refName}\` is missing a top-level declaration with a literal initial value. For example, add \`${refName} = ""\`.`,
+      source: 'quality',
+      statementId: 'root',
+    } satisfies PromptBuildValidationIssue;
+  });
+}
+
+function buildHugeQuizDraft(count: number) {
+  const questionGroups = Array.from({ length: count }, (_, index) => {
+    const questionNumber = index + 1;
+
+    return `Group("Question ${questionNumber}", "vertical", [
+  Text("Question ${questionNumber}", "body", "start"),
+  RadioGroup("question-${questionNumber}", "Question ${questionNumber}", $q${questionNumber}, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+])`;
+  }).join(',\n');
+  const fillerText = Array.from({ length: 220 }, (_, index) => `Text("Filler line ${index + 1}", "body", "start")`).join(',\n');
+
+  return `root = AppShell([
+  Screen("quiz", "Quiz", [
+${questionGroups},
+${fillerText},
+    Text("END-OF-DRAFT", "body", "start")
+  ])
+])`;
+}
+
 describe('buildOpenUiRepairPrompt', () => {
   it('includes Group argument-order rules in every repair prompt', () => {
     const prompt = buildOpenUiRepairPrompt({
@@ -15,10 +51,25 @@ describe('buildOpenUiRepairPrompt', () => {
     });
 
     expect(prompt).toContain('AppShell signature is AppShell(children, appearance?).');
+    expect(prompt).toContain(
+      'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
+    );
     expect(prompt).toContain('Group signature is Group(title, direction, children, variant?, appearance?).');
     expect(prompt).toContain('The second Group argument is direction and must be "vertical" or "horizontal".');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put "block" or "inline" in the second Group argument.');
+    expect(prompt).toContain(
+      'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
+    );
+    expect(prompt).toContain(
+      'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
+    );
+    expect(prompt).toContain(
+      'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
+    );
+    expect(prompt).toContain(
+      'Declare every `$var` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.',
+    );
     expect(prompt).toContain('Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.');
     expect(prompt).toContain('Invalid model draft:');
     expect(prompt).toContain('Validation issues:');
@@ -146,6 +197,124 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain(
       '- Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.',
     );
+  });
+
+  it('surfaces screen nesting as an explicit repair rule', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      {
+        code: 'screen-inside-screen',
+        message:
+          'Screen cannot contain another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a two-step quiz.',
+      committedSource: 'root = AppShell([Screen("main", "Main", [])])',
+      invalidSource: 'root = AppShell([Screen("main", "Main", [Screen("nested", "Nested", [])])])',
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain(
+      'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
+    );
+    expect(prompt).toContain('Targeted repair hints:');
+  });
+
+  it('uses append_item in the todo repair hint', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      {
+        code: 'quality-missing-todo-controls',
+        message: 'Todo request did not generate required todo controls.',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Create a todo list.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([])',
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain('Targeted repair hints:');
+    expect(prompt).toContain(
+      'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_item` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
+    );
+    expect(prompt).not.toContain('an `append_state` mutation');
+    expect(prompt).toMatchSnapshot();
+  });
+
+  it('lists every missing state declaration before the draft and keeps the full hint list stable', () => {
+    const issues = buildUndefinedStateReferenceIssues(20);
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a 20-question quiz.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: buildHugeQuizDraft(20),
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 9_000,
+    });
+
+    expect(prompt.indexOf('Targeted repair hints:')).toBeLessThan(prompt.indexOf('Model draft to repair:'));
+
+    for (let questionNumber = 1; questionNumber <= 20; questionNumber += 1) {
+      expect(prompt).toContain(`$q${questionNumber} = ""`);
+    }
+
+    expect(prompt).toMatchSnapshot();
+  });
+
+  it('truncates the draft before issues and hints when the repair prompt is over budget', () => {
+    const issues = buildUndefinedStateReferenceIssues(20);
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a 20-question quiz.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: buildHugeQuizDraft(20),
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 7_500,
+    });
+
+    expect(prompt).toContain('Quality issues:');
+    expect(prompt).toContain('Targeted repair hints:');
+    expect(prompt).toContain('$q20 = ""');
+    expect(prompt).not.toContain('END-OF-DRAFT');
+    expect(prompt).toContain('…');
+    expect(prompt).toMatchSnapshot();
+  });
+
+  it('dedupes repeated undefined-state issues by variable name and annotates the repeat count', () => {
+    const repeatedIssues: PromptBuildValidationIssue[] = Array.from({ length: 5 }, () => ({
+      code: 'undefined-state-reference',
+      message: 'State reference `$score` is missing a top-level declaration with a literal initial value. For example, add `$score = 0`.',
+      source: 'quality',
+      statementId: 'results',
+    }));
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a score screen.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Text("Score", "body", "start"), Text($score, "body", "start")])',
+      issues: repeatedIssues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_500,
+    });
+
+    expect(prompt).toContain('undefined-state-reference in results: State reference `$score` is missing a top-level declaration with a literal initial value. For example, add `$score = 0`. [reported 5 times]');
+    expect(prompt.match(/undefined-state-reference in results:/g)).toHaveLength(1);
   });
 
   it('keeps parser repair framed as syntax repair instead of quality repair', () => {

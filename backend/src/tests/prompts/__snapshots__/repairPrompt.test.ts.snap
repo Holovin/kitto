@@ -1,0 +1,316 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildOpenUiRepairPrompt > lists every missing state declaration before the draft and keeps the full hint list stable 1`] = `
+"The previous OpenUI draft cannot be committed yet. Automatic repair attempt 1 of 1.
+The draft excerpt below may be truncated. Fix every listed missing \`$var\` declaration even when some references are not visible in the excerpt.
+The draft is syntactically valid but fails a product-quality check.
+Use the current committed valid OpenUI source only as fallback context.
+Stay close to the model draft below and fix only the listed quality issues with the smallest possible diff.
+Do not rewrite unrelated parts, change unflagged behavior, or introduce new features.
+Return a complete corrected program.
+
+Original user request:
+Build a 20-question quiz.
+
+Current committed valid OpenUI source:
+root = AppShell([])
+
+Quality issues:
+- undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
+- undefined-state-reference in root: State reference \`$q2\` is missing a top-level declaration with a literal initial value. For example, add \`$q2 = ""\`.
+- undefined-state-reference in root: State reference \`$q3\` is missing a top-level declaration with a literal initial value. For example, add \`$q3 = ""\`.
+- undefined-state-reference in root: State reference \`$q4\` is missing a top-level declaration with a literal initial value. For example, add \`$q4 = ""\`.
+- undefined-state-reference in root: State reference \`$q5\` is missing a top-level declaration with a literal initial value. For example, add \`$q5 = ""\`.
+- undefined-state-reference in root: State reference \`$q6\` is missing a top-level declaration with a literal initial value. For example, add \`$q6 = ""\`.
+- undefined-state-reference in root: State reference \`$q7\` is missing a top-level declaration with a literal initial value. For example, add \`$q7 = ""\`.
+- undefined-state-reference in root: State reference \`$q8\` is missing a top-level declaration with a literal initial value. For example, add \`$q8 = ""\`.
+- undefined-state-reference in root: State reference \`$q9\` is missing a top-level declaration with a literal initial value. For example, add \`$q9 = ""\`.
+- undefined-state-reference in root: State reference \`$q10\` is missing a top-level declaration with a literal initial value. For example, add \`$q10 = ""\`.
+- undefined-state-reference in root: State reference \`$q11\` is missing a top-level declaration with a literal initial value. For example, add \`$q11 = ""\`.
+- undefined-state-reference in root: State reference \`$q12\` is missing a top-level declaration with a literal initial value. For example, add \`$q12 = ""\`.
+- undefined-state-reference in root: State reference \`$q13\` is missing a top-level declaration with a literal initial value. For example, add \`$q13 = ""\`.
+- undefined-state-reference in root: State reference \`$q14\` is missing a top-level declaration with a literal initial value. For example, add \`$q14 = ""\`.
+- undefined-state-reference in root: State reference \`$q15\` is missing a top-level declaration with a literal initial value. For example, add \`$q15 = ""\`.
+- undefined-state-reference in root: State reference \`$q16\` is missing a top-level declaration with a literal initial value. For example, add \`$q16 = ""\`.
+- undefined-state-reference in root: State reference \`$q17\` is missing a top-level declaration with a literal initial value. For example, add \`$q17 = ""\`.
+- undefined-state-reference in root: State reference \`$q18\` is missing a top-level declaration with a literal initial value. For example, add \`$q18 = ""\`.
+- undefined-state-reference in root: State reference \`$q19\` is missing a top-level declaration with a literal initial value. For example, add \`$q19 = ""\`.
+- undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
+
+Targeted repair hints:
+- Every \`$var\` reference must have a top-level declaration with a literal initial value before it is used, such as \`$draft = ""\` or \`$currentScreen = "main"\`.
+- Declare every \`$var\` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.
+- Missing top-level state declarations to add before returning: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+
+Model draft to repair:
+root = AppShell([
+  Screen("quiz", "Quiz", [
+Group("Question 1", "vertical", [
+  Text("Question 1", "body", "start"),
+  RadioGroup("question-1", "Question 1", $q1, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 2", "vertical", [
+  Text("Question 2", "body", "start"),
+  RadioGroup("question-2", "Question 2", $q2, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 3", "vertical", [
+  Text("Question 3", "body", "start"),
+  RadioGroup("question-3", "Question 3", $q3, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 4", "vertical", [
+  Text("Question 4", "body", "start"),
+  RadioGroup("question-4", "Question 4", $q4, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 5", "vertical", [
+  Text("Question 5", "body", "start"),
+  RadioGroup("question-5", "Question 5", $q5, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 6", "vertical", [
+  Text("Question 6", "body", "start"),
+  RadioGroup("question-6", "Question 6", $q6, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 7", "vertical", [
+  Text("Question 7", "body", "start"),
+  RadioGroup("question-7", "Question 7", $q7, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 8", "vertical", [
+  Text("Question 8", "body", "start"),
+  RadioGroup("question-8", "Question 8", $q8, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 9", "vertical", [
+  Text("Question 9", "body", "start"),
+  RadioGroup("question-9", "Question 9", $q9, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 10", "vertical", [
+  Text("Question 10", "body", "start"),
+  RadioGroup("question-10", "Question 10", $q10, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 11", "vertical", [
+  Text("Question 11", "body", "start"),
+  RadioGroup("question-11", "Question 11", $q11, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 12", "vertical", [
+  Text("Question 12", "body", "start"),
+  RadioGroup("question-12", "Question 12", $q12, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 13", "vertical", [
+  Text("Question 13", "body", "start"),
+  RadioGroup("question-13", "Question 13", $q13, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])…
+
+Current critical syntax rules:
+- Return only raw OpenUI Lang.
+- Return the full updated program.
+- Use only supported components and tools.
+- Every @Run(ref) must reference a defined Query or Mutation.
+- AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- AppShell signature is AppShell(children, appearance?).
+- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
+- Group signature is Group(title, direction, children, variant?, appearance?).
+- The second Group argument is direction and must be "vertical" or "horizontal".
+- If you pass a Group variant, place it in the optional fourth argument.
+- Never put "block" or "inline" in the second Group argument.
+- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
+- Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
+- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
+- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
+- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
+- Use $currentScreen + @Set for screen navigation.
+- Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
+- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+`;
+
+exports[`buildOpenUiRepairPrompt > truncates the draft before issues and hints when the repair prompt is over budget 1`] = `
+"The previous OpenUI draft cannot be committed yet. Automatic repair attempt 1 of 1.
+The draft excerpt below may be truncated. Fix every listed missing \`$var\` declaration even when some references are not visible in the excerpt.
+The draft is syntactically valid but fails a product-quality check.
+Use the current committed valid OpenUI source only as fallback context.
+Stay close to the model draft below and fix only the listed quality issues with the smallest possible diff.
+Do not rewrite unrelated parts, change unflagged behavior, or introduce new features.
+Return a complete corrected program.
+
+Original user request:
+Build a 20-question quiz.
+
+Current committed valid OpenUI source:
+root = AppShell([])
+
+Quality issues:
+- undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
+- undefined-state-reference in root: State reference \`$q2\` is missing a top-level declaration with a literal initial value. For example, add \`$q2 = ""\`.
+- undefined-state-reference in root: State reference \`$q3\` is missing a top-level declaration with a literal initial value. For example, add \`$q3 = ""\`.
+- undefined-state-reference in root: State reference \`$q4\` is missing a top-level declaration with a literal initial value. For example, add \`$q4 = ""\`.
+- undefined-state-reference in root: State reference \`$q5\` is missing a top-level declaration with a literal initial value. For example, add \`$q5 = ""\`.
+- undefined-state-reference in root: State reference \`$q6\` is missing a top-level declaration with a literal initial value. For example, add \`$q6 = ""\`.
+- undefined-state-reference in root: State reference \`$q7\` is missing a top-level declaration with a literal initial value. For example, add \`$q7 = ""\`.
+- undefined-state-reference in root: State reference \`$q8\` is missing a top-level declaration with a literal initial value. For example, add \`$q8 = ""\`.
+- undefined-state-reference in root: State reference \`$q9\` is missing a top-level declaration with a literal initial value. For example, add \`$q9 = ""\`.
+- undefined-state-reference in root: State reference \`$q10\` is missing a top-level declaration with a literal initial value. For example, add \`$q10 = ""\`.
+- undefined-state-reference in root: State reference \`$q11\` is missing a top-level declaration with a literal initial value. For example, add \`$q11 = ""\`.
+- undefined-state-reference in root: State reference \`$q12\` is missing a top-level declaration with a literal initial value. For example, add \`$q12 = ""\`.
+- undefined-state-reference in root: State reference \`$q13\` is missing a top-level declaration with a literal initial value. For example, add \`$q13 = ""\`.
+- undefined-state-reference in root: State reference \`$q14\` is missing a top-level declaration with a literal initial value. For example, add \`$q14 = ""\`.
+- undefined-state-reference in root: State reference \`$q15\` is missing a top-level declaration with a literal initial value. For example, add \`$q15 = ""\`.
+- undefined-state-reference in root: State reference \`$q16\` is missing a top-level declaration with a literal initial value. For example, add \`$q16 = ""\`.
+- undefined-state-reference in root: State reference \`$q17\` is missing a top-level declaration with a literal initial value. For example, add \`$q17 = ""\`.
+- undefined-state-reference in root: State reference \`$q18\` is missing a top-level declaration with a literal initial value. For example, add \`$q18 = ""\`.
+- undefined-state-reference in root: State reference \`$q19\` is missing a top-level declaration with a literal initial value. For example, add \`$q19 = ""\`.
+- undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
+
+Targeted repair hints:
+- Every \`$var\` reference must have a top-level declaration with a literal initial value before it is used, such as \`$draft = ""\` or \`$currentScreen = "main"\`.
+- Declare every \`$var\` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.
+- Missing top-level state declarations to add before returning: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+
+Model draft to repair:
+root = AppShell([
+  Screen("quiz", "Quiz", [
+Group("Question 1", "vertical", [
+  Text("Question 1", "body", "start"),
+  RadioGroup("question-1", "Question 1", $q1, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 2", "vertical", [
+  Text("Question 2", "body", "start"),
+  RadioGroup("question-2", "Question 2", $q2, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 3", "vertical", [
+  Text("Question 3", "body", "start"),
+  RadioGroup("question-3", "Question 3", $q3, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 4", "vertical", [
+  Text("Question 4", "body", "start"),
+  RadioGroup("question-4", "Question 4", $q4, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 5", "vertical", [
+  Text("Question 5", "body", "start"),
+  RadioGroup("question-5", "Question 5", $q5, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 6", "vertical", [
+  Text("Question 6", "body", "start"),
+  RadioGroup("question-6", "Questi…
+
+Current critical syntax rules:
+- Return only raw OpenUI Lang.
+- Return the full updated program.
+- Use only supported components and tools.
+- Every @Run(ref) must reference a defined Query or Mutation.
+- AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- AppShell signature is AppShell(children, appearance?).
+- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
+- Group signature is Group(title, direction, children, variant?, appearance?).
+- The second Group argument is direction and must be "vertical" or "horizontal".
+- If you pass a Group variant, place it in the optional fourth argument.
+- Never put "block" or "inline" in the second Group argument.
+- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
+- Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
+- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
+- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
+- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
+- Use $currentScreen + @Set for screen navigation.
+- Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
+- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+`;
+
+exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
+"The previous OpenUI draft cannot be committed yet. Automatic repair attempt 1 of 1.
+The draft is syntactically valid but fails a product-quality check.
+Use the current committed valid OpenUI source only as fallback context.
+Stay close to the model draft below and fix only the listed quality issues with the smallest possible diff.
+Do not rewrite unrelated parts, change unflagged behavior, or introduce new features.
+Return a complete corrected program.
+
+Original user request:
+Create a todo list.
+
+Current committed valid OpenUI source:
+root = AppShell([])
+
+Quality issues:
+- quality-missing-todo-controls in root: Todo request did not generate required todo controls.
+
+Targeted repair hints:
+- For a todo request, include an input for the draft value, a persisted \`Query("read_state", ...)\`, an \`append_item\` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through \`@Each(...)\` + \`Repeater(...)\`.
+
+Model draft to repair:
+root = AppShell([])
+
+Current critical syntax rules:
+- Return only raw OpenUI Lang.
+- Return the full updated program.
+- Use only supported components and tools.
+- Every @Run(ref) must reference a defined Query or Mutation.
+- AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- AppShell signature is AppShell(children, appearance?).
+- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
+- Group signature is Group(title, direction, children, variant?, appearance?).
+- The second Group argument is direction and must be "vertical" or "horizontal".
+- If you pass a Group variant, place it in the optional fourth argument.
+- Never put "block" or "inline" in the second Group argument.
+- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
+- Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
+- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
+- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
+- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
+- Use $currentScreen + @Set for screen navigation.
+- Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
+- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+`;
