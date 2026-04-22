@@ -120,6 +120,27 @@ describe('detectPromptAwareQualityIssues', () => {
     );
   });
 
+  it('keeps task-list prompts with requested filters on the blocking todo path', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `root = AppShell([
+  Screen("main", "Tasks", [
+    Text("Tasks", "title", "start")
+  ])
+])`,
+      'Create a task list with completed status and a filter with All, Active and Completed.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-missing-todo-controls',
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('marks bare top-level string option arrays for RadioGroup and Select as blocking quality', () => {
     const issues = detectPromptAwareQualityIssues(
       `$answer = ""

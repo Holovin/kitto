@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/lang-core';
-import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from './qualityIntents.js';
+import { promptHasSimpleTodoIntent, promptMentionsTodoIntent, promptRequiresBlockingTodoControls } from './qualityIntents.js';
 import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from './quality/shared.js';
 export { detectChoiceOptionsShapeIssues } from './quality/detectors/optionsShape.js';
 
@@ -55,7 +55,7 @@ export function promptRequestsRandom(prompt: string) {
 }
 
 export function getTodoIssueSeverity(prompt: string): OpenUiQualityIssueSeverity {
-  return promptHasSimpleTodoIntent(prompt) ? 'blocking-quality' : 'soft-warning';
+  return promptRequiresBlockingTodoControls(prompt) ? 'blocking-quality' : 'soft-warning';
 }
 
 export function isSimplePromptRequest(prompt: string) {

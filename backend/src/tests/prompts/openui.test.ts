@@ -151,7 +151,7 @@ describe('openui prompts', () => {
 
   it('biases simple requests toward minimal apps before advanced recipes', () => {
     const prompt = buildOpenUiSystemPrompt();
-    const todoIndex = prompt.indexOf('$draft = ""');
+    const expenseIndex = prompt.indexOf('$selectedExpenseId = ""');
     const themeIndex = prompt.indexOf('$currentTheme = "light"');
     const filterIndex = prompt.indexOf('savedFilter = Query("read_state", { path: "ui.filter" }, "all")');
     const validationIndex = prompt.indexOf('$email = ""');
@@ -186,13 +186,13 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Do not invent any other nested config objects.');
     expect(prompt).not.toContain('Avoid deeply nested configuration objects');
 
-    expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
-    expect(prompt).toContain('Text(item.title, "body", "start")');
-    expect(prompt).toContain('Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
-    expect(prompt).toContain('Repeater(rows, "No tasks yet.")');
-    expect(prompt).toContain('- `$targetItemId = ""`');
-    expect(prompt).toContain('- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`');
-    expect(prompt).toContain('- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`');
+    expect(prompt).toContain('expenseRows = @Each(expenses, "expense", Group(null, "horizontal", [');
+    expect(prompt).toContain('Text(expense.title, "body", "start")');
+    expect(prompt).toContain(
+      'Button("edit-" + expense.id, "Edit", "secondary", Action([@Set($selectedExpenseId, expense.id), @Set($editTitle, expense.title)]), false)',
+    );
+    expect(prompt).not.toContain('TODO / TASK LIST RECIPE:');
+    expect(prompt).not.toContain('Repeater(rows, "No tasks yet.")');
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
@@ -226,12 +226,12 @@ describe('openui prompts', () => {
       'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`',
     );
 
-    expect(todoIndex).toBeGreaterThan(-1);
+    expect(expenseIndex).toBeGreaterThan(-1);
     expect(themeIndex).toBeGreaterThan(-1);
     expect(filterIndex).toBeGreaterThan(-1);
     expect(validationIndex).toBeGreaterThan(-1);
     expect(computeIndex).toBeGreaterThan(-1);
-    expect(todoIndex).toBeLessThan(themeIndex);
+    expect(expenseIndex).toBeLessThan(themeIndex);
     expect(themeIndex).toBeLessThan(filterIndex);
     expect(filterIndex).toBeLessThan(validationIndex);
     expect(validationIndex).toBeLessThan(computeIndex);
@@ -315,24 +315,20 @@ describe('openui prompts', () => {
     expect(prompt).toContain('items = Query("read_state", { path: "app.items" }, [])');
     expect(prompt).toContain('savedCards = Query("read_state", { path: "app.savedCards" }, [])');
     expect(prompt).toContain('selectedAnswers = [');
-    expect(prompt).toContain('rows = @Each(items, "item", Group(null, "horizontal", [');
+    expect(prompt).toContain('itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [');
+    expect(prompt).toContain('cardRows = @Each(savedCards, "card", Group(null, "vertical", [');
   });
 
-  it('keeps the todo recipe and placeholder guardrails in the system prompt', () => {
+  it('keeps todo-specific recipes out of the global system prompt', () => {
     const prompt = buildOpenUiSystemPrompt();
 
-    expect(prompt).toContain('TODO / TASK LIST RECIPE:');
-    expect(prompt).toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
-    expect(prompt).toContain('- `$draft`');
-    expect(prompt).toContain('- `$targetItemId = ""`');
-    expect(prompt).toContain('- an `Input` for the new task');
-    expect(prompt).toContain('- `Query("read_state", { path: "app.items" }, [])`');
-    expect(prompt).toContain('- `Mutation("append_item", { path: "app.items", value: ... })`');
-    expect(prompt).toContain('- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`');
-    expect(prompt).toContain('- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`');
-    expect(prompt).toContain('- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`');
-    expect(prompt).toContain('- `@Each(items, "item", ...)`');
-    expect(prompt).toContain('- `Repeater(rows, "No tasks yet.")`');
+    expect(prompt).not.toContain('TODO / TASK LIST RECIPE:');
+    expect(prompt).not.toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
+    expect(prompt).not.toContain('WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
+    expect(prompt).not.toContain('OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
+    expect(prompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
+    expect(prompt).not.toContain('Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.');
+    expect(prompt).not.toContain('For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.');
     expect(prompt).toContain(
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
     );
@@ -357,12 +353,6 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain(
       'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
-    );
-    expect(prompt).toContain(
-      'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
-    );
-    expect(prompt).toContain(
-      'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
     );
   });
 
@@ -434,7 +424,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Update example: `Action([@Set($targetItemId, item.id), @Run(updateItem), @Run(items)])`.');
     expect(prompt).toContain('roll = Mutation("write_computed_state", {');
     expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)');
-    expect(prompt).toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
+    expect(prompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
     expect(prompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
     expect(prompt).toContain('right: today.value');
   });

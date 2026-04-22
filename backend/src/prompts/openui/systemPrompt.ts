@@ -23,7 +23,7 @@ const preamble =
 function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
   const structuredOutput = options.structuredOutput ?? true;
 
-  return structuredOutput ? STRUCTURED_OUTPUT_ADDITIONAL_RULES : PLAIN_OUTPUT_ADDITIONAL_RULES;
+  return [...(structuredOutput ? STRUCTURED_OUTPUT_ADDITIONAL_RULES : PLAIN_OUTPUT_ADDITIONAL_RULES)];
 }
 
 function getSystemPromptVariant(options: BuildOpenUiPromptOptions = {}): SystemPromptVariant {

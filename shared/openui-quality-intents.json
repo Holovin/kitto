@@ -18,5 +18,22 @@
       "\\btheme\\b",
       "\\bmulti[\\s-]?screen\\b"
     ]
+  },
+  "blockingTodo": {
+    "includePatterns": [
+      "\\btodo\\b",
+      "\\bto-?do\\b",
+      "\\btask\\s+list\\b",
+      "список\\s+задач",
+      "\\bзадачи\\b"
+    ],
+    "antiPatterns": [
+      "\\bdashboard\\b",
+      "\\bcrm\\b",
+      "\\bkanban\\b",
+      "\\bproject\\b",
+      "\\bboard\\b",
+      "\\bmodule\\b"
+    ]
   }
 }

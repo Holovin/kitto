@@ -1,4 +1,5 @@
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
+import { getRelevantRequestExemplars } from './exemplars.js';
 import { STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION } from './summaryRules.js';
 import type { PromptBuildChatHistoryMessage, PromptBuildRequest } from './types.js';
 
@@ -11,6 +12,18 @@ interface BuildOpenUiUserPromptOptions {
 
 function buildPromptDataBlock(tagName: string, content: string) {
   return `<${tagName}>\n${content}\n</${tagName}>`;
+}
+
+function buildPromptExemplarSection(title: string, exemplars: ReturnType<typeof getRelevantRequestExemplars>) {
+  if (exemplars.length === 0) {
+    return null;
+  }
+
+  return [
+    `${title}:`,
+    'Use these only when they match the latest user request. Adapt names, fields, and requested extras instead of copying irrelevant variables.',
+    ...exemplars.map((exemplar) => `${exemplar.title}:\n${exemplar.text}`),
+  ].join('\n\n');
 }
 
 const INITIAL_USER_PROMPT_INTRO_LINES = [
@@ -51,12 +64,17 @@ export function buildOpenUiAssistantSummaryMessage(summary: string) {
 }
 
 function buildOpenUiInitialUserPrompt(currentSource: string, userRequest: string, structuredOutput: boolean) {
+  const relevantExemplars = getRelevantRequestExemplars(userRequest);
+
   return [
     ...INITIAL_USER_PROMPT_INTRO_LINES,
     buildPromptDataBlock('latest_user_request', userRequest),
     buildPromptDataBlock('current_source', currentSource),
+    buildPromptExemplarSection('Relevant patterns', relevantExemplars),
     getUserPromptOutputInstruction(structuredOutput),
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOptions = {}) {
@@ -72,6 +90,9 @@ export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOpti
     'User: [recent user message]',
     `Assistant:\n${buildOpenUiAssistantSummaryMessage('[recent assistant summary]')}`,
     '(repeat earlier User/Assistant turns as needed)',
+    '',
+    'Optional relevant patterns:',
+    '[intent-specific examples only when they help the latest request]',
     '',
     'Final user turn sent to the model:',
     buildOpenUiInitialUserPrompt(

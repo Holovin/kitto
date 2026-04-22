@@ -40,6 +40,10 @@ Quality issues:
 Targeted repair hints:
 - Add every missing \`$var\` before root.
 - Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+- Example for declare missing $state before root:
+  WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
+  OK: $draft = ""
+  OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
 
 Model draft to repair:
 root = AppShell([
@@ -115,15 +119,7 @@ Group("Question 10", "vertical", [
   ])
 ]),
 Group("Question 11", "vertical", [
-  Text("Question 11", "body", "start"),
-  RadioGroup("question-11", "Question 11", $q11, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 12", "vertical", [
-  Text("Question 12", "body", "start"),
-  RadioGroup("quest…
+  Text("Question 11", "body"…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
@@ -192,6 +188,10 @@ Quality issues:
 Targeted repair hints:
 - Add every missing \`$var\` before root.
 - Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+- Example for declare missing $state before root:
+  WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
+  OK: $draft = ""
+  OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
 
 Model draft to repair:
 root = AppShell([
@@ -213,17 +213,7 @@ Group("Question 2", "vertical", [
 Group("Question 3", "vertical", [
   Text("Question 3", "body", "start"),
   RadioGroup("question-3", "Question 3", $q3, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 4", "vertical", [
-  Text("Question 4", "body", "start"),
-  RadioGroup("question-4", "Question 4", $q4, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]…
+    { label: "Yes", value: "yes" },…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
@@ -271,6 +261,13 @@ Quality issues:
 
 Targeted repair hints:
 - For a todo request, include an input for the draft value, a persisted \`Query("read_state", ...)\`, an \`append_item\` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through \`@Each(...)\` + \`Repeater(...)\`.
+- Example for interactive todo pattern:
+  WRONG: root = AppShell([Screen("main", "Todo", [Text("Todo", "title", "start")])])
+  OK: $draft = ""
+  OK: items = Query("read_state", { path: "app.items" }, [])
+  OK: addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+  OK: rows = @Each(items, "item", ...)
+  OK: Repeater(rows, "No tasks yet.")
 
 Model draft to repair:
 root = AppShell([])

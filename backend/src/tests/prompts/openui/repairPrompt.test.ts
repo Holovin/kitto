@@ -162,6 +162,7 @@ describe('repair prompt assembly', () => {
     const draftSection = extractSection(prompt, 'Model draft to repair', ['Current critical syntax rules']);
 
     expect(hintsSection).toContain('Wrap each option in `{ label: "...", value: "..." }`.');
+    expect(hintsSection).toContain('- Example');
     expect(hintsSection).toContain('Add every missing `$var` before root.');
     expect(hintsSection).toContain('`$filter = ""`');
     expect(hintsSection).toContain('`$draft = ""`');

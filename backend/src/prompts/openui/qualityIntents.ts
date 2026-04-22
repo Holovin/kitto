@@ -6,6 +6,8 @@ function buildPattern(fragments: string[]) {
 
 const simpleTodoIntentPattern = buildPattern(intentPatterns.simpleTodo.includePatterns);
 const simpleTodoAntiPattern = buildPattern(intentPatterns.simpleTodo.antiPatterns);
+const blockingTodoIntentPattern = buildPattern(intentPatterns.blockingTodo.includePatterns);
+const blockingTodoAntiPattern = buildPattern(intentPatterns.blockingTodo.antiPatterns);
 
 export function promptMentionsTodoIntent(prompt: string) {
   return simpleTodoIntentPattern.test(prompt);
@@ -13,4 +15,8 @@ export function promptMentionsTodoIntent(prompt: string) {
 
 export function promptHasSimpleTodoIntent(prompt: string) {
   return promptMentionsTodoIntent(prompt) && !simpleTodoAntiPattern.test(prompt);
+}
+
+export function promptRequiresBlockingTodoControls(prompt: string) {
+  return blockingTodoIntentPattern.test(prompt) && !blockingTodoAntiPattern.test(prompt);
 }

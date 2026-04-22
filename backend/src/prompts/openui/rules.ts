@@ -22,23 +22,6 @@ export const CORE_PROGRAM_RULES = [
   'Do not invent any other nested config objects.',
 ] as const;
 
-const TODO_TASK_LIST_RECIPE_RULES = [
-  'TODO / TASK LIST RECIPE:',
-  'For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:',
-  '- `$draft`',
-  '- `$targetItemId = ""`',
-  '- an `Input` for the new task',
-  '- `Query("read_state", { path: "app.items" }, [])`',
-  '- `Mutation("append_item", { path: "app.items", value: ... })`',
-  '- `Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`',
-  '- a `Button` with `Action([@Run(addItem), @Run(items), @Reset($draft)])`',
-  '- an action-mode `Checkbox` row toggle with `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`',
-  '- `@Each(items, "item", ...)`',
-  '- `Repeater(rows, "No tasks yet.")`',
-  'Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.',
-  'For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.',
-] as const;
-
 const CONTROL_ACTION_MODE_RULES = [
   'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
   'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
@@ -209,7 +192,6 @@ const PERSISTED_TOOL_AND_COMPLETENESS_RULES = [
 export const STRUCTURED_OUTPUT_ADDITIONAL_RULES = [
   ...SIMPLE_APP_RULES,
   ...CORE_PROGRAM_RULES,
-  ...TODO_TASK_LIST_RECIPE_RULES,
   ...CONTROL_ACTION_MODE_RULES,
   ...LAYOUT_RULES,
   ...TOOL_MINIMALITY_RULES,
@@ -225,7 +207,6 @@ export const PLAIN_OUTPUT_ADDITIONAL_RULES = [
   ...SIMPLE_APP_RULES,
   'Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.',
   ...CORE_PROGRAM_RULES,
-  ...TODO_TASK_LIST_RECIPE_RULES,
   ...CONTROL_ACTION_MODE_RULES,
   ...LAYOUT_RULES,
   ...TOOL_MINIMALITY_RULES,

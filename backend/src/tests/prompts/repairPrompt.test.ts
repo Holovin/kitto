@@ -341,6 +341,8 @@ root = AppShell([
     expect(prompt).toContain(
       'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_item` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
     );
+    expect(prompt).toContain('Example for interactive todo pattern:');
+    expect(prompt).toContain('OK: addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })');
     expect(prompt).not.toContain('an `append_state` mutation');
     expect(prompt).toMatchSnapshot();
   });

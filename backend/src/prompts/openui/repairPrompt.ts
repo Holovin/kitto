@@ -1,4 +1,5 @@
 import { MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
+import { getRelevantRepairExemplars } from './exemplars.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
 import type { PromptBuildValidationIssue } from './types.js';
@@ -129,6 +130,12 @@ function truncateText(value: string, maxChars: number) {
 
 function buildRepairSection(title: string, content: string) {
   return `${title}:\n${content}`;
+}
+
+function formatRepairExemplarLines(exemplars: ReturnType<typeof getRelevantRepairExemplars>) {
+  return exemplars.map((exemplar) =>
+    [`- Example for ${exemplar.title.toLowerCase()}:`, ...exemplar.text.split('\n').map((line) => `  ${line}`)].join('\n'),
+  );
 }
 
 function buildRepairSourceSectionContent(value: string, maxChars: number, fallback: string) {
@@ -288,13 +295,13 @@ function allocateRepairSectionBudgets(
   desiredLengths: Record<RepairSectionKey, number>,
   hasHints: boolean,
 ) {
-  const priority: RepairSectionKey[] = ['issues', 'hints', 'userPrompt', 'committedSource', 'invalidSource'];
+  const priority: RepairSectionKey[] = ['hints', 'issues', 'userPrompt', 'committedSource', 'invalidSource'];
   const minimumBudgets: Record<RepairSectionKey, number> = {
     userPrompt: 120,
     committedSource: 180,
     invalidSource: 160,
-    issues: 360,
-    hints: hasHints ? 360 : 0,
+    issues: 300,
+    hints: hasHints ? 520 : 0,
   };
   const budgets: Record<RepairSectionKey, number> = {
     userPrompt: 0,
@@ -675,6 +682,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
+  const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
@@ -685,7 +693,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     .join('\n');
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
-    repairHints.map((hint) => `- ${hint}`),
+    [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
     Number.MAX_SAFE_INTEGER,
     '- No targeted repair hints were available.',
   );
@@ -694,7 +702,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     buildRepairSection('Original user request', ''),
     buildRepairSection('Current committed valid OpenUI source', ''),
     buildRepairSection(issuesSectionTitle, ''),
-    repairHints.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
+    repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
     buildRepairSection(draftSectionTitle, ''),
     buildRepairSection('Current critical syntax rules', rulesSection),
   ]
@@ -705,8 +713,8 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     committedSource: (committedSource.trim() ? committedSource : '(blank canvas, no committed OpenUI source yet)').length,
     invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
     issues: fullIssuesSectionContent.length,
-    hints: repairHints.length > 0 ? fullHintsSectionContent.length : 0,
-  }, repairHints.length > 0);
+    hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
+  }, repairHints.length > 0 || repairExemplars.length > 0);
   const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
   const committedSourceSectionContent = buildRepairSourceSectionContent(
     committedSource,
@@ -715,9 +723,9 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   );
   const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues);
   const hintsSectionContent =
-    repairHints.length > 0
+    repairHints.length > 0 || repairExemplars.length > 0
       ? buildBoundedSectionContent(
-          repairHints.map((hint) => `- ${hint}`),
+          [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
           budgets.hints,
           '- No targeted repair hints were available.',
         )
@@ -730,7 +738,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
       buildRepairSection('Original user request', userRequestSectionContent),
       buildRepairSection('Current committed valid OpenUI source', committedSourceSectionContent),
       buildRepairSection(issuesSectionTitle, issuesSectionContent),
-      repairHints.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
+      repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
       buildRepairSection(draftSectionTitle, draftSectionContent),
       buildRepairSection('Current critical syntax rules', rulesSection),
     ]
