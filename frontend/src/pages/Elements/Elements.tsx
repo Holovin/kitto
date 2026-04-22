@@ -58,7 +58,7 @@ const promptReferenceIdByName = new Map(PROMPT_REFERENCE_ITEMS.map(({ id, label 
 const actionDefinitionByName = new Map(OPENUI_ACTION_DEFINITIONS.map((action) => [action.name, action] as const));
 
 type PromptReferenceSectionDefinition = {
-  description: string;
+  description: string | ((data: PromptsInfoResponse) => string);
   formatBody: (data: PromptsInfoResponse) => string;
   title: PromptReferenceSectionLabel;
 };
@@ -66,7 +66,8 @@ type PromptReferenceSectionDefinition = {
 const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'Backend config',
-    description: 'Current backend prompt configuration for the main initial generation call.',
+    description:
+      'Current backend prompt configuration for the main initial generation call, including the active temperature used for generation and echoed back in generation responses.',
     formatBody: (data) =>
       [
         `model: ${data.config.model}`,
@@ -80,12 +81,14 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   },
   {
     title: 'System prompt',
-    description: 'Exact system prompt text currently sent to the model, together with the hash logged in prompt I/O telemetry.',
+    description:
+      'Exact system prompt text currently sent to the model, together with the hash logged in prompt I/O telemetry.',
     formatBody: (data) => [`systemPromptHash: ${data.systemPrompt.hash}`, '', data.systemPrompt.text].join('\n'),
   },
   {
     title: 'User prompt template',
-    description: 'Readable skeleton of the wrapped user prompt with data blocks, without injecting live builder content.',
+    description:
+      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, and the final user turn that defines the task.',
     formatBody: (data) => data.requestPromptTemplate,
   },
   {
@@ -98,7 +101,8 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   },
   {
     title: 'Repair prompt',
-    description: 'Repair-message template used as the baseline shape when the first draft needs one automatic fix pass.',
+    description: (data) =>
+      `Repair-message template used as the baseline shape when the first draft needs one automatic fix pass. Automatic repair retries use temperature ${data.config.repairTemperature}.`,
     formatBody: (data) => data.repairPromptTemplate,
   },
   {
@@ -726,6 +730,14 @@ export default function ElementsPage() {
                         : isPromptsInfoError || !promptsInfo
                           ? formatPromptInfoErrorMessage(promptsInfoError)
                           : section.formatBody(promptsInfo);
+                      const description =
+                        isPromptsInfoLoading || isPromptsInfoError || !promptsInfo
+                          ? typeof section.description === 'string'
+                            ? section.description
+                            : 'Loading current backend prompt section details.'
+                          : typeof section.description === 'function'
+                            ? section.description(promptsInfo)
+                            : section.description;
 
                       return (
                         <Card
@@ -739,7 +751,7 @@ export default function ElementsPage() {
                                 <BackToTopButton />
                                 <CardTitle className="min-w-0 break-words text-lg">{section.title}</CardTitle>
                               </div>
-                              <p className="max-w-3xl text-sm font-medium leading-6 text-slate-500">{section.description}</p>
+                              <p className="max-w-3xl text-sm font-medium leading-6 text-slate-500">{description}</p>
                             </div>
                           </CardHeader>
                           <CardContent className="min-w-0 pt-6">

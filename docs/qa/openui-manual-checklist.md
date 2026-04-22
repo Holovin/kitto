@@ -18,8 +18,8 @@ Guardrails:
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
 - when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
-- `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial/repair prompt text
-- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, summary, qualityIssues, compaction? }`
+- `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial conversation input plus repair prompt text
+- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, qualityIssues, compaction? }`
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 
 ## Prompt docs page
@@ -28,6 +28,8 @@ Guardrails:
 - Confirm `Output envelope schema` documents the model envelope only (`summary` + `source`) and does not describe the outer backend response payload fields such as `model` or `compaction`.
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
+- Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
+- Confirm the user prompt template documents the role-based initial input shape, including assistant summary wrapping plus final `<latest_user_request>` and `<current_source>` blocks.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the prompts tab stays read-only and does not show edit or copy controls.
 

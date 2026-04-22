@@ -2,7 +2,9 @@ import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import {
+  buildOpenUiAssistantSummaryMessage,
   buildOpenUiSystemPrompt,
+  filterPromptBuildChatHistory,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
@@ -23,6 +25,7 @@ const STRUCTURED_SYSTEM_PROMPT_HASH = getOpenUiSystemPromptHash();
 const PLAIN_TEXT_SYSTEM_PROMPT_HASH = getOpenUiSystemPromptHash({ structuredOutput: false });
 const STRUCTURED_SYSTEM_PROMPT_CACHE_KEY = getOpenUiSystemPromptCacheKey();
 const PLAIN_TEXT_SYSTEM_PROMPT_CACHE_KEY = getOpenUiSystemPromptCacheKey({ structuredOutput: false });
+const INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS = 4;
 
 function getSystemPrompt(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_SYSTEM_PROMPT : PLAIN_TEXT_SYSTEM_PROMPT;
@@ -34,6 +37,12 @@ function getSystemPromptCacheKey(structuredOutput: boolean) {
 
 export function getSystemPromptHash(structuredOutput: boolean) {
   return structuredOutput ? STRUCTURED_SYSTEM_PROMPT_HASH : PLAIN_TEXT_SYSTEM_PROMPT_HASH;
+}
+
+export type OpenUiResponseInputShape = 'flat-text' | 'role-based';
+
+export function getResponseInputShape(request: PromptBuildRequest): OpenUiResponseInputShape {
+  return request.mode === 'repair' ? 'flat-text' : 'role-based';
 }
 
 function createDefaultOpenAiClient(env: AppEnv): OpenAiClient {
@@ -74,28 +83,58 @@ export function getClient(env: AppEnv) {
   return cachedClient.client;
 }
 
+function createTextInputMessage(role: 'assistant' | 'system' | 'user', text: string): ResponseInput[number] {
+  return {
+    role,
+    content: [
+      {
+        type: 'input_text',
+        text,
+      },
+    ],
+  };
+}
+
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
   const structuredOutput = env.LLM_STRUCTURED_OUTPUT;
+  const systemMessage = createTextInputMessage('system', getSystemPrompt(structuredOutput));
+
+  if (request.mode === 'repair') {
+    return [
+      systemMessage,
+      createTextInputMessage(
+        'user',
+        buildOpenUiUserPrompt(request, {
+          chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
+          maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
+          promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
+          structuredOutput,
+        }),
+      ),
+    ];
+  }
+
+  const recentHistory = filterPromptBuildChatHistory(request.chatHistory, env.LLM_CHAT_HISTORY_MAX_ITEMS).slice(
+    -INITIAL_ROLE_BASED_HISTORY_MAX_ITEMS,
+  );
 
   return [
-    {
-      role: 'system',
-      content: [{ type: 'input_text', text: getSystemPrompt(structuredOutput) }],
-    },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'input_text',
-          text: buildOpenUiUserPrompt(request, {
-            chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-            maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-            promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
-            structuredOutput,
-          }),
-        },
-      ],
-    },
+    systemMessage,
+    ...recentHistory.map((message) =>
+      createTextInputMessage(
+        message.role,
+        message.role === 'assistant' ? buildOpenUiAssistantSummaryMessage(message.content) : message.content,
+      ),
+    ),
+    createTextInputMessage(
+      'user',
+      buildOpenUiUserPrompt(request, {
+        chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
+        maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
+        promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
+        structuredOutput,
+      }),
+    ),
   ];
 }
 

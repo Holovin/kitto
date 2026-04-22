@@ -37,7 +37,7 @@ describe('repair prompt assembly', () => {
       chatHistory: [],
     });
 
-    expect(prompt).toContain('<user_request>');
+    expect(prompt).toContain('<latest_user_request>');
     expect(prompt).not.toContain('Validation issues:');
     expect(prompt).not.toContain('Quality issues:');
     expect(prompt).not.toContain('Targeted repair hints:');

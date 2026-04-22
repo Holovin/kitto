@@ -38,6 +38,7 @@ describe('promptLog.write', () => {
         requestBytes: 1_200,
         compactedRequestBytes: 800,
         omittedChatMessages: 2,
+        inputShape: 'flat-text',
         systemPromptHash: 'abc123def456',
         modelInput: {
           input: [
@@ -80,10 +81,12 @@ describe('promptLog.write', () => {
       rawUserRequest: string;
       validationIssues: string[];
       compactionTrimmedItems?: unknown;
+      inputShape?: string;
     };
 
     expect(entry.rawUserRequest).toBe('uuuuuuuuuuuuuuuu… [truncated 24 chars]');
     expect(entry.omittedChatMessages).toBe(2);
+    expect(entry.inputShape).toBe('flat-text');
     expect(entry).not.toHaveProperty('compactionTrimmedItems');
     expect(entry.modelInput.input[0]?.content[0]?.text).toBe('mmmmmmmmmmmmmmmm… [truncated 24 chars]');
     expect(entry.modelOutputRaw).toBe('oooooooooooooooo… [truncated 24 chars]');
@@ -120,6 +123,7 @@ describe('promptLog.write', () => {
       phase: null,
       currentSourceLen: request.currentSource.length,
       chatHistoryLen: request.chatHistory.length,
+      inputShape: 'role-based' as const,
       systemPromptHash: 'hash123',
       modelInput: {
         input: [
@@ -150,7 +154,7 @@ describe('promptLog.write', () => {
       ...sharedEntryFields,
       userPrompt,
     });
-    const userRequestMatch = userPrompt.match(/<user_request>\n([\s\S]*?)\n<\/user_request>/);
+    const userRequestMatch = userPrompt.match(/<latest_user_request>\n([\s\S]*?)\n<\/latest_user_request>/);
 
     await promptLog.write(
       {
@@ -197,6 +201,7 @@ describe('promptLog.write', () => {
         requestBytes: 900,
         compactedRequestBytes: 700,
         omittedChatMessages: 1,
+        inputShape: 'flat-text',
         systemPromptHash: 'hash123',
         modelInput: {
           input: [{ content: [{ text: 'model input body', type: 'input_text' }], role: 'user' }],

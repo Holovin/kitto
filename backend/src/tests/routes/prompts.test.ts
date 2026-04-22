@@ -27,15 +27,18 @@ describe('GET /api/prompts/info', () => {
       maxOutputTokens: 30_000,
       model: 'gpt-5.4-mini',
       outputMaxBytes: 120_000,
+      repairTemperature: 0.2,
       requestMaxBytes: 345_678,
       structuredOutput: true,
       temperature: 0.6,
     });
     expect(payload.systemPrompt.hash).toHaveLength(16);
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
-    expect(payload.requestPromptTemplate).toContain('<user_request>');
+    expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
+    expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
+    expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
-    expect(payload.requestPromptTemplate).toContain('<recent_history>');
+    expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
     expect(payload.repairPromptTemplate).toContain('Quality-only repair example');
     expect(payload.repairPromptTemplate).toContain('Mixed repair example');

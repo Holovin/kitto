@@ -9,7 +9,13 @@ export { getPromptToolSpecSummaries, type PromptToolSpecSummary } from './toolSp
 export { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
 export { filterPromptBuildChatHistory, isLegacyExcludedAssistantMessage } from './chatHistoryFilter.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairPromptTemplate, REPAIR_PROMPT_CRITICAL_RULES } from './repairPrompt.js';
-export { buildCompactChatHistoryContent, buildOpenUiRawUserRequest, buildOpenUiUserPrompt, buildOpenUiUserPromptTemplate } from './userPrompt.js';
+export {
+  buildCompactChatHistoryContent,
+  buildOpenUiAssistantSummaryMessage,
+  buildOpenUiRawUserRequest,
+  buildOpenUiUserPrompt,
+  buildOpenUiUserPromptTemplate,
+} from './userPrompt.js';
 export { detectOpenUiQualityIssues, detectOpenUiQualityWarnings, type OpenUiQualityIssue, type OpenUiQualityIssueSeverity } from './qualityIssues.js';
 export type {
   PromptBuildChatHistoryMessage,

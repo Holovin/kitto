@@ -1,6 +1,8 @@
 import type { PromptBuildChatHistoryMessage, RawPromptBuildChatHistoryMessage } from './types.js';
 
 const LEGACY_EXCLUDED_ASSISTANT_MESSAGE_PATTERNS = [
+  /^Applied the latest chat instruction\b/,
+  /^Building:/,
   /^Updated the app definition\b/,
   /^The model returned\b/,
   /^The first draft\b/,

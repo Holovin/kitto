@@ -88,6 +88,7 @@ export interface BuilderLlmResponse {
   qualityIssues?: BuilderQualityIssue[];
   source: string;
   summary?: string;
+  temperature: number;
 }
 
 export interface BuilderGeneratedDraft extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary'> {
@@ -130,6 +131,7 @@ export interface PromptsInfoResponse {
     maxOutputTokens: number;
     model: string;
     outputMaxBytes: number;
+    repairTemperature: number;
     requestMaxBytes: number;
     structuredOutput: boolean;
     temperature: number;

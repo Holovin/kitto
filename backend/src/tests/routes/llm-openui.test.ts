@@ -410,6 +410,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      temperature: 0.6,
     });
     expect(calledEnv).toBe(env);
     expect(calledRequest).toEqual({
@@ -468,6 +469,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      temperature: 0.6,
     });
     expect(calledRequest).toEqual({
       prompt: 'build a compact app',
@@ -536,6 +538,13 @@ describe('createLlmOpenUiRoutes', () => {
     const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
 
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      model: 'gpt-5.4-mini',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: '',
+      temperature: 0.2,
+    });
     expect(calledRequest).toEqual({
       prompt: 'repair this invalid app',
       currentSource: 'root = AppShell([])',
@@ -649,6 +658,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: '',
+      temperature: 0.6,
     });
   });
 
@@ -708,6 +718,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      temperature: 0.6,
     });
   });
 
@@ -763,6 +774,7 @@ describe('createLlmOpenUiRoutes', () => {
               "qualityIssues": [],
               "source": "root = AppShell([])",
               "summary": "Builds a tiny app.",
+              "temperature": 0.6,
             },
             "event": "done",
           },
@@ -817,6 +829,7 @@ describe('createLlmOpenUiRoutes', () => {
   ])
 ])`,
       summary: 'Builds a todo draft.',
+      temperature: 0.6,
     });
   });
 
@@ -900,6 +913,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Adds a welcome screen.',
+      temperature: 0.6,
     });
   });
 
@@ -934,6 +948,7 @@ describe('createLlmOpenUiRoutes', () => {
           "qualityIssues": [],
           "source": "root = AppShell([])",
           "summary": "Adds a welcome screen.",
+          "temperature": 0.6,
         },
         "status": 200,
       }

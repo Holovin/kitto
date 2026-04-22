@@ -4,7 +4,7 @@ import { toPublicErrorPayload } from '../../errors/publicError.js';
 import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '../../prompts/openui.js';
 import { promptLog, type PromptIoCommitSource, type PromptIoLogMode } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
-import { getSystemPromptHash } from './client.js';
+import { getResponseInputShape, getSystemPromptHash } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
 
 type ResponseInputItem = ResponseInput[number];
@@ -72,6 +72,18 @@ function getSanitizedValidationIssues(validationIssues?: string[]) {
 
 function getPromptLogMode(mode: unknown): PromptIoLogMode {
   return mode === 'initial' || mode === 'repair' ? mode : null;
+}
+
+function getPromptLogInputShape(mode: PromptIoLogMode) {
+  if (mode === 'repair') {
+    return 'flat-text' as const;
+  }
+
+  if (mode === 'initial') {
+    return 'role-based' as const;
+  }
+
+  return undefined;
 }
 
 function getRepairAttempt(mode: PromptIoLogMode) {
@@ -250,6 +262,7 @@ export async function writePromptIoLogSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
+        inputShape: getResponseInputShape(request),
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -303,6 +316,7 @@ export async function writePromptIoFailureSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
+        inputShape: getResponseInputShape(request),
         systemPromptHash: getSystemPromptHash(env.LLM_STRUCTURED_OUTPUT),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -348,6 +362,7 @@ export async function writePromptIoIntakeFailureSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
+        inputShape: getPromptLogInputShape(partialContext.mode),
         validationIssues: partialContext.validationIssues,
         errorCode: options.errorCode,
         errorMessage: options.errorMessage,

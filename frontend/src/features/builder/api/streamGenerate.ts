@@ -22,6 +22,7 @@ interface StreamDonePayload {
   qualityIssues?: BuilderQualityIssue[];
   source?: string;
   summary?: string;
+  temperature?: number;
 }
 
 interface StreamBuilderDefinitionResult {

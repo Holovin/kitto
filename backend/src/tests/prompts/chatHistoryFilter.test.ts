@@ -61,6 +61,8 @@ describe('filterPromptBuildChatHistory', () => {
     expect(
       filterPromptBuildChatHistory(
         [
+          createMessage('assistant', 'Applied the latest chat instruction to the app definition.'),
+          createMessage('assistant', 'Building: Adds a welcome screen…'),
           createMessage('assistant', 'Updated the app definition from the latest chat instruction.'),
           createMessage('assistant', 'The first draft had parser issues, so it was repaired automatically before commit.'),
           createMessage('assistant', 'Kept the existing counter and added a reset button.'),

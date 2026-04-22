@@ -16,6 +16,7 @@ export interface PromptInfoSnapshot {
     maxOutputTokens: number;
     model: string;
     outputMaxBytes: number;
+    repairTemperature: number;
     requestMaxBytes: number;
     structuredOutput: boolean;
     temperature: number;
@@ -55,6 +56,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
       maxOutputTokens: getOpenUiMaxOutputTokens(env),
       model: env.OPENAI_MODEL,
       outputMaxBytes: env.LLM_OUTPUT_MAX_BYTES,
+      repairTemperature: getOpenUiTemperature('repair'),
       requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
       structuredOutput,
       temperature: getOpenUiTemperature('initial'),

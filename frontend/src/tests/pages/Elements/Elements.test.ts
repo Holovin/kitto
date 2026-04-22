@@ -18,6 +18,7 @@ const promptsInfoState = vi.hoisted(() => ({
       maxOutputTokens: 25_000,
       model: 'gpt-5.4-mini',
       outputMaxBytes: 100_000,
+      repairTemperature: 0.2,
       requestMaxBytes: 300_000,
       structuredOutput: true,
       temperature: 0.6,
@@ -95,6 +96,11 @@ describe('ElementsPage', () => {
     expect(markup).toContain('Backend config');
     expect(markup).toContain('System prompt');
     expect(markup).toContain('systemPromptHash: abcd1234efgh5678');
+    expect(markup).toContain('echoed back in generation responses');
+    expect(markup).toContain(
+      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, and the final user turn that defines the task.',
+    );
+    expect(markup).toContain('Automatic repair retries use temperature 0.2.');
     expect(markup).toContain('Tool specs');
     expect(markup).toContain('Output envelope schema');
     expect(markup).not.toContain('Notes');

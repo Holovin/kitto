@@ -52,6 +52,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
   - `Repair prompt`;
   - `Output envelope schema`.
 - The system-prompt block shows a visible `systemPromptHash`.
+- The `Repair prompt` section explicitly mentions repair temperature `0.2`.
+- The user prompt template shows the role-based initial input shape, including assistant summary wrapping plus final `<latest_user_request>` and `<current_source>` blocks.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` keeps the runtime-config badge visible.

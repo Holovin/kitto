@@ -88,6 +88,30 @@ const request: PromptBuildRequest = {
   prompt: 'Build a todo app',
 };
 
+const requestWithHistory: PromptBuildRequest = {
+  ...request,
+  currentSource: 'root = AppShell([])',
+  chatHistory: [
+    {
+      role: 'user',
+      content: 'Start with a tiny todo app.',
+    },
+    {
+      role: 'assistant',
+      content: 'Built a one-screen todo app.',
+    },
+    {
+      role: 'assistant',
+      content: 'Applied the latest chat instruction to the app definition.',
+      excludeFromLlmContext: true,
+    },
+    {
+      role: 'user',
+      content: 'Add filters and a settings screen.',
+    },
+  ],
+};
+
 const repairRequest: PromptBuildRequest = {
   ...request,
   invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
@@ -246,6 +270,69 @@ describe('generateOpenUiSource', () => {
     expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('seed');
   });
 
+  it('builds role-based initial input while keeping repair requests flat-text', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-role-based',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, requestWithHistory)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+    await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    const initialCall = responsesCreateMock.mock.calls[0]?.[0];
+    const repairCall = responsesCreateMock.mock.calls[1]?.[0];
+
+    expect(initialCall?.input).toEqual([
+      {
+        role: 'system',
+        content: [{ type: 'input_text', text: expect.any(String) }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Start with a tiny todo app.' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'input_text',
+            text: expect.stringContaining('<assistant_summary>'),
+          },
+        ],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Add filters and a settings screen.' }],
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: expect.stringContaining('<latest_user_request>\nBuild a todo app\n</latest_user_request>'),
+          },
+        ],
+      },
+    ]);
+    expect(initialCall?.input?.[2]?.content?.[0]?.text).toContain('Built a one-screen todo app.');
+    expect(initialCall?.input?.[2]?.content?.[0]?.text).not.toContain('Applied the latest chat instruction');
+    expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
+    expect(repairCall?.input).toHaveLength(2);
+    expect(repairCall?.input?.[1]?.role).toBe('user');
+    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 1.');
+  });
+
   it('keeps the same cached system prefix and prompt cache key across initial and repair requests', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-cache',
@@ -345,6 +432,7 @@ describe('generateOpenUiSource', () => {
         rawUserRequest: 'Build a todo app',
         currentSourceLen: 0,
         chatHistoryLen: 0,
+        inputShape: 'role-based',
         systemPromptHash: expect.any(String),
         modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
         parsedEnvelope: {
@@ -402,6 +490,7 @@ describe('generateOpenUiSource', () => {
         parentRequestId: 'builder-request-parent',
         mode: 'repair',
         rawUserRequest: 'Build a todo app',
+        inputShape: 'flat-text',
         modelOutputRaw: 'not-json',
         parsedEnvelope: null,
         validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],
@@ -432,6 +521,7 @@ describe('generateOpenUiSource', () => {
       expect.objectContaining({
         requestId: 'builder-request-timeout',
         rawUserRequest: 'Build a todo app',
+        inputShape: 'role-based',
         phase: 'request',
         errorCode: 'timeout_error',
         errorMessage: 'The model request timed out.',
@@ -658,6 +748,7 @@ describe('streamOpenUiSource', () => {
     expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         errorCode: 'client_aborted',
+        inputShape: 'role-based',
         phase: 'stream',
         requestId: 'builder-request-client-abort',
       }),
@@ -869,6 +960,7 @@ describe('streamOpenUiSource', () => {
       expect.objectContaining({
         requestId: 'builder-request-stream',
         rawUserRequest: 'Build a todo app',
+        inputShape: 'role-based',
         modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
         parsedEnvelope: {
           summary: 'Builds a blank app shell.',
@@ -910,6 +1002,7 @@ describe('streamOpenUiSource', () => {
       expect.objectContaining({
         requestId: 'builder-request-stream-failure',
         rawUserRequest: 'Build a todo app',
+        inputShape: 'role-based',
         phase: 'stream',
         errorCode: 'timeout_error',
         errorMessage: 'The model request timed out.',

@@ -10,6 +10,7 @@ export type PromptIoLogMode = 'initial' | 'repair' | null;
 export type PromptIoLogPhase = 'client-commit' | 'intake' | 'parse' | 'request' | 'stream' | null;
 export type PromptIoRepairAttempt = 0 | 1;
 export type PromptIoCommitSource = 'fallback' | 'streaming';
+export type PromptIoInputShape = 'flat-text' | 'role-based';
 
 interface PromptIoLogEntryFields {
   ts: string;
@@ -28,6 +29,7 @@ interface PromptIoLogEntryFields {
    * Readers should accept both keys while new writers emit `omittedChatMessages` only.
    */
   omittedChatMessages?: number | null;
+  inputShape?: PromptIoInputShape;
   systemPromptHash?: string;
   modelInput?: unknown;
   modelOutputRaw?: string;
