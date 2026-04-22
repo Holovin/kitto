@@ -1,7 +1,16 @@
+import { useEffect, useRef } from 'react';
 import { builderActions } from '@features/builder/store/builderSlice';
 import type { BuilderRequestId } from '@features/builder/types';
 import { useAppDispatch } from '@store/hooks';
 import { store } from '@store/store';
+
+const PENDING_SUMMARY_THROTTLE_MS = 150;
+
+interface PendingSummaryState {
+  lastFlushedAt: number | null;
+  latestSummary: string;
+  timerId: ReturnType<typeof setTimeout> | null;
+}
 
 function getStreamingSummaryMessageKey(requestId: BuilderRequestId) {
   return `generation-summary:${requestId}`;
@@ -30,8 +39,81 @@ function normalizeCommittedSummary(messageContent: string) {
 
 export function useStreamingSummary() {
   const dispatch = useAppDispatch();
+  const pendingSummaryStatesRef = useRef<Map<BuilderRequestId, PendingSummaryState>>(new Map());
+
+  useEffect(() => {
+    const pendingSummaryStates = pendingSummaryStatesRef.current;
+
+    return () => {
+      for (const pendingSummaryState of pendingSummaryStates.values()) {
+        if (pendingSummaryState.timerId !== null) {
+          clearTimeout(pendingSummaryState.timerId);
+        }
+      }
+
+      pendingSummaryStates.clear();
+    };
+  }, []);
+
+  function clearPendingSummaryTimer(pendingSummaryState?: PendingSummaryState) {
+    if (!pendingSummaryState || pendingSummaryState.timerId === null) {
+      return;
+    }
+
+    clearTimeout(pendingSummaryState.timerId);
+    pendingSummaryState.timerId = null;
+  }
+
+  function getPendingSummaryState(requestId: BuilderRequestId) {
+    const existingState = pendingSummaryStatesRef.current.get(requestId);
+
+    if (existingState) {
+      return existingState;
+    }
+
+    const nextState: PendingSummaryState = {
+      lastFlushedAt: null,
+      latestSummary: '',
+      timerId: null,
+    };
+    pendingSummaryStatesRef.current.set(requestId, nextState);
+    return nextState;
+  }
+
+  function flushStreamingSummaryMessage(requestId: BuilderRequestId, options?: { pending?: boolean }) {
+    const pendingSummaryState = pendingSummaryStatesRef.current.get(requestId);
+
+    if (!pendingSummaryState) {
+      return;
+    }
+
+    const trimmedSummary = pendingSummaryState.latestSummary.trim();
+    clearPendingSummaryTimer(pendingSummaryState);
+
+    if (!trimmedSummary) {
+      pendingSummaryStatesRef.current.delete(requestId);
+      return;
+    }
+
+    dispatch(
+      builderActions.appendChatMessage({
+        content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
+        messageKey: getStreamingSummaryMessageKey(requestId),
+        role: 'assistant',
+      }),
+    );
+    pendingSummaryState.lastFlushedAt = Date.now();
+
+    if (!options?.pending) {
+      pendingSummaryStatesRef.current.delete(requestId);
+    }
+  }
 
   function clearStreamingSummaryMessage(requestId: BuilderRequestId) {
+    const pendingSummaryState = pendingSummaryStatesRef.current.get(requestId);
+    clearPendingSummaryTimer(pendingSummaryState);
+    pendingSummaryStatesRef.current.delete(requestId);
+
     dispatch(
       builderActions.removeChatMessageByKey({
         messageKey: getStreamingSummaryMessageKey(requestId),
@@ -44,6 +126,12 @@ export function useStreamingSummary() {
 
     if (trimmedSummary) {
       return trimmedSummary;
+    }
+
+    const latestPendingSummary = pendingSummaryStatesRef.current.get(requestId)?.latestSummary.trim();
+
+    if (latestPendingSummary) {
+      return latestPendingSummary;
     }
 
     const pendingSummaryMessage = store
@@ -64,13 +152,30 @@ export function useStreamingSummary() {
       return;
     }
 
-    dispatch(
-      builderActions.appendChatMessage({
-        content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
-        messageKey: getStreamingSummaryMessageKey(requestId),
-        role: 'assistant',
-      }),
-    );
+    const pendingSummaryState = getPendingSummaryState(requestId);
+    pendingSummaryState.latestSummary = trimmedSummary;
+
+    if (!options?.pending) {
+      flushStreamingSummaryMessage(requestId);
+      return;
+    }
+
+    const now = Date.now();
+    const elapsedSinceLastFlush =
+      pendingSummaryState.lastFlushedAt === null ? PENDING_SUMMARY_THROTTLE_MS : now - pendingSummaryState.lastFlushedAt;
+
+    if (elapsedSinceLastFlush >= PENDING_SUMMARY_THROTTLE_MS) {
+      flushStreamingSummaryMessage(requestId, { pending: true });
+      return;
+    }
+
+    if (pendingSummaryState.timerId !== null) {
+      return;
+    }
+
+    pendingSummaryState.timerId = setTimeout(() => {
+      flushStreamingSummaryMessage(requestId, { pending: true });
+    }, PENDING_SUMMARY_THROTTLE_MS - elapsedSinceLastFlush);
   }
 
   return {

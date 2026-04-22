@@ -946,6 +946,67 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('throttles repeated pending summary updates but still commits the latest summary', async () => {
+    vi.useFakeTimers();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    try {
+      const streamResult = createDeferred<{ source: string; summary: string }>();
+
+      testHarness.streamMock.mockImplementationOnce(
+        async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
+          onSummary?.('Creates');
+          onSummary?.('Creates a settings');
+          onSummary?.('Creates a settings app');
+          return streamResult.promise;
+        },
+      );
+
+      const requestPromise = submission.result().handleSubmit(createFormEvent());
+      await flushMicrotasks();
+
+      expect(findChatMessage('Building: Creates…')).toEqual(
+        expect.objectContaining({
+          content: 'Building: Creates…',
+          role: 'assistant',
+        }),
+      );
+      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(149);
+
+      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(findChatMessage('Building: Creates…')).toBeUndefined();
+      expect(findChatMessage('Building: Creates a settings app…')).toEqual(
+        expect.objectContaining({
+          content: 'Building: Creates a settings app…',
+          role: 'assistant',
+        }),
+      );
+
+      streamResult.resolve({
+        source: VALID_STREAM_SOURCE,
+        summary: 'Creates a settings app',
+      });
+      await requestPromise;
+
+      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+      expect(findChatMessage('Creates a settings app')).toEqual(
+        expect.objectContaining({
+          content: 'Creates a settings app',
+          role: 'assistant',
+        }),
+      );
+    } finally {
+      submission.unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it('blocks an oversized request before sending it to the backend', async () => {
     seedCommittedSource('x'.repeat(512));
     setDraftPrompt('Build a small app.');

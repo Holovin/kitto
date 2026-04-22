@@ -23,9 +23,6 @@ import { OpenUiValidationError, useValidationRepair } from './useValidationRepai
 import { resolveBuilderComposerPrompt } from './submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import {
-  selectChatMessages,
-  selectCommittedSource,
-  selectDomainData,
   selectDraftPrompt,
   selectRetryPrompt,
 } from '@features/builder/store/selectors';
@@ -40,6 +37,7 @@ import type {
 } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { store } from '@store/store';
 
 const STREAM_FAILURE_FALLBACK_MAX_CHARS = 256;
 
@@ -70,9 +68,6 @@ interface UseBuilderSubmissionOptions {
 
 export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
-  const chatMessages = useAppSelector(selectChatMessages);
-  const committedSource = useAppSelector(selectCommittedSource);
-  const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
   const configState = useConfigQuery(undefined, {
@@ -126,7 +121,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     generationLifecycle.throwIfInactiveRequest(requestId);
     const validatedResult = await validationRepair.ensureValidGeneratedSource(response, request, requestId);
     generationLifecycle.throwIfInactiveRequest(requestId);
-    const snapshot = createBuilderSnapshot(validatedResult.source, {}, domainData);
+    const snapshot = createBuilderSnapshot(validatedResult.source, {}, store.getState().domain.data);
     const committedSummary = streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
 
     if (committedSummary) {
@@ -183,10 +178,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       return;
     }
 
+    const currentState = store.getState();
     const request: BuilderLlmRequest = {
       prompt: nextPrompt,
-      currentSource: committedSource,
-      chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
+      currentSource: currentState.builder.committedSource,
+      chatHistory: currentState.builder.chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
         content,
         excludeFromLlmContext,
         role,

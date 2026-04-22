@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, type MutableRefObject } from 'react';
+import { memo, useEffect, useEffectEvent, useRef, type MutableRefObject } from 'react';
 import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -47,6 +47,30 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
   }
 
   return 'border-slate-200 bg-white text-slate-700';
+}
+
+const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message: BuilderChatMessage }) {
+  return (
+    <article
+      className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${getMessageBubbleClasses(message)}`}
+    >
+      <p className="whitespace-pre-wrap break-words">{message.content}</p>
+    </article>
+  );
+});
+
+function findLatestMessageByKey(messages: BuilderChatMessage[], messageKey: BuilderChatMessage['messageKey']) {
+  if (!messageKey) {
+    return null;
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.messageKey === messageKey) {
+      return messages[index] ?? null;
+    }
+  }
+
+  return null;
 }
 
 function ChatToolbar({ cancelActiveRequestRef, onSystemNotice }: ChatToolbarProps) {
@@ -117,8 +141,8 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
   const { isError: isBackendDisconnected } = useBackendConnectionState();
   const previousDisconnectedRef = useRef<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const backendStatusMessage =
-    [...chatMessages].reverse().find((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus) ?? null;
+  const backendStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus);
+  const lastMessageId = chatMessages.at(-1)?.id ?? null;
   const showEmptyChatHint = !isBackendDisconnected && chatMessages.length === 0;
   const scrollToLatestMessage = useEffectEvent(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -140,7 +164,7 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
 
   useEffect(() => {
     scrollToLatestMessage();
-  }, [chatMessages]);
+  }, [chatMessages.length, lastMessageId]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
@@ -152,12 +176,7 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
         ) : null}
 
         {chatMessages.map((message) => (
-          <article
-            key={message.id}
-            className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${getMessageBubbleClasses(message)}`}
-          >
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
-          </article>
+          <ChatMessageBubble key={message.id} message={message} />
         ))}
         <div ref={messagesEndRef} />
       </div>
