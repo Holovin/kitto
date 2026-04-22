@@ -123,12 +123,33 @@ function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedL
     chatHistory,
   };
 
-  while (getRequestSizeBytes(compactedRequest) > env.LLM_REQUEST_MAX_BYTES && compactedRequest.chatHistory.length > 0) {
+  if (getRequestSizeBytes(compactedRequest) > env.LLM_REQUEST_MAX_BYTES && compactedRequest.chatHistory.length > 0) {
     compactedByBytes = true;
-    omittedChatMessages += 1;
+    const chatHistoryForCompaction = compactedRequest.chatHistory;
+    let minimumRemovedMessages = chatHistoryForCompaction.length;
+    let lowerBound = 1;
+    let upperBound = chatHistoryForCompaction.length;
+
+    // Request size decreases monotonically as older history entries are removed.
+    while (lowerBound <= upperBound) {
+      const removedMessages = Math.floor((lowerBound + upperBound) / 2);
+      const candidateRequest = {
+        ...compactedRequest,
+        chatHistory: chatHistoryForCompaction.slice(removedMessages),
+      };
+
+      if (getRequestSizeBytes(candidateRequest) <= env.LLM_REQUEST_MAX_BYTES) {
+        minimumRemovedMessages = removedMessages;
+        upperBound = removedMessages - 1;
+      } else {
+        lowerBound = removedMessages + 1;
+      }
+    }
+
+    omittedChatMessages += minimumRemovedMessages;
     compactedRequest = {
       ...compactedRequest,
-      chatHistory: compactedRequest.chatHistory.slice(1),
+      chatHistory: chatHistoryForCompaction.slice(minimumRemovedMessages),
     };
   }
 
