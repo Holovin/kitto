@@ -63,8 +63,8 @@ describe('openui prompts', () => {
     expect(structuredKey).not.toBe(plainTextKey);
     expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
       {
-        "plainTextKey": "kitto:openui:pl:f22bd520f637:a2bc26f2c7e50ede",
-        "structuredKey": "kitto:openui:st:f22bd520f637:884ba0033452bf56",
+        "plainTextKey": "kitto:openui:pl:f22bd520f637:15326d50643ce38d",
+        "structuredKey": "kitto:openui:st:f22bd520f637:3cb965064ef4aa61",
       }
     `);
   });

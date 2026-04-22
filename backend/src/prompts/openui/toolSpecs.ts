@@ -177,7 +177,7 @@ export const toolSpecifications: ToolSpec[] = [
   {
     name: 'append_item',
     description:
-      'Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided string/number `id` or generates a stable `id` automatically when missing.',
+      'Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided non-empty string or finite number `id`; otherwise generates a stable `id`.',
     inputSchema: {
       type: 'object',
       properties: {

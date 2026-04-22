@@ -4,6 +4,8 @@ function createToolError(toolName: string, message: string) {
   return new DomainStateError(`${toolName}: ${message}`);
 }
 
+export type ToolItemId = number | string;
+
 export function wrapToolError(toolName: string, error: unknown): Error {
   if (error instanceof DomainStateError) {
     return error.message.startsWith(`${toolName}:`) ? error : createToolError(toolName, error.message);
@@ -84,9 +86,17 @@ export function getRequiredToolFieldName(toolName: string, fieldName: unknown, a
   }
 }
 
+export function isValidToolItemId(id: unknown): id is ToolItemId {
+  if (typeof id === 'string') {
+    return id.trim().length > 0;
+  }
+
+  return typeof id === 'number' && Number.isFinite(id);
+}
+
 export function getRequiredToolItemId(toolName: string, id: unknown) {
-  if (typeof id !== 'string' && typeof id !== 'number') {
-    throw createToolError(toolName, 'id must be a string or number.');
+  if (!isValidToolItemId(id)) {
+    throw createToolError(toolName, 'id must be a non-empty string or finite number.');
   }
 
   return id;

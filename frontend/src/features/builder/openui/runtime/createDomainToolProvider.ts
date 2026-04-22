@@ -9,6 +9,8 @@ import {
   getRequiredToolPatch,
   getRequiredToolPath,
   getRequiredToolValue,
+  isValidToolItemId,
+  type ToolItemId,
   wrapToolError,
 } from './toolArguments';
 
@@ -16,8 +18,6 @@ export type DomainToolAdapter = {
   readDomainData: () => Record<string, unknown>;
   replaceDomainData: (nextData: Record<string, unknown>) => void;
 };
-
-type ToolItemId = number | string;
 
 async function runTool<T>(toolName: string, callback: () => T | Promise<T>) {
   try {
@@ -115,7 +115,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const value = getRequiredToolObject('append_item', args.value);
         const nextData = readDomainSnapshot(adapter);
         const currentItems = readArrayOrEmpty(nextData, path);
-        const itemId = typeof value.id === 'string' || typeof value.id === 'number' ? value.id : generateStableId();
+        const itemId = isValidToolItemId(value.id) ? value.id : generateStableId();
         const nextItems = [...currentItems, { ...value, id: itemId }];
 
         writePathValue(nextData, path, nextItems);

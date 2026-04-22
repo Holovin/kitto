@@ -39,7 +39,7 @@ export const OPENUI_ACTION_DOCUMENTATION: Record<string, OpenUiActionDocumentati
   append_item: {
     summary: 'Appends one plain-object item to the array at a validated path and guarantees the appended row has an `id`.',
     useWhen:
-      'Use this for persisted collections of object rows such as todos, cards, answers, or records that will need stable row actions later. If `value.id` is missing, the tool generates one automatically.',
+      'Use this for persisted collections of object rows such as todos, cards, answers, or records that will need stable row actions later. If `value.id` is missing or blank, the tool generates one automatically. When you provide it, keep it a non-empty string or finite number.',
     returns: 'Returns the updated array value after the object row is appended.',
   },
   toggle_item_field: {

@@ -217,6 +217,7 @@ Create a task list with completed status and a filter with All, Active and Compl
 - Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
 - If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder sends one repair request before commit; if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
 - Row actions use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
+- Persisted rows keep meaningful stable ids; blank or whitespace `value.id` drafts should not survive commit as row ids and should be replaced by generated stable ids.
 - The committed source does not mutate persisted array rows by numeric paths such as `app.items.0`; item updates stay id-based through collection-item tools.
 - Any row action references top-level `Query(...)` and `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
 - After persisted add and complete mutations, the visible `Query("read_state", ...)` re-runs later in the same `Action(...)`; the app must not commit a stale visible query flow.

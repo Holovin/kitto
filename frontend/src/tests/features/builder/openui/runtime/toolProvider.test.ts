@@ -253,6 +253,49 @@ describe('builderToolProvider', () => {
     });
   });
 
+  it('append_item replaces blank and whitespace ids with generated stable ids', async () => {
+    let idCounter = 0;
+    vi.stubGlobal('crypto', {
+      randomUUID: () => `generated-item-id-${++idCounter}`,
+    });
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { id: '', title: 'Blank id', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'generated-item-id-1', title: 'Blank id', completed: false },
+    ]);
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { id: '   ', title: 'Whitespace id', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'generated-item-id-1', title: 'Blank id', completed: false },
+      { id: 'generated-item-id-2', title: 'Whitespace id', completed: false },
+    ]);
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [
+          ...createTaskRows(),
+          { id: 'generated-item-id-1', title: 'Blank id', completed: false },
+          { id: 'generated-item-id-2', title: 'Whitespace id', completed: false },
+        ],
+      },
+    });
+  });
+
   it('append_item falls back to nanoid when crypto.randomUUID is unavailable', async () => {
     vi.stubGlobal('crypto', {});
 
@@ -410,6 +453,23 @@ describe('builderToolProvider', () => {
         field: 'completed',
       }),
     ).rejects.toThrow('toggle_item_field: State path "app.tasks" does not contain an item with id="missing-task".');
+  });
+
+  it('rejects toggle_item_field when id is blank', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.toggle_item_field({
+        path: 'app.tasks',
+        idField: 'id',
+        id: '   ',
+        field: 'completed',
+      }),
+    ).rejects.toThrow('toggle_item_field: id must be a non-empty string or finite number.');
   });
 
   it('update_item_field replaces one matched row field by id', async () => {
@@ -592,6 +652,22 @@ describe('builderToolProvider', () => {
         id: 'missing-task',
       }),
     ).rejects.toThrow('remove_item: State path "app.tasks" does not contain an item with id="missing-task".');
+  });
+
+  it('rejects remove_item when id is not finite', async () => {
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.remove_item({
+        path: 'app.tasks',
+        idField: 'id',
+        id: Number.POSITIVE_INFINITY,
+      }),
+    ).rejects.toThrow('remove_item: id must be a non-empty string or finite number.');
   });
 
   it('exposes compute tools and returns { value } for read-only computations', async () => {
