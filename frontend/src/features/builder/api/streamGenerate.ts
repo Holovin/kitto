@@ -148,6 +148,12 @@ function isHexDigit(value: string) {
   return /^[0-9a-fA-F]$/.test(value);
 }
 
+/**
+ * Incrementally extracts top-level `source` / `summary` string progress from the
+ * growing structured SSE envelope without attempting a full partial-JSON parse.
+ * Nested values are ignored here, and the final envelope is still validated from
+ * the `done` event.
+ */
 function readPartialJsonString(input: string, startIndex: number): PartialJsonStringValue & { nextIndex: number } {
   let value = '';
   let index = startIndex;
