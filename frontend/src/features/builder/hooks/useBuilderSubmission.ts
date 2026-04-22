@@ -41,6 +41,8 @@ import type {
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
+const STREAM_FAILURE_FALLBACK_MAX_CHARS = 256;
+
 function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
   if (!compaction || compaction.omittedChatMessages <= 0) {
     return null;
@@ -201,7 +203,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       return;
     }
 
-    let receivedChunk = false;
+    let streamedChars = 0;
     const { abortController, requestId } = generationLifecycle.beginGeneration(nextPrompt);
 
     try {
@@ -213,7 +215,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         request,
         signal: abortController.signal,
         onChunk: (chunk) => {
-          receivedChunk = true;
+          streamedChars += chunk.length;
           dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
         },
         onSummary: (summary) => {
@@ -222,9 +224,6 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
           }
 
           streamingSummary.upsertStreamingSummaryMessage(requestId, summary, { pending: true });
-        },
-        onTimeout: (kind) => {
-          generationLifecycle.handleStreamTimeout(requestId, kind, request.prompt);
         },
       });
 
@@ -239,11 +238,13 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       );
     } catch (error) {
       if (error instanceof BuilderStreamTimeoutError) {
-        if (generationLifecycle.isActiveRequest(requestId)) {
+        if (streamedChars > STREAM_FAILURE_FALLBACK_MAX_CHARS && generationLifecycle.isActiveRequest(requestId)) {
           generationLifecycle.failRequest(requestId, error, { retryPrompt: request.prompt });
         }
 
-        return;
+        if (streamedChars > STREAM_FAILURE_FALLBACK_MAX_CHARS) {
+          return;
+        }
       }
 
       if (
@@ -260,7 +261,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         return;
       }
 
-      if (!receivedChunk) {
+      if (streamedChars <= STREAM_FAILURE_FALLBACK_MAX_CHARS) {
         try {
           const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, request);
           await commitGeneratedSource(fallbackResponse, request, requestId);

@@ -22,4 +22,16 @@ describe('PreviewEmptyState', () => {
     expect(markup).toContain('data-preview-card-gradient="demo"');
     expect(markup).not.toContain('✅');
   });
+
+  it('renders the animal explorer demo first in the already generated section', () => {
+    const markup = renderToStaticMarkup(createElement(PreviewEmptyState));
+    const [, demoSection] = markup.split('Or load an already generated app');
+
+    expect(demoSection).toBeDefined();
+    expect(demoSection.match(/Animal explorer|Todo list|Quiz with 3 questions/g)).toEqual([
+      'Animal explorer',
+      'Todo list',
+      'Quiz with 3 questions',
+    ]);
+  });
 });

@@ -6,6 +6,70 @@ interface BuilderDemoPreset {
   source: string;
 }
 
+const animalExplorerDemoSource = `$currentScreenTop = "screen1"
+$currentScreenBottom = "screen3"
+$currentTheme = "light"
+
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
+appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+activeThemeButton = { mainColor: "#111827", contrastColor: "#FFFFFF" }
+inactiveThemeButton = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+activeAnimalButton = { mainColor: "#2563EB", contrastColor: "#FFFFFF" }
+inactiveAnimalButton = { mainColor: "#DBEAFE", contrastColor: "#1E3A8A" }
+activeFishButton = { mainColor: "#0F766E", contrastColor: "#FFFFFF" }
+inactiveFishButton = { mainColor: "#CCFBF1", contrastColor: "#115E59" }
+
+root = AppShell([
+  Group(null, "horizontal", [
+    Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton),
+    Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
+  ], "inline"),
+  Screen("screen1", "Animals", [
+    Group(null, "horizontal", [
+      Button("go-screen1", "Cat", "default", Action([@Set($currentScreenTop, "screen1")]), false, $currentScreenTop == "screen1" ? activeAnimalButton : inactiveAnimalButton),
+      Button("go-screen2", "Dog", "secondary", Action([@Set($currentScreenTop, "screen2")]), false, $currentScreenTop == "screen2" ? activeAnimalButton : inactiveAnimalButton)
+    ], "inline"),
+    Text("Cat", "title", "center"),
+    Text("A cat is a domestic animal that likes warmth, soft places, and living close to people.", "body", "center")
+  ], $currentScreenTop == "screen1"),
+  Screen("screen2", "Animals", [
+    Group(null, "horizontal", [
+      Button("go-screen1b", "Cat", "secondary", Action([@Set($currentScreenTop, "screen1")]), false, $currentScreenTop == "screen1" ? activeAnimalButton : inactiveAnimalButton),
+      Button("go-screen2b", "Dog", "default", Action([@Set($currentScreenTop, "screen2")]), false, $currentScreenTop == "screen2" ? activeAnimalButton : inactiveAnimalButton)
+    ], "inline"),
+    Text("Dog", "title", "center"),
+    Text("A dog is a loyal human companion. It learns commands well, enjoys walks, and helps guard the home.", "body", "center")
+  ], $currentScreenTop == "screen2"),
+  Screen("screen3", "Fish", [
+    Group(null, "horizontal", [
+      Button("go-screen3c", "Perch", "default", Action([@Set($currentScreenBottom, "screen3")]), false, $currentScreenBottom == "screen3" ? activeFishButton : inactiveFishButton),
+      Button("go-screen4c", "Pike", "secondary", Action([@Set($currentScreenBottom, "screen4")]), false, $currentScreenBottom == "screen4" ? activeFishButton : inactiveFishButton),
+      Button("go-screen5c", "Crucian carp", "secondary", Action([@Set($currentScreenBottom, "screen5")]), false, $currentScreenBottom == "screen5" ? activeFishButton : inactiveFishButton)
+    ], "inline"),
+    Text("Perch", "title", "center"),
+    Text("Perch is a freshwater fish with striped coloring. It lives in rivers and lakes and feeds on small fish and insects.", "body", "center")
+  ], $currentScreenBottom == "screen3"),
+  Screen("screen4", "Fish", [
+    Group(null, "horizontal", [
+      Button("go-screen3d", "Perch", "secondary", Action([@Set($currentScreenBottom, "screen3")]), false, $currentScreenBottom == "screen3" ? activeFishButton : inactiveFishButton),
+      Button("go-screen4d", "Pike", "default", Action([@Set($currentScreenBottom, "screen4")]), false, $currentScreenBottom == "screen4" ? activeFishButton : inactiveFishButton),
+      Button("go-screen5d", "Crucian carp", "secondary", Action([@Set($currentScreenBottom, "screen5")]), false, $currentScreenBottom == "screen5" ? activeFishButton : inactiveFishButton)
+    ], "inline"),
+    Text("Pike", "title", "center"),
+    Text("Pike is a predatory fish with a long body and sharp teeth. It hides in reeds and hunts from ambush.", "body", "center")
+  ], $currentScreenBottom == "screen4"),
+  Screen("screen5", "Fish", [
+    Group(null, "horizontal", [
+      Button("go-screen3e", "Perch", "secondary", Action([@Set($currentScreenBottom, "screen3")]), false, $currentScreenBottom == "screen3" ? activeFishButton : inactiveFishButton),
+      Button("go-screen4e", "Pike", "secondary", Action([@Set($currentScreenBottom, "screen4")]), false, $currentScreenBottom == "screen4" ? activeFishButton : inactiveFishButton),
+      Button("go-screen5e", "Crucian carp", "default", Action([@Set($currentScreenBottom, "screen5")]), false, $currentScreenBottom == "screen5" ? activeFishButton : inactiveFishButton)
+    ], "inline"),
+    Text("Crucian carp", "title", "center"),
+    Text("Crucian carp is a hardy fish that can live even in calm, warm waters. It is often found in ponds and lakes.", "body", "center")
+  ], $currentScreenBottom == "screen5")
+], appTheme)`;
+
 const todoDemoSource = `$taskTitle = ""
 $filter = "all"
 $targetTaskId = ""
@@ -162,6 +226,13 @@ root = AppShell([
 ])`;
 
 export const BUILDER_DEMO_PRESETS: BuilderDemoPreset[] = [
+  {
+    id: 'animal-explorer-demo',
+    label: 'Animal explorer',
+    description: 'Five-screen animal explorer with a light/dark toggle and fish detail tabs.',
+    source: animalExplorerDemoSource,
+    domainData: {},
+  },
   {
     id: 'todo-demo',
     label: 'Todo board',

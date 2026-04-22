@@ -1,4 +1,4 @@
-import { BadgePlus, Brain, ClipboardList, FolderOpen, MessageSquarePlus, Sparkles, Target, type LucideIcon } from 'lucide-react';
+import { BadgePlus, Brain, ClipboardList, Fish, FolderOpen, MessageSquarePlus, Sparkles, Target, type LucideIcon } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { BUILDER_DEMO_PRESETS } from '@features/builder/openui/runtime/demos';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
@@ -58,6 +58,15 @@ const EMPTY_PREVIEW_PROMPTS = [
 ] as const;
 
 const EMPTY_PREVIEW_DEMOS = [
+  {
+    decoration: {
+      ...QUIZ_APP_DECORATION_LAYOUT,
+      gradientClassName: DEMO_GRADIENT_CLASS_NAME,
+    },
+    icon: Fish,
+    label: 'Animal explorer',
+    presetId: 'animal-explorer-demo',
+  },
   {
     decoration: {
       ...QUIZ_APP_DECORATION_LAYOUT,

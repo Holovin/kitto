@@ -225,6 +225,7 @@ vi.mock('@features/builder/api/commitTelemetry', () => ({
 import { builderActions, builderReducer } from '@features/builder/store/builderSlice';
 import { builderSessionActions, builderSessionReducer } from '@features/builder/store/builderSessionSlice';
 import { domainActions, domainReducer } from '@features/builder/store/domainSlice';
+import { BuilderStreamTimeoutError } from '@features/builder/api/streamGenerate';
 import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
@@ -241,6 +242,9 @@ const VALID_STREAM_SOURCE = `root = AppShell([
     Text("Hello", "body", "start")
   ])
 ])`;
+
+const SHORT_PARTIAL_DRAFT = '{"source":"partial"}';
+const LARGE_PARTIAL_DRAFT = 'x'.repeat(1024);
 
 const SECOND_REQUEST_SOURCE = `root = AppShell([
   Screen("second", "Second", [
@@ -918,13 +922,14 @@ describe('useBuilderSubmission', () => {
     testHarness.streamMock.mockImplementationOnce(
       async ({ onChunk, onSummary }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void }) => {
         onSummary?.('Creates a settings app');
-        onChunk('partial draft');
+        onChunk(LARGE_PARTIAL_DRAFT);
         throw new Error('The model stream ended before it returned any OpenUI source.');
       },
     );
 
     await submission.rerender().handleSubmit(createFormEvent());
 
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
     expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
     expect(findChatMessage('Creates a settings app')).toBeUndefined();
     expect(findChatMessage('Adds a welcome screen')).toEqual(
@@ -1396,13 +1401,60 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('fails when the stream emits chunks but never finishes with done', async () => {
+  it('falls back when the stream emits a short partial draft but never finishes with done', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.generateMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+    testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
+      onChunk(SHORT_PARTIAL_DRAFT);
+      throw new Error('The model stream ended before it returned any OpenUI source.');
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
+    expect(getBuilderState().streamedSource).toBe(VALID_STREAM_SOURCE);
+    expect(getBuilderState().retryPrompt).toBeNull();
+
+    submission.unmount();
+  });
+
+  it('falls back when the stream times out after a short partial draft', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.generateMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+    testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
+      onChunk(SHORT_PARTIAL_DRAFT);
+      throw new BuilderStreamTimeoutError('idle');
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
+    expect(getBuilderState().retryPrompt).toBeNull();
+
+    submission.unmount();
+  });
+
+  it('fails when the stream emits too much partial content before ending without done', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
 
     testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
-      onChunk('{"source":"partial"}');
+      onChunk(LARGE_PARTIAL_DRAFT);
       throw new Error('The model stream ended before it returned any OpenUI source.');
     });
 
@@ -1424,7 +1476,7 @@ describe('useBuilderSubmission', () => {
 
     testHarness.streamMock.mockImplementationOnce(async ({ onChunk, onSummary }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void }) => {
       onSummary?.('Creates a settings app');
-      onChunk('partial draft');
+      onChunk(LARGE_PARTIAL_DRAFT);
       throw new Error('The model stream ended before it returned any OpenUI source.');
     });
 
