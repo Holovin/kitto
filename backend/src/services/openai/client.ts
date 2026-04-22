@@ -83,7 +83,7 @@ export function getClient(env: AppEnv) {
   return cachedClient.client;
 }
 
-function createTextInputMessage(role: 'assistant' | 'system' | 'user', text: string): ResponseInput[number] {
+function createTextInputMessage(role: 'system' | 'user', text: string): ResponseInput[number] {
   return {
     role,
     content: [
@@ -92,6 +92,13 @@ function createTextInputMessage(role: 'assistant' | 'system' | 'user', text: str
         text,
       },
     ],
+  };
+}
+
+function createAssistantHistoryMessage(text: string): ResponseInput[number] {
+  return {
+    role: 'assistant',
+    content: text,
   };
 }
 
@@ -121,10 +128,9 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
   return [
     systemMessage,
     ...recentHistory.map((message) =>
-      createTextInputMessage(
-        message.role,
-        message.role === 'assistant' ? buildOpenUiAssistantSummaryMessage(message.content) : message.content,
-      ),
+      message.role === 'assistant'
+        ? createAssistantHistoryMessage(buildOpenUiAssistantSummaryMessage(message.content))
+        : createTextInputMessage('user', message.content),
     ),
     createTextInputMessage(
       'user',

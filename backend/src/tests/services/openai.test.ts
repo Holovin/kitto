@@ -304,12 +304,7 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [
-          {
-            type: 'input_text',
-            text: expect.stringContaining('<assistant_summary>'),
-          },
-        ],
+        content: expect.stringContaining('<assistant_summary>'),
       },
       {
         role: 'user',
@@ -325,8 +320,8 @@ describe('generateOpenUiSource', () => {
         ],
       },
     ]);
-    expect(initialCall?.input?.[2]?.content?.[0]?.text).toContain('Built a one-screen todo app.');
-    expect(initialCall?.input?.[2]?.content?.[0]?.text).not.toContain('Applied the latest chat instruction');
+    expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
+    expect(initialCall?.input?.[2]?.content).not.toContain('Applied the latest chat instruction');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(2);
     expect(repairCall?.input?.[1]?.role).toBe('user');
