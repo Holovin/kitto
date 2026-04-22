@@ -1,0 +1,413 @@
+# Kitto OpenUI Agent Smoke Test
+
+## Purpose
+
+Fast browser/MCP smoke pass for Kitto as a chat-based frontend app builder.
+
+This is not a full regression suite. Full edge cases live in `docs/qa/openui-manual-checklist.md`.
+
+## Setup
+
+1. Start the app:
+
+   ```bash
+   npm run dev
+   ```
+
+2. Open:
+
+   `http://localhost:5555/chat`
+
+3. Wait until the backend model status in the header is `connected`.
+4. Confirm the runtime-config badge is present. Chat send must stay disabled while `/api/config` is still loading, then unlock once runtime config finishes loading.
+5. Open DevTools:
+   - `Console` for runtime/parser errors.
+   - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
+6. While a generation is streaming, Chat should surface one human-readable pending assistant summary, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
+7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `compaction`.
+8. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no repair LLM request is sent.
+
+## MCP automation notes
+
+- Type prompts into the chat textarea with real typing after focus.
+- Do not use DOM-only fill.
+- For import, if the OS picker is unavailable, it is acceptable to use the hidden `input[type="file"]` with a generated `File`.
+- When validating local interactions, distinguish chat-driven generation requests from follow-up telemetry. Local preview clicks must not trigger fresh `/api/llm/generate*` requests.
+
+## Scenario 0 — Runtime config and prompt docs page
+
+### Steps
+
+1. Open `/elements`.
+2. Switch to the `Prompts` tab.
+3. Return to `/chat`.
+
+### Expected
+
+- The `Prompts` tab renders:
+  - `Backend config`;
+  - `System prompt`;
+  - `User prompt template`;
+  - `Tool specs`;
+  - `Repair prompt`;
+  - `Output envelope schema`.
+- The system-prompt block shows a visible `systemPromptHash`.
+- `Output envelope schema` documents the model envelope only: `summary` and `source`.
+- The prompts page is read-only and does not show edit or copy controls.
+- `/chat` keeps the runtime-config badge visible.
+- Chat send stays disabled while `/api/config` is unresolved, with a clear composer hint.
+- After config load completes successfully, chat send becomes available without a page reload.
+
+## Scenario 1 — Simple todo stays simple
+
+### Prompt
+
+```txt
+Create a todo list.
+```
+
+### Expected
+
+- The app commits successfully.
+- While the request is streaming, chat shows one human-readable pending assistant summary before commit.
+- The app has a simple todo UI:
+  - task input;
+  - add button;
+  - task list rendered from a dynamic collection;
+  - interactive completion toggle.
+- User can add a task.
+- User can toggle a task complete/incomplete.
+- Definition does not show `Todo request did not generate required todo controls.`.
+- Todo rows use persisted list actions rather than static placeholder rows.
+- Local todo interactions do not trigger fresh `/api/llm/generate*` requests.
+- No parser/runtime errors appear.
+- The app does not add unrelated features such as:
+  - theme toggle;
+  - due dates;
+  - filtering;
+  - compute tools;
+  - extra screens;
+  unless the model has a strong product reason and the UI still works.
+
+## Scenario 2 — Multi-screen local flow
+
+### Prompt
+
+```txt
+Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.
+```
+
+### Expected
+
+- Intro screen appears after commit.
+- The app must not go blank; if the generated source somehow resolves every `Screen(...)` inactive, the first screen should still render as a runtime fallback.
+- Start/Begin works.
+- Radio selection works.
+- Next works.
+- Restart works.
+- Internal clicks do not trigger fresh `/api/llm/generate*` requests.
+- No parser/runtime errors.
+
+## Scenario 3 — Follow-up edit preserves existing app
+
+### Prompt
+
+```txt
+Add a required checkbox confirmation before the result screen.
+```
+
+### Expected
+
+- Existing quiz flow remains usable.
+- Checkbox appears before result/submit.
+- Checkbox affects the flow or validation.
+- The pre-commit chat summary stays readable and the committed assistant summary remains in chat after success.
+- Final committed source is valid.
+- If repair runs, final repaired app still works.
+- No broken actions or unresolved refs remain.
+
+## Scenario 4 — Theme / appearance / active theme button
+
+### Prompt
+
+```txt
+Build an app with every control you know. Add a separate top group with two buttons for light and dark themes. The active theme must be shown as a RED button with white text.
+```
+
+### Expected
+
+- There are light and dark theme buttons.
+- The first committed draft already shows the active theme button as red background with white text.
+- Inactive theme button is not red.
+- Clicking theme buttons changes theme locally.
+- Theme affects visible app colors, not only text labels.
+- The theme block also changes with the active theme.
+- Main controls remain readable:
+  - input;
+  - textarea;
+  - checkbox;
+  - radio group;
+  - select;
+  - button;
+  - link.
+- Internal theme clicks do not trigger fresh `/api/llm/generate*` requests.
+- Generated source does not contain raw styling:
+  - `style`;
+  - `className`;
+  - `css`;
+  - named colors;
+  - `rgb(...)`;
+  - `hsl(...)`;
+  - `var(...)`;
+  - `url(...)`.
+
+### Optional follow-up prompt
+
+```txt
+Make the buttons switch between light and dark themes. The theme must affect every element, including the theme block.
+```
+
+### Expected
+
+- Whole app visually changes after switching theme.
+- Theme block also changes.
+- No LLM call happens on theme button clicks.
+
+## Scenario 5 — Inputs and validation
+
+### Prompt
+
+```txt
+Create a form with name, email, quantity, due date, description and required agreement checkbox. Add basic validation.
+```
+
+### Expected
+
+- Name uses text input.
+- Email uses email input.
+- Quantity uses number input.
+- Due date uses date input.
+- Description uses textarea.
+- Agreement uses checkbox.
+- Freshly committed required controls are not red before the user touches them or presses a primary submit/next button.
+- Required validation is visible.
+- Validation marks invalid controls with error styling and `aria-invalid` without inserting inline error text that shifts layout.
+- In multi-screen flows, a primary submit/next button only lights up invalid controls from the current screen, not hidden or unrelated screens.
+- Email validation works.
+- Number validation works if min/max is generated.
+- Due date stores a `YYYY-MM-DD` value.
+- Validation changes do not trigger fresh `/api/llm/generate*` requests.
+- No arbitrary JS validators are generated.
+
+## Scenario 6 — Collections and filtering
+
+### Prompt
+
+```txt
+Create a task list with completed status and a filter with All, Active and Completed.
+```
+
+### Expected
+
+- User can add multiple items.
+- Completion is interactive through an explicit persisted mutation plus refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggleItem)`, and `@Run(items)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
+- Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
+- If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder sends one repair request before commit; if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
+- Row actions use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
+- The committed source does not mutate persisted array rows by numeric paths such as `app.items.0`; item updates stay id-based through collection-item tools.
+- Any row action references top-level `Query(...)` and `Mutation(...)` statements; inline tool calls inside `@Each(...)` should surface Definition issues instead of committing silently.
+- After persisted add and complete mutations, the visible `Query("read_state", ...)` re-runs later in the same `Action(...)`; the app must not commit a stale visible query flow.
+- If the filter is implemented with action-mode `Select(...)` or `RadioGroup(...)`, the source routes the newly selected option through runtime-managed `$lastChoice` into a top-level persisted mutation instead of assuming direct binding write-back.
+- All filter shows all items.
+- Active filter shows incomplete items.
+- Completed filter shows completed items.
+- Switching filters does not trigger fresh `/api/llm/generate*` requests.
+- No parser/runtime errors.
+
+## Scenario 7 — Safe compute tools
+
+### Prompt
+
+```txt
+Add a button that rolls a random number from 1 to 100 and shows the result.
+```
+
+### Expected
+
+- Button click produces a number locally.
+- Result is between 1 and 100.
+- Definition uses the persisted compute recipe: `Mutation("write_computed_state", ...)`, `Query("read_state", ...)`, and a button `Action(...)` that runs both.
+- The action re-runs the visible `Query("read_state", ...)` after the persisted mutation, even if other steps such as `@Reset(...)` or `@Set(...)` also exist in the action.
+- Visible result text reads the re-queried persisted value instead of a raw mutation object.
+- Result displays as a primitive value, not `[object Object]`.
+- Button click does not trigger fresh `/api/llm/generate*` requests.
+- No arbitrary JS appears.
+
+### Optional follow-up prompt
+
+```txt
+Show a warning if the name field is empty.
+```
+
+### Expected
+
+- Warning appears/disappears locally while editing input.
+- No arbitrary JS appears.
+
+## Scenario 8 — Persistence, reload, undo and redo
+
+### Steps
+
+1. Generate any working app.
+2. Interact with Preview:
+   - fill input;
+   - select option;
+   - toggle checkbox;
+   - switch screen/theme/filter if available.
+3. Reload browser page.
+4. Apply one follow-up change through chat.
+5. Click `Undo`.
+6. Click `Redo`.
+
+### Expected
+
+- App restores after reload.
+- Relevant runtime/domain state restores.
+- Undo restores previous committed app.
+- Redo restores redone app.
+- If undo or redo starts while a generation is still running, the generation is cancelled first and a late response does not overwrite the restored version.
+- No rejected draft becomes committed after reload.
+- No stale runtime error remains visible after a valid source change.
+
+## Scenario 9 — JSON import/export and invalid import recovery
+
+### Valid import/export
+
+1. Generate an app.
+2. Export JSON.
+3. Reset app.
+4. Import exported JSON.
+
+Expected:
+
+- App restores.
+- Preview and Definition are consistent.
+- If import starts while a generation is still running, the generation is cancelled and a late response does not overwrite the imported app.
+- No parser/runtime errors.
+
+### Invalid import
+
+1. Modify exported JSON so the OpenUI source is invalid.
+2. Import invalid JSON.
+
+Expected:
+
+- Import is rejected.
+- Invalid import shows a single clear failure message.
+- Preview remains on last committed valid app.
+- Definition shows rejected source or validation issues.
+- Chat/history/runtime/domain state are not wiped.
+- App does not crash.
+
+## Scenario 10 — Draft issues and auto-repair
+
+### Prompt
+
+```txt
+Create a complex app with two screens, filtering, a random number button, validation, and a dark theme.
+```
+
+### Expected
+
+- If the first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
+- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that one-repair path instead of failing immediately on the first draft.
+- Trivial parser issues with local `suggestion` patches may be fixed in the browser before repair; in that case no repair request should run.
+- If repair succeeds, the final app is valid and usable.
+- If repair fails, the previous Preview remains visible and `Repeat` stays available.
+- Partial or bad draft is not committed.
+- The UI does not get stuck in loading/generating state.
+- If a clearly fatal structural draft occurs instead, such as nested `AppShell`, `Screen` inside `Screen`, or `Repeater` inside `Repeater`, the builder should fail cleanly without an automatic repair attempt.
+
+## Scenario 11 — Standalone HTML export
+
+Skip if standalone export is intentionally disabled.
+
+### Steps
+
+1. Generate a small app with:
+   - input;
+   - button action;
+   - local state.
+2. Download standalone HTML.
+3. Open downloaded file directly.
+
+### Expected
+
+- Standalone file shows only generated app UI.
+- No Kitto builder shell.
+- No chat panel.
+- No backend status.
+- No `/api/*` or `/api/llm/*` requests.
+- Local interactions work.
+- Standalone state persists after reload.
+- Reset local data restores embedded baseline.
+- If the file is opened from `file://`, root-relative app links and hash/self links stay inert instead of navigating the local filesystem.
+- If MCP tooling cannot open the local `file://` runtime, at minimum verify that the download succeeds and the HTML contains the embedded app payload for later manual opening.
+
+## Scenario 12 — Cancel and stale request recovery
+
+### Steps
+
+1. Send a long prompt.
+2. Click `Cancel` while generation is running.
+3. Send a new simple prompt:
+
+   ```txt
+   Create a simple counter app.
+   ```
+
+### Expected
+
+- Cancel stops generation.
+- No scary red error appears for intentional cancel.
+- One neutral system chat message confirms that the user cancelled the in-flight generation.
+- Partial draft is not committed.
+- Late response does not overwrite the current app.
+- New prompt works.
+- The app does not stay stuck in `Generating...` or `Updating...`.
+
+## Final quick checks
+
+After smoke:
+
+- no uncaught Console errors;
+- preview internal clicks do not trigger fresh `/api/llm/generate*` requests;
+- obviously oversized requests are blocked in the UI with a clear error before any `/api/llm/*` generation request is sent;
+- invalid drafts/imports do not replace committed preview;
+- import/export works;
+- undo/redo works;
+- reload restores app state;
+- colors/theme remain readable;
+- filtering works locally;
+- compute actions work locally;
+- the runtime-config badge is not stuck in `loading`;
+- the prompts reference page matches the current backend prompt snapshot.
+
+## Separate Report
+
+If the smoke run needs a written result, use `docs/qa/openui-agent-smoke-report.md`.
+Do not append run results directly to this checklist.
+
+## Intentionally excluded from smoke
+
+Do not test here:
+
+- deployment;
+- PM2;
+- Docker;
+- Nginx;
+- production route fallback;
+- full safe URL matrix;
+- full path hardening matrix;
+- complete backend API contract;
+- deep implementation details not required by the scenarios.
