@@ -31,6 +31,12 @@ Guardrails:
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the prompts tab stays read-only and does not show edit or copy controls.
 
+## Prompt baseline
+
+- Structured system prompt baseline after 138/139: `systemPromptHash = 884ba0033452bf56`, `systemPromptCharCount = 48997`.
+- This replaces the older documented hash `e876b488554eebea`.
+- Verified after 138/139 from a live `POST /api/llm/generate` request recorded in `backend/logs/prompt-io.jsonl`.
+
 ## Runtime invariants
 
 - Preview renders committed source only.

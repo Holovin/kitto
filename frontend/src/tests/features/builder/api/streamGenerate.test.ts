@@ -593,7 +593,7 @@ describe('streamBuilderDefinition', () => {
           body: {
             getReader: () => reader,
           },
-        } as Response);
+        } as unknown as Response);
       }),
     );
 
