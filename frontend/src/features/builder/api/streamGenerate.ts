@@ -60,6 +60,21 @@ function normalizeSseDataLine(line: string) {
   return value.startsWith(' ') ? value.slice(1) : value;
 }
 
+function normalizeSseChunkLineEndings(chunk: string, pendingCarriageReturn: boolean, isDone: boolean) {
+  let text = pendingCarriageReturn ? `\r${chunk}` : chunk;
+  let nextPendingCarriageReturn = false;
+
+  if (!isDone && text.endsWith('\r')) {
+    text = text.slice(0, -1);
+    nextPendingCarriageReturn = true;
+  }
+
+  return {
+    normalizedText: text.replace(/\r\n?/g, '\n'),
+    pendingCarriageReturn: nextPendingCarriageReturn,
+  };
+}
+
 function createAbortError() {
   try {
     return new DOMException('This operation was aborted', 'AbortError');
@@ -427,6 +442,7 @@ export async function streamBuilderDefinition({
     let rawStructuredEnvelope = '';
     let lastParsedSource = '';
     let lastParsedSummary = '';
+    let pendingCarriageReturn = false;
     let donePayload: StreamDonePayload | undefined;
     let streamMode: 'plain' | 'structured' | 'unknown' = 'unknown';
 
@@ -434,9 +450,12 @@ export async function streamBuilderDefinition({
 
     while (true) {
       const { done, value } = await reader.read();
-      buffer += decoder.decode(value ?? new Uint8Array(), {
+      const decodedChunk = decoder.decode(value ?? new Uint8Array(), {
         stream: !done,
       });
+      const normalizedChunk = normalizeSseChunkLineEndings(decodedChunk, pendingCarriageReturn, done);
+      pendingCarriageReturn = normalizedChunk.pendingCarriageReturn;
+      buffer += normalizedChunk.normalizedText;
 
       const eventBlocks = buffer.split('\n\n');
       buffer = eventBlocks.pop() ?? '';

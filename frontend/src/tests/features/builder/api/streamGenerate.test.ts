@@ -182,6 +182,102 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
+  it('normalizes CRLF-delimited SSE events before parsing them', async () => {
+    const onChunk = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\r\ndata: first line\r\ndata: second line\r\n\r\n',
+            'event: done\r\ndata: {"source":"first line\\nsecond line"}\r\n\r\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
+    ).resolves.toEqual({
+      qualityIssues: [],
+      source: 'first line\nsecond line',
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith('first line\nsecond line');
+  });
+
+  it('does not create a false event boundary when CRLF is split across read boundaries', async () => {
+    const onChunk = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\r\ndata: first line\r',
+            '\ndata: second line\r\n\r\n',
+            'event: done\r\ndata: {"source":"first line\\nsecond line"}\r\n\r\n',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
+    ).resolves.toEqual({
+      qualityIssues: [],
+      source: 'first line\nsecond line',
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith('first line\nsecond line');
+  });
+
+  it('normalizes bare carriage returns in SSE streams', async () => {
+    const onChunk = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: chunk\rdata: root = AppShell([])\r\revent: done\rdata: {"source":"root = AppShell([])"}\r\r',
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
+    ).resolves.toEqual({
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+    });
+
+    expect(onChunk).toHaveBeenCalledTimes(1);
+    expect(onChunk).toHaveBeenCalledWith('root = AppShell([])');
+  });
+
   it('includes x-kitto-request-id when provided', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
