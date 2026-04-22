@@ -27,10 +27,30 @@ export class OpenUiValidationError extends Error {
   }
 }
 
+function truncateRepairField(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return value.slice(0, Math.max(1, maxLength - 1)).trimEnd() + '…';
+}
+
 function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
   const { severity, ...strippedIssue } = issue;
   void severity;
   return strippedIssue;
+}
+
+export function sanitizeRepairValidationIssues(issues: BuilderParseIssue[]): BuilderParseIssue[] {
+  return issues.map(({ suggestion, ...issue }) => {
+    void suggestion;
+    return {
+      ...issue,
+      code: truncateRepairField(issue.code, 200),
+      message: truncateRepairField(issue.message, 2_000),
+      statementId: issue.statementId ? truncateRepairField(issue.statementId, 200) : undefined,
+    };
+  });
 }
 
 function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
@@ -106,7 +126,7 @@ export function useValidationRepair({
         mode: 'repair',
         parentRequestId: requestId,
         repairAttemptNumber: attemptNumber,
-        validationIssues: issues,
+        validationIssues: sanitizeRepairValidationIssues(issues),
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 

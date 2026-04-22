@@ -67,6 +67,24 @@ export const choiceOptionSchema = z.object({
   value: z.string(),
 });
 
+export type ChoiceOption = z.infer<typeof choiceOptionSchema>;
+
+export function normalizeChoiceOptions(options: unknown): ChoiceOption[] {
+  if (!Array.isArray(options)) {
+    return [];
+  }
+
+  return options.flatMap((option) => {
+    if (typeof option === 'string') {
+      return [{ label: option, value: option }];
+    }
+
+    const parsed = choiceOptionSchema.safeParse(option);
+
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export function asDisplayText(value: unknown) {
   if (value == null) {
     return '';

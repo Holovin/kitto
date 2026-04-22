@@ -447,17 +447,12 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
     addUniqueLine(
       hints,
       seenHints,
-      'Every `$var` reference must have a top-level declaration with a literal initial value before it is used, such as `$draft = ""` or `$currentScreen = "main"`.',
+      'Add every missing `$var` as a top-level literal declaration before root.',
     );
     addUniqueLine(
       hints,
       seenHints,
-      'Declare every `$var` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.',
-    );
-    addUniqueLine(
-      hints,
-      seenHints,
-      `Missing top-level state declarations to add before returning: ${undefinedStateReferenceSummaries
+      `Add: ${undefinedStateReferenceSummaries
         .map(({ exampleInitializer, refName }) => `\`${refName} = ${exampleInitializer ?? '""'}\``)
         .join(', ')}.`,
     );

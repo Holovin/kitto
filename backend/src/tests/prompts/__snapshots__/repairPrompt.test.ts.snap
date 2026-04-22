@@ -38,9 +38,8 @@ Quality issues:
 - undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
 
 Targeted repair hints:
-- Every \`$var\` reference must have a top-level declaration with a literal initial value before it is used, such as \`$draft = ""\` or \`$currentScreen = "main"\`.
-- Declare every \`$var\` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.
-- Missing top-level state declarations to add before returning: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+- Add every missing \`$var\` as a top-level literal declaration before root.
+- Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
 
 Model draft to repair:
 root = AppShell([
@@ -134,7 +133,18 @@ Group("Question 13", "vertical", [
   RadioGroup("question-13", "Question 13", $q13, [
     { label: "Yes", value: "yes" },
     { label: "No", value: "no" }
-  ])…
+  ])
+]),
+Group("Question 14", "vertical", [
+  Text("Question 14", "body", "start"),
+  RadioGroup("question-14", "Question 14", $q14, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 15", "vertical", [
+  Text("Question 15", "body", "start"),
+  RadioGro…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.
@@ -198,9 +208,8 @@ Quality issues:
 - undefined-state-reference in root: State reference \`$q20\` is missing a top-level declaration with a literal initial value. For example, add \`$q20 = ""\`.
 
 Targeted repair hints:
-- Every \`$var\` reference must have a top-level declaration with a literal initial value before it is used, such as \`$draft = ""\` or \`$currentScreen = "main"\`.
-- Declare every \`$var\` that appears anywhere in the program at the top, even if you cannot see its use or declaration site in the truncated draft above.
-- Missing top-level state declarations to add before returning: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
+- Add every missing \`$var\` as a top-level literal declaration before root.
+- Add: \`$q1 = ""\`, \`$q2 = ""\`, \`$q3 = ""\`, \`$q4 = ""\`, \`$q5 = ""\`, \`$q6 = ""\`, \`$q7 = ""\`, \`$q8 = ""\`, \`$q9 = ""\`, \`$q10 = ""\`, \`$q11 = ""\`, \`$q12 = ""\`, \`$q13 = ""\`, \`$q14 = ""\`, \`$q15 = ""\`, \`$q16 = ""\`, \`$q17 = ""\`, \`$q18 = ""\`, \`$q19 = ""\`, \`$q20 = ""\`.
 
 Model draft to repair:
 root = AppShell([
@@ -242,7 +251,19 @@ Group("Question 5", "vertical", [
 ]),
 Group("Question 6", "vertical", [
   Text("Question 6", "body", "start"),
-  RadioGroup("question-6", "Questi…
+  RadioGroup("question-6", "Question 6", $q6, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 7", "vertical", [
+  Text("Question 7", "body", "start"),
+  RadioGroup("question-7", "Question 7", $q7, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Gro…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.

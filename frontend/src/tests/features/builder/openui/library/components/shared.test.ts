@@ -5,6 +5,7 @@ import {
   getValidationFeedback,
   hexColorSchema,
   inputTypeSchema,
+  normalizeChoiceOptions,
   sanitizeValidationRules,
   textAppearanceSchema,
   validationRuleSchema,
@@ -31,6 +32,23 @@ describe('appearanceSchema', () => {
 
   it('rejects mainColor on Text appearance objects', () => {
     expect(textAppearanceSchema.safeParse({ mainColor: '#111827', contrastColor: '#FFFFFF' }).success).toBe(false);
+  });
+});
+
+describe('normalizeChoiceOptions', () => {
+  it('coerces string options and filters invalid runtime entries', () => {
+    expect(
+      normalizeChoiceOptions([
+        'Rick Astley',
+        { label: 'A-ha', value: 'a-ha' },
+        null,
+        { label: 'Missing value' },
+        42,
+      ]),
+    ).toEqual([
+      { label: 'Rick Astley', value: 'Rick Astley' },
+      { label: 'A-ha', value: 'a-ha' },
+    ]);
   });
 });
 

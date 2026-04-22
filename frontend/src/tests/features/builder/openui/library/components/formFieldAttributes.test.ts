@@ -71,4 +71,31 @@ root = AppShell([
     expect(html).toContain('name="plan"');
     expect(html).toContain('autoComplete="off"');
   });
+
+  it('renders radio groups when runtime options resolve to plain strings', () => {
+    const html = renderOpenUi(`$answer = ""
+quizOptions = ["Rick Astley", "A-ha", "Toto"]
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("answer", "Answer", $answer, quizOptions)
+  ])
+])`);
+
+    expect(html).toContain('Rick Astley');
+    expect(html).toContain('A-ha');
+    expect(html).toContain('name="answer"');
+  });
+
+  it('renders selects when runtime options resolve to plain strings', () => {
+    const html = renderOpenUi(`$answer = "Rick Astley"
+quizOptions = ["Rick Astley", "A-ha", "Toto"]
+root = AppShell([
+  Screen("main", "Main", [
+    Select("answer", "Answer", $answer, quizOptions)
+  ])
+])`);
+
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('name="answer"');
+  });
 });

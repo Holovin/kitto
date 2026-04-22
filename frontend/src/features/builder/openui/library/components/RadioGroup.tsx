@@ -15,6 +15,7 @@ import {
   choiceOptionSchema,
   getAppearanceStyle,
   nullableTextSchema,
+  normalizeChoiceOptions,
   useKittoAppearanceScope,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -68,6 +69,7 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
     hasInheritedMainColor: appearanceScope.hasMainColor,
   });
+  const options = normalizeChoiceOptions(props.options);
 
   return (
     <div className="flex flex-col gap-3">
@@ -90,9 +92,9 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
           field.setValue(nextValue);
         }}
       >
-        {props.options.map((option) => (
+        {options.map((option, index) => (
           <label
-            key={option.value}
+            key={`${option.value}:${index}`}
             className={`flex items-center gap-3 rounded-[1.25rem] border bg-white px-4 py-3 text-sm text-slate-800 ${
               hasVisibleError ? 'border-rose-300' : 'border-slate-200'
             }`}

@@ -15,6 +15,7 @@ import {
   choiceOptionSchema,
   getAppearanceStyle,
   nullableTextSchema,
+  normalizeChoiceOptions,
   useKittoAppearanceScope,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -73,6 +74,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     textRole: 'contrast',
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
+  const options = normalizeChoiceOptions(props.options);
 
   return (
     <div className="flex flex-col gap-2">
@@ -104,8 +106,8 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
         <SelectContent portalled={false} style={selectStyle}>
-          {props.options.map((option) => (
-            <SelectItem key={option.value} style={itemStyle} value={option.value}>
+          {options.map((option, index) => (
+            <SelectItem key={`${option.value}:${index}`} style={itemStyle} value={option.value}>
               {option.label}
             </SelectItem>
           ))}

@@ -295,6 +295,25 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toMatchSnapshot();
   });
 
+  it('keeps all 20 missing state declarations visible at the production repair prompt budget', () => {
+    const issues = buildUndefinedStateReferenceIssues(20);
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a 20-question quiz.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([])',
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_096,
+    });
+
+    expect(prompt).toContain('Targeted repair hints:');
+
+    for (let questionNumber = 1; questionNumber <= 20; questionNumber += 1) {
+      expect(prompt).toContain(`$q${questionNumber} = ""`);
+    }
+  });
+
   it('dedupes repeated undefined-state issues by variable name and annotates the repeat count', () => {
     const repeatedIssues: PromptBuildValidationIssue[] = Array.from({ length: 5 }, () => ({
       code: 'undefined-state-reference',
