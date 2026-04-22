@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { generatePrompt, type PromptSpec } from '@openuidev/lang-core';
-import { PLAIN_OUTPUT_ADDITIONAL_RULES, STRUCTURED_OUTPUT_ADDITIONAL_RULES } from './rules.js';
-import { toolExamples } from './toolExamples.js';
+import { buildAdditionalRulesForPrompt } from './rules.js';
+import { getPromptIntentCacheVector } from './promptIntents.js';
+import { buildToolExamplesForPrompt } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
 
 interface BuildOpenUiPromptOptions {
+  prompt?: string;
   structuredOutput?: boolean;
 }
 
@@ -21,22 +23,31 @@ const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
 function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
-  const structuredOutput = options.structuredOutput ?? true;
+  return buildAdditionalRulesForPrompt(options.prompt, { structuredOutput: options.structuredOutput });
+}
 
-  return [...(structuredOutput ? STRUCTURED_OUTPUT_ADDITIONAL_RULES : PLAIN_OUTPUT_ADDITIONAL_RULES)];
+function buildToolExamples(options: BuildOpenUiPromptOptions = {}) {
+  return buildToolExamplesForPrompt(options.prompt);
 }
 
 function getSystemPromptVariant(options: BuildOpenUiPromptOptions = {}): SystemPromptVariant {
   return (options.structuredOutput ?? true) ? 'structured' : 'plain';
 }
 
-const cachedSystemPrompts = new Map<SystemPromptVariant, string>();
-const cachedSystemPromptHashes = new Map<SystemPromptVariant, string>();
-const cachedSystemPromptKeys = new Map<SystemPromptVariant, string>();
+function getPromptCacheToken(options: BuildOpenUiPromptOptions = {}) {
+  const variant = getSystemPromptVariant(options);
+  const intentVector = getPromptIntentCacheVector(options.prompt);
+
+  return `${variant}:${intentVector}`;
+}
+
+const cachedSystemPrompts = new Map<string, string>();
+const cachedSystemPromptHashes = new Map<string, string>();
+const cachedSystemPromptKeys = new Map<string, string>();
 
 export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
-  const variant = getSystemPromptVariant(options);
-  const cachedPrompt = cachedSystemPrompts.get(variant);
+  const cacheToken = getPromptCacheToken(options);
+  const cachedPrompt = cachedSystemPrompts.get(cacheToken);
 
   if (cachedPrompt) {
     return cachedPrompt;
@@ -50,17 +61,19 @@ export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) 
     editMode: false,
     inlineMode: false,
     preamble,
-    toolExamples,
+    toolExamples: buildToolExamples(options),
     additionalRules: buildAdditionalRules(options),
   });
 
-  cachedSystemPrompts.set(variant, prompt);
+  cachedSystemPrompts.set(cacheToken, prompt);
   return prompt;
 }
 
 export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions = {}) {
   const variant = getSystemPromptVariant(options);
-  const cachedKey = cachedSystemPromptKeys.get(variant);
+  const intentVector = getPromptIntentCacheVector(options.prompt);
+  const cacheToken = getPromptCacheToken(options);
+  const cachedKey = cachedSystemPromptKeys.get(cacheToken);
 
   if (cachedKey) {
     return cachedKey;
@@ -68,21 +81,21 @@ export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions 
 
   const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
   const variantCode = variant === 'structured' ? 'st' : 'pl';
-  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${variantCode}:${componentSpecHash}:${promptHash}`;
+  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${variantCode}:${intentVector}:${componentSpecHash}:${promptHash}`;
 
-  cachedSystemPromptKeys.set(variant, cacheKey);
+  cachedSystemPromptKeys.set(cacheToken, cacheKey);
   return cacheKey;
 }
 
 export function getOpenUiSystemPromptHash(options: BuildOpenUiPromptOptions = {}) {
-  const variant = getSystemPromptVariant(options);
-  const cachedHash = cachedSystemPromptHashes.get(variant);
+  const cacheToken = getPromptCacheToken(options);
+  const cachedHash = cachedSystemPromptHashes.get(cacheToken);
 
   if (cachedHash) {
     return cachedHash;
   }
 
   const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
-  cachedSystemPromptHashes.set(variant, promptHash);
+  cachedSystemPromptHashes.set(cacheToken, promptHash);
   return promptHash;
 }

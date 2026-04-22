@@ -28,6 +28,38 @@ const supportedToolNames = [
   'write_computed_state',
 ];
 
+function buildBasePrompt() {
+  return buildOpenUiSystemPrompt();
+}
+
+function buildTodoPrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Create a todo list' });
+}
+
+function buildThemePrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Create a dark mode profile form' });
+}
+
+function buildValidationPrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Create a signup form with email validation and a required agreement checkbox' });
+}
+
+function buildFilteringPrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Create a filtered items app' });
+}
+
+function buildMultiScreenPrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Build a two-step quiz' });
+}
+
+function buildRandomPrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Roll a dice' });
+}
+
+function buildComputePrompt() {
+  return buildOpenUiSystemPrompt({ prompt: 'Create a deadline checker that compares dates' });
+}
+
 describe('openui prompts', () => {
   it('keeps the generated component spec artifact committed in the repository', () => {
     expect(fs.existsSync(componentSpecPath)).toBe(true);
@@ -63,10 +95,40 @@ describe('openui prompts', () => {
     expect(structuredKey).not.toBe(plainTextKey);
     expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
       {
-        "plainTextKey": "kitto:openui:pl:f22bd520f637:15326d50643ce38d",
-        "structuredKey": "kitto:openui:st:f22bd520f637:3cb965064ef4aa61",
+        "plainTextKey": "kitto:openui:pl:f22bd520f637:1bc6263dd0379214",
+        "structuredKey": "kitto:openui:st:f22bd520f637:b1e9eae2d7141eaf",
       }
     `);
+  });
+
+  it('scopes runtime system prompts to the active request intent instead of always sending every rule section and example', () => {
+    const fullPrompt = buildOpenUiSystemPrompt();
+    const todoPrompt = buildOpenUiSystemPrompt({ prompt: 'Create a todo list' });
+
+    expect(todoPrompt.length).toBeLessThan(fullPrompt.length);
+    expect(todoPrompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(todoPrompt).toContain(
+      'Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")',
+    );
+    expect(todoPrompt).toContain('saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })');
+    expect(todoPrompt).not.toContain('APPEARANCE / THEME CONTRACT:');
+    expect(todoPrompt).not.toContain('$currentTheme = "light"');
+    expect(todoPrompt).not.toContain('Input supports these HTML types only:');
+    expect(todoPrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(todoPrompt).not.toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(todoPrompt).not.toContain('$currentScreen = "question"');
+  });
+
+  it('uses stable cache keys for the same intent vector and different keys for different intent vectors', () => {
+    const todoKey = getOpenUiSystemPromptCacheKey({ prompt: 'Create a todo list' });
+    const todoAliasKey = getOpenUiSystemPromptCacheKey({ prompt: 'Build a to-do app' });
+    const themeKey = getOpenUiSystemPromptCacheKey({ prompt: 'Create a dark mode form' });
+
+    expect(todoKey).toBe(todoAliasKey);
+    expect(todoKey).toMatch(/^kitto:openui:st:t:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(themeKey).toMatch(/^kitto:openui:st:th:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(themeKey).not.toBe(todoKey);
+    expect(themeKey.length).toBeLessThanOrEqual(64);
   });
 
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
@@ -340,12 +402,6 @@ describe('openui prompts', () => {
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
     );
     expect(prompt).toContain(
-      'WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))',
-    );
-    expect(prompt).toContain(
-      'OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))',
-    );
-    expect(prompt).toContain(
       'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
     );
     expect(prompt).toContain(
@@ -505,6 +561,40 @@ describe('openui prompts', () => {
       <current_source>
       root = AppShell([])
       </current_source>
+
+      Relevant patterns:
+
+      Use these only when they match the latest user request. Adapt names, fields, and requested extras instead of copying irrelevant variables.
+
+      Todo/task list pattern:
+      $draft = ""
+      $targetItemId = ""
+
+      items = Query("read_state", { path: "app.items" }, [])
+      addItem = Mutation("append_item", {
+        path: "app.items",
+        value: { title: $draft, completed: false }
+      })
+      toggleItem = Mutation("toggle_item_field", {
+        path: "app.items",
+        idField: "id",
+        id: $targetItemId,
+        field: "completed"
+      })
+      rows = @Each(items, "item", Group(null, "horizontal", [
+        Text(item.title, "body", "start"),
+        Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+      ], "inline"))
+
+      root = AppShell([
+        Screen("main", "Todo list", [
+          Group("Add task", "horizontal", [
+            Input("draft", "Task", $draft, "New task"),
+            Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+          ], "inline"),
+          Repeater(rows, "No tasks yet.")
+        ])
+      ])
 
       Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in 1-2 short user-facing sentences. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition"."
     `);

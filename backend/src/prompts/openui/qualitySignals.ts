@@ -16,6 +16,8 @@ const COMPUTE_REQUEST_PATTERN =
 const FILTER_REQUEST_PATTERN = /\b(filter|filters|filtered|search)\b/i;
 const VALIDATION_REQUEST_PATTERN = /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b/i;
 const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b/i;
+const MULTI_SCREEN_REQUEST_PATTERN =
+  /\b(wizard|quiz|onboarding|multi[\s-]?(?:step|screen|page)|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow)\b|(?:многошаг\w*|нескольк\w*\s+экран\w*|втор\w*\s+экран\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
 
 function isSimplePrompt(prompt: string) {
@@ -52,6 +54,10 @@ export function promptRequestsValidation(prompt: string) {
 
 export function promptRequestsRandom(prompt: string) {
   return RANDOM_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsMultiScreen(prompt: string) {
+  return MULTI_SCREEN_REQUEST_PATTERN.test(prompt);
 }
 
 export function getTodoIssueSeverity(prompt: string): OpenUiQualityIssueSeverity {

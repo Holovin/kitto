@@ -1,5 +1,6 @@
-export const toolExamples = [
-  `$selectedExpenseId = ""
+import { detectPromptIntents } from './promptIntents.js';
+
+const expenseEditExample = `$selectedExpenseId = ""
 $editTitle = ""
 
 expenses = Query("read_state", { path: "app.expenses" }, [])
@@ -24,8 +25,9 @@ root = AppShell([
       Button("save-expense", "Save", "default", Action([@Run(updateExpenseTitle), @Run(expenses)]), $selectedExpenseId == "" || $editTitle == "")
     ])
   ])
-])`,
-  `$currentTheme = "light"
+])`;
+
+const themeExample = `$currentTheme = "light"
 $name = "Ada"
 $preferredContact = "email"
 
@@ -51,8 +53,9 @@ root = AppShell([
       RadioGroup("preferredContact", "Preferred contact", $preferredContact, contactOptions)
     ])
   ])
-], appTheme)`,
-  `savedFilter = Query("read_state", { path: "ui.filter" }, "all")
+], appTheme)`;
+
+const filteredItemsExample = `savedFilter = Query("read_state", { path: "ui.filter" }, "all")
 setFilter = Mutation("write_state", {
   path: "ui.filter",
   value: $lastChoice
@@ -76,11 +79,13 @@ root = AppShell([
     Text("Visible items: " + visibleCount, "muted", "start"),
     Repeater(itemRows, "No matching items.")
   ])
-])`,
-  `saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })
+])`;
+
+const stateMutationExamples = `saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })
 addTag = Mutation("append_state", { path: "app.tags", value: "urgent" })
-removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })`,
-  `$email = ""
+removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })`;
+
+const validationExample = `$email = ""
 $priority = "normal"
 
 priorityOptions = [
@@ -100,8 +105,9 @@ root = AppShell([
       Button("submit-button", "Submit", "default", Action([]), false)
     ])
   ])
-])`,
-  `roll = Mutation("write_computed_state", {
+])`;
+
+const randomRollExample = `roll = Mutation("write_computed_state", {
   path: "app.roll",
   op: "random_int",
   options: { min: 1, max: 100 },
@@ -114,8 +120,9 @@ root = AppShell([
     Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false),
     Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
   ])
-])`,
-  `$currentScreen = "question"
+])`;
+
+const multiScreenExample = `$currentScreen = "question"
 $preferredContact = ""
 $notes = ""
 
@@ -142,8 +149,9 @@ root = AppShell([
     Repeater(answerRows, "No answers selected."),
     Button("back-button", "Back", "secondary", Action([@Set($currentScreen, "question")]), false)
   ], $currentScreen == "result")
-])`,
-  `$draftCard = ""
+])`;
+
+const savedCardsExample = `$draftCard = ""
 $targetCardId = ""
 savedCards = Query("read_state", { path: "app.savedCards" }, [])
 saveCard = Mutation("append_item", {
@@ -179,8 +187,9 @@ root = AppShell([
     ]),
     Repeater(cardRows, "No saved cards yet.")
   ])
-])`,
-  `$dueDate = ""
+])`;
+
+const dateComputeExample = `$dueDate = ""
 
 today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })
 isOverdue = Query("compute_value", {
@@ -195,5 +204,99 @@ root = AppShell([
     Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [{ type: "required", message: "Choose a due date" }]),
     Text($dueDate == "" ? "Add a due date." : isOverdue.value ? "This task is overdue." : "This task is not overdue.", "body", "start")
   ])
-])`,
-];
+])`;
+
+const todoListExample = `$draft = ""
+$targetItemId = ""
+
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", {
+  path: "app.items",
+  value: { title: $draft, completed: false }
+})
+toggleItem = Mutation("toggle_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "completed"
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todo list", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No tasks yet.")
+  ])
+])`;
+
+function dedupeToolExamples(examples: string[]) {
+  return [...new Set(examples)];
+}
+
+export const toolExamples = [
+  expenseEditExample,
+  themeExample,
+  filteredItemsExample,
+  stateMutationExamples,
+  validationExample,
+  randomRollExample,
+  multiScreenExample,
+  savedCardsExample,
+  dateComputeExample,
+] as const;
+
+export function buildToolExamplesForPrompt(prompt?: string) {
+  const intents =
+    typeof prompt === 'string' && prompt.trim().length > 0
+      ? detectPromptIntents(prompt)
+      : {
+          compute: false,
+          filtering: false,
+          multiScreen: false,
+          random: false,
+          theme: false,
+          todo: false,
+          validation: false,
+        };
+  const selectedExamples: string[] = [];
+
+  if (intents.todo) {
+    selectedExamples.push(todoListExample);
+  }
+
+  if (intents.theme) {
+    selectedExamples.push(themeExample);
+  }
+
+  if (intents.filtering) {
+    selectedExamples.push(filteredItemsExample);
+  }
+
+  if (intents.validation) {
+    selectedExamples.push(validationExample);
+  }
+
+  if (intents.random) {
+    selectedExamples.push(randomRollExample);
+  } else if (intents.compute) {
+    selectedExamples.push(dateComputeExample);
+  }
+
+  if (intents.multiScreen) {
+    selectedExamples.push(multiScreenExample);
+  }
+
+  if (selectedExamples.length === 0) {
+    selectedExamples.push(expenseEditExample);
+  }
+
+  selectedExamples.push(stateMutationExamples);
+
+  return dedupeToolExamples(selectedExamples);
+}

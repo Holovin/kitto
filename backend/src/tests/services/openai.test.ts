@@ -566,6 +566,51 @@ describe('generateOpenUiSource', () => {
     expect(repairCall?.temperature).toBe(0.2);
   });
 
+  it('reuses prompt cache keys within one intent vector and varies them across different intent vectors', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-intent-cache',
+    });
+    const todoAliasRequest: PromptBuildRequest = {
+      ...request,
+      prompt: 'Build a to-do app',
+    };
+    const themeRequest: PromptBuildRequest = {
+      ...request,
+      prompt: 'Create a dark mode form',
+    };
+
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+    await expect(generateOpenUiSource(env, todoAliasRequest)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+    await expect(generateOpenUiSource(env, themeRequest)).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    const firstTodoCall = responsesCreateMock.mock.calls[0]?.[0];
+    const secondTodoCall = responsesCreateMock.mock.calls[1]?.[0];
+    const themeCall = responsesCreateMock.mock.calls[2]?.[0];
+
+    expect(firstTodoCall?.prompt_cache_key).toBe(secondTodoCall?.prompt_cache_key);
+    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:st:t:/);
+    expect(themeCall?.prompt_cache_key).toMatch(/^kitto:openui:st:th:/);
+    expect(firstTodoCall?.prompt_cache_key).not.toBe(themeCall?.prompt_cache_key);
+    expect(firstTodoCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
+    expect(themeCall?.input?.[0]?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
+  });
+
   it('logs cached token usage from non-stream Responses API usage details', async () => {
     const env = createTestEnv({
       LOG_LEVEL: 'info',

@@ -249,38 +249,6 @@ Always write the root = AppShell(...) statement first so the UI shell appears im
 
 ## Examples
 
-$draft = ""
-$targetItemId = ""
-
-items = Query("read_state", { path: "app.items" }, [])
-addItem = Mutation("append_item", {
-  path: "app.items",
-  value: { title: $draft, completed: false }
-})
-toggleItem = Mutation("toggle_item_field", {
-  path: "app.items",
-  idField: "id",
-  id: $targetItemId,
-  field: "completed"
-})
-rows = @Each(items, "item", Group(null, "horizontal", [
-  Text(item.title, "body", "start"),
-  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
-], "inline"))
-
-root = AppShell([
-  Screen("main", "Todo list", [
-    Group("Add task", "horizontal", [
-      Input("draft", "Task", $draft, "New task"),
-      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
-    ], "inline"),
-    Repeater(rows, "No tasks yet.")
-  ])
-])
-
-WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
-OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
-
 $selectedExpenseId = ""
 $editTitle = ""
 
@@ -513,20 +481,6 @@ Before finishing, walk your output and verify:
 - - compute options
 - - validation rule objects
 - Do not invent any other nested config objects.
-- TODO / TASK LIST RECIPE:
-- For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:
-- - \`$draft\`
-- - \`$targetItemId = ""\`
-- - an \`Input\` for the new task
-- - \`Query("read_state", { path: "app.items" }, [])\`
-- - \`Mutation("append_item", { path: "app.items", value: ... })\`
-- - \`Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })\`
-- - a \`Button\` with \`Action([@Run(addItem), @Run(items), @Reset($draft)])\`
-- - an action-mode \`Checkbox\` row toggle with \`Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])\`
-- - \`@Each(items, "item", ...)\`
-- - \`Repeater(rows, "No tasks yet.")\`
-- Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.
-- For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.
 - Checkbox supports two modes: use \`$binding<boolean>\` for local form state, or pass a display-only boolean plus \`Action([...])\` for explicit persisted row toggles.
 - RadioGroup and Select also support action mode: use a display-only string plus \`Action([...])\` when the newly chosen option should trigger a persisted update instead of local form binding.
 - RadioGroup/Select options must be \`[{ label, value }]\`, never \`["Email", "Phone"]\`.
