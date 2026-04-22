@@ -81,6 +81,10 @@ export function extractStringLiteral(toolAst: ToolAst) {
   return toolAst.v;
 }
 
+export function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function maskStringLiterals(source: string) {
   let maskedSource = '';
   let activeQuote: '"' | "'" | null = null;

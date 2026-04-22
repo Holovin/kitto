@@ -3,7 +3,7 @@ import { APIUserAbortError } from 'openai';
 import { ZodError, z } from 'zod';
 import type { AppEnv } from '../env.js';
 import { logServerError, RequestValidationError, toPublicErrorPayload, UpstreamFailureError } from '../errors/publicError.js';
-import { getByteLength } from '../limits.js';
+import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '../limits.js';
 import {
   detectOpenUiQualityIssues,
   filterPromptBuildChatHistory,
@@ -87,7 +87,7 @@ function createLlmRequestSchema(env: AppEnv) {
     mode: z.enum(['initial', 'repair']).default('initial'),
     parentRequestId: z.string().trim().min(1).max(200).optional(),
     repairAttemptNumber: z.coerce.number().int().positive().optional(),
-    validationIssues: z.array(validationIssueSchema).max(20).optional(),
+    validationIssues: z.array(validationIssueSchema).max(MAX_REPAIR_VALIDATION_ISSUES).optional(),
     chatHistory: z
       .array(
         z.object({
@@ -103,7 +103,7 @@ function createLlmRequestSchema(env: AppEnv) {
 function createCommitTelemetrySchema() {
   return z.object({
     requestId: z.string().trim().min(1).max(200),
-    validationIssues: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
+    validationIssues: z.array(z.string().trim().min(1).max(200)).max(MAX_REPAIR_VALIDATION_ISSUES).default([]),
     committed: z.boolean(),
     commitSource: z.enum(['streaming', 'fallback']),
   });

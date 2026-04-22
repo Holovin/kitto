@@ -198,6 +198,9 @@ Link(label, url, newTab?, appearance?)
 Repeater(children, emptyText?, appearance?)
 ```
 
+- `RadioGroup` / `Select` `options` must be arrays of `{ label, value }` objects.
+- If choice options come from collection rows such as `questions[i].options` or `item.options`, each row's `.options` field must already use `{ label, value }` objects; bare string or number arrays are a blocking product-quality issue.
+
 Typed inputs and declarative validation:
 
 ```txt
@@ -284,6 +287,7 @@ Todo request guardrails:
 - Inside `@Each(...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`; those edits do not persist automatically.
 - For canonical interactive todo rows, prefer an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)`.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
+- `RadioGroup(...)` and `Select(...)` must receive `options` as `{ label, value }` objects, not bare strings or numbers.
 - Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
 - Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.

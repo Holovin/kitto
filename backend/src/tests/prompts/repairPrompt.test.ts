@@ -199,6 +199,35 @@ describe('buildOpenUiRepairPrompt', () => {
     );
   });
 
+  it('adds targeted hints for bare RadioGroup/Select option arrays', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      {
+        code: 'quality-options-shape',
+        message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+        source: 'quality',
+        statementId: 'questions',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Create a Rickroll-themed quiz.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'questions = [{ prompt: "Lyric", options: ["Never gonna give you up", "Never gonna let you down"] }]\nroot = AppShell([])',
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain('Targeted repair hints:');
+    expect(prompt).toContain(
+      'Wrap each option in `{ label: "...", value: "..." }`. The `value` is what gets stored in `$binding`; the `label` is what users see.',
+    );
+    expect(prompt).toContain(
+      'quality-options-shape in questions: RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+    );
+  });
+
   it('surfaces screen nesting as an explicit repair rule', () => {
     const issues: PromptBuildValidationIssue[] = [
       {

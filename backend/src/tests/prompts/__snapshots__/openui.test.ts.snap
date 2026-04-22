@@ -529,6 +529,7 @@ Before finishing, walk your output and verify:
 - For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.
 - Checkbox supports two modes: use \`$binding<boolean>\` for local form state, or pass a display-only boolean plus \`Action([...])\` for explicit persisted row toggles.
 - RadioGroup and Select also support action mode: use a display-only string plus \`Action([...])\` when the newly chosen option should trigger a persisted update instead of local form binding.
+- RadioGroup/Select options must be \`[{ label, value }]\`, never \`["Email", "Phone"]\`.
 - Never combine \`action\` with a writable \`$binding<...>\` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only \`$binding\`.
 - Display-only \`Checkbox(item.completed)\` does not write back to persisted collections by itself.
 - For canonical todo rows with interactive completion, use an action-mode \`Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))\` instead of a read-only status \`Text(...)\` label.

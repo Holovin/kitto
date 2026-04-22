@@ -117,6 +117,72 @@ describe('detectOpenUiQualityIssues', () => {
     );
   });
 
+  it('marks bare top-level string option arrays for RadioGroup and Select as blocking quality', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$answer = ""
+$filter = ""
+rickrollOptions = [
+  "Never gonna give you up",
+  "Never gonna let you down"
+]
+
+root = AppShell([
+  Screen("main", "Rickroll quiz", [
+    RadioGroup("answer", "Pick a lyric", $answer, rickrollOptions),
+    Select("filter", "Filter", $filter, rickrollOptions)
+  ])
+])`,
+      'Create a Rickroll-themed quiz.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-options-shape',
+          message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'rickrollOptions',
+        }),
+      ]),
+    );
+  });
+
+  it('marks collection-backed string option arrays as blocking quality and points to the declaration', () => {
+    const issues = detectOpenUiQualityIssues(
+      `$currentQuestion = 0
+$answer = ""
+questions = [
+  {
+    prompt: "Which lyric starts the chorus?",
+    options: [
+      "Never gonna give you up",
+      "Never gonna let you down"
+    ]
+  }
+]
+
+root = AppShell([
+  Screen("main", "Rickroll quiz", [
+    RadioGroup("answer", questions[$currentQuestion].prompt, $answer, questions[$currentQuestion].options)
+  ])
+])`,
+      'Create a Rickroll-themed quiz.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-options-shape',
+          message: expect.stringContaining('Collection `questions` contains `.options` arrays'),
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'questions',
+        }),
+      ]),
+    );
+  });
+
   it('marks missing random refresh as blocking when the prompt requests randomness', () => {
     const issues = detectOpenUiQualityIssues(
       `rollDice = Mutation("write_computed_state", {

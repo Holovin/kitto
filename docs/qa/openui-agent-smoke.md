@@ -103,6 +103,7 @@ Create a three-screen quiz app with intro, one question, and result screen. Use 
 - The app must not go blank; if the generated source somehow resolves every `Screen(...)` inactive, the first screen should still render as a runtime fallback.
 - Start/Begin works.
 - Radio selection works.
+- If quiz choices are generated from collection data, committed `RadioGroup(...)` / `Select(...)` options use `{ label, value }` objects rather than bare string arrays; invalid bare-string drafts should repair or stay blocked instead of committing.
 - Next works.
 - Restart works.
 - Internal clicks do not trigger fresh `/api/llm/generate*` requests.

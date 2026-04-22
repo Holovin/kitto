@@ -227,7 +227,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       code: 'validation_error',
-      error: 'Request body is too large to process safely.',
+      error: 'Prompt is too large. Limit: 8 characters.',
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();

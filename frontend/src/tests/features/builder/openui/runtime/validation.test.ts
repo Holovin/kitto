@@ -872,6 +872,76 @@ root = AppShell([
     );
   });
 
+  it('marks bare top-level string option arrays for RadioGroup and Select as blocking quality', () => {
+    const source = `$answer = ""
+$filter = ""
+rickrollOptions = [
+  "Never gonna give you up",
+  "Never gonna let you down"
+]
+
+root = AppShell([
+  Screen("main", "Rickroll quiz", [
+    RadioGroup("answer", "Pick a lyric", $answer, rickrollOptions),
+    Select("filter", "Filter", $filter, rickrollOptions)
+  ])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+
+    expect(detectOpenUiQualityIssues(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-options-shape',
+          message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'rickrollOptions',
+        }),
+      ]),
+    );
+  });
+
+  it('marks collection-backed string option arrays as blocking quality and points to the declaration', () => {
+    const source = `$currentQuestion = 0
+$answer = ""
+questions = [
+  {
+    prompt: "Which lyric starts the chorus?",
+    options: [
+      "Never gonna give you up",
+      "Never gonna let you down"
+    ]
+  }
+]
+
+root = AppShell([
+  Screen("main", "Rickroll quiz", [
+    RadioGroup("answer", questions[$currentQuestion].prompt, $answer, questions[$currentQuestion].options)
+  ])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+
+    expect(detectOpenUiQualityIssues(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-options-shape',
+          message: expect.stringContaining('Collection `questions` contains `.options` arrays'),
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'questions',
+        }),
+      ]),
+    );
+  });
+
   it('allows RadioGroup and Select action mode to route the chosen value through $lastChoice', () => {
     const source = `savedPlan = Query("read_state", { path: "demo.plan" }, "pro")
 savePlan = Mutation("write_state", {

@@ -11,6 +11,7 @@ import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
   maxRepairAttempts: number | null;
+  maxRepairValidationIssues: number | null;
   requestLimits: BuilderRequestLimits | null;
   runGenerateRequest: (
     requestId: BuilderRequestId,
@@ -41,16 +42,72 @@ function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
   return strippedIssue;
 }
 
-export function sanitizeRepairValidationIssues(issues: BuilderParseIssue[]): BuilderParseIssue[] {
-  return issues.map(({ suggestion, ...issue }) => {
-    void suggestion;
-    return {
-      ...issue,
-      code: truncateRepairField(issue.code, 200),
-      message: truncateRepairField(issue.message, 2_000),
-      statementId: issue.statementId ? truncateRepairField(issue.statementId, 200) : undefined,
-    };
-  });
+const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
+const REPAIR_BLOCKING_QUALITY_CODES = new Set([
+  'control-action-and-binding',
+  'inline-tool-in-each',
+  'inline-tool-in-prop',
+  'inline-tool-in-repeater',
+  'item-bound-control-without-action',
+  'mutation-uses-array-index-path',
+  'quality-options-shape',
+  'quality-stale-persisted-query',
+  'reserved-last-choice-outside-action-mode',
+  'undefined-state-reference',
+]);
+
+type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
+
+function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
+  if (issue.source === 'parser' && issue.code !== 'unresolved-reference') {
+    return 0;
+  }
+
+  if (
+    ('severity' in issue && issue.severity === 'blocking-quality') ||
+    REPAIR_BLOCKING_QUALITY_CODES.has(issue.code)
+  ) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function sortRepairValidationIssues(issues: RepairValidationIssue[]) {
+  return issues
+    .map((issue, index) => ({
+      index,
+      issue,
+      priority: getRepairValidationIssuePriority(issue),
+    }))
+    .sort((left, right) => left.priority - right.priority || left.index - right.index)
+    .map(({ issue }) => issue);
+}
+
+export function sanitizeRepairValidationIssues(
+  issues: RepairValidationIssue[],
+  maxValidationIssues = DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
+): BuilderParseIssue[] {
+  const boundedMaxValidationIssues =
+    Number.isInteger(maxValidationIssues) && maxValidationIssues > 0
+      ? maxValidationIssues
+      : DEFAULT_MAX_REPAIR_VALIDATION_ISSUES;
+
+  return sortRepairValidationIssues(issues)
+    .slice(0, boundedMaxValidationIssues)
+    .map((issue) => {
+      const { severity, suggestion, ...sanitizedIssue } = issue as RepairValidationIssue & {
+        severity?: BuilderQualityIssue['severity'];
+      };
+      void suggestion;
+      void severity;
+      return {
+        ...sanitizedIssue,
+        code: truncateRepairField(sanitizedIssue.code, 200),
+        message: truncateRepairField(sanitizedIssue.message, 2_000),
+        statementId: sanitizedIssue.statementId ? truncateRepairField(sanitizedIssue.statementId, 200) : undefined,
+      };
+    });
 }
 
 function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
@@ -64,6 +121,7 @@ function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
 
 export function useValidationRepair({
   maxRepairAttempts,
+  maxRepairValidationIssues,
   requestLimits,
   runGenerateRequest,
   throwIfInactiveRequest,
@@ -112,12 +170,16 @@ export function useValidationRepair({
       });
     }
 
-    async function runRepairRequest(issues: BuilderParseIssue[], attemptNumber: number) {
+    async function runRepairRequest(issues: RepairValidationIssue[], attemptNumber: number) {
       if (requestLimits === null) {
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
-      reportRejectedCandidate(issues);
+      if (maxRepairValidationIssues === null) {
+        throw new Error('Chat send is unavailable until the runtime config has loaded.');
+      }
+
+      reportRejectedCandidate(issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)));
       const repairRequest: BuilderLlmRequest = {
         prompt: request.prompt,
         currentSource: request.currentSource,
@@ -126,7 +188,7 @@ export function useValidationRepair({
         mode: 'repair',
         parentRequestId: requestId,
         repairAttemptNumber: attemptNumber,
-        validationIssues: sanitizeRepairValidationIssues(issues),
+        validationIssues: sanitizeRepairValidationIssues(issues, maxRepairValidationIssues),
       };
       const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
 
@@ -208,7 +270,7 @@ export function useValidationRepair({
           }
 
           qualityRepairCount += 1;
-          await runRepairRequest(blockingQualityIssues.map(stripQualitySeverity), qualityRepairCount);
+          await runRepairRequest(blockingQualityIssues, qualityRepairCount);
           continue;
         }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getBuilderMaxRepairAttempts,
+  getBuilderMaxRepairValidationIssues,
   getApproximateBuilderRequestSizeBytes,
   getBuilderRequestLimits,
   getBuilderRuntimeConfigStatus,
@@ -19,6 +20,7 @@ const TEST_CONFIG: BuilderConfigResponse = {
   limits: TEST_LIMITS,
   repair: {
     maxRepairAttempts: 3,
+    maxValidationIssues: 20,
   },
   timeouts: {
     streamIdleTimeoutMs: 45_000,
@@ -46,6 +48,7 @@ describe('builder request preflight', () => {
 
   it('resolves runtime config only from /api/config data', () => {
     expect(getBuilderMaxRepairAttempts(TEST_CONFIG)).toBe(3);
+    expect(getBuilderMaxRepairValidationIssues(TEST_CONFIG)).toBe(20);
     expect(getBuilderRequestLimits(TEST_CONFIG)).toEqual(TEST_LIMITS);
     expect(getBuilderStreamTimeouts(TEST_CONFIG)).toEqual(TEST_CONFIG.timeouts);
     expect(getBuilderRuntimeConfigStatus({ data: TEST_CONFIG })).toBe('loaded');

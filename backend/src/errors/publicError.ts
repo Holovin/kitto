@@ -48,8 +48,35 @@ export function createRequestBodyTooLargeError(message: string) {
   });
 }
 
+function formatPathMaximum(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function getValidationMessage(error: ZodError) {
-  if (error.issues.some((issue) => issue.code === 'too_big')) {
+  const tooBigIssues = error.issues.filter((issue) => issue.code === 'too_big');
+
+  const promptIssue = tooBigIssues.find((issue) => issue.path[0] === 'prompt');
+  if (promptIssue) {
+    return promptIssue.message.trim() || 'Prompt is too large.';
+  }
+
+  const validationIssuesLengthIssue = tooBigIssues.find(
+    (issue) => issue.path[0] === 'validationIssues' && issue.path.length === 1,
+  );
+  if (validationIssuesLengthIssue) {
+    const maximum = formatPathMaximum((validationIssuesLengthIssue as { maximum?: unknown }).maximum);
+    return maximum === null ? 'Too many validation issues to send.' : `Too many validation issues to send (max ${maximum}).`;
+  }
+
+  if (tooBigIssues.some((issue) => issue.path[0] === 'validationIssues' && issue.path.length > 1)) {
+    return 'A validation issue field is too long.';
+  }
+
+  if (tooBigIssues.some((issue) => issue.path[0] === 'chatHistory')) {
+    return 'Chat history is too large.';
+  }
+
+  if (tooBigIssues.length > 0) {
     return REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE;
   }
 

@@ -6,6 +6,7 @@ import {
   detectReservedLastChoiceStatementIssues,
 } from './detectors/lastChoiceOutsideAction';
 import { detectArrayIndexPathMutationIssues } from './detectors/mutationIndexPath';
+import { detectChoiceOptionsShapeIssues } from './detectors/optionsShape';
 import { detectPersistedMutationRefreshWarnings } from './detectors/persistedMutationRefresh';
 import { detectStructuralInvariantIssues } from './detectors/structuralInvariants';
 import { detectUndefinedStateReferenceIssues } from './detectors/undefinedStateReference';
@@ -38,6 +39,7 @@ export function detectOpenUiQualityIssues(source: string): OpenUiQualityIssue[] 
 
   const issues: OpenUiQualityIssue[] = [];
 
+  issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
   issues.push(...detectControlActionBindingConflicts(result.root));
   issues.push(...detectItemBoundControlsWithoutAction(trimmedSource));
   issues.push(...detectReservedLastChoiceRootIssues(result.root));

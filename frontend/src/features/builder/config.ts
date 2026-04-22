@@ -32,6 +32,10 @@ export function getBuilderMaxRepairAttempts(config?: BuilderConfigResponse) {
   return parsePositiveInteger(config?.repair.maxRepairAttempts);
 }
 
+export function getBuilderMaxRepairValidationIssues(config?: BuilderConfigResponse) {
+  return parsePositiveInteger(config?.repair.maxValidationIssues);
+}
+
 export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits | null {
   const promptMaxChars = parsePositiveInteger(config?.limits.promptMaxChars);
   const chatHistoryMaxItems = parsePositiveInteger(config?.limits.chatHistoryMaxItems);
@@ -69,8 +73,9 @@ export function getBuilderRuntimeConfigStatus(queryState: {
   const hasResolvedLimits = getBuilderRequestLimits(queryState.data) !== null;
   const hasResolvedTimeouts = getBuilderStreamTimeouts(queryState.data) !== null;
   const hasResolvedRepairPolicy = getBuilderMaxRepairAttempts(queryState.data) !== null;
+  const hasResolvedRepairValidationLimit = getBuilderMaxRepairValidationIssues(queryState.data) !== null;
 
-  if (hasResolvedLimits && hasResolvedTimeouts && hasResolvedRepairPolicy) {
+  if (hasResolvedLimits && hasResolvedTimeouts && hasResolvedRepairPolicy && hasResolvedRepairValidationLimit) {
     return 'loaded';
   }
 

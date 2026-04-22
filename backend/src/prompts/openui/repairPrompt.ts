@@ -34,6 +34,7 @@ export const REPAIR_PROMPT_CRITICAL_RULES = [
   'Never put "block" or "inline" in the second Group argument.',
   'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
+  'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
   'Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.',
   'Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.',
   BUTTON_APPEARANCE_RULE,
@@ -332,6 +333,15 @@ function buildRepairHints(issues: PromptBuildValidationIssue[]) {
         hints,
         seenHints,
         'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
+      );
+      continue;
+    }
+
+    if (issue.code === 'quality-options-shape') {
+      addUniqueLine(
+        hints,
+        seenHints,
+        'Wrap each option in `{ label: "...", value: "..." }`. The `value` is what gets stored in `$binding`; the `label` is what users see.',
       );
       continue;
     }

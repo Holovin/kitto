@@ -138,13 +138,7 @@ Group("Question 13", "vertical", [
 Group("Question 14", "vertical", [
   Text("Question 14", "body", "start"),
   RadioGroup("question-14", "Question 14", $q14, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 15", "vertical", [
-  Text("Question 15", "body", "start"),
-  RadioGro…
+    { label: "Yes", value: "yes" },…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.
@@ -161,6 +155,7 @@ Current critical syntax rules:
 - Never put "block" or "inline" in the second Group argument.
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
@@ -257,13 +252,7 @@ Group("Question 6", "vertical", [
   ])
 ]),
 Group("Question 7", "vertical", [
-  Text("Question 7", "body", "start"),
-  RadioGroup("question-7", "Question 7", $q7, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Gro…
+  Text("Question 7", "body", "start"),…
 
 Current critical syntax rules:
 - Return only raw OpenUI Lang.
@@ -280,6 +269,7 @@ Current critical syntax rules:
 - Never put "block" or "inline" in the second Group argument.
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
@@ -327,6 +317,7 @@ Current critical syntax rules:
 - Never put "block" or "inline" in the second Group argument.
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
+- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.

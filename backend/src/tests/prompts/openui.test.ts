@@ -63,8 +63,8 @@ describe('openui prompts', () => {
     expect(structuredKey).not.toBe(plainTextKey);
     expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
       {
-        "plainTextKey": "kitto:openui:pl:f22bd520f637:d58b26b28f853362",
-        "structuredKey": "kitto:openui:st:f22bd520f637:e876b488554eebea",
+        "plainTextKey": "kitto:openui:pl:f22bd520f637:a2bc26f2c7e50ede",
+        "structuredKey": "kitto:openui:st:f22bd520f637:884ba0033452bf56",
       }
     `);
   });
@@ -285,6 +285,9 @@ describe('openui prompts', () => {
       'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
     );
     expect(prompt).toContain(
+      'RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.',
+    );
+    expect(prompt).toContain(
       'Use `Checkbox(..., validation)` with a `required` rule for agreement, consent, confirmation, or acknowledgement fields.',
     );
     expect(prompt).toContain('Use declarative validation rules only: `[{ type: "required", message: "..." }]`.');
@@ -300,6 +303,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Input("email", "Email", $email, "ada@example.com", "Enter email", "email", [');
     expect(prompt).toContain('Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }])');
     expect(prompt).toContain('value: $lastChoice');
+    expect(prompt).toContain('{ label: "Email", value: "email" }');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {

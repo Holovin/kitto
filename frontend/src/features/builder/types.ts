@@ -103,6 +103,7 @@ export interface BuilderConfigResponse {
   };
   repair: {
     maxRepairAttempts: number;
+    maxValidationIssues: number;
   };
   timeouts: {
     streamIdleTimeoutMs: number;

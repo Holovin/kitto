@@ -7,6 +7,7 @@ import {
 } from '@features/builder/api/streamGenerate';
 import {
   getBuilderMaxRepairAttempts,
+  getBuilderMaxRepairValidationIssues,
   getBuilderRequestLimits,
   getBuilderRuntimeConfigStatus,
   getBuilderStreamTimeouts,
@@ -81,6 +82,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   const configStatus = getBuilderRuntimeConfigStatus(configState);
   const requestLimits = getBuilderRequestLimits(configState.data);
   const maxRepairAttempts = getBuilderMaxRepairAttempts(configState.data);
+  const maxRepairValidationIssues = getBuilderMaxRepairValidationIssues(configState.data);
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const streamingSummary = useStreamingSummary();
   const generationLifecycle = useGenerationLifecycle({
@@ -92,6 +94,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   });
   const validationRepair = useValidationRepair({
     maxRepairAttempts,
+    maxRepairValidationIssues,
     requestLimits,
     runGenerateRequest: generationLifecycle.runGenerateRequest,
     throwIfInactiveRequest: generationLifecycle.throwIfInactiveRequest,
@@ -161,7 +164,13 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       return;
     }
 
-    if (configStatus !== 'loaded' || requestLimits === null || streamTimeouts === null || maxRepairAttempts === null) {
+    if (
+      configStatus !== 'loaded' ||
+      requestLimits === null ||
+      streamTimeouts === null ||
+      maxRepairAttempts === null ||
+      maxRepairValidationIssues === null
+    ) {
       onSystemNotice({
         content:
           configStatus === 'failed'

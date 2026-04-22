@@ -11,6 +11,7 @@ import {
   type OpenUiQualityIssue,
 } from './quality/shared.js';
 import {
+  detectChoiceOptionsShapeIssues,
   getTodoIssueSeverity,
   hasComputeTools,
   hasRequiredTodoControls,
@@ -46,6 +47,8 @@ export function detectOpenUiQualityIssues(source: string, userPrompt: string): O
   const issues: OpenUiQualityIssue[] = [];
   const maskedSource = maskStringLiterals(preparedSource);
   const metrics = collectQualityMetrics(result.root);
+
+  issues.push(...detectChoiceOptionsShapeIssues(preparedSource));
 
   if (isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(

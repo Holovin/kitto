@@ -47,6 +47,7 @@ describe('createApp', () => {
       },
       repair: {
         maxRepairAttempts: 2,
+        maxValidationIssues: 20,
       },
       timeouts: {
         streamIdleTimeoutMs: 45000,

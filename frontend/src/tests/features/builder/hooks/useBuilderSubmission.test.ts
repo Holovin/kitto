@@ -566,6 +566,7 @@ const DEFAULT_CONFIG = {
   },
   repair: {
     maxRepairAttempts: 1,
+    maxValidationIssues: 20,
   },
   timeouts: {
     streamIdleTimeoutMs: 45_000,

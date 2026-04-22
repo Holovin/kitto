@@ -1,6 +1,7 @@
 import type { ParseResult } from '@openuidev/lang-core';
 import { promptHasSimpleTodoIntent, promptMentionsTodoIntent } from './qualityIntents.js';
 import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from './quality/shared.js';
+export { detectChoiceOptionsShapeIssues } from './quality/detectors/optionsShape.js';
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
