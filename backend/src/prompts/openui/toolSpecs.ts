@@ -326,7 +326,7 @@ export const toolSpecifications: ToolSpec[] = [
           description:
             'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
         },
-        index: { type: 'number', minimum: 0 },
+        index: { type: 'integer', minimum: 0 },
       },
       required: ['path', 'index'],
     },

@@ -105,6 +105,8 @@ Notes:
 
 `read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `append_item`, `toggle_item_field`, `update_item_field`, `remove_item`, `remove_state`, `write_computed_state`
 
+`remove_state` requires a strict non-negative integer `index`.
+
 Notes:
 
 - `AppShell(children, appearance?)` can set the global inherited theme with `appearance.mainColor` and `appearance.contrastColor`.

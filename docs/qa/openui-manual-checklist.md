@@ -110,7 +110,7 @@ Guardrails:
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
 - Persisted path segments may use only letters, numbers, `_`, or `-`, and must reject `__proto__`, `prototype`, and `constructor`.
 - Numeric path segments are valid only when they address array indexes.
-- `write_state` and `append_state` values must stay JSON-compatible, `append_item` values must be plain objects, `update_item_field` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index`.
+- `write_state` and `append_state` values must stay JSON-compatible, `append_item` values must be plain objects, `update_item_field` values must stay JSON-compatible, `merge_state` patches must stay plain objects, and `remove_state` requires an explicit non-negative integer `index` (whole number, no fractions).
 - `append_item` preserves only non-empty string ids or finite numeric ids; blank or whitespace ids must be replaced with a generated stable `id`.
 - For generated collection-row CRUD, do not mutate array elements through numeric persisted paths such as `app.items.0`; prefer id-based collection-item tools instead.
 - Collection-item tool field names such as `idField` and `field` must be safe single keys only and must reject `__proto__`, `prototype`, and `constructor`.
