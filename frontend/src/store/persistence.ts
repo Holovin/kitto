@@ -27,12 +27,25 @@ function getInitialRememberedSliceState(slice: RecoverableRememberKey) {
   return slice === 'builderSession' ? normalizeBuilderSessionState(undefined) : normalizeDomainState(undefined);
 }
 
+function clearAllRememberedState() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  window.localStorage.clear();
+}
+
 export function unserializeRememberedState(data: string, key: string) {
   let parsedValue: unknown;
 
   try {
     parsedValue = JSON.parse(data);
   } catch (error) {
+    if (key === 'builder') {
+      clearAllRememberedState();
+      return undefined;
+    }
+
     if (key === 'builderSession' || key === 'domain') {
       logDroppedRememberedSlice(key, error instanceof Error ? error.message : 'Persisted state was not valid JSON.');
       return getInitialRememberedSliceState(key);

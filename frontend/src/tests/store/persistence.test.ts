@@ -29,6 +29,15 @@ describe('store persistence', () => {
     });
   });
 
+  it('clears all persisted state and returns undefined when builder JSON is corrupted', () => {
+    const clearSpy = vi.spyOn(window.localStorage, 'clear').mockImplementation(() => {});
+
+    const restored = unserializeRememberedState('{"data"', 'builder');
+
+    expect(restored).toBeUndefined();
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('drops builderSession to the default state when the restored shape is invalid', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
