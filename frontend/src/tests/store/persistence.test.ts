@@ -1,9 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { REMEMBER_KEYS, unserializeRememberedState } from '@store/persistence';
 
 describe('store persistence', () => {
+  beforeEach(() => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        clear: vi.fn(),
+      },
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('restores runtimeSessionState from the current persisted builderSession shape', () => {
