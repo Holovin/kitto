@@ -1,7 +1,5 @@
-import {
-  normalizeBuilderSessionState,
-  validateRestoredBuilderSessionResult,
-} from '@features/builder/store/builderSessionSlice';
+import { normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { normalizeBuilderSessionState, validateRestoredBuilderSessionResult } from '@features/builder/store/builderSessionSlice';
 import { normalizeDomainState, validateRestoredDomainResult } from '@features/builder/store/domainSlice';
 import { logRecoveryEvent } from './recoveryEvents';
 
@@ -27,23 +25,68 @@ function getInitialRememberedSliceState(slice: RecoverableRememberKey) {
   return slice === 'builderSession' ? normalizeBuilderSessionState(undefined) : normalizeDomainState(undefined);
 }
 
-function clearAllRememberedState() {
+const pendingRecoverableSliceReset = new Set<RecoverableRememberKey>();
+let recoverableSliceResetCleanupScheduled = false;
+
+function scheduleRecoverableSliceResetCleanup() {
+  if (recoverableSliceResetCleanupScheduled) {
+    return;
+  }
+
+  recoverableSliceResetCleanupScheduled = true;
+  queueMicrotask(() => {
+    pendingRecoverableSliceReset.clear();
+    recoverableSliceResetCleanupScheduled = false;
+  });
+}
+
+function markRecoverableSlicesForReset() {
+  pendingRecoverableSliceReset.clear();
+
+  for (const rememberKey of REMEMBER_KEYS) {
+    if (rememberKey === 'builder') {
+      continue;
+    }
+
+    pendingRecoverableSliceReset.add(rememberKey);
+  }
+
+  scheduleRecoverableSliceResetCleanup();
+}
+
+function consumeRecoverableSliceReset(slice: RecoverableRememberKey) {
+  if (!pendingRecoverableSliceReset.has(slice)) {
+    return false;
+  }
+
+  pendingRecoverableSliceReset.delete(slice);
+  return true;
+}
+
+function clearPersistedRememberedState() {
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
   }
 
-  window.localStorage.clear();
+  for (const rememberKey of REMEMBER_KEYS) {
+    window.localStorage.removeItem(`${REMEMBER_PREFIX}${rememberKey}`);
+  }
 }
 
 export function unserializeRememberedState(data: string, key: string) {
+  if ((key === 'builderSession' || key === 'domain') && consumeRecoverableSliceReset(key)) {
+    return getInitialRememberedSliceState(key);
+  }
+
   let parsedValue: unknown;
 
   try {
     parsedValue = JSON.parse(data);
   } catch (error) {
     if (key === 'builder') {
-      clearAllRememberedState();
-      return undefined;
+      clearPersistedRememberedState();
+      markRecoverableSlicesForReset();
+      return normalizeBuilderState(undefined);
     }
 
     if (key === 'builderSession' || key === 'domain') {
@@ -54,8 +97,12 @@ export function unserializeRememberedState(data: string, key: string) {
     throw error;
   }
 
-  if (!isRememberKey(key) || key === 'builder') {
+  if (!isRememberKey(key)) {
     return parsedValue;
+  }
+
+  if (key === 'builder') {
+    return normalizeBuilderState(parsedValue);
   }
 
   const validationResult =

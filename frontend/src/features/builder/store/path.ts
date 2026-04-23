@@ -1,11 +1,13 @@
 const FORBIDDEN_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 const PATH_SEGMENT_PATTERN = /^[A-Za-z0-9_-]+$/;
+const RUNTIME_VARIABLE_KEY_PATTERN = /^\$[A-Za-z_][\w$]*$/;
 const INDEX_SEGMENT_PATTERN = /^\d+$/;
 
 export const MAX_DOMAIN_PATH_DEPTH = 10;
 
 interface PersistedStateTreeValidationOptions {
   allowRootArray?: boolean;
+  allowRuntimeVariableKeys?: boolean;
   label?: string;
   maxDepth?: number;
 }
@@ -122,11 +124,19 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return prototype === Object.prototype || prototype === null;
 }
 
+function isAllowedPersistedStateKey(key: string, allowRuntimeVariableKeys: boolean) {
+  if (PATH_SEGMENT_PATTERN.test(key)) {
+    return true;
+  }
+
+  return allowRuntimeVariableKeys && RUNTIME_VARIABLE_KEY_PATTERN.test(key);
+}
+
 function validatePersistedStateTreeNode(
   value: unknown,
   path: string,
   depth: number,
-  { allowRootArray, label, maxDepth }: Required<PersistedStateTreeValidationOptions>,
+  { allowRootArray, allowRuntimeVariableKeys, label, maxDepth }: Required<PersistedStateTreeValidationOptions>,
   isRoot: boolean,
 ): string | null {
   if (depth > maxDepth) {
@@ -147,7 +157,13 @@ function validatePersistedStateTreeNode(
     }
 
     for (const [index, item] of value.entries()) {
-      const failure = validatePersistedStateTreeNode(item, `${path}[${index}]`, depth + 1, { allowRootArray, label, maxDepth }, false);
+      const failure = validatePersistedStateTreeNode(
+        item,
+        `${path}[${index}]`,
+        depth + 1,
+        { allowRootArray, allowRuntimeVariableKeys, label, maxDepth },
+        false,
+      );
 
       if (failure) {
         return failure;
@@ -162,7 +178,7 @@ function validatePersistedStateTreeNode(
   }
 
   for (const [key, nestedValue] of Object.entries(value)) {
-    if (!PATH_SEGMENT_PATTERN.test(key)) {
+    if (!isAllowedPersistedStateKey(key, allowRuntimeVariableKeys)) {
       return `${path} contains the invalid key "${key}".`;
     }
 
@@ -174,7 +190,7 @@ function validatePersistedStateTreeNode(
       nestedValue,
       `${path}.${key}`,
       depth + 1,
-      { allowRootArray, label, maxDepth },
+      { allowRootArray, allowRuntimeVariableKeys, label, maxDepth },
       false,
     );
 
@@ -188,9 +204,30 @@ function validatePersistedStateTreeNode(
 
 export function validatePersistedStateTree(
   value: unknown,
-  { allowRootArray = false, label = 'Persisted state', maxDepth = MAX_DOMAIN_PATH_DEPTH }: PersistedStateTreeValidationOptions = {},
+  {
+    allowRootArray = false,
+    allowRuntimeVariableKeys = false,
+    label = 'Persisted state',
+    maxDepth = MAX_DOMAIN_PATH_DEPTH,
+  }: PersistedStateTreeValidationOptions = {},
 ) {
-  return validatePersistedStateTreeNode(value, label, 0, { allowRootArray, label, maxDepth }, true);
+  return validatePersistedStateTreeNode(
+    value,
+    label,
+    0,
+    { allowRootArray, allowRuntimeVariableKeys, label, maxDepth },
+    true,
+  );
+}
+
+export function validatePersistedRuntimeStateTree(
+  value: unknown,
+  options: Omit<PersistedStateTreeValidationOptions, 'allowRuntimeVariableKeys'> = {},
+) {
+  return validatePersistedStateTree(value, {
+    ...options,
+    allowRuntimeVariableKeys: true,
+  });
 }
 
 export function validatePersistedStateObjectKeys(value: Record<string, unknown>, label = 'Persisted state') {

@@ -10,6 +10,20 @@ import { DEFAULT_DOMAIN_DATA } from './defaults';
 const MAX_HISTORY_ITEMS = 25;
 // UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
 export const MAX_UI_MESSAGES = 200;
+const BUILDER_CHAT_ROLES = new Set<BuilderChatMessage['role']>(['assistant', 'system', 'user']);
+const BUILDER_CHAT_TONES = new Set<NonNullable<BuilderChatMessage['tone']>>(['default', 'error', 'info', 'success']);
+const BUILDER_PARSE_ISSUE_SOURCES = new Set<NonNullable<BuilderParseIssue['source']>>([
+  'mutation',
+  'parser',
+  'quality',
+  'query',
+  'runtime',
+]);
+
+interface NormalizedRejectedSource {
+  issues: BuilderParseIssue[];
+  source: string;
+}
 
 function trimHistory(history: BuilderSnapshot[]) {
   return history.slice(-MAX_HISTORY_ITEMS);
@@ -91,6 +105,10 @@ function normalizeChatMessages(value: unknown) {
       return [];
     }
 
+    if (!BUILDER_CHAT_ROLES.has(message.role as BuilderChatMessage['role'])) {
+      return [];
+    }
+
     return [
       {
         id: typeof message.id === 'string' ? message.id : nanoid(),
@@ -98,13 +116,69 @@ function normalizeChatMessages(value: unknown) {
         content: message.content,
         excludeFromLlmContext: message.excludeFromLlmContext === true ? true : undefined,
         messageKey: typeof message.messageKey === 'string' ? message.messageKey : undefined,
-        tone: typeof message.tone === 'string' ? (message.tone as BuilderChatMessage['tone']) : 'default',
+        tone:
+          typeof message.tone === 'string' && BUILDER_CHAT_TONES.has(message.tone as NonNullable<BuilderChatMessage['tone']>)
+            ? (message.tone as BuilderChatMessage['tone'])
+            : 'default',
         createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
       },
     ];
   });
 
   return normalizedMessages.length > 0 ? trimUiMessages(normalizedMessages) : createInitialChatMessages();
+}
+
+function normalizeParseIssueSuggestion(value: unknown): BuilderParseIssue['suggestion'] | undefined {
+  if (
+    !isRecord(value) ||
+    value.kind !== 'replace-text' ||
+    typeof value.from !== 'string' ||
+    typeof value.to !== 'string'
+  ) {
+    return undefined;
+  }
+
+  return {
+    kind: 'replace-text',
+    from: value.from,
+    to: value.to,
+  };
+}
+
+function normalizeParseIssues(value: unknown): BuilderParseIssue[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((issue) => {
+    if (!isRecord(issue) || typeof issue.code !== 'string' || typeof issue.message !== 'string') {
+      return [];
+    }
+
+    const normalizedIssue: BuilderParseIssue = {
+      code: issue.code,
+      message: issue.message,
+    };
+
+    if (typeof issue.statementId === 'string') {
+      normalizedIssue.statementId = issue.statementId;
+    }
+
+    if (
+      typeof issue.source === 'string' &&
+      BUILDER_PARSE_ISSUE_SOURCES.has(issue.source as NonNullable<BuilderParseIssue['source']>)
+    ) {
+      normalizedIssue.source = issue.source as BuilderParseIssue['source'];
+    }
+
+    const suggestion = normalizeParseIssueSuggestion(issue.suggestion);
+
+    if (suggestion) {
+      normalizedIssue.suggestion = suggestion;
+    }
+
+    return [normalizedIssue];
+  });
 }
 
 function validateRestoredSource(source: string) {
@@ -116,6 +190,19 @@ function validateRestoredSource(source: string) {
   }
 
   return validateOpenUiSource(source);
+}
+
+function createRejectedSource(source: string): NormalizedRejectedSource | null {
+  const validation = validateRestoredSource(source);
+
+  if (validation.isValid) {
+    return null;
+  }
+
+  return {
+    issues: validation.issues,
+    source,
+  };
 }
 
 function getBuilderHistoryChatMessage(
@@ -142,7 +229,7 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
     };
   }
 
-  let rejectedSource: { issues: BuilderParseIssue[]; source: string } | null = null;
+  let rejectedSource: NormalizedRejectedSource | null = null;
   const normalizedSnapshots: BuilderSnapshot[] = [];
 
   for (const snapshot of value) {
@@ -168,13 +255,10 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
         initialDomainData: snapshot.initialDomainData,
       },
     );
-    const validation = validateRestoredSource(normalizedSnapshot.source);
+    const invalidSnapshot = createRejectedSource(normalizedSnapshot.source);
 
-    if (!validation.isValid) {
-      rejectedSource = {
-        issues: validation.issues,
-        source: normalizedSnapshot.source,
-      };
+    if (invalidSnapshot) {
+      rejectedSource = invalidSnapshot;
       continue;
     }
 
@@ -252,19 +336,12 @@ export function normalizeBuilderState(value: unknown): BuilderState {
   const history = normalizedHistory.snapshots;
   const latestSnapshot = history.at(-1) ?? initialSnapshot;
   const persistedCommittedSource = typeof value.committedSource === 'string' ? value.committedSource : latestSnapshot.source;
-  const committedSourceValidation = validateRestoredSource(persistedCommittedSource);
-  const rejectedSource = !committedSourceValidation.isValid
-    ? {
-        issues: committedSourceValidation.issues,
-        source: persistedCommittedSource,
-      }
-    : normalizedHistory.rejectedSource;
   const committedSource = latestSnapshot.source;
-  const streamedSource = rejectedSource
-    ? rejectedSource.source
-    : typeof value.streamedSource === 'string'
-      ? value.streamedSource
-      : committedSource;
+  const persistedRejectedDraft =
+    typeof value.streamedSource === 'string' && value.streamedSource !== committedSource
+      ? createRejectedSource(value.streamedSource)
+      : null;
+  const rejectedSource = createRejectedSource(persistedCommittedSource) ?? normalizedHistory.rejectedSource ?? persistedRejectedDraft;
 
   return {
     activeTab:
@@ -276,20 +353,16 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     currentRequestId: null,
-    definitionWarnings: rejectedSource
-      ? []
-      : Array.isArray(value.definitionWarnings)
-        ? (value.definitionWarnings as BuilderParseIssue[])
-        : [],
+    definitionWarnings: rejectedSource ? [] : normalizeParseIssues(value.definitionWarnings),
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
     hasRejectedDefinition: Boolean(rejectedSource),
     history,
     lastStreamChunkAt: null,
-    parseIssues: rejectedSource ? rejectedSource.issues : Array.isArray(value.parseIssues) ? (value.parseIssues as BuilderParseIssue[]) : [],
+    parseIssues: rejectedSource ? rejectedSource.issues : [],
     redoHistory: normalizeSnapshots(value.redoHistory, []).snapshots,
-    retryPrompt: typeof value.retryPrompt === 'string' ? value.retryPrompt : null,
-    streamError: typeof value.streamError === 'string' ? value.streamError : null,
-    streamedSource,
+    retryPrompt: null,
+    streamError: null,
+    streamedSource: rejectedSource ? rejectedSource.source : committedSource,
   };
 }
 

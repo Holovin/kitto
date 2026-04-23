@@ -1641,7 +1641,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('falls back when the stream emits a short partial draft but never finishes with done', async () => {
+  it('falls back when the stream fails before the first chunk arrives', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
@@ -1649,10 +1649,7 @@ describe('useBuilderSubmission', () => {
     testHarness.generateMock.mockResolvedValue({
       source: VALID_STREAM_SOURCE,
     });
-    testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
-      onChunk(SHORT_PARTIAL_DRAFT);
-      throw new Error('The model stream ended before it returned any OpenUI source.');
-    });
+    testHarness.streamMock.mockRejectedValue(new Error('Streaming response body is not available.'));
 
     await submission.result().handleSubmit(createFormEvent());
 
@@ -1665,14 +1662,55 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('falls back when the stream times out after a short partial draft', async () => {
+  it('does not fall back after the first chunk, even when that chunk is empty', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
 
-    testHarness.generateMock.mockResolvedValue({
-      source: VALID_STREAM_SOURCE,
+    testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
+      onChunk('');
+      throw new Error('The model stream ended before it returned any OpenUI source.');
     });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
+    expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
+
+    submission.unmount();
+  });
+
+  it('does not fall back after a streamed summary arrives before the first source chunk', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockImplementationOnce(async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
+      onSummary?.('Creates a settings app');
+      throw new Error('The model stream ended before it returned any OpenUI source.');
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
+    expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
+    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+    expect(findChatMessage('Creates a settings app')).toBeUndefined();
+
+    submission.unmount();
+  });
+
+  it('does not fall back when the stream times out after the first chunk', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
     testHarness.streamMock.mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
       onChunk(SHORT_PARTIAL_DRAFT);
       throw new BuilderStreamTimeoutError('idle');
@@ -1680,10 +1718,10 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
 
-    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
-    expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
-    expect(getBuilderState().streamError).toBeNull();
-    expect(getBuilderState().retryPrompt).toBeNull();
+    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamError).toBe(new BuilderStreamTimeoutError('idle').message);
+    expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
 
     submission.unmount();
   });

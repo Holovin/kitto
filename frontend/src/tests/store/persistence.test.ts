@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { REMEMBER_KEYS, unserializeRememberedState } from '@store/persistence';
+import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
+import { normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from '@store/persistence';
+
+const validSource = `root = AppShell([
+  Screen("main", "Main", [
+    Text("Hello", "body", "start")
+  ])
+])`;
 
 describe('store persistence', () => {
   beforeEach(() => {
     vi.stubGlobal('window', {
       localStorage: {
         clear: vi.fn(),
+        removeItem: vi.fn(),
       },
     });
   });
@@ -26,6 +35,22 @@ describe('store persistence', () => {
     });
   });
 
+  it('restores builderSession runtimeSessionState keys that use OpenUI runtime variable names without recovery warnings', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const liveRuntimeState = {
+      $currentScreen: 'details',
+      $draft: {
+        title: 'Ada',
+      },
+      $lastChoice: 'pro',
+    };
+
+    expect(unserializeRememberedState(JSON.stringify({ runtimeSessionState: liveRuntimeState }), 'builderSession')).toEqual({
+      runtimeSessionState: liveRuntimeState,
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('restores domain.data from the current persisted domain shape', () => {
     const liveDomainData = {
       app: {
@@ -38,13 +63,98 @@ describe('store persistence', () => {
     });
   });
 
-  it('clears all persisted state and returns undefined when builder JSON is corrupted', () => {
+  it('normalizes persisted builder state before rehydrating it', () => {
+    const snapshot = createBuilderSnapshot(validSource, { $currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+
+    const restored = unserializeRememberedState(
+      JSON.stringify({
+        chatMessages: [
+          {
+            id: 'assistant-summary',
+            role: 'assistant',
+            content: 'Applied the latest chat instruction to the app definition.',
+            excludeFromLlmContext: true,
+            tone: 'success',
+            createdAt: '2026-04-19T10:00:00.000Z',
+          },
+          {
+            id: 'invalid-role',
+            role: 'observer',
+            content: 'Should not survive rehydrate.',
+          },
+        ],
+        committedSource: validSource,
+        currentRequestId: 'builder-request-123',
+        definitionWarnings: [{ code: 'warning', message: 'Keep me.' }, { code: 42 }],
+        history: [snapshot],
+        lastStreamChunkAt: 123456789,
+        parseIssues: [{ code: 'persisted-issue', message: 'Should not stay live.' }],
+        redoHistory: [{ ...snapshot, source: 'not valid openui' }],
+        retryPrompt: 'Retry me.',
+        streamError: 'This should be dropped.',
+        streamedSource: `root = AppShell([
+  Screen("secondary", "Secondary", [])
+])`,
+      }),
+      'builder',
+    );
+
+    expect(restored).toEqual(
+      expect.objectContaining({
+        committedSource: validSource,
+        currentRequestId: null,
+        definitionWarnings: [{ code: 'warning', message: 'Keep me.' }],
+        lastStreamChunkAt: null,
+        parseIssues: [],
+        redoHistory: [],
+        retryPrompt: null,
+        streamError: null,
+        streamedSource: validSource,
+      }),
+    );
+    expect(restored.chatMessages).toEqual([
+      expect.objectContaining({
+        id: 'assistant-summary',
+        role: 'assistant',
+        content: 'Applied the latest chat instruction to the app definition.',
+        excludeFromLlmContext: true,
+      }),
+    ]);
+  });
+
+  it('clears only Kitto remembered keys and resets dependent slices when builder JSON is corrupted', () => {
     const clearSpy = vi.spyOn(window.localStorage, 'clear').mockImplementation(() => {});
+    const removeItemSpy = vi.spyOn(window.localStorage, 'removeItem').mockImplementation(() => {});
 
     const restored = unserializeRememberedState('{"data"', 'builder');
+    const restoredBuilderSession = unserializeRememberedState(
+      JSON.stringify({
+        runtimeSessionState: {
+          currentScreen: 'details',
+        },
+      }),
+      'builderSession',
+    );
+    const restoredDomain = unserializeRememberedState(
+      JSON.stringify({
+        data: {
+          app: {
+            submissions: [{ answer: 'Ada' }],
+          },
+        },
+      }),
+      'domain',
+    );
 
-    expect(restored).toBeUndefined();
-    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(restored).toEqual(normalizeBuilderState(undefined));
+    expect(restoredBuilderSession).toEqual({ runtimeSessionState: {} });
+    expect(restoredDomain).toEqual({ data: {} });
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(removeItemSpy).toHaveBeenCalledTimes(REMEMBER_KEYS.length);
+
+    for (const key of REMEMBER_KEYS) {
+      expect(removeItemSpy).toHaveBeenCalledWith(`${REMEMBER_PREFIX}${key}`);
+    }
   });
 
   it('drops builderSession to the default state when the restored shape is invalid', () => {

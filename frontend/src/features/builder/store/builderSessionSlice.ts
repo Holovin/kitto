@@ -3,7 +3,7 @@ import {
   cloneJsonCompatibleValue,
   isPlainObject,
   validatePersistedStateObjectKeys,
-  validatePersistedStateTree,
+  validatePersistedRuntimeStateTree,
 } from './path';
 
 export interface BuilderSessionState {
@@ -43,7 +43,7 @@ export function validateRestoredBuilderSessionResult(value: unknown): RestoredBu
   }
 
   if (isPlainObject(value.runtimeSessionState)) {
-    const failure = validatePersistedStateTree(value.runtimeSessionState, {
+    const failure = validatePersistedRuntimeStateTree(value.runtimeSessionState, {
       label: 'builderSession.runtimeSessionState',
     });
 

@@ -9,8 +9,12 @@ interface BuildOpenUiUserPromptOptions {
   promptMaxChars?: number;
 }
 
+function escapePromptDataBlockContent(content: string) {
+  return content.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 function buildPromptDataBlock(tagName: string, content: string) {
-  return `<${tagName}>\n${content}\n</${tagName}>`;
+  return `<${tagName}>\n${escapePromptDataBlockContent(content)}\n</${tagName}>`;
 }
 
 function buildPromptExemplarSection(title: string, exemplars: ReturnType<typeof getRelevantRequestExemplars>) {

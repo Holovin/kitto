@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { appendPathValue, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
+import {
+  appendPathValue,
+  mergePathValue,
+  readPath,
+  removePathValue,
+  validatePersistedRuntimeStateTree,
+  validatePersistedStateTree,
+  writePathValue,
+} from '@features/builder/store/path';
 
 describe('path utilities', () => {
   it('rejects paths that contain __proto__ segments', () => {
@@ -55,6 +63,46 @@ describe('path utilities', () => {
     expect(Object.prototype.hasOwnProperty.call(profile as Record<string, unknown>, 'constructor')).toBe(false);
     expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
   });
+
+  it('allows OpenUI runtime variable keys in persisted runtime state validation', () => {
+    expect(
+      validatePersistedRuntimeStateTree(
+        {
+          $currentScreen: 'details',
+          $draft: {
+            title: 'Ada',
+          },
+          $lastChoice: 'pro',
+        },
+        { label: 'builderSession.runtimeSessionState' },
+      ),
+    ).toBeNull();
+  });
+
+  it('keeps domain-state validation strict for $-prefixed keys', () => {
+    expect(
+      validatePersistedStateTree(
+        {
+          $draft: {
+            title: 'Ada',
+          },
+        },
+        { label: 'domain.data' },
+      ),
+    ).toContain('$draft');
+  });
+
+  it.each(['__proto__', 'constructor', 'prototype'])(
+    'rejects forbidden keys in persisted runtime state validation: "%s"',
+    (forbiddenKey) => {
+      expect(
+        validatePersistedRuntimeStateTree(
+          JSON.parse(`{"${forbiddenKey}":{"polluted":true}}`) as unknown,
+          { label: 'builderSession.runtimeSessionState' },
+        ),
+      ).toContain(forbiddenKey);
+    },
+  );
 
   it('appends to a valid array path', () => {
     const state = {

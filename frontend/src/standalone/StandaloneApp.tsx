@@ -1,4 +1,4 @@
-import { startTransition, useState } from 'react';
+import { startTransition, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -12,12 +12,17 @@ import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { clearStandaloneStoredState, restoreStandaloneState, writeStandaloneStoredState } from '@features/builder/standalone/storage';
 import {
-  normalizeStandaloneDomainData,
-  normalizeStandaloneRuntimeState,
   parseStandalonePayload,
   type KittoStandalonePayload,
 } from '@features/builder/standalone/types';
 import type { BuilderParseIssue } from '@features/builder/types';
+import {
+  createStandaloneSnapshot,
+  isStandaloneSnapshotUpdateKey,
+  mergeStandaloneSnapshot,
+  type StandaloneSnapshot,
+  type StandaloneSnapshotUpdate,
+} from './snapshot';
 
 type StandaloneAppProps = {
   payload?: KittoStandalonePayload;
@@ -131,27 +136,40 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
   const [parseIssues, setParseIssues] = useState<BuilderParseIssue[]>([]);
   const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
   const [resetVersion, setResetVersion] = useState(0);
+  const standaloneSnapshotRef = useRef<StandaloneSnapshot>(
+    createStandaloneSnapshot(restoredState.runtimeState, restoredState.domainData),
+  );
 
-  function persistStandaloneState(nextRuntimeState: Record<string, unknown>, nextDomainData: Record<string, unknown>) {
+  function persistStandaloneState(nextSnapshot: StandaloneSnapshot) {
     if (!parsedPayload) {
       return;
     }
 
-    writeStandaloneStoredState(parsedPayload.storageKey, nextRuntimeState, nextDomainData);
+    writeStandaloneStoredState(parsedPayload.storageKey, nextSnapshot.runtimeState, nextSnapshot.domainData);
+  }
+
+  function commitStandaloneSnapshot(update: StandaloneSnapshotUpdate) {
+    const nextSnapshot = mergeStandaloneSnapshot(standaloneSnapshotRef.current, update);
+
+    standaloneSnapshotRef.current = nextSnapshot;
+
+    if (isStandaloneSnapshotUpdateKey(update, 'runtimeState')) {
+      setRuntimeState(nextSnapshot.runtimeState);
+    }
+
+    if (isStandaloneSnapshotUpdateKey(update, 'domainData')) {
+      setDomainData(nextSnapshot.domainData);
+    }
+
+    persistStandaloneState(nextSnapshot);
   }
 
   function replaceStandaloneDomainData(nextDomainData: Record<string, unknown>) {
-    const safeDomainData = normalizeStandaloneDomainData(nextDomainData);
-
-    setDomainData(safeDomainData);
-    persistStandaloneState(runtimeState, safeDomainData);
+    commitStandaloneSnapshot({ domainData: nextDomainData });
   }
 
   function handleRuntimeStateUpdate(nextRuntimeState: Record<string, unknown>) {
-    const safeRuntimeState = normalizeStandaloneRuntimeState(nextRuntimeState);
-
-    setRuntimeState(safeRuntimeState);
-    persistStandaloneState(safeRuntimeState, domainData);
+    commitStandaloneSnapshot({ runtimeState: nextRuntimeState });
   }
 
   function handleResetLocalData() {
@@ -160,14 +178,14 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     }
 
     clearStandaloneStoredState(parsedPayload.storageKey);
-    const baselineRuntimeState = normalizeStandaloneRuntimeState(parsedPayload.initialRuntimeState);
-    const baselineDomainData = normalizeStandaloneDomainData(parsedPayload.initialDomainData);
+    const baselineSnapshot = createStandaloneSnapshot(parsedPayload.initialRuntimeState, parsedPayload.initialDomainData);
 
     startTransition(() => {
       setParseIssues([]);
       setRuntimeIssues([]);
-      setRuntimeState(baselineRuntimeState);
-      setDomainData(baselineDomainData);
+      standaloneSnapshotRef.current = baselineSnapshot;
+      setRuntimeState(baselineSnapshot.runtimeState);
+      setDomainData(baselineSnapshot.domainData);
       setResetVersion((currentValue) => currentValue + 1);
     });
   }
@@ -178,7 +196,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
 
   const sourceValidation = validateOpenUiSource(parsedPayload.source);
   const standaloneToolProvider = createDomainToolProvider({
-    readDomainData: () => domainData,
+    readDomainData: () => standaloneSnapshotRef.current.domainData,
     replaceDomainData: replaceStandaloneDomainData,
   });
 

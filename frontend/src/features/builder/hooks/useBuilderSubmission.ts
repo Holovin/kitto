@@ -40,8 +40,6 @@ import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
 
-const STREAM_FAILURE_FALLBACK_MAX_CHARS = 256;
-
 function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
   if (!compaction || compaction.omittedChatMessages <= 0) {
     return null;
@@ -207,7 +205,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       return;
     }
 
-    let streamedChars = 0;
+    let hasObservedStreamActivity = false;
     let hasCompletedStreamRequest = false;
     const { abortController, requestId } = generationLifecycle.beginGeneration(nextPrompt);
 
@@ -220,7 +218,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         request: transportRequest,
         signal: abortController.signal,
         onChunk: (chunk) => {
-          streamedChars += chunk.length;
+          hasObservedStreamActivity = true;
           dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
         },
         onSummary: (summary) => {
@@ -228,6 +226,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
             return;
           }
 
+          hasObservedStreamActivity = true;
           streamingSummary.upsertStreamingSummaryMessage(requestId, summary, { pending: true });
         },
       });
@@ -244,11 +243,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       );
     } catch (error) {
       if (error instanceof BuilderStreamTimeoutError) {
-        if (streamedChars > STREAM_FAILURE_FALLBACK_MAX_CHARS && generationLifecycle.isActiveRequest(requestId)) {
+        if (hasObservedStreamActivity && generationLifecycle.isActiveRequest(requestId)) {
           generationLifecycle.failRequest(requestId, error, { retryPrompt: request.prompt });
         }
 
-        if (streamedChars > STREAM_FAILURE_FALLBACK_MAX_CHARS) {
+        if (hasObservedStreamActivity) {
           return;
         }
       }
@@ -267,7 +266,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         return;
       }
 
-      if (!hasCompletedStreamRequest && streamedChars <= STREAM_FAILURE_FALLBACK_MAX_CHARS) {
+      if (!hasCompletedStreamRequest && !hasObservedStreamActivity) {
         try {
           const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, transportRequest);
           await commitGeneratedSource(fallbackResponse, transportRequest, requestId);

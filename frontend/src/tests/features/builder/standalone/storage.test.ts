@@ -6,6 +6,7 @@ import {
   restoreStandaloneState,
   writeStandaloneStoredState,
 } from '@features/builder/standalone/storage';
+import { createStandaloneSnapshot, mergeStandaloneSnapshot, type StandaloneSnapshotUpdate } from '@src/standalone/snapshot';
 
 type MemoryStorage = {
   getItem: (key: string) => string | null;
@@ -27,6 +28,17 @@ function createMemoryStorage(seed: Record<string, string> = {}): MemoryStorage {
     },
     values,
   };
+}
+
+function persistStandaloneSnapshot(
+  storage: MemoryStorage,
+  currentSnapshot: ReturnType<typeof createStandaloneSnapshot>,
+  update: StandaloneSnapshotUpdate,
+) {
+  const nextSnapshot = mergeStandaloneSnapshot(currentSnapshot, update);
+
+  writeStandaloneStoredState('kitto:standalone:test', nextSnapshot.runtimeState, nextSnapshot.domainData, storage);
+  return nextSnapshot;
 }
 
 const previousLocalStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -98,6 +110,80 @@ describe('standalone storage helpers', () => {
 
     expect(clearStandaloneStoredState('kitto:standalone:test', storage)).toBe(true);
     expect(storage.values.size).toBe(0);
+  });
+
+  it('restores the latest snapshot after runtime-only standalone updates', () => {
+    const storage = createMemoryStorage();
+    const initialRuntimeState = { currentScreen: 'intro' };
+    const initialDomainData = { app: { answers: [] as string[] } };
+    const nextRuntimeState = { currentScreen: 'summary', form: { answer: 'A' } };
+    const nextSnapshot = persistStandaloneSnapshot(
+      storage,
+      createStandaloneSnapshot(initialRuntimeState, initialDomainData),
+      { runtimeState: nextRuntimeState },
+    );
+
+    expect(readStandaloneStoredState('kitto:standalone:test', storage)).toMatchObject({
+      runtimeState: nextRuntimeState,
+      domainData: initialDomainData,
+      version: 1,
+    });
+    expect(restoreStandaloneState('kitto:standalone:test', initialRuntimeState, initialDomainData, storage)).toEqual({
+      runtimeState: nextSnapshot.runtimeState,
+      domainData: nextSnapshot.domainData,
+      restoredFromStorage: true,
+    });
+  });
+
+  it('restores the latest snapshot after domain-only standalone updates', () => {
+    const storage = createMemoryStorage();
+    const initialRuntimeState = { currentScreen: 'intro' };
+    const initialDomainData = { app: { answers: [] as string[] } };
+    const nextDomainData = { app: { answers: ['A'] } };
+    const nextSnapshot = persistStandaloneSnapshot(
+      storage,
+      createStandaloneSnapshot(initialRuntimeState, initialDomainData),
+      { domainData: nextDomainData },
+    );
+
+    expect(readStandaloneStoredState('kitto:standalone:test', storage)).toMatchObject({
+      runtimeState: initialRuntimeState,
+      domainData: nextDomainData,
+      version: 1,
+    });
+    expect(restoreStandaloneState('kitto:standalone:test', initialRuntimeState, initialDomainData, storage)).toEqual({
+      runtimeState: nextSnapshot.runtimeState,
+      domainData: nextSnapshot.domainData,
+      restoredFromStorage: true,
+    });
+  });
+
+  it('restores one consistent snapshot after sequential domain and runtime updates', () => {
+    const storage = createMemoryStorage();
+    const initialRuntimeState = { currentScreen: 'question' };
+    const initialDomainData = { app: { answers: [] as string[] } };
+    const nextDomainData = { app: { answers: ['A'] } };
+    const nextRuntimeState = { currentScreen: 'summary' };
+
+    const snapshotAfterDomainUpdate = persistStandaloneSnapshot(
+      storage,
+      createStandaloneSnapshot(initialRuntimeState, initialDomainData),
+      { domainData: nextDomainData },
+    );
+    const snapshotAfterRuntimeUpdate = persistStandaloneSnapshot(storage, snapshotAfterDomainUpdate, {
+      runtimeState: nextRuntimeState,
+    });
+
+    expect(readStandaloneStoredState('kitto:standalone:test', storage)).toMatchObject({
+      runtimeState: nextRuntimeState,
+      domainData: nextDomainData,
+      version: 1,
+    });
+    expect(restoreStandaloneState('kitto:standalone:test', initialRuntimeState, initialDomainData, storage)).toEqual({
+      runtimeState: snapshotAfterRuntimeUpdate.runtimeState,
+      domainData: snapshotAfterRuntimeUpdate.domainData,
+      restoredFromStorage: true,
+    });
   });
 
   it('persists append_item updates through standalone storage for offline exports', async () => {

@@ -9,6 +9,11 @@ const validSource = `root = AppShell([
     Text("Hello", "body", "start")
   ])
 ])`;
+const alternateValidSource = `root = AppShell([
+  Screen("secondary", "Secondary", [
+    Text("Hi", "body", "start")
+  ])
+])`;
 
 function createInitialState() {
   return builderReducer(undefined, {
@@ -33,6 +38,49 @@ describe('builderSlice', () => {
     expect(state.activeTab).toBe('definition');
     expect(state.hasRejectedDefinition).toBe(true);
     expect(state.parseIssues.length).toBeGreaterThan(0);
+  });
+
+  it('drops stale streamed drafts and transient request state when restoring persisted builder state', () => {
+    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+
+    const state = normalizeBuilderState({
+      committedSource: validSource,
+      currentRequestId: 'request-restore',
+      history: [snapshot],
+      lastStreamChunkAt: 123456789,
+      parseIssues: [{ code: 'persisted-issue', message: 'Should be dropped.' }],
+      retryPrompt: 'Retry me.',
+      streamError: 'This should not survive restore.',
+      streamedSource: alternateValidSource,
+    });
+
+    expect(state.committedSource).toBe(validSource);
+    expect(state.currentRequestId).toBeNull();
+    expect(state.lastStreamChunkAt).toBeNull();
+    expect(state.hasRejectedDefinition).toBe(false);
+    expect(state.parseIssues).toEqual([]);
+    expect(state.retryPrompt).toBeNull();
+    expect(state.streamError).toBeNull();
+    expect(state.streamedSource).toBe(validSource);
+  });
+
+  it('rebuilds rejected-definition state from the persisted invalid draft instead of trusting raw parse issues', () => {
+    const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+
+    const state = normalizeBuilderState({
+      activeTab: 'preview',
+      committedSource: validSource,
+      history: [snapshot],
+      parseIssues: [{ code: 'persisted-issue', message: 'This should be replaced.' }],
+      streamedSource: 'not valid openui',
+    });
+
+    expect(state.committedSource).toBe(validSource);
+    expect(state.streamedSource).toBe('not valid openui');
+    expect(state.activeTab).toBe('definition');
+    expect(state.hasRejectedDefinition).toBe(true);
+    expect(state.parseIssues.length).toBeGreaterThan(0);
+    expect(state.parseIssues.some((issue) => issue.code === 'persisted-issue')).toBe(false);
   });
 
   it('tracks the current streaming request and ignores stale chunks', () => {
