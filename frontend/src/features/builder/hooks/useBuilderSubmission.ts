@@ -9,6 +9,7 @@ import {
   getBuilderMaxRepairAttempts,
   getBuilderMaxRepairValidationIssues,
   getBuilderRequestLimits,
+  getBuilderSanitizedLlmRequestForTransport,
   getBuilderRuntimeConfigStatus,
   getBuilderStreamTimeouts,
   validateBuilderLlmRequest,
@@ -195,7 +196,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       })),
       mode: 'initial',
     };
-    const requestValidationError = validateBuilderLlmRequest(request, requestLimits);
+    const transportRequest = getBuilderSanitizedLlmRequestForTransport(request, requestLimits);
+    const requestValidationError = validateBuilderLlmRequest(transportRequest, requestLimits);
 
     if (requestValidationError) {
       onSystemNotice({
@@ -215,7 +217,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
         idleTimeoutMs: streamTimeouts.streamIdleTimeoutMs,
         maxDurationMs: streamTimeouts.streamMaxDurationMs,
         requestId,
-        request,
+        request: transportRequest,
         signal: abortController.signal,
         onChunk: (chunk) => {
           streamedChars += chunk.length;
@@ -237,7 +239,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
           commitSource: 'streaming',
           requestId,
         },
-        request,
+        transportRequest,
         requestId,
       );
     } catch (error) {
@@ -267,8 +269,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
       if (!hasCompletedStreamRequest && streamedChars <= STREAM_FAILURE_FALLBACK_MAX_CHARS) {
         try {
-          const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, request);
-          await commitGeneratedSource(fallbackResponse, request, requestId);
+          const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, transportRequest);
+          await commitGeneratedSource(fallbackResponse, transportRequest, requestId);
           return;
         } catch (fallbackError) {
           if (fallbackError instanceof BuilderStreamTimeoutError) {

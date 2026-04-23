@@ -2,7 +2,7 @@ import type { BuilderRequestLimits } from '@features/builder/config';
 import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
-import { validateBuilderLlmRequest } from '@features/builder/config';
+import { getBuilderSanitizedLlmRequestForTransport, validateBuilderLlmRequest } from '@features/builder/config';
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import {
   detectLocalRuntimeQualityIssues,
@@ -285,7 +285,8 @@ export function useValidationRepair({
         repairAttemptNumber: attemptNumber,
         validationIssues: sanitizeRepairValidationIssues(issues, maxRepairValidationIssues),
       };
-      const repairRequestValidationError = validateBuilderLlmRequest(repairRequest, requestLimits);
+      const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest, requestLimits);
+      const repairRequestValidationError = validateBuilderLlmRequest(transportRequest, requestLimits);
 
       if (repairRequestValidationError) {
         throw new Error(repairRequestValidationError);
@@ -313,7 +314,7 @@ export function useValidationRepair({
       );
 
       try {
-        const repairedResponse = await runGenerateRequest(requestId, repairRequest, {
+        const repairedResponse = await runGenerateRequest(requestId, transportRequest, {
           requestKind: 'automatic-repair',
           transportRequestId: createRequestId(),
         });

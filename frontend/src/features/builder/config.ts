@@ -28,6 +28,45 @@ export interface BuilderStreamTimeouts {
   streamMaxDurationMs: number;
 }
 
+type SanitizedMessage = {
+  content: string;
+  role: 'assistant' | 'user';
+};
+
+function sanitizeChatHistory(
+  messages: BuilderLlmRequest['chatHistory'],
+  maxItems: number,
+): SanitizedMessage[] {
+  const filteredMessages = messages
+    .filter((message) => message.role === 'assistant' || message.role === 'user')
+    .filter((message) => message.content.trim().length > 0)
+    .filter((message) => message.excludeFromLlmContext !== true)
+    .map(({ content, role }) => ({ content, role }));
+
+  return maxItems > 0 ? filteredMessages.slice(-maxItems) : [];
+}
+
+function compactBuilderLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
+  const chatHistory = sanitizeChatHistory(request.chatHistory, limits.chatHistoryMaxItems);
+  let compactedRequest: BuilderLlmRequest = {
+    ...request,
+    chatHistory,
+  };
+
+  while (getApproximateBuilderRequestSizeBytes(compactedRequest) > limits.requestMaxBytes && compactedRequest.chatHistory.length > 0) {
+    compactedRequest = {
+      ...compactedRequest,
+      chatHistory: compactedRequest.chatHistory.slice(1),
+    };
+  }
+
+  return compactedRequest;
+}
+
+export function getBuilderSanitizedLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
+  return compactBuilderLlmRequestForTransport(request, limits);
+}
+
 export function getBuilderMaxRepairAttempts(config?: BuilderConfigResponse) {
   return parsePositiveInteger(config?.repair.maxRepairAttempts);
 }
@@ -95,7 +134,8 @@ export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: Bu
     return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
   }
 
-  const approximateRequestSizeBytes = getApproximateBuilderRequestSizeBytes(request);
+  const sanitizedRequest = getBuilderSanitizedLlmRequestForTransport(request, limits);
+  const approximateRequestSizeBytes = getApproximateBuilderRequestSizeBytes(sanitizedRequest);
 
   if (approximateRequestSizeBytes > limits.requestMaxBytes) {
     return `The request is too large to send as-is. Limit: ${formatLimitValue(limits.requestMaxBytes)} bytes for the full request payload. Shorten the prompt or reduce recent context and try again.`;

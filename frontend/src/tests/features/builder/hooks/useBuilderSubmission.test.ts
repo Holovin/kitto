@@ -1061,11 +1061,12 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('sends the full retained chat history to the backend without frontend LLM-window trimming', async () => {
+  it('sends backend-compatible chat history to the backend after prefiltering', async () => {
     appendChatMessages(
       Array.from({ length: 60 }, (_, index) => ({
         content: `Context message ${index}`,
         role: index % 2 === 0 ? 'assistant' : 'system',
+        excludeFromLlmContext: index === 0 ? true : undefined,
       })),
     );
     setDraftPrompt('Add a welcome screen.');
@@ -1078,12 +1079,13 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory: Array<{ content: string }> };
+      request: { chatHistory: Array<{ content: string; role: string }> };
     }).request;
 
-    expect(request.chatHistory).toHaveLength(60);
-    expect(request.chatHistory[0]?.content).toBe('Context message 0');
-    expect(request.chatHistory.at(-1)?.content).toBe('Context message 59');
+    expect(request.chatHistory).toHaveLength(29);
+    expect(request.chatHistory[0]?.content).toBe('Context message 2');
+    expect(request.chatHistory.at(-1)?.content).toBe('Context message 58');
+    expect(request.chatHistory.every((message) => message.role === 'assistant')).toBe(true);
 
     submission.unmount();
   });
