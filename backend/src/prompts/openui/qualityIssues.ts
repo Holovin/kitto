@@ -25,10 +25,66 @@ import {
 } from './qualitySignals.js';
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
+const FILTER_USAGE_PATTERN = /@Filter\s*\(/i;
+const THEME_REFERENCE_PATTERN = /\$[\w$]*theme\b/i;
+const THEME_KEYWORD_PATTERN = /\btheme\b/i;
 
-export function detectPromptAwareQualityIssues(source: string, userPrompt: string): OpenUiQualityIssue[] {
+type PromptAwareGenerationMode = 'initial' | 'repair';
+
+type SourceFeatureFlags = {
+  compute: boolean;
+  filter: boolean;
+  theme: boolean;
+  validation: boolean;
+};
+
+function collectSourceFeatureFlags(source: string) {
+  const parseResult = parser.parse(source);
+  if (parseResult.meta.incomplete || parseResult.meta.errors.length > 0 || !parseResult.root) {
+    return null;
+  }
+
+  const maskedSource = maskStringLiterals(source);
+  const metrics = collectQualityMetrics(parseResult.root);
+
+  return {
+    compute: hasComputeTools(parseResult),
+    filter: FILTER_USAGE_PATTERN.test(maskedSource),
+    theme: metrics.hasThemeStyling || THEME_REFERENCE_PATTERN.test(maskedSource) || THEME_KEYWORD_PATTERN.test(maskedSource),
+    validation: metrics.hasValidationRules,
+  };
+}
+
+function hasRequestUnrequestedNewFeature(
+  compareAgainstBaseline: boolean,
+  currentFeatureFlag: boolean | undefined,
+  nextFeatureFlag: boolean,
+) {
+  if (!nextFeatureFlag) {
+    return false;
+  }
+
+  if (!compareAgainstBaseline) {
+    return true;
+  }
+
+  if (currentFeatureFlag === undefined) {
+    return true;
+  }
+
+  return !currentFeatureFlag;
+}
+
+export function detectPromptAwareQualityIssues(
+  source: string,
+  userPrompt: string,
+  currentSource?: string,
+  mode: PromptAwareGenerationMode = 'initial',
+): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
+  const trimmedCurrentSource = typeof currentSource === 'string' ? normalizeSourceForValidation(currentSource) : '';
+  const compareAgainstBaseline = mode === 'repair' ? true : trimmedCurrentSource.length > 0;
 
   if (!trimmedSource) {
     return [];
@@ -43,6 +99,13 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
   const issues: OpenUiQualityIssue[] = [];
   const maskedSource = maskStringLiterals(trimmedSource);
   const metrics = collectQualityMetrics(result.root);
+  const nextFeatureFlags = {
+    compute: hasComputeTools(result),
+    filter: FILTER_USAGE_PATTERN.test(maskedSource),
+    theme: metrics.hasThemeStyling || THEME_REFERENCE_PATTERN.test(maskedSource) || THEME_KEYWORD_PATTERN.test(maskedSource),
+    validation: metrics.hasValidationRules,
+  };
+  const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;
 
   issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
 
@@ -66,7 +129,7 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
 
   if (
     !promptRequestsVisualStyling(trimmedPrompt) &&
-    (metrics.hasThemeStyling || /\$[\w$]*theme\b/i.test(maskedSource) || /\btheme\b/i.test(maskedSource))
+    hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.theme, nextFeatureFlags.theme)
   ) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
@@ -76,7 +139,10 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
     );
   }
 
-  if (!promptRequestsCompute(trimmedPrompt) && hasComputeTools(result)) {
+  if (
+    !promptRequestsCompute(trimmedPrompt) &&
+    hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.compute, nextFeatureFlags.compute)
+  ) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-compute',
@@ -85,7 +151,10 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
     );
   }
 
-  if (!promptRequestsFiltering(trimmedPrompt) && /@Filter\s*\(/.test(maskedSource)) {
+  if (
+    !promptRequestsFiltering(trimmedPrompt) &&
+    hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.filter, nextFeatureFlags.filter)
+  ) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-filter',
@@ -94,7 +163,10 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
     );
   }
 
-  if (!promptRequestsValidation(trimmedPrompt) && metrics.hasValidationRules) {
+  if (
+    !promptRequestsValidation(trimmedPrompt) &&
+    hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.validation, nextFeatureFlags.validation)
+  ) {
     issues.push(
       createOpenUiQualityIssue('soft-warning', {
         code: 'quality-unrequested-validation',
@@ -135,8 +207,13 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
   return issues;
 }
 
-export function detectPromptAwareQualityWarnings(source: string, userPrompt: string) {
-  return detectPromptAwareQualityIssues(source, userPrompt)
+export function detectPromptAwareQualityWarnings(
+  source: string,
+  userPrompt: string,
+  currentSource?: string,
+  mode: PromptAwareGenerationMode = 'initial',
+) {
+  return detectPromptAwareQualityIssues(source, userPrompt, currentSource, mode)
     .filter((issue) => issue.severity === 'soft-warning')
     .map(stripQualityIssueSeverity);
 }

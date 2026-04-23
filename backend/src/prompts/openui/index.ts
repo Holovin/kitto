@@ -7,6 +7,7 @@ export { getPromptInfoSnapshot } from './promptInfo.js';
 export { getPromptToolSpecSummaries } from './toolSpecs.js';
 export { getOpenUiTemperature } from './requestConfig.js';
 export {
+  compactPromptBuildChatHistory,
   filterPromptBuildChatHistory,
   retainPromptBuildChatHistory,
   retainPromptBuildChatHistoryTail,

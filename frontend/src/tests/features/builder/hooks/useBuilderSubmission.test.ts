@@ -733,7 +733,9 @@ function setDraftPrompt(prompt: string) {
   store.dispatch(builderActions.setDraftPrompt(prompt));
 }
 
-function appendChatMessages(messages: Array<{ content: string; role: 'assistant' | 'system' | 'user' }>) {
+function appendChatMessages(
+  messages: Array<{ content: string; role: 'assistant' | 'system' | 'user'; excludeFromLlmContext?: boolean }>,
+) {
   const store = testHarness.storeRef.current;
 
   if (!store) {
@@ -745,6 +747,7 @@ function appendChatMessages(messages: Array<{ content: string; role: 'assistant'
       builderActions.appendChatMessage({
         content: message.content,
         role: message.role,
+        excludeFromLlmContext: message.excludeFromLlmContext,
       }),
     );
   }

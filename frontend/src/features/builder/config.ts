@@ -1,4 +1,5 @@
 import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
+import { compactPromptBuildChatHistory } from '@kitto-openui/shared';
 import { serializeBuilderLlmRequest } from './api/requestBody';
 
 const textEncoder = new TextEncoder();
@@ -28,39 +29,21 @@ export interface BuilderStreamTimeouts {
   streamMaxDurationMs: number;
 }
 
-type SanitizedMessage = {
-  content: string;
-  role: 'assistant' | 'user';
-};
-
-function sanitizeChatHistory(
-  messages: BuilderLlmRequest['chatHistory'],
-  maxItems: number,
-): SanitizedMessage[] {
-  const filteredMessages = messages
-    .filter((message) => message.role === 'assistant' || message.role === 'user')
-    .filter((message) => message.content.trim().length > 0)
-    .filter((message) => message.excludeFromLlmContext !== true)
-    .map(({ content, role }) => ({ content, role }));
-
-  return maxItems > 0 ? filteredMessages.slice(-maxItems) : [];
-}
-
 function compactBuilderLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
-  const chatHistory = sanitizeChatHistory(request.chatHistory, limits.chatHistoryMaxItems);
-  let compactedRequest: BuilderLlmRequest = {
+  const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
+    getSizeBytes: (chatHistory) =>
+      getApproximateBuilderRequestSizeBytes({
+        ...request,
+        chatHistory,
+      }),
+    maxBytes: limits.requestMaxBytes,
+    maxItems: limits.chatHistoryMaxItems,
+  });
+
+  return {
     ...request,
-    chatHistory,
+    chatHistory: compactedHistory.chatHistory,
   };
-
-  while (getApproximateBuilderRequestSizeBytes(compactedRequest) > limits.requestMaxBytes && compactedRequest.chatHistory.length > 0) {
-    compactedRequest = {
-      ...compactedRequest,
-      chatHistory: compactedRequest.chatHistory.slice(1),
-    };
-  }
-
-  return compactedRequest;
 }
 
 export function getBuilderSanitizedLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {

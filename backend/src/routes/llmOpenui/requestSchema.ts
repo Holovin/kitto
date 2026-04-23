@@ -4,9 +4,8 @@ import type { AppEnv } from '../../env.js';
 import { RequestValidationError } from '../../errors/publicError.js';
 import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
 import {
+  compactPromptBuildChatHistory,
   filterPromptBuildChatHistory,
-  retainPromptBuildChatHistory,
-  retainPromptBuildChatHistoryTail,
   type PromptBuildRequest,
   type PromptBuildValidationIssue,
   type RawPromptBuildChatHistoryMessage,
@@ -111,65 +110,27 @@ function getRequestSizeBytes(request: PromptBuildRequest) {
 }
 
 function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedLlmRequest {
-  let compactedByBytes = false;
-  let compactedByItemLimit = false;
-  let omittedChatMessages = 0;
-  let chatHistory = filterPromptBuildChatHistory(request.chatHistory);
-
-  if (chatHistory.length > env.LLM_CHAT_HISTORY_MAX_ITEMS) {
-    const retainedChatHistory = retainPromptBuildChatHistory(chatHistory, env.LLM_CHAT_HISTORY_MAX_ITEMS);
-    omittedChatMessages += chatHistory.length - retainedChatHistory.length;
-    compactedByItemLimit = true;
-    chatHistory = retainedChatHistory;
-  }
-
-  let compactedRequest: PromptBuildRequest = {
+  const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
+    getSizeBytes: (chatHistory) =>
+      getRequestSizeBytes({
+        ...request,
+        chatHistory,
+      }),
+    maxBytes: env.LLM_REQUEST_MAX_BYTES,
+    maxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
+  });
+  const compactedRequest: PromptBuildRequest = {
     ...request,
-    chatHistory,
+    chatHistory: compactedHistory.chatHistory,
   };
-
-  if (getRequestSizeBytes(compactedRequest) > env.LLM_REQUEST_MAX_BYTES && compactedRequest.chatHistory.length > 0) {
-    compactedByBytes = true;
-    const chatHistoryForCompaction = filterPromptBuildChatHistory(compactedRequest.chatHistory);
-    let maximumRetainedTailCount: number | null = null;
-    let lowerBound = 0;
-    let upperBound = chatHistoryForCompaction.length;
-
-    // Request size grows monotonically as we retain a larger newest-tail window.
-    while (lowerBound <= upperBound) {
-      const retainedTailCount = Math.floor((lowerBound + upperBound) / 2);
-      const retainedChatHistory = retainPromptBuildChatHistoryTail(chatHistoryForCompaction, retainedTailCount);
-      const candidateRequest = {
-        ...compactedRequest,
-        chatHistory: retainedChatHistory,
-      };
-
-      if (getRequestSizeBytes(candidateRequest) <= env.LLM_REQUEST_MAX_BYTES) {
-        maximumRetainedTailCount = retainedTailCount;
-        lowerBound = retainedTailCount + 1;
-        continue;
-      }
-
-      upperBound = retainedTailCount - 1;
-    }
-
-    const retainedChatHistory =
-      maximumRetainedTailCount === null ? [] : retainPromptBuildChatHistoryTail(chatHistoryForCompaction, maximumRetainedTailCount);
-
-    omittedChatMessages += chatHistoryForCompaction.length - retainedChatHistory.length;
-    compactedRequest = {
-      ...compactedRequest,
-      chatHistory: retainedChatHistory,
-    };
-  }
 
   return {
     compaction:
-      omittedChatMessages > 0
+      compactedHistory.omittedChatMessages > 0
         ? {
-            compactedByBytes,
-            compactedByItemLimit,
-            omittedChatMessages,
+            compactedByBytes: compactedHistory.compactedByBytes,
+            compactedByItemLimit: compactedHistory.compactedByItemLimit,
+            omittedChatMessages: compactedHistory.omittedChatMessages,
           }
         : undefined,
     request: compactedRequest,

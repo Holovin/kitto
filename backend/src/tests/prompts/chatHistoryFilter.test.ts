@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { filterPromptBuildChatHistory, retainPromptBuildChatHistory, retainPromptBuildChatHistoryTail, type RawPromptBuildChatHistoryMessage } from '../../prompts/openui.js';
+import {
+  compactPromptBuildChatHistory,
+  filterPromptBuildChatHistory,
+  retainPromptBuildChatHistory,
+  retainPromptBuildChatHistoryTail,
+  type RawPromptBuildChatHistoryMessage,
+} from '../../prompts/openui.js';
 
 function createMessage(
   role: RawPromptBuildChatHistoryMessage['role'],
@@ -216,5 +222,44 @@ describe('retainPromptBuildChatHistoryTail', () => {
       { role: 'user', content: 'Build a todo app' },
       { role: 'user', content: 'Add filters' },
     ]);
+  });
+});
+
+describe('compactPromptBuildChatHistory', () => {
+  it('keeps the first user request pinned during byte compaction', () => {
+    const messages = [
+      { role: 'user', content: 'Build a catalog app ' + 'a'.repeat(48) },
+      { role: 'assistant', content: 'Built the initial catalog app. ' + 'b'.repeat(96) },
+      { role: 'user', content: 'Add filters ' + 'c'.repeat(48) },
+      { role: 'assistant', content: 'Added filters and preserved the layout. ' + 'd'.repeat(96) },
+    ] satisfies RawPromptBuildChatHistoryMessage[];
+    const [firstUser, , latestUser] = messages;
+
+    if (!firstUser || !latestUser) {
+      throw new Error('Expected the test fixture chat history to include two user turns.');
+    }
+
+    const getSizeBytes = (chatHistory: Array<{ content: string; role: 'assistant' | 'user' }>) =>
+      Buffer.byteLength(
+        JSON.stringify({
+          chatHistory,
+          currentSource: '',
+          mode: 'initial',
+          prompt: 'trim this request',
+        }),
+      );
+    const maxBytes = getSizeBytes([firstUser, latestUser]);
+
+    expect(
+      compactPromptBuildChatHistory(messages, {
+        getSizeBytes,
+        maxBytes,
+      }),
+    ).toEqual({
+      chatHistory: [firstUser, latestUser],
+      compactedByBytes: true,
+      compactedByItemLimit: false,
+      omittedChatMessages: 2,
+    });
   });
 });

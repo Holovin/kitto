@@ -4,16 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "dev": "vite",
+    "prebuild": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "build": "tsc -b && vite build",
+    "prebuild:standalone-player": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "build:standalone-player": "vite build --config vite.standalone.config.ts",
+    "prebuild:standalone-player:watch": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "build:standalone-player:watch": "vite build --watch --config vite.standalone.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
+    "pretest": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@kitto-openui/shared": "file:../shared",
     "@openuidev/react-lang": "^0.2.0",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-radio-group": "^1.3.8",

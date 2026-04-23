@@ -2,6 +2,7 @@
   "name": "kitto-openui",
   "private": true,
   "workspaces": [
+    "shared",
     "frontend",
     "backend"
   ],
@@ -12,7 +13,7 @@
     "dev:standalone-player": "concurrently -k -n standalone-build,standalone-embed -c blue,blue \"npm run build:standalone-player:watch --workspace frontend\" \"tsx scripts/embed-standalone-player-assets.ts --watch\"",
     "dev": "npm run generate:openui-spec && concurrently -n frontend,backend,standalone -c cyan,magenta,blue \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\" \"npm run dev:standalone-player\"",
     "build": "npm run generate:openui-spec && npm run build:standalone-player && npm run build --workspaces",
-    "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
+    "lint": "npm run lint --workspace @kitto-openui/shared && npm run lint --workspace frontend && npm run lint --workspace backend",
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "npm run test --workspace frontend",
     "test:backend": "npm run test --workspace backend",

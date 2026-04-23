@@ -24,7 +24,12 @@ export function createLlmResponsePayload(
   return {
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
-    qualityIssues: detectPromptAwareQualityIssues(responseEnvelope.source, invocation.request.prompt),
+    qualityIssues: detectPromptAwareQualityIssues(
+      responseEnvelope.source,
+      invocation.request.prompt,
+      invocation.request.currentSource,
+      invocation.request.mode,
+    ),
     summaryExcludeFromLlmContext: shouldExcludeSummaryFromLlmContext(responseEnvelope.summary) || undefined,
     temperature: getOpenUiTemperature(invocation.request.mode),
     ...responseEnvelope,

@@ -54,6 +54,28 @@ root = AppShell([
     );
   });
 
+  it('does not warn about existing theme styling when the latest request edits app content', () => {
+    const currentSource = `$currentTheme = "dark"
+root = AppShell([
+  Screen("main", "Todo list", [
+    Text("Theme preview", "body", "start")
+  ])
+], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`;
+
+    const warnings = detectPromptAwareQualityWarnings(
+      `$currentTheme = "dark"
+root = AppShell([
+  Screen("main", "Task list", [
+    Text("Renamed heading", "title", "start")
+  ])
+], $currentTheme == "dark" ? { mainColor: "#111827", contrastColor: "#F9FAFB" } : { mainColor: "#FFFFFF", contrastColor: "#111827" })`,
+      'Rename the heading.',
+      currentSource,
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
   it('does not warn about unrequested filters when the prompt explicitly asks for filtering', () => {
     const warnings = detectPromptAwareQualityWarnings(
       `$filterStatus = "all"

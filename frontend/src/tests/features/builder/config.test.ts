@@ -5,6 +5,7 @@ import {
   getApproximateBuilderRequestSizeBytes,
   getBuilderRequestLimits,
   getBuilderRuntimeConfigStatus,
+  getBuilderSanitizedLlmRequestForTransport,
   getBuilderStreamTimeouts,
   type BuilderRequestLimits,
   validateBuilderLlmRequest,
@@ -106,6 +107,60 @@ describe('builder request preflight', () => {
     ).toBe(
       'The request is too large to send as-is. Limit: 128 bytes for the full request payload. Shorten the prompt or reduce recent context and try again.',
     );
+  });
+
+  it('preserves the first user request while compacting recent context by item limit', () => {
+    const request = createRequest({
+      chatHistory: [
+        { role: 'user', content: 'Build a todo app' },
+        { role: 'assistant', content: 'Built the initial todo app.' },
+        { role: 'user', content: 'Add filters' },
+        { role: 'assistant', content: 'Added filters.' },
+        { role: 'user', content: 'Add sorting' },
+        { role: 'assistant', content: 'Added sorting.' },
+      ],
+    });
+
+    expect(
+      getBuilderSanitizedLlmRequestForTransport(request, {
+        ...TEST_LIMITS,
+        chatHistoryMaxItems: 4,
+      }),
+    ).toEqual({
+      ...request,
+      chatHistory: [
+        { role: 'user', content: 'Build a todo app' },
+        { role: 'user', content: 'Add filters' },
+        { role: 'user', content: 'Add sorting' },
+        { role: 'assistant', content: 'Added sorting.' },
+      ],
+    });
+  });
+
+  it('uses turn-aware byte compaction for the transport request', () => {
+    const request = createRequest({
+      chatHistory: [
+        { role: 'user', content: 'Build a catalog app ' + 'a'.repeat(48) },
+        { role: 'assistant', content: 'Built the initial catalog app. ' + 'b'.repeat(96) },
+        { role: 'user', content: 'Add filters ' + 'c'.repeat(48) },
+        { role: 'assistant', content: 'Added filters and preserved the layout. ' + 'd'.repeat(96) },
+      ],
+    });
+    const expectedChatHistory = [request.chatHistory[0], request.chatHistory[2]];
+    const requestMaxBytes = getApproximateBuilderRequestSizeBytes({
+      ...request,
+      chatHistory: expectedChatHistory,
+    });
+
+    expect(
+      getBuilderSanitizedLlmRequestForTransport(request, {
+        ...TEST_LIMITS,
+        requestMaxBytes,
+      }),
+    ).toEqual({
+      ...request,
+      chatHistory: expectedChatHistory,
+    });
   });
 
   it('allows requests that stay within both prompt and byte limits', () => {
