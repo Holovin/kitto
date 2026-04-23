@@ -118,7 +118,7 @@ Notes:
 - Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
 - Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
-- Collection filtering should use `@Filter(collection, field, operator, value)` with a field string and comparison operator, not predicate-style callbacks.
+- Collection filtering should use `@Filter(collection, field, operator, value)` with operators `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; use `contains` for substring search, not predicate-style callbacks or `includes`.
 - Keep ephemeral filter selection in local `$variables` such as `$filter`; switching filters should stay local and must not hit `/api/llm/*`.
 - For persisted collections of object rows, prefer `append_item` so new rows get a stable `id` automatically.
 - Plain `Checkbox(item.completed)` stays display-only; add an explicit `Action([...])` when the checkbox itself should persist a row toggle.

@@ -13,7 +13,7 @@ const VISUAL_STYLING_REQUEST_PATTERN =
   /\b(theme|theming|dark|light|color|colors|colour|colours|palette|accent|accents)\b|(?:цвет\w*|палитр\w*|акцент\w*|темн\w*|тёмн\w*|светл\w*)/i;
 const COMPUTE_REQUEST_PATTERN =
   /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b/i;
-const FILTER_REQUEST_PATTERN = /\b(filter|filters|filtered|search)\b/i;
+const FILTER_REQUEST_PATTERN = /\b(filter(?:s|ed|ing)?|search)\b/i;
 const VALIDATION_REQUEST_PATTERN = /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b/i;
 const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b/i;
 const MULTI_SCREEN_REQUEST_PATTERN =

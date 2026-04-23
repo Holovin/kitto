@@ -1152,6 +1152,7 @@ describe('createLlmOpenUiRoutes', () => {
         validationIssues: [],
         committed: true,
         commitSource: 'streaming',
+        repairOutcome: 'fixed',
       }),
     });
 
@@ -1164,8 +1165,61 @@ describe('createLlmOpenUiRoutes', () => {
         commitSource: 'streaming',
         committed: true,
         parentRequestId: 'builder-request-parent',
+        repairOutcome: 'fixed',
         requestId: expect.any(String),
         validationIssues: [],
+      }),
+    );
+  });
+
+  it('accepts a failed repair outcome in client commit telemetry', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+
+    const generationResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        chatHistory: [],
+      }),
+    });
+
+    const response = await app.request('/api/llm/commit-telemetry', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': '203.0.113.10',
+      },
+      body: JSON.stringify({
+        requestId: 'builder-request-parent',
+        validationIssues: ['reserved-last-choice-outside-action-mode'],
+        committed: false,
+        commitSource: 'streaming',
+        repairOutcome: 'failed',
+      }),
+    });
+
+    expect(generationResponse.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(writePromptIoCommitTelemetrySafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        commitSource: 'streaming',
+        committed: false,
+        parentRequestId: 'builder-request-parent',
+        repairOutcome: 'failed',
+        requestId: expect.any(String),
+        validationIssues: ['reserved-last-choice-outside-action-mode'],
       }),
     );
   });

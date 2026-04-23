@@ -110,7 +110,9 @@ const COLLECTION_RULES = [
 
 const FILTER_RULES = [
   'Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.',
-  'Use `@Filter(collection, field, operator, value)` with a field string and comparison operator; do not invent predicate-form filters or JavaScript callbacks.',
+  'Use `@Filter(collection, field, operator, value)` with a field string and one of these operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; do not invent predicate-form filters or JavaScript callbacks.',
+  'Use `contains` for simple text search such as `@Filter(items, "title", "contains", $query)`; do not invent `includes`.',
+  'Use `>`, `<`, `>=`, and `<=` for numeric values or numeric strings such as `@Filter(items, "score", ">=", 80)`.',
   'When the user asks for all, active, completed, or similar filtered views of one collection, keep one source collection and derive the visible collection with `@Filter(...)` instead of inventing a new tool.',
   'Expressions are allowed inside the source argument to `@Each(...)`, so you may pass either a named derived collection or an inline filtered expression.',
   'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',

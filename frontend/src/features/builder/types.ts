@@ -3,6 +3,7 @@ export type BuilderRequestId = string;
 export type BuilderLlmRequestMode = 'initial' | 'repair';
 export type BuilderTabId = 'preview' | 'definition' | 'app-state';
 export type BuilderCommitSource = 'fallback' | 'streaming';
+export type BuilderCommitRepairOutcome = 'failed' | 'fixed';
 type BuilderMessageRole = 'assistant' | 'system' | 'user';
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 

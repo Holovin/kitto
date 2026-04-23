@@ -53,6 +53,33 @@ root = AppShell([
       ]),
     );
   });
+
+  it('does not warn about unrequested filters when the prompt explicitly asks for filtering', () => {
+    const warnings = detectPromptAwareQualityWarnings(
+      `$filterStatus = "all"
+tasks = [
+  { title: "Design landing page", done: false },
+  { title: "Write onboarding copy", done: true }
+]
+filteredTasks = $filterStatus == "all" ? tasks : ($filterStatus == "open" ? @Filter(tasks, "done", "==", false) : @Filter(tasks, "done", "==", true))
+
+root = AppShell([
+  Screen("main", "Task dashboard", [
+    Select("status-filter", "Show", $filterStatus, [
+      { label: "All", value: "all" },
+      { label: "Open", value: "open" },
+      { label: "Done", value: "done" }
+    ]),
+    Repeater(@Each(filteredTasks, "task", Group(task.title, "vertical", [
+      Text(task.done ? "Done" : "Open", "body", "start")
+    ])), "No tasks match.")
+  ])
+])`,
+      'Create a complex app with two screens, filtering, a random number button, validation, and a dark theme.',
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-unrequested-filter')).toBeUndefined();
+  });
 });
 
 describe('detectPromptAwareQualityIssues', () => {

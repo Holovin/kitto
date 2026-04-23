@@ -323,6 +323,10 @@ Text("Visible: " + @Count(visibleItems), "muted", "start")
 Repeater(rows, "Empty state")
 ```
 
+- `@Filter(...)` supports `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`.
+- Use `contains` for substring search such as `@Filter(items, "title", "contains", $query)`, not invented `includes`.
+- Use `>`, `<`, `>=`, and `<=` for numeric values or numeric strings such as `@Filter(items, "score", ">=", 80)`.
+
 Action-mode choice recipe:
 
 ```txt
@@ -416,7 +420,7 @@ Do use:
 - parent `AppShell`, `Screen`, `Group`, and `Repeater` appearance values recolor nested controls automatically
 - avoid over-nesting block groups
 - `Repeater(...)` only for dynamic or generated collections, with rows built via `@Each(...)`
-- `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts
+- `@Filter(...)` and `@Count(...)` built-ins for derived filtered collections and counts, with `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`
 - `compute_value` only when the requested task truly needs computation beyond normal OpenUI expressions
 - `write_computed_state` only when a button should compute and persist a primitive value
 - `write_computed_state` with `op: "random_int"` for button-triggered random values

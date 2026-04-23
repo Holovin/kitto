@@ -1222,6 +1222,44 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('reports failed repair outcome when a quality repair request fails', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: QUALITY_BLOCKED_SOURCE,
+    });
+    testHarness.generateMock.mockRejectedValue({
+      code: 'timeout_error',
+      message: 'The model request timed out.',
+      status: 504,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
+      commitSource: 'streaming',
+      committed: false,
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
+      commitSource: 'streaming',
+      committed: false,
+      repairOutcome: 'failed',
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamError).toBe(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+
+    submission.unmount();
+  });
+
   it('fails immediately for fatal structural drafts without sending a repair request', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a small app.');
@@ -1305,9 +1343,30 @@ describe('useBuilderSubmission', () => {
     });
 
     await submission.result().handleSubmit(createFormEvent());
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+    const repairRequestId = (testHarness.generateMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
     expect((testHarness.generateMock.mock.calls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
+      commitSource: 'streaming',
+      committed: false,
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
+      commitSource: 'streaming',
+      committed: false,
+      repairOutcome: 'fixed',
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
+      commitSource: 'fallback',
+      committed: true,
+      requestId: repairRequestId,
+      validationIssues: [],
+    });
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
     expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
@@ -1353,6 +1412,13 @@ describe('useBuilderSubmission', () => {
       validationIssues: ['undefined-state-reference'],
     });
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
+      commitSource: 'streaming',
+      committed: false,
+      repairOutcome: 'fixed',
+      requestId: initialRequestId,
+      validationIssues: ['undefined-state-reference'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
       commitSource: 'fallback',
       committed: true,
       requestId: repairCall.requestId,
@@ -1420,11 +1486,32 @@ describe('useBuilderSubmission', () => {
     });
 
     await submission.result().handleSubmit(createFormEvent());
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+    const repairRequestId = (testHarness.generateMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
     expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
     expect(getBuilderState().streamError).toContain('reserved-last-choice-outside-action-mode');
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
+      commitSource: 'streaming',
+      committed: false,
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
+      commitSource: 'fallback',
+      committed: false,
+      requestId: repairRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
+      commitSource: 'streaming',
+      committed: false,
+      repairOutcome: 'failed',
+      requestId: initialRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: expect.stringContaining('reserved-last-choice-outside-action-mode'),

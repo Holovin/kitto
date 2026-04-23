@@ -62,6 +62,11 @@ const REPAIR_BLOCKING_QUALITY_CODES = new Set([
 
 type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
 type RepairIssueMode = 'parser' | 'quality';
+type PendingQualityRepairTelemetry = {
+  commitSource: BuilderGeneratedDraft['commitSource'];
+  requestId: BuilderRequestId;
+  validationIssues: string[];
+};
 
 const REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
 const REPAIR_NETWORK_MESSAGE = 'The builder could not reach the backend while repairing the draft. The previous valid app was kept.';
@@ -197,6 +202,7 @@ export function useValidationRepair({
     let qualityRepairCount = 0;
     let hasAnnouncedRepair = false;
     let hasCompletedRepairRequest = false;
+    let pendingQualityRepairTelemetry: PendingQualityRepairTelemetry | null = null;
 
     function buildRepairNote() {
       if (parserRepairCount > 0 && qualityRepairCount > 0) {
@@ -226,6 +232,36 @@ export function useValidationRepair({
         committed: false,
         requestId: candidateResponse.requestId,
         validationIssues,
+      });
+    }
+
+    function queueQualityRepairOutcome(issues: BuilderQualityIssue[]) {
+      if (candidateResponse.requestId.trim().length === 0) {
+        pendingQualityRepairTelemetry = null;
+        return;
+      }
+
+      pendingQualityRepairTelemetry = {
+        commitSource: candidateResponse.commitSource,
+        requestId: candidateResponse.requestId,
+        validationIssues: [...new Set(issues.map((issue) => issue.code))],
+      };
+    }
+
+    function reportQualityRepairOutcome(repairOutcome: 'failed' | 'fixed') {
+      if (!pendingQualityRepairTelemetry) {
+        return;
+      }
+
+      const telemetry = pendingQualityRepairTelemetry;
+      pendingQualityRepairTelemetry = null;
+
+      void postCommitTelemetry({
+        commitSource: telemetry.commitSource,
+        committed: false,
+        repairOutcome,
+        requestId: telemetry.requestId,
+        validationIssues: telemetry.validationIssues,
       });
     }
 
@@ -285,6 +321,10 @@ export function useValidationRepair({
         hasCompletedRepairRequest = true;
         candidateResponse = repairedResponse;
       } catch (error) {
+        if (issueMode === 'quality' && !isRepairAbortError(error)) {
+          reportQualityRepairOutcome('failed');
+        }
+
         throw wrapRepairRequestError(error);
       } finally {
         dispatch(
@@ -303,6 +343,7 @@ export function useValidationRepair({
 
         if (fatalValidationIssues.length > 0) {
           reportRejectedCandidate(fatalValidationIssues);
+          reportQualityRepairOutcome('failed');
           throw new OpenUiValidationError(createValidationFailureMessage(fatalValidationIssues, parserRepairCount + qualityRepairCount));
         }
       }
@@ -318,6 +359,7 @@ export function useValidationRepair({
 
         if (fatalQualityIssues.length > 0) {
           reportRejectedCandidate(fatalQualityIssues.map(stripQualitySeverity));
+          reportQualityRepairOutcome('failed');
           throw new OpenUiValidationError(
             createValidationFailureMessage(
               fatalQualityIssues.map(stripQualitySeverity),
@@ -329,6 +371,7 @@ export function useValidationRepair({
         if (blockingQualityIssues.length > 0) {
           if (qualityRepairCount >= 1) {
             reportRejectedCandidate(blockingQualityIssues.map(stripQualitySeverity));
+            reportQualityRepairOutcome('failed');
             throw new OpenUiValidationError(
               createValidationFailureMessage(
                 blockingQualityIssues.map(stripQualitySeverity),
@@ -338,10 +381,12 @@ export function useValidationRepair({
           }
 
           qualityRepairCount += 1;
+          queueQualityRepairOutcome(blockingQualityIssues);
           await runRepairRequest(blockingQualityIssues, qualityRepairCount, 'quality');
           continue;
         }
 
+        reportQualityRepairOutcome('fixed');
         return {
           commitSource: candidateResponse.commitSource,
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
@@ -359,6 +404,7 @@ export function useValidationRepair({
 
       if (parserRepairCount >= maxRepairAttempts) {
         reportRejectedCandidate(validation.issues);
+        reportQualityRepairOutcome('failed');
         throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
       }
 

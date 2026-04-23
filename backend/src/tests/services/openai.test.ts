@@ -364,7 +364,8 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [{ type: 'input_text', text: expect.stringContaining('<assistant_summary>') }],
+        content: expect.stringContaining('<assistant_summary>'),
+        phase: 'final_answer',
       },
       {
         role: 'user',
@@ -380,8 +381,8 @@ describe('generateOpenUiSource', () => {
         ],
       },
     ]);
-    expect(initialCall?.input?.[2]?.content?.[0]?.text).toContain('Built a one-screen todo app.');
-    expect(initialCall?.input?.[2]?.content?.[0]?.text).not.toContain('Applied the latest chat instruction');
+    expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
+    expect(initialCall?.input?.[2]?.content).not.toContain('Applied the latest chat instruction');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(2);
     expect(repairCall?.input?.[1]?.role).toBe('user');
@@ -417,7 +418,8 @@ describe('generateOpenUiSource', () => {
     });
     expect(initialCall?.input?.[2]).toEqual({
       role: 'assistant',
-      content: [{ type: 'input_text', text: expect.stringContaining('Built a one-screen todo app.') }],
+      content: expect.stringContaining('Built a one-screen todo app.'),
+      phase: 'final_answer',
     });
     expect(initialCall?.input?.[3]).toEqual({
       role: 'user',
@@ -425,7 +427,8 @@ describe('generateOpenUiSource', () => {
     });
     expect(initialCall?.input?.[4]).toEqual({
       role: 'assistant',
-      content: [{ type: 'input_text', text: expect.stringContaining('Added filters and a settings screen.') }],
+      content: expect.stringContaining('Added filters and a settings screen.'),
+      phase: 'final_answer',
     });
     expect(initialCall?.input?.[5]).toEqual({
       role: 'user',
@@ -433,7 +436,8 @@ describe('generateOpenUiSource', () => {
     });
     expect(initialCall?.input?.[6]).toEqual({
       role: 'assistant',
-      content: [{ type: 'input_text', text: expect.stringContaining('Added dark mode support.') }],
+      content: expect.stringContaining('Added dark mode support.'),
+      phase: 'final_answer',
     });
     expect(initialCall?.input?.[7]).toEqual({
       role: 'user',
@@ -472,12 +476,8 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [
-          {
-            type: 'input_text',
-            text: expect.stringContaining('A simple signup form with name, email, and a required agreement checkbox.'),
-          },
-        ],
+        content: expect.stringContaining('A simple signup form with name, email, and a required agreement checkbox.'),
+        phase: 'final_answer',
       },
       {
         role: 'user',
@@ -485,7 +485,8 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [{ type: 'input_text', text: expect.stringContaining('After submission, it now shows a confirmation screen.') }],
+        content: expect.stringContaining('After submission, it now shows a confirmation screen.'),
+        phase: 'final_answer',
       },
       {
         role: 'user',
@@ -493,7 +494,8 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [{ type: 'input_text', text: expect.stringContaining('email filter dropdown') }],
+        content: expect.stringContaining('email filter dropdown'),
+        phase: 'final_answer',
       },
       {
         role: 'user',
@@ -501,12 +503,8 @@ describe('generateOpenUiSource', () => {
       },
       {
         role: 'assistant',
-        content: [
-          {
-            type: 'input_text',
-            text: expect.stringContaining('Email validation is enabled, and the email filter control has been removed.'),
-          },
-        ],
+        content: expect.stringContaining('Email validation is enabled, and the email filter control has been removed.'),
+        phase: 'final_answer',
       },
     ]);
     expect(initialCall?.input?.at(-1)).toEqual({

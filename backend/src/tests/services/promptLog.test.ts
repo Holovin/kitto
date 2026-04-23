@@ -327,6 +327,7 @@ describe('promptLog.write', () => {
         validationIssues: [],
         committed: true,
         commitSource: 'streaming',
+        repairOutcome: 'fixed',
       },
       {
         enabled: true,
@@ -341,6 +342,7 @@ describe('promptLog.write', () => {
       committed: boolean;
       parentRequestId: string;
       phase: string;
+      repairOutcome: string;
       validationIssues: string[];
     };
 
@@ -348,6 +350,7 @@ describe('promptLog.write', () => {
     expect(entry.parentRequestId).toBe('request-parent');
     expect(entry.committed).toBe(true);
     expect(entry.commitSource).toBe('streaming');
+    expect(entry.repairOutcome).toBe('fixed');
     expect(entry.validationIssues).toEqual([]);
   });
 });

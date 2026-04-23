@@ -365,7 +365,11 @@ describe('openui prompts', () => {
 
     expect(prompt).toContain('Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.');
     expect(prompt).toContain('Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.');
-    expect(prompt).toContain('Use `@Filter(collection, field, operator, value)` with a field string and comparison operator; do not invent predicate-form filters or JavaScript callbacks.');
+    expect(prompt).toContain(
+      'Use `@Filter(collection, field, operator, value)` with a field string and one of these operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; do not invent predicate-form filters or JavaScript callbacks.',
+    );
+    expect(prompt).toContain('Use `contains` for simple text search such as `@Filter(items, "title", "contains", $query)`; do not invent `includes`.');
+    expect(prompt).toContain('Use `>`, `<`, `>=`, and `<=` for numeric values or numeric strings such as `@Filter(items, "score", ">=", 80)`.');
     expect(prompt).toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(prompt).toContain('visibleCount = @Count(visibleItems)');
     expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');

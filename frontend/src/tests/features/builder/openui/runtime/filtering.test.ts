@@ -24,4 +24,36 @@ root = AppShell([
     expect(html).not.toMatch(/>B</);
     expect(html).not.toContain('No items');
   });
+
+  it('supports numeric comparison operators such as >=', () => {
+    const html = renderOpenUi(`items = [
+  { label: "A", score: 75 },
+  { label: "B", score: 90 }
+]
+visibleItems = @Filter(items, "score", ">=", 80)
+rows = @Each(visibleItems, "item", Text(item.label, "body", "start"))
+root = AppShell([
+  Screen("main", "Items", [Repeater(rows, "No items")])
+])`);
+
+    expect(html).not.toMatch(/>A</);
+    expect(html).toMatch(/>B</);
+    expect(html).not.toContain('No items');
+  });
+
+  it('supports substring filtering via the contains operator', () => {
+    const html = renderOpenUi(`items = [
+  { label: "Ship docs" },
+  { label: "Write tests" }
+]
+visibleItems = @Filter(items, "label", "contains", "Ship")
+rows = @Each(visibleItems, "item", Text(item.label, "body", "start"))
+root = AppShell([
+  Screen("main", "Items", [Repeater(rows, "No items")])
+])`);
+
+    expect(html).toMatch(/>Ship docs</);
+    expect(html).not.toMatch(/>Write tests</);
+    expect(html).not.toContain('No items');
+  });
 });

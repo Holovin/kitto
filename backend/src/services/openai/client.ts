@@ -82,6 +82,14 @@ export function getClient(env: AppEnv) {
 }
 
 function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: string): ResponseInput[number] {
+  if (role === 'assistant') {
+    return {
+      role,
+      content: text,
+      phase: 'final_answer',
+    };
+  }
+
   return {
     role,
     content: [

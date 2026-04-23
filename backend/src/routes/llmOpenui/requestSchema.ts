@@ -43,6 +43,7 @@ export interface PreparedLlmInvocation {
 export interface ParsedCommitTelemetryRequest {
   commitSource: 'fallback' | 'streaming';
   committed: boolean;
+  repairOutcome?: 'failed' | 'fixed';
   requestId: string;
   validationIssues: string[];
 }
@@ -71,6 +72,7 @@ const commitTelemetrySchema = z.object({
   validationIssues: z.array(z.string().trim().min(1).max(200)).max(MAX_REPAIR_VALIDATION_ISSUES).default([]),
   committed: z.boolean(),
   commitSource: z.enum(['streaming', 'fallback']),
+  repairOutcome: z.enum(['failed', 'fixed']).optional(),
 });
 
 function createLlmRequestSchema(env: AppEnv) {

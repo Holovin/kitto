@@ -2,7 +2,7 @@ import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import { toPublicErrorPayload } from '../../errors/publicError.js';
 import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '../../prompts/openui.js';
-import { promptLog, type PromptIoCommitSource, type PromptIoLogMode } from '../promptLog.js';
+import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
 import { getResponseInputShape, getSystemPromptHash } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
@@ -382,6 +382,7 @@ export async function writePromptIoCommitTelemetrySafely(
     commitSource: PromptIoCommitSource;
     committed: boolean;
     parentRequestId: string | null;
+    repairOutcome?: PromptIoRepairOutcome;
     requestId: string | null;
     validationIssues?: string[];
   },
@@ -398,6 +399,7 @@ export async function writePromptIoCommitTelemetrySafely(
         validationIssues: getSanitizedValidationIssues(options.validationIssues),
         committed: options.committed,
         commitSource: options.commitSource,
+        repairOutcome: options.repairOutcome,
       },
       {
         enabled: env.PROMPT_IO_LOG,

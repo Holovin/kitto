@@ -62,6 +62,7 @@ export function createLlmOpenUiTelemetry(env: AppEnv): LlmOpenUiTelemetry {
         commitSource: request.commitSource,
         committed: request.committed,
         parentRequestId: request.requestId,
+        repairOutcome: request.repairOutcome,
         requestId: createRequestId(),
         validationIssues: request.validationIssues,
       });

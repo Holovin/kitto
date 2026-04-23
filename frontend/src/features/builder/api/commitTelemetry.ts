@@ -1,9 +1,10 @@
-import type { BuilderCommitSource, BuilderRequestId } from '@features/builder/types';
+import type { BuilderCommitRepairOutcome, BuilderCommitSource, BuilderRequestId } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 
 interface PostCommitTelemetryOptions {
   commitSource: BuilderCommitSource;
   committed: boolean;
+  repairOutcome?: BuilderCommitRepairOutcome;
   requestId: BuilderRequestId;
   validationIssues: string[];
 }
@@ -11,6 +12,7 @@ interface PostCommitTelemetryOptions {
 export async function postCommitTelemetry({
   commitSource,
   committed,
+  repairOutcome,
   requestId,
   validationIssues,
 }: PostCommitTelemetryOptions) {
@@ -24,6 +26,7 @@ export async function postCommitTelemetry({
       body: JSON.stringify({
         commitSource,
         committed,
+        ...(repairOutcome ? { repairOutcome } : {}),
         requestId,
         validationIssues,
       }),
