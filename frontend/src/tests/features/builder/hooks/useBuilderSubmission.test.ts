@@ -1243,25 +1243,23 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('commits a locally auto-fixed draft without sending a repair request and logs the local fix', async () => {
+  it('repairs a parser-invalid draft through the backend repair path before commit', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
-    const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
     testHarness.streamMock.mockResolvedValue({
       source: AUTO_FIXABLE_SOURCE,
+    });
+    testHarness.generateMock.mockResolvedValue({
+      source: AUTO_FIXED_SOURCE,
     });
 
     await submission.result().handleSubmit(createFormEvent());
 
     expect(testHarness.streamMock).toHaveBeenCalledTimes(1);
-    expect(testHarness.generateMock).not.toHaveBeenCalled();
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
     expect(getBuilderState().committedSource).toBe(AUTO_FIXED_SOURCE);
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeUndefined();
-    expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('auto-fixed locally'));
-
-    consoleInfoSpy.mockRestore();
     submission.unmount();
   });
 

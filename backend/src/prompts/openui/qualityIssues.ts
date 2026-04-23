@@ -1,7 +1,6 @@
 import { collectQualityMetrics } from './quality/astWalk.js';
 import { detectRandomResultVisibilityIssues } from './quality/detectors/randomResultVisibility.js';
 import { detectThemeAppearanceIssues } from './quality/detectors/themeAppearance.js';
-import { applyOpenUiAutoFixSuggestions } from './quality/suggestions.js';
 import {
   createOpenUiQualityIssue,
   maskStringLiterals,
@@ -27,8 +26,6 @@ import {
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
 
-export type { OpenUiQualityIssue, OpenUiQualityIssueSeverity } from './quality/shared.js';
-
 export function detectPromptAwareQualityIssues(source: string, userPrompt: string): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
   const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
@@ -37,18 +34,17 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
     return [];
   }
 
-  const preparedSource = applyOpenUiAutoFixSuggestions(trimmedSource);
-  const result = parser.parse(preparedSource);
+  const result = parser.parse(trimmedSource);
 
   if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root || trimmedPrompt.length === 0) {
     return [];
   }
 
   const issues: OpenUiQualityIssue[] = [];
-  const maskedSource = maskStringLiterals(preparedSource);
+  const maskedSource = maskStringLiterals(trimmedSource);
   const metrics = collectQualityMetrics(result.root);
 
-  issues.push(...detectChoiceOptionsShapeIssues(preparedSource));
+  issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
 
   if (isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(
@@ -128,7 +124,7 @@ export function detectPromptAwareQualityIssues(source: string, userPrompt: strin
 
   if (promptRequestsThemeState(trimmedPrompt)) {
     issues.push(
-      ...detectThemeAppearanceIssues(preparedSource, result).map((issue) => ({
+      ...detectThemeAppearanceIssues(trimmedSource, result).map((issue) => ({
         ...issue,
         severity: 'blocking-quality' as const,
         source: 'quality' as const,

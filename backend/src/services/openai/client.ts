@@ -19,24 +19,21 @@ type OpenAiClientFactory = (env: AppEnv) => OpenAiClient;
 let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenAiClientFactory | null } | null = null;
 let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
-function getSystemPrompt(structuredOutput: boolean, prompt?: string) {
+function getSystemPrompt(prompt?: string) {
   return buildOpenUiSystemPrompt({
     prompt,
-    structuredOutput,
   });
 }
 
-function getSystemPromptCacheKey(structuredOutput: boolean, prompt?: string) {
+function getSystemPromptCacheKey(prompt?: string) {
   return getOpenUiSystemPromptCacheKey({
     prompt,
-    structuredOutput,
   });
 }
 
-export function getSystemPromptHash(structuredOutput: boolean, prompt?: string) {
+export function getSystemPromptHash(prompt?: string) {
   return getOpenUiSystemPromptHash({
     prompt,
-    structuredOutput,
   });
 }
 
@@ -97,8 +94,7 @@ function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: str
 }
 
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
-  const structuredOutput = env.LLM_STRUCTURED_OUTPUT;
-  const systemMessage = createTextInputMessage('system', getSystemPrompt(structuredOutput, request.prompt));
+  const systemMessage = createTextInputMessage('system', getSystemPrompt(request.prompt));
 
   if (request.mode === 'repair') {
     return [
@@ -109,7 +105,6 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
           chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
           maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
           promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
-          structuredOutput,
         }),
       ),
     ];
@@ -130,28 +125,18 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
         chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
         maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
         promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
-        structuredOutput,
       }),
     ),
   ];
 }
 
 export function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
-  const structuredOutput = env.LLM_STRUCTURED_OUTPUT;
-  const baseRequest = {
+  return {
     model: env.OPENAI_MODEL,
     input: buildResponseInput(env, request),
     max_output_tokens: getOpenUiMaxOutputTokens(env),
-    prompt_cache_key: getSystemPromptCacheKey(structuredOutput, request.prompt),
+    prompt_cache_key: getSystemPromptCacheKey(request.prompt),
     temperature: getOpenUiTemperature(request.mode),
-  };
-
-  if (!structuredOutput) {
-    return baseRequest;
-  }
-
-  return {
-    ...baseRequest,
     text: {
       format: openUiEnvelopeFormat,
     },

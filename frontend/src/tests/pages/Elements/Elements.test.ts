@@ -20,7 +20,6 @@ const promptsInfoState = vi.hoisted(() => ({
       outputMaxBytes: 100_000,
       repairTemperature: 0.2,
       requestMaxBytes: 300_000,
-      structuredOutput: true,
       temperature: 0.6,
     },
     envelopeSchema: {

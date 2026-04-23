@@ -26,7 +26,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 6. While a generation is streaming, Chat should surface one human-readable pending assistant summary, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
 7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 8. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
-9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, watch `Console` for a local `auto-fixed locally` log and confirm no repair LLM request is sent.
+9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
 
 ## MCP automation notes
 
@@ -56,7 +56,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and must not use generic phrases like `Updated the app`.
-- The `Repair prompt` section carries the same structured-summary quality guidance when structured output is enabled.
+- The `Repair prompt` section carries the same structured-summary quality guidance and always instructs the model to return the corrected program in `source`.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` keeps the runtime-config badge visible.
@@ -329,7 +329,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 
 - If the first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
 - Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that one-repair path instead of failing immediately on the first draft.
-- Trivial parser issues with local `suggestion` patches may be fixed in the browser before repair; in that case no repair request should run.
+- Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat shows one repair-start notice plus one pending repair-status message while waiting, and that pending status disappears after success or failure.
 - If repair succeeds, the final app is valid and usable.
 - If repair fails, the previous Preview remains visible and `Repeat` stays available.

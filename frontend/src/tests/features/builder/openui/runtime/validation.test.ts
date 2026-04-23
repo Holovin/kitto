@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyOpenUiIssueSuggestions,
   detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
@@ -430,35 +429,6 @@ root = AppShell([
     expect(result.issues.length).toBeGreaterThan(0);
   });
 
-  it('adds a local auto-fix suggestion for misordered Group direction and children arguments', () => {
-    const result = validateOpenUiSource(`root = AppShell([
-  Screen("main", "Main", [
-    Group("Filters", [
-      Text("Pending", "body", "start")
-    ], "block")
-  ])
-])`);
-
-    expect(result.isValid).toBe(false);
-    expect(result.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'invalid-args',
-          message: expect.stringContaining('Group'),
-          suggestion: {
-            kind: 'replace-text',
-            from: `Group("Filters", [
-      Text("Pending", "body", "start")
-    ], "block")`,
-            to: `Group("Filters", "vertical", [
-      Text("Pending", "body", "start")
-    ], "block")`,
-          },
-        }),
-      ]),
-    );
-  });
-
   it('rejects invalid Input types', () => {
     const result = validateOpenUiSource(`$site = ""
 root = AppShell([
@@ -624,28 +594,6 @@ root = AppShell([
     );
   });
 
-  it('adds a local auto-fix suggestion for legacy appearance keys', () => {
-    const result = validateOpenUiSource(`root = AppShell([
-  Screen("main", "Main", [
-    Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
-  ])
-])`);
-
-    expect(result.isValid).toBe(false);
-    expect(result.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'invalid-prop',
-          suggestion: {
-            kind: 'replace-text',
-            from: `Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })`,
-            to: `Button("save", "Save", "default", Action([]), false, { contrastColor: "#FFFFFF", mainColor: "#111827" })`,
-          },
-        }),
-      ]),
-    );
-  });
-
   it('rejects unknown appearance keys', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
@@ -717,46 +665,6 @@ ${validSource}`);
     );
   });
 
-  it('adds a local auto-fix suggestion for a Screen missing the required children array', () => {
-    const result = validateOpenUiSource(`root = AppShell([
-  Screen("main", "Main")
-])`);
-
-    expect(result.isValid).toBe(false);
-    expect(result.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'invalid-args',
-          suggestion: {
-            kind: 'replace-text',
-            from: 'Screen("main", "Main")',
-            to: 'Screen("main", "Main", [])',
-          },
-        }),
-      ]),
-    );
-  });
-
-  it('can apply all local suggestion patches and make a trivial invalid draft valid again', () => {
-    const invalidSource = `root = AppShell({ mainColor: "#FFFFFF", contrastColor: "#111827" }, [
-  Screen("main", "Main", [
-    Group("Filters", [
-      Button("save", "Save", "default", Action([]), false, { textColor: "#FFFFFF", bgColor: "#111827" })
-    ], "block")
-  ]),
-  Screen("settings", "Settings")
-])`;
-    const validation = validateOpenUiSource(invalidSource);
-    const autoFixResult = applyOpenUiIssueSuggestions(invalidSource, validation.issues);
-    const fixedValidation = validateOpenUiSource(autoFixResult.source);
-
-    expect(validation.isValid).toBe(false);
-    expect(autoFixResult.appliedIssues.length).toBeGreaterThanOrEqual(4);
-    expect(fixedValidation).toEqual({
-      isValid: true,
-      issues: [],
-    });
-  });
 });
 
 describe('detectLocalRuntimeQualityIssues', () => {

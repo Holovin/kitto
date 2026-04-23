@@ -63,13 +63,9 @@ const REPAIR_STATE_CRITICAL_RULES = [
   'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
 ] as const;
 
-function buildRepairPromptCriticalRules(structuredOutput: boolean) {
-  const repairOutputRules = structuredOutput
-    ? [`Place the full corrected OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`]
-    : ['Return only raw OpenUI Lang.', 'Return the full updated program.'];
-
+function buildRepairPromptCriticalRules() {
   return [
-    ...repairOutputRules,
+    `Place the full corrected OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`,
     ...REPAIR_CORE_CRITICAL_RULES,
     ...REPAIR_LAYOUT_CRITICAL_RULES,
     ...REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES,
@@ -78,7 +74,7 @@ function buildRepairPromptCriticalRules(structuredOutput: boolean) {
   ] as const;
 }
 
-export const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules(true);
+const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules();
 
 const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
   'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
@@ -672,13 +668,11 @@ interface BuildOpenUiRepairPromptArgs {
   issues: PromptBuildValidationIssue[];
   maxRepairAttempts: number;
   promptMaxChars: number;
-  structuredOutput?: boolean;
   userPrompt: string;
 }
 
 export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
-  const structuredOutput = args.structuredOutput ?? true;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
@@ -688,7 +682,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const rulesSection = buildRepairPromptCriticalRules(structuredOutput)
+  const rulesSection = buildRepairPromptCriticalRules()
     .map((rule) => `- ${rule}`)
     .join('\n');
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
@@ -748,8 +742,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   );
 }
 
-export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number, options: { structuredOutput?: boolean } = {}) {
-  const structuredOutput = options.structuredOutput ?? true;
+export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
   const parserExampleIssues: PromptBuildValidationIssue[] = [
     {
       code: 'invalid-prop',
@@ -777,7 +770,6 @@ export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number, optio
       issues,
       maxRepairAttempts,
       promptMaxChars: REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
-      structuredOutput,
       userPrompt: '{{userPrompt}}',
     })].join('\n\n');
 

@@ -15,14 +15,9 @@ import {
   createParserIssue,
   normalizeSourceForValidation,
   parser,
-  stripQualityIssueSeverity,
   type OpenUiQualityIssue,
   type OpenUiValidationResult,
 } from './shared';
-import { appendAutoFixSuggestionIssues, applyOpenUiIssueSuggestions } from './suggestions';
-
-export { applyOpenUiIssueSuggestions };
-export type { OpenUiQualityIssue, OpenUiQualityIssueSeverity, OpenUiValidationResult } from './shared';
 
 export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIssue[] {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
@@ -70,12 +65,6 @@ export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIs
   return issues;
 }
 
-export function detectLocalRuntimeQualityWarnings(source: string) {
-  return detectLocalRuntimeQualityIssues(source)
-    .filter((issue) => issue.severity === 'soft-warning')
-    .map(stripQualityIssueSeverity);
-}
-
 export function validateOpenUiSource(source: string): OpenUiValidationResult {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
 
@@ -109,10 +98,9 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
     ...detectStructuralInvariantIssues(trimmedSource, result),
     ...detectInlineToolCallIssues(result),
   ];
-  const issuesWithSuggestions = appendAutoFixSuggestionIssues(trimmedSource, issues);
 
   return {
-    isValid: issuesWithSuggestions.length === 0,
-    issues: issuesWithSuggestions,
+    isValid: issues.length === 0,
+    issues,
   };
 }

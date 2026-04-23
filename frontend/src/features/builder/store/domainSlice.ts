@@ -48,8 +48,8 @@ export function validateRestoredDomainResult(value: unknown): RestoredDomainVali
     };
   }
 
-  const candidateData = 'data' in value ? value.data : value;
-  const label = 'data' in value ? 'domain.data' : 'domain';
+  const candidateData = value.data;
+  const label = 'domain.data';
 
   if (!isPlainObject(candidateData)) {
     return {

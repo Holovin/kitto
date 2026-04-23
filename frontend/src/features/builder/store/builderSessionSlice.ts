@@ -60,50 +60,6 @@ export function validateRestoredBuilderSessionResult(value: unknown): RestoredBu
     };
   }
 
-  if (isPlainObject(value.runtimeState)) {
-    const runtimeFailure = validatePersistedStateTree(value.runtimeState, {
-      label: 'builderSession.runtimeState',
-    });
-
-    if (runtimeFailure) {
-      return {
-        reason: runtimeFailure,
-        state: null,
-      };
-    }
-
-    if (value.formState !== undefined && !isPlainObject(value.formState)) {
-      return {
-        reason: 'builderSession.formState must be a plain object when present.',
-        state: null,
-      };
-    }
-
-    if (isPlainObject(value.formState)) {
-      const formFailure = validatePersistedStateTree(value.formState, {
-        label: 'builderSession.formState',
-      });
-
-      if (formFailure) {
-        return {
-          reason: formFailure,
-          state: null,
-        };
-      }
-    }
-
-    const runtimeSessionState = cloneJsonCompatibleValue(value.runtimeState) as Record<string, unknown>;
-
-    if (isPlainObject(value.formState)) {
-      runtimeSessionState.formState = cloneJsonCompatibleValue(value.formState) as Record<string, unknown>;
-    }
-
-    return {
-      reason: null,
-      state: createBuilderSessionState(runtimeSessionState),
-    };
-  }
-
   return {
     reason: 'builderSession must include a plain-object runtimeSessionState.',
     state: null,

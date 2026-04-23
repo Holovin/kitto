@@ -57,7 +57,7 @@ function buildRandomPrompt() {
 }
 
 function buildComputePrompt() {
-  return buildOpenUiSystemPrompt({ prompt: 'Create a deadline checker that compares dates' });
+  return buildOpenUiSystemPrompt({ prompt: 'Compare dates in a deadline checker' });
 }
 
 describe('openui prompts', () => {
@@ -65,13 +65,10 @@ describe('openui prompts', () => {
     expect(fs.existsSync(componentSpecPath)).toBe(true);
   });
 
-  it('uses a shorter structured-output prompt by default and keeps raw-only boilerplate only for plain-text fallback', () => {
-    const structuredPrompt = buildOpenUiSystemPrompt();
-    const plainTextPrompt = buildOpenUiSystemPrompt({ structuredOutput: false });
+  it('keeps the system prompt focused on the single structured-output contract', () => {
+    const prompt = buildOpenUiSystemPrompt();
 
-    expect(structuredPrompt).not.toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
-    expect(plainTextPrompt).toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
-    expect(structuredPrompt.length).toBeLessThan(plainTextPrompt.length);
+    expect(prompt).not.toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
   });
 
   it('keeps the structured system prompt snapshot stable', () => {
@@ -82,30 +79,19 @@ describe('openui prompts', () => {
     expect(buildOpenUiSystemPrompt().length).toBeLessThan(49_000);
   });
 
-  it('builds stable system prompt cache keys per prompt variant', () => {
-    const structuredKey = getOpenUiSystemPromptCacheKey();
-    const plainTextKey = getOpenUiSystemPromptCacheKey({ structuredOutput: false });
+  it('builds stable system prompt cache keys for the active intent vector', () => {
+    const baseKey = getOpenUiSystemPromptCacheKey();
 
-    expect(getOpenUiSystemPromptCacheKey()).toBe(structuredKey);
-    expect(getOpenUiSystemPromptCacheKey({ structuredOutput: false })).toBe(plainTextKey);
-    expect(structuredKey).toMatch(/^kitto:openui:st:[a-f0-9]{12}:[a-f0-9]{16}$/);
-    expect(plainTextKey).toMatch(/^kitto:openui:pl:[a-f0-9]{12}:[a-f0-9]{16}$/);
-    expect(structuredKey.length).toBeLessThanOrEqual(64);
-    expect(plainTextKey.length).toBeLessThanOrEqual(64);
-    expect(structuredKey).not.toBe(plainTextKey);
-    expect({ plainTextKey, structuredKey }).toMatchInlineSnapshot(`
-      {
-        "plainTextKey": "kitto:openui:pl:f22bd520f637:1bc6263dd0379214",
-        "structuredKey": "kitto:openui:st:f22bd520f637:b1e9eae2d7141eaf",
-      }
-    `);
+    expect(getOpenUiSystemPromptCacheKey()).toBe(baseKey);
+    expect(baseKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(baseKey.length).toBeLessThanOrEqual(64);
   });
 
   it('scopes runtime system prompts to the active request intent instead of always sending every rule section and example', () => {
-    const fullPrompt = buildOpenUiSystemPrompt();
-    const todoPrompt = buildOpenUiSystemPrompt({ prompt: 'Create a todo list' });
+    const basePrompt = buildBasePrompt();
+    const todoPrompt = buildTodoPrompt();
 
-    expect(todoPrompt.length).toBeLessThan(fullPrompt.length);
+    expect(todoPrompt.length).toBeGreaterThan(basePrompt.length);
     expect(todoPrompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(todoPrompt).toContain(
       'Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")',
@@ -125,14 +111,14 @@ describe('openui prompts', () => {
     const themeKey = getOpenUiSystemPromptCacheKey({ prompt: 'Create a dark mode form' });
 
     expect(todoKey).toBe(todoAliasKey);
-    expect(todoKey).toMatch(/^kitto:openui:st:t:[a-f0-9]{12}:[a-f0-9]{16}$/);
-    expect(themeKey).toMatch(/^kitto:openui:st:th:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(todoKey).toMatch(/^kitto:openui:t:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(themeKey).toMatch(/^kitto:openui:th:[a-f0-9]{12}:[a-f0-9]{16}$/);
     expect(themeKey).not.toBe(todoKey);
     expect(themeKey.length).toBeLessThanOrEqual(64);
   });
 
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildMultiScreenPrompt();
 
     expect(prompt).toContain('AppShell(children?: any[], appearance?: {');
     expect(prompt).toContain('Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {');
@@ -142,7 +128,7 @@ describe('openui prompts', () => {
   });
 
   it('keeps the committed Group signature and variant guidance aligned', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildThemePrompt();
     const groupSpec = componentSpec.components.Group;
 
     expect(groupSpec).toBeDefined();
@@ -167,7 +153,7 @@ describe('openui prompts', () => {
   });
 
   it('guides safe visual appearance overrides through strict hex props only', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildThemePrompt();
 
     expect(prompt).toContain('APPEARANCE / THEME CONTRACT:');
     expect(prompt).toContain(
@@ -212,12 +198,9 @@ describe('openui prompts', () => {
   });
 
   it('biases simple requests toward minimal apps before advanced recipes', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildBasePrompt();
     const expenseIndex = prompt.indexOf('$selectedExpenseId = ""');
-    const themeIndex = prompt.indexOf('$currentTheme = "light"');
-    const filterIndex = prompt.indexOf('savedFilter = Query("read_state", { path: "ui.filter" }, "all")');
-    const validationIndex = prompt.indexOf('$email = ""');
-    const computeIndex = prompt.indexOf('roll = Mutation("write_computed_state", {');
+    const stateMutationIndex = prompt.indexOf('saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })');
 
     expect(prompt).toContain('SIMPLE APP RULE:');
     expect(prompt).toContain('Prefer the smallest working app that satisfies the latest user request.');
@@ -237,16 +220,16 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
     );
-    expect(prompt).toContain(
-      'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
-    );
-    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
-    expect(prompt).toContain(
-      'Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.',
-    );
     expect(prompt).toContain('Use only documented shallow objects:');
     expect(prompt).toContain('Do not invent any other nested config objects.');
     expect(prompt).not.toContain('Avoid deeply nested configuration objects');
+    expect(prompt).not.toContain('$currentTheme = "light"');
+    expect(prompt).not.toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(prompt).not.toContain('Input supports these HTML types only:');
+    expect(prompt).not.toContain('$email = ""');
+    expect(prompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(prompt).not.toContain('roll = Mutation("write_computed_state", {');
+    expect(prompt).not.toContain('$currentScreen = "question"');
 
     expect(prompt).toContain('expenseRows = @Each(expenses, "expense", Group(null, "horizontal", [');
     expect(prompt).toContain('Text(expense.title, "body", "start")');
@@ -254,53 +237,18 @@ describe('openui prompts', () => {
       'Button("edit-" + expense.id, "Edit", "secondary", Action([@Set($selectedExpenseId, expense.id), @Set($editTitle, expense.title)]), false)',
     );
     expect(prompt).not.toContain('TODO / TASK LIST RECIPE:');
-    expect(prompt).not.toContain('Repeater(rows, "No tasks yet.")');
-    expect(prompt).toContain(
-      'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
-    );
-    expect(prompt).toContain(
-      'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
-    );
-    expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
-    expect(prompt).toContain(
+    expect(prompt).not.toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(prompt).not.toContain(
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
-    );
-    expect(prompt).toContain(
-      'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
-    );
-    expect(prompt).toContain(
-      'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
-    );
-    expect(prompt).toContain(
-      'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
-    );
-    expect(prompt).toContain(
-      'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
-    );
-    expect(prompt).toContain('Collection-item relay recipe: `$targetItemId = ""`');
-    expect(prompt).toContain(
-      'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
-    );
-    expect(prompt).toContain(
-      'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
-    );
-    expect(prompt).toContain(
-      'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`',
     );
 
     expect(expenseIndex).toBeGreaterThan(-1);
-    expect(themeIndex).toBeGreaterThan(-1);
-    expect(filterIndex).toBeGreaterThan(-1);
-    expect(validationIndex).toBeGreaterThan(-1);
-    expect(computeIndex).toBeGreaterThan(-1);
-    expect(expenseIndex).toBeLessThan(themeIndex);
-    expect(themeIndex).toBeLessThan(filterIndex);
-    expect(filterIndex).toBeLessThan(validationIndex);
-    expect(validationIndex).toBeLessThan(computeIndex);
+    expect(stateMutationIndex).toBeGreaterThan(-1);
+    expect(expenseIndex).toBeLessThan(stateMutationIndex);
   });
 
   it('documents typed inputs and declarative validation rules in the component spec and system prompt', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildValidationPrompt();
     const inputSpec = componentSpec.components.Input;
     const textAreaSpec = componentSpec.components.TextArea;
     const checkboxSpec = componentSpec.components.Checkbox;
@@ -346,9 +294,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain(
       'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
     );
-    expect(prompt).toContain(
-      'RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.',
-    );
+    expect(prompt).toContain('RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.');
     expect(prompt).toContain(
       'Use `Checkbox(..., validation)` with a `required` rule for agreement, consent, confirmation, or acknowledgement fields.',
     );
@@ -359,56 +305,42 @@ describe('openui prompts', () => {
     expect(prompt).not.toContain('Use `Input` type `"url"` for website fields.');
     expect(prompt).not.toContain('Use `Input` type `"tel"` for phone numbers.');
     expect(prompt).not.toContain('For URL inputs, use only `required` and `url`.');
-    expect(prompt).toContain(
-      'Input("dueDate", "Due date", $dueDate, "", "Pick a due date", "date", [{ type: "required", message: "Choose a due date" }])',
-    );
     expect(prompt).toContain('Input("email", "Email", $email, "ada@example.com", "Enter email", "email", [');
     expect(prompt).toContain('Select("priority", "Priority", $priority, priorityOptions, null, [{ type: "required", message: "Choose a priority" }])');
-    expect(prompt).toContain('value: $lastChoice');
-    expect(prompt).toContain('{ label: "Email", value: "email" }');
+    expect(prompt).toContain('{ label: "High", value: "high" }');
   });
 
   it('guides Repeater toward dynamic collections built from @Each and state-driven data', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const basePrompt = buildBasePrompt();
+    const filteringPrompt = buildFilteringPrompt();
+    const multiScreenPrompt = buildMultiScreenPrompt();
 
-    expect(prompt).toContain('Use Repeater only for dynamic or generated collections.');
-    expect(prompt).toContain('Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.');
-    expect(prompt).toContain('Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.');
-    expect(prompt).toContain('items = Query("read_state", { path: "app.items" }, [])');
-    expect(prompt).toContain('savedCards = Query("read_state", { path: "app.savedCards" }, [])');
-    expect(prompt).toContain('selectedAnswers = [');
-    expect(prompt).toContain('itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [');
-    expect(prompt).toContain('cardRows = @Each(savedCards, "card", Group(null, "vertical", [');
+    expect(basePrompt).toContain('Use Repeater only for dynamic or generated collections.');
+    expect(basePrompt).toContain('Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.');
+    expect(basePrompt).toContain('Do not hardcode answer rows, card rows, or summary lines when the list should reflect dynamic data.');
+    expect(filteringPrompt).toContain('items = Query("read_state", { path: "app.items" }, [])');
+    expect(filteringPrompt).toContain('itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [');
+    expect(multiScreenPrompt).toContain('selectedAnswers = [');
   });
 
   it('keeps todo-specific recipes out of the global system prompt', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const basePrompt = buildBasePrompt();
+    const todoPrompt = buildTodoPrompt();
 
-    expect(prompt).not.toContain('TODO / TASK LIST RECIPE:');
-    expect(prompt).not.toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
-    expect(prompt).not.toContain('WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
-    expect(prompt).not.toContain('OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
-    expect(prompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
-    expect(prompt).not.toContain('Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.');
-    expect(prompt).not.toContain('For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.');
-    expect(prompt).toContain(
-      'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
-    );
-    expect(prompt).toContain(
-      'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
-    );
-    expect(prompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
-    expect(prompt).toContain(
+    expect(basePrompt).not.toContain('TODO / TASK LIST RECIPE:');
+    expect(basePrompt).not.toContain('For requests such as "todo", "task list", "to-do", or "список задач", the minimum app must include:');
+    expect(basePrompt).not.toContain('WRONG: Checkbox("toggle-" + item.id, "", $checked, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
+    expect(basePrompt).not.toContain('OK: Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))');
+    expect(basePrompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
+    expect(basePrompt).not.toContain('Do not return a title-only, explanatory, or placeholder-only screen for a todo/task list request. Build the actual interactive todo UI.');
+    expect(basePrompt).not.toContain('For a simple todo app, do not add theme toggles, filters, due dates, compute tools, or other extra fields unless the user asks for them.');
+    expect(basePrompt).not.toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(basePrompt).not.toContain(
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
     );
-    expect(prompt).toContain(
-      'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
-    );
-    expect(prompt).toContain(
-      'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
-    );
-    expect(prompt).toContain(
-      'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
+    expect(todoPrompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(todoPrompt).toContain(
+      'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
     );
   });
 
@@ -429,7 +361,7 @@ describe('openui prompts', () => {
   });
 
   it('guides filtered collection views toward built-in functions instead of invented tools', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const prompt = buildFilteringPrompt();
 
     expect(prompt).toContain('Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.');
     expect(prompt).toContain('Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.');
@@ -448,41 +380,42 @@ describe('openui prompts', () => {
   });
 
   it('documents the safe compute tools with built-ins-first guidance', () => {
-    const prompt = buildOpenUiSystemPrompt();
+    const computePrompt = buildComputePrompt();
+    const randomPrompt = buildRandomPrompt();
 
-    expect(prompt).toContain('Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.');
-    expect(prompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
-    expect(prompt).toContain('Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.');
-    expect(prompt).toContain(
+    expect(computePrompt).toContain('Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.');
+    expect(computePrompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
+    expect(computePrompt).toContain('Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.');
+    expect(computePrompt).toContain(
       'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
     );
-    expect(prompt).toContain('Both compute tools return `{ value }`.');
-    expect(prompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
-    expect(prompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
-    expect(prompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
-    expect(prompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
-    expect(prompt).toContain('4. `Text(...)` reads `rollValue`, not the Mutation ref.');
-    expect(prompt).toContain(
+    expect(computePrompt).toContain('Both compute tools return `{ value }`.');
+    expect(computePrompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(computePrompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
+    expect(computePrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
+    expect(computePrompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
+    expect(computePrompt).toContain('4. `Text(...)` reads `rollValue`, not the Mutation ref.');
+    expect(computePrompt).toContain(
       'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
     );
-    expect(prompt).toContain(
+    expect(computePrompt).toContain(
       'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`; display the persisted primitive, not a Mutation ref or `mutationRef.data.value`.',
     );
-    expect(prompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.');
-    expect(prompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
-    expect(prompt).toContain(
+    expect(computePrompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.');
+    expect(computePrompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
+    expect(computePrompt).toContain(
       'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',
     );
-    expect(prompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
-    expect(prompt).toContain('Random example: `Action([@Run(roll), @Run(rollValue)])`.');
-    expect(prompt).toContain('Toggle example: `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.');
-    expect(prompt).toContain('Remove example: `Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)])`.');
-    expect(prompt).toContain('Update example: `Action([@Set($targetItemId, item.id), @Run(updateItem), @Run(items)])`.');
-    expect(prompt).toContain('roll = Mutation("write_computed_state", {');
-    expect(prompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)');
-    expect(prompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
-    expect(prompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
-    expect(prompt).toContain('right: today.value');
+    expect(computePrompt).toContain('Todo example: `Action([@Run(addTask), @Run(tasks), @Reset($draft)])`.');
+    expect(computePrompt).toContain('Random example: `Action([@Run(roll), @Run(rollValue)])`.');
+    expect(computePrompt).toContain('Toggle example: `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.');
+    expect(computePrompt).toContain('Remove example: `Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)])`.');
+    expect(computePrompt).toContain('Update example: `Action([@Set($targetItemId, item.id), @Run(updateItem), @Run(items)])`.');
+    expect(randomPrompt).toContain('roll = Mutation("write_computed_state", {');
+    expect(randomPrompt).toContain('Button("roll-button", "Roll", "default", Action([@Run(roll), @Run(rollValue)]), false)');
+    expect(randomPrompt).not.toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
+    expect(computePrompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
+    expect(computePrompt).toContain('right: today.value');
   });
 
   it('keeps the generated system prompt aligned with the committed component spec', () => {
@@ -617,21 +550,16 @@ describe('openui prompts', () => {
     expect(prompt).not.toContain('latest assistant turn');
   });
 
-  it('keeps the plain-text fallback user prompt instruction when structured output is disabled', () => {
-    const prompt = buildOpenUiUserPrompt(
-      {
-        prompt: 'make a todo app',
-        currentSource: 'root = AppShell([])',
-        mode: 'initial',
-        chatHistory: [],
-      },
-      {
-        structuredOutput: false,
-      },
-    );
+  it('always keeps the structured output instruction in the user prompt', () => {
+    const prompt = buildOpenUiUserPrompt({
+      prompt: 'make a todo app',
+      currentSource: 'root = AppShell([])',
+      mode: 'initial',
+      chatHistory: [],
+    });
 
-    expect(prompt).toContain('Return the full updated OpenUI Lang program only.');
-    expect(prompt).not.toContain('Place the full updated OpenUI Lang program in `source`.');
+    expect(prompt).toContain('Place the full updated OpenUI Lang program in `source`.');
+    expect(prompt).not.toContain('Return the full updated OpenUI Lang program only.');
   });
 
   it('normalizes empty user requests the same way in rawUserRequest and the prompt data block', () => {

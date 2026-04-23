@@ -110,7 +110,7 @@ The backend then returns a response payload shaped like:
 
 Accepts the same request shape and streams Server-Sent Events:
 
-- `chunk` - incremental raw model text; with structured output enabled this is a partial model envelope carrying `summary` / `source`
+- `chunk` - incremental raw model text; this is a partial model envelope carrying `summary` / `source`
 - `done` - final backend response payload with `source`, `model`, `summary`, and optional `compaction`
 - `error` - terminal public error payload
 

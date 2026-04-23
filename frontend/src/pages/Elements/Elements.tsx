@@ -72,7 +72,6 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
       [
         `model: ${data.config.model}`,
         `temperature: ${data.config.temperature}`,
-        `structuredOutput: ${data.config.structuredOutput ? 'on' : 'off'}`,
         `maxOutputTokens: ${data.config.maxOutputTokens}`,
         `requestMaxBytes: ${data.config.requestMaxBytes}`,
         `outputMaxBytes: ${data.config.outputMaxBytes}`,

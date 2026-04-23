@@ -143,8 +143,8 @@ Steps:
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
 - Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context
 - Initial generation sends recent `chatHistory` as separate role-based `user` / `assistant` messages; the final user turn wraps only the latest user request and `currentSource` in explicit data blocks
-- When `LLM_STRUCTURED_OUTPUT=true` (default), the backend asks the OpenAI Responses API for a strict JSON envelope shaped like `{ "source": "..." }` and extracts `.source` before OpenUI validation, quality checks, repair, and commit
-- While a structured stream is in flight, Definition may temporarily show raw JSON envelope draft text from `chunk` events; only `done.source` is eligible for commit
+- The backend always asks the OpenAI Responses API for a strict JSON envelope shaped like `{ "summary": "...", "source": "..." }` and extracts `.source` before OpenUI validation, quality checks, repair, and commit
+- While a stream is in flight, Definition may temporarily show raw JSON envelope draft text from `chunk` events; only `done.source` is eligible for commit
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview
 - A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
 - Every generation must terminate in exactly one state: committed, failed, or cancelled; the frontend must not stay stuck in a streaming state forever

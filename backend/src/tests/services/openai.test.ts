@@ -262,17 +262,6 @@ describe('parseOpenUiGenerationEnvelope', () => {
     });
   });
 
-  it('normalizes the plain-text model shape with an empty summary default', () => {
-    expect(
-      parseOpenUiGenerationEnvelope('```openui\nroot = AppShell([])\n```', {
-        structuredOutput: false,
-      }),
-    ).toEqual({
-      source: 'root = AppShell([])',
-      summary: '',
-    });
-  });
-
   it('rejects the structured model envelope shape when summary or source are omitted', () => {
     expect(() =>
       parseOpenUiGenerationEnvelope(
@@ -604,8 +593,8 @@ describe('generateOpenUiSource', () => {
     const themeCall = responsesCreateMock.mock.calls[2]?.[0];
 
     expect(firstTodoCall?.prompt_cache_key).toBe(secondTodoCall?.prompt_cache_key);
-    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:st:t:/);
-    expect(themeCall?.prompt_cache_key).toMatch(/^kitto:openui:st:th:/);
+    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:t:/);
+    expect(themeCall?.prompt_cache_key).toMatch(/^kitto:openui:th:/);
     expect(firstTodoCall?.prompt_cache_key).not.toBe(themeCall?.prompt_cache_key);
     expect(firstTodoCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
     expect(themeCall?.input?.[0]?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
@@ -879,23 +868,6 @@ describe('generateOpenUiSource', () => {
     await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
   });
 
-  it('normalizes the plain-text path to an empty summary default when structured output is disabled', async () => {
-    const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-8',
-      LLM_STRUCTURED_OUTPUT: false,
-    });
-    responsesCreateMock.mockResolvedValue({
-      output_text: '```openui\nroot = AppShell([])\n```',
-    });
-
-    await expect(generateOpenUiSource(env, request)).resolves.toEqual({
-      source: 'root = AppShell([])',
-      summary: '',
-    });
-
-    expect(responsesCreateMock).toHaveBeenCalledTimes(1);
-    expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('text');
-  });
 });
 
 describe('streamOpenUiSource', () => {
@@ -1139,30 +1111,6 @@ describe('streamOpenUiSource', () => {
     expect(onTextDelta).toHaveBeenNthCalledWith(2, rawEnvelope.slice(midpoint));
     expect(stream.abort).not.toHaveBeenCalled();
     expect(stream.finalResponse).toHaveBeenCalledTimes(1);
-  });
-
-  it('normalizes the plain-text streaming path to an empty summary default when structured output is disabled', async () => {
-    const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-17',
-      LLM_STRUCTURED_OUTPUT: false,
-    });
-    const onTextDelta = vi.fn();
-    const stream = createMockResponseStream(
-      [{ type: 'response.output_text.delta', delta: '```openui\nroot = AppShell([])\n```' }],
-      {
-        output_text: '```openui\nroot = AppShell([])\n```',
-      },
-    );
-
-    responsesStreamMock.mockReturnValue(stream);
-
-    await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
-      source: 'root = AppShell([])',
-      summary: '',
-    });
-
-    expect(onTextDelta).toHaveBeenCalledWith('```openui\nroot = AppShell([])\n```');
-    expect(responsesStreamMock.mock.calls[0]?.[0]).not.toHaveProperty('text');
   });
 
   it('logs cached token usage from streamed Responses API usage details', async () => {

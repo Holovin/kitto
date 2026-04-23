@@ -135,7 +135,6 @@ export interface PromptsInfoResponse {
     outputMaxBytes: number;
     repairTemperature: number;
     requestMaxBytes: number;
-    structuredOutput: boolean;
     temperature: number;
   };
   envelopeSchema: Record<string, unknown>;

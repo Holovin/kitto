@@ -29,7 +29,6 @@ describe('GET /api/prompts/info', () => {
       outputMaxBytes: 120_000,
       repairTemperature: 0.2,
       requestMaxBytes: 345_678,
-      structuredOutput: true,
       temperature: 0.6,
     });
     expect(payload.systemPrompt.hash).toHaveLength(16);
@@ -64,9 +63,7 @@ describe('GET /api/prompts/info', () => {
   });
 
   it('matches the memoized prompt snapshot helper for the active environment', async () => {
-    const env = createTestEnv({
-      LLM_STRUCTURED_OUTPUT: false,
-    });
+    const env = createTestEnv();
     const app = createApp(env);
 
     const response = await app.request('/api/prompts/info');
@@ -74,10 +71,7 @@ describe('GET /api/prompts/info', () => {
 
     expect(response.status).toBe(200);
     expect(payload).toEqual(getPromptInfoSnapshot(env));
-    expect(payload.config.structuredOutput).toBe(false);
-    expect(payload.requestPromptTemplate).toContain('Return the full updated OpenUI Lang program only.');
-    expect(payload.requestPromptTemplate).not.toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
-    expect(payload.repairPromptTemplate).toContain('Return only raw OpenUI Lang.');
-    expect(payload.repairPromptTemplate).not.toContain('Place the full corrected OpenUI Lang program in `source`.');
+    expect(payload.requestPromptTemplate).toContain('Place the full updated OpenUI Lang program in `source`.');
+    expect(payload.repairPromptTemplate).toContain('Place the full corrected OpenUI Lang program in `source`.');
   });
 });

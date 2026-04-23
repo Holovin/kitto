@@ -16,7 +16,7 @@ Guardrails:
 - oversized raw `/api/llm/*` request bodies must fail with JSON `413` `validation_error`
 - frontend submit-time preflight must block requests whose serialized payload already exceeds `GET /api/config` `limits.requestMaxBytes`, show one clear builder error, and avoid sending that oversized request; the backend `413` limit remains the security boundary
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
-- when structured output is enabled, malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
+- malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial conversation input plus repair prompt text
 - the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
@@ -31,15 +31,15 @@ Guardrails:
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and rejects generic phrasing such as `Updated the app`.
-- Confirm the repair-prompt block carries the same structured-summary guidance when structured output is enabled, and falls back to raw-only repair instructions when structured output is disabled.
+- Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the prompts tab stays read-only and does not show edit or copy controls.
 
 ## Prompt baseline
 
-- Structured system prompt baseline after 138/139: `systemPromptHash = 884ba0033452bf56`, `systemPromptCharCount = 48997`.
-- This replaces the older documented hash `e876b488554eebea`.
-- Verified after 138/139 from a live `POST /api/llm/generate` request recorded in `backend/logs/prompt-io.jsonl`.
+- Intent-scoped structured system prompt baseline: `systemPromptHash = 98b37736fe6935ce`, `systemPromptCharCount = 32700`.
+- This replaces the older documented hash `884ba0033452bf56`.
+- Verified on 2026-04-23 from the current prompt builder in the repo.
 
 ## Runtime invariants
 
@@ -51,22 +51,21 @@ Guardrails:
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Structural nesting is hard-invalid: keep exactly one `root = AppShell([...])` statement, never nest `AppShell(...)`, never put `Screen(...)` inside another `Screen(...)`, and never put `Repeater(...)` inside another `Repeater(...)`.
 - `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
-- Definition may show streamed draft text while generation is still in progress, but with structured output enabled it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
-- While a structured generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
+- Definition may show streamed draft text while generation is still in progress, but it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
+- While a generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
 - Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 - When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Committed assistant summaries that stay in LLM context should describe concrete user-visible changes; generic status-only summaries such as `Updated the app` or `Made the requested changes` should not survive as context.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.` when backend prompt-aware quality validation classifies it as a warning instead of a blocker.
-- Trivial parser issues that carry deterministic local `suggestion` patches may be auto-fixed in the builder before any repair request is sent.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
 - Blocking product-quality issues may trigger one automatic repair attempt before commit even when the draft is syntactically valid.
 - When an automatic repair request is in flight, chat should show one info-status message indicating that the builder is repairing the draft automatically and remove that pending status once the repair resolves.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send one repair attempt first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
-- If local suggestion patches make the draft valid again, commit that locally fixed source directly and do not trigger the repair request path for those issues.
+- Parser-invalid drafts should repair through the backend repair request path or fail cleanly; the builder should not apply browser-only source rewrites before commit.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
 - That invalid-generation chat failure must end with: `An error occurred, a new version was not created. Please try rephrasing your request and run it again.`
@@ -92,6 +91,7 @@ Guardrails:
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
+- Invalid or legacy persisted `builderSession` / `domain` slice shapes are dropped back to defaults instead of being migrated from older contracts.
 - The chat toolbar shows `Version: N / M` before the previous-version and next-version buttons, where `N` counts committed non-empty versions and may be `0` after undoing back to a blank canvas with history still available.
 - A pristine blank builder with no committed version history shows `—` in the chat toolbar.
 - Undo/redo keep a single rewind-status system chat message and update it in place rather than stacking multiple rewind notices.

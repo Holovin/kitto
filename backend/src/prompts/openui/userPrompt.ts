@@ -7,7 +7,6 @@ interface BuildOpenUiUserPromptOptions {
   chatHistoryMaxItems?: number;
   maxRepairAttempts?: number;
   promptMaxChars?: number;
-  structuredOutput?: boolean;
 }
 
 function buildPromptDataBlock(tagName: string, content: string) {
@@ -41,11 +40,6 @@ const ASSISTANT_SUMMARY_PREFIX_LINES = [
 ] as const;
 
 const STRUCTURED_OUTPUT_INSTRUCTION = `Place the full updated OpenUI Lang program in \`source\`. ${STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION}`;
-const PLAIN_OUTPUT_INSTRUCTION = 'Return the full updated OpenUI Lang program only.';
-
-function getUserPromptOutputInstruction(structuredOutput: boolean) {
-  return structuredOutput ? STRUCTURED_OUTPUT_INSTRUCTION : PLAIN_OUTPUT_INSTRUCTION;
-}
 
 export function buildOpenUiRawUserRequest(request: PromptBuildRequest) {
   const promptValue = typeof request.prompt === 'string' ? request.prompt : '';
@@ -57,7 +51,7 @@ export function buildOpenUiAssistantSummaryMessage(summary: string) {
   return buildPromptDataBlock('assistant_summary', [...ASSISTANT_SUMMARY_PREFIX_LINES, summary.trim()].join('\n'));
 }
 
-function buildOpenUiLatestUserTurn(currentSource: string, userRequest: string, structuredOutput: boolean) {
+function buildOpenUiLatestUserTurn(currentSource: string, userRequest: string) {
   const relevantExemplars = getRelevantRequestExemplars(userRequest);
 
   return [
@@ -65,15 +59,13 @@ function buildOpenUiLatestUserTurn(currentSource: string, userRequest: string, s
     buildPromptDataBlock('latest_user_request', userRequest),
     buildPromptDataBlock('current_source', currentSource),
     buildPromptExemplarSection('Relevant patterns', relevantExemplars),
-    getUserPromptOutputInstruction(structuredOutput),
+    STRUCTURED_OUTPUT_INSTRUCTION,
   ]
     .filter(Boolean)
     .join('\n\n');
 }
 
-export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOptions = {}) {
-  const structuredOutput = options.structuredOutput ?? true;
-
+export function buildOpenUiUserPromptTemplate() {
   return [
     'Initial generation input shape:',
     '1. Stable system prompt (sent separately and reused for caching).',
@@ -92,7 +84,6 @@ export function buildOpenUiUserPromptTemplate(options: BuildOpenUiUserPromptOpti
     buildOpenUiLatestUserTurn(
       '[current committed OpenUI source, or the blank-canvas placeholder when empty]',
       '[latest user request text]',
-      structuredOutput,
     ),
   ].join('\n\n');
 }
@@ -111,15 +102,13 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
         typeof options.maxRepairAttempts === 'number' && options.maxRepairAttempts > 0 ? Math.floor(options.maxRepairAttempts) : 1,
       promptMaxChars:
         typeof options.promptMaxChars === 'number' && options.promptMaxChars > 0 ? Math.floor(options.promptMaxChars) : 4_096,
-      structuredOutput: options.structuredOutput ?? true,
       userPrompt: buildOpenUiRawUserRequest(request),
     });
   }
 
   const currentSourceValue = typeof request.currentSource === 'string' ? request.currentSource : '';
-  const structuredOutput = options.structuredOutput ?? true;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';
 
-  return buildOpenUiLatestUserTurn(currentSource, rawUserRequest, structuredOutput);
+  return buildOpenUiLatestUserTurn(currentSource, rawUserRequest);
 }

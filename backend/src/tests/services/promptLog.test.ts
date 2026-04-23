@@ -111,7 +111,6 @@ describe('promptLog.write', () => {
     };
     const userPrompt = buildOpenUiUserPrompt(request, {
       chatHistoryMaxItems: 8,
-      structuredOutput: true,
     });
     const rawUserRequest = buildOpenUiRawUserRequest(request);
     const sharedEntryFields = {

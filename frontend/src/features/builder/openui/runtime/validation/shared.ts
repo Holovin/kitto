@@ -101,15 +101,6 @@ export function createOpenUiQualityIssue(
   };
 }
 
-export function stripQualityIssueSeverity(issue: OpenUiQualityIssue): BuilderParseIssue {
-  return {
-    code: issue.code,
-    message: issue.message,
-    source: issue.source,
-    statementId: issue.statementId,
-  };
-}
-
 export function mapParserIssues(result: ParseResult): BuilderParseIssue[] {
   return result.meta.errors.map((error) =>
     createParserIssue({
@@ -249,17 +240,6 @@ export function extractPathLiteral(argsAst: unknown) {
   return isAstNode(pathValue) && pathValue.k === 'Str' && typeof pathValue.v === 'string' ? pathValue.v : null;
 }
 
-export function extractObjectStringLiteral(argsAst: unknown, key: string) {
-  if (!isAstNode(argsAst) || argsAst.k !== 'Obj' || !Array.isArray(argsAst.entries)) {
-    return null;
-  }
-
-  const entry = argsAst.entries.find(([entryKey]) => entryKey === key);
-  const value = entry?.[1];
-
-  return isAstNode(value) && value.k === 'Str' && typeof value.v === 'string' ? value.v : null;
-}
-
 function splitPersistedPath(path: string) {
   const segments = path.split('.');
 
@@ -320,85 +300,6 @@ export function collectRefreshablePersistedMutationPaths(result: ParseResult, to
   }
 
   return mutationPathByStatementId;
-}
-
-export function containsRuntimeRef(value: unknown, runtimeRefNames: Set<string>): boolean {
-  if (runtimeRefNames.size === 0) {
-    return false;
-  }
-
-  if (typeof value === 'string') {
-    return runtimeRefNames.has(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.some((entry) => containsRuntimeRef(entry, runtimeRefNames));
-  }
-
-  if (!isAstNode(value)) {
-    if (typeof value === 'object' && value !== null) {
-      return Object.values(value).some((entry) => containsRuntimeRef(entry, runtimeRefNames));
-    }
-
-    return false;
-  }
-
-  if (value.k === 'RuntimeRef' && typeof value.n === 'string' && runtimeRefNames.has(value.n)) {
-    return true;
-  }
-
-  return Object.values(value).some((entry) => containsRuntimeRef(entry, runtimeRefNames));
-}
-
-export function hasThemeDependentContainerAppearance(value: unknown, themeStateNames: Set<string>): boolean {
-  if (Array.isArray(value)) {
-    return value.some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
-  }
-
-  if (!isElementNode(value)) {
-    if (typeof value === 'object' && value !== null) {
-      return Object.values(value).some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
-    }
-
-    return false;
-  }
-
-  if (
-    THEME_CONTAINER_TYPE_NAMES.has(value.typeName) &&
-    value.props.appearance != null &&
-    containsRuntimeRef(value.props.appearance, themeStateNames)
-  ) {
-    return true;
-  }
-
-  return Object.values(value.props).some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
-}
-
-export function collectThemeAppearanceRefNames(source: string) {
-  const themeRefNames = new Set(source.match(/\$[\w$]*theme\b/gi) ?? []);
-
-  if (themeRefNames.size === 0) {
-    return themeRefNames;
-  }
-
-  const topLevelAssignmentPattern = /(^|\n)([A-Za-z_][\w$]*)\s*=\s*([\s\S]*?)(?=\n(?:\$?[A-Za-z_][\w$]*\s*=|root\s*=)|$)/g;
-  let match = topLevelAssignmentPattern.exec(source);
-
-  while (match) {
-    const statementId = match[2];
-    const statementValueSource = match[3] ?? '';
-
-    if (
-      statementId !== 'root' &&
-      [...themeRefNames].some((themeRefName) => statementValueSource.includes(themeRefName))
-    ) {
-      themeRefNames.add(statementId);
-    }
-
-    match = topLevelAssignmentPattern.exec(source);
-  }
-
-  return themeRefNames;
 }
 
 export function collectActionRunRefsFromActionAst(actionAst: unknown): ActionRunRef[] {

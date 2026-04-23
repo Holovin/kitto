@@ -1,4 +1,3 @@
-import { normalizeBuilderState } from '@features/builder/store/builderSlice';
 import {
   normalizeBuilderSessionState,
   validateRestoredBuilderSessionResult,
@@ -8,10 +7,6 @@ import { logRecoveryEvent } from './recoveryEvents';
 
 export const REMEMBER_PREFIX = '@@remember-';
 export const REMEMBER_KEYS = ['builder', 'builderSession', 'domain'] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 type RememberKey = (typeof REMEMBER_KEYS)[number];
 type RecoverableRememberKey = Exclude<RememberKey, 'builder'>;
@@ -61,15 +56,4 @@ export function unserializeRememberedState(data: string, key: string) {
 
   logDroppedRememberedSlice(key, validationResult.reason ?? 'Persisted state had an invalid shape.');
   return getInitialRememberedSliceState(key);
-}
-
-export async function migrateRememberedState(state: unknown) {
-  const persistedState = isRecord(state) ? state : {};
-
-  return {
-    ...persistedState,
-    builder: normalizeBuilderState(persistedState.builder),
-    builderSession: normalizeBuilderSessionState(persistedState.builderSession),
-    domain: normalizeDomainState(persistedState.domain),
-  };
 }

@@ -80,23 +80,6 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain('Validation issues:');
   });
 
-  it('keeps repair prompts raw-only when structured output is disabled', () => {
-    const prompt = buildOpenUiRepairPrompt({
-      userPrompt: 'Repair the broken draft.',
-      committedSource: 'root = AppShell([])',
-      invalidSource: 'root = AppShell([])',
-      issues: [],
-      attemptNumber: 1,
-      maxRepairAttempts: 1,
-      promptMaxChars: 4_000,
-      structuredOutput: false,
-    });
-
-    expect(prompt).toContain('Return only raw OpenUI Lang.');
-    expect(prompt).not.toContain('Place the full corrected OpenUI Lang program in `source`.');
-    expect(prompt).not.toContain('Make `summary` a short user-facing description of the visible app/change with concrete features/screens');
-  });
-
   it('adds targeted hints when Group.direction fails validation', () => {
     const issues: PromptBuildValidationIssue[] = [
       {

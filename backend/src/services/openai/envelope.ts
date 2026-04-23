@@ -33,24 +33,6 @@ export const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
   },
 };
 
-function normalizeOpenUiSource(rawSource: unknown) {
-  if (typeof rawSource !== 'string') {
-    throw new UpstreamFailureError('The model response did not include text output.');
-  }
-
-  const trimmedSource = rawSource.trim();
-
-  if (!trimmedSource) {
-    throw new UpstreamFailureError('The model returned an empty OpenUI document.');
-  }
-
-  if (!trimmedSource.startsWith('```')) {
-    return trimmedSource;
-  }
-
-  return trimmedSource.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
-}
-
 export function createRawStructuredOutputLimitError(outputSizeBytes: number, rawLimitBytes: number) {
   return new UpstreamFailureError(
     `Structured model output size ${outputSizeBytes} bytes exceeded the backend raw envelope limit of ${rawLimitBytes} bytes.`,
@@ -66,18 +48,7 @@ export function assertRawStructuredOutputWithinLimit(rawOutput: string, env: App
   }
 }
 
-function createPlainTextOpenUiGenerationEnvelope(rawSource: unknown): OpenUiGenerationEnvelope {
-  return {
-    summary: '',
-    source: normalizeOpenUiSource(rawSource),
-  };
-}
-
-export function parseOpenUiGenerationEnvelope(rawModelText: unknown, options: { structuredOutput?: boolean } = {}) {
-  if (options.structuredOutput === false) {
-    return createPlainTextOpenUiGenerationEnvelope(rawModelText);
-  }
-
+export function parseOpenUiGenerationEnvelope(rawModelText: unknown) {
   if (typeof rawModelText !== 'string') {
     throw new UpstreamFailureError('The model response did not include text output.');
   }
@@ -106,15 +77,12 @@ export function parseOpenUiGenerationEnvelope(rawModelText: unknown, options: { 
 }
 
 export function extractOpenUiEnvelopeFromModelText(rawModelText: unknown, env: AppEnv): OpenUiGenerationEnvelope {
-  if (env.LLM_STRUCTURED_OUTPUT) {
-    if (typeof rawModelText !== 'string') {
-      throw new UpstreamFailureError('The model response did not include text output.');
-    }
-
-    assertRawStructuredOutputWithinLimit(rawModelText, env);
+  if (typeof rawModelText !== 'string') {
+    throw new UpstreamFailureError('The model response did not include text output.');
   }
 
-  return parseOpenUiGenerationEnvelope(rawModelText, { structuredOutput: env.LLM_STRUCTURED_OUTPUT });
+  assertRawStructuredOutputWithinLimit(rawModelText, env);
+  return parseOpenUiGenerationEnvelope(rawModelText);
 }
 
 export function assertModelOutputWithinLimit(source: string, env: AppEnv) {

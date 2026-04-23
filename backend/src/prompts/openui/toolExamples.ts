@@ -151,44 +151,6 @@ root = AppShell([
   ], $currentScreen == "result")
 ])`;
 
-const savedCardsExample = `$draftCard = ""
-$targetCardId = ""
-savedCards = Query("read_state", { path: "app.savedCards" }, [])
-saveCard = Mutation("append_item", {
-  path: "app.savedCards",
-  value: { title: $draftCard, summary: "Saved from the builder", completed: false }
-})
-toggleCard = Mutation("toggle_item_field", {
-  path: "app.savedCards",
-  idField: "id",
-  id: $targetCardId,
-  field: "completed"
-})
-removeCard = Mutation("remove_item", {
-  path: "app.savedCards",
-  idField: "id",
-  id: $targetCardId
-})
-cardRows = @Each(savedCards, "card", Group(null, "vertical", [
-  Text(card.title, "title", "start"),
-  Text(card.completed ? "Completed" : "Active", "muted", "start"),
-  Text(card.summary, "muted", "start"),
-  Group(null, "horizontal", [
-    Button("toggle-" + card.id, card.completed ? "Mark active" : "Mark complete", "secondary", Action([@Set($targetCardId, card.id), @Run(toggleCard), @Run(savedCards)]), false),
-    Button("remove-" + card.id, "Remove", "destructive", Action([@Set($targetCardId, card.id), @Run(removeCard), @Run(savedCards)]), false)
-  ], "inline")
-]))
-
-root = AppShell([
-  Screen("main", "Saved cards", [
-    Group("Composer", "vertical", [
-      Input("draftCard", "Card title", $draftCard, "Add a saved item"),
-      Button("save-card", "Save card", "default", Action([@Run(saveCard), @Run(savedCards), @Reset($draftCard)]), $draftCard == "")
-    ]),
-    Repeater(cardRows, "No saved cards yet.")
-  ])
-])`;
-
 const dateComputeExample = `$dueDate = ""
 
 today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })
@@ -238,18 +200,6 @@ root = AppShell([
 function dedupeToolExamples(examples: string[]) {
   return [...new Set(examples)];
 }
-
-export const toolExamples = [
-  expenseEditExample,
-  themeExample,
-  filteredItemsExample,
-  stateMutationExamples,
-  validationExample,
-  randomRollExample,
-  multiScreenExample,
-  savedCardsExample,
-  dateComputeExample,
-] as const;
 
 export function buildToolExamplesForPrompt(prompt?: string) {
   const intents =

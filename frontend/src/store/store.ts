@@ -4,7 +4,7 @@ import { apiSlice } from '@api/apiSlice';
 import { builderReducer } from '@features/builder/store/builderSlice';
 import { builderSessionReducer } from '@features/builder/store/builderSessionSlice';
 import { domainReducer } from '@features/builder/store/domainSlice';
-import { migrateRememberedState, REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from './persistence';
+import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from './persistence';
 
 const combinedReducer = combineReducers({
   builder: builderReducer,
@@ -21,7 +21,6 @@ export const store = configureStore({
   enhancers: (getDefaultEnhancers) =>
     getDefaultEnhancers().concat(
       rememberEnhancer(window.localStorage, [...REMEMBER_KEYS], {
-        migrate: migrateRememberedState,
         prefix: REMEMBER_PREFIX,
         unserialize: unserializeRememberedState,
       }),

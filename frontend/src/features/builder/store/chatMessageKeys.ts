@@ -8,5 +8,3 @@ export const SYSTEM_CHAT_MESSAGE_KEYS = {
   historyNavigation: 'history-navigation',
   standaloneHtmlDownloadStatus: 'standalone-html-download-status',
 } as const;
-
-export type SystemChatMessageKey = (typeof SYSTEM_CHAT_MESSAGE_KEYS)[keyof typeof SYSTEM_CHAT_MESSAGE_KEYS];

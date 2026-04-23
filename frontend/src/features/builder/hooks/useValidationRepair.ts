@@ -5,9 +5,7 @@ import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErro
 import { validateBuilderLlmRequest } from '@features/builder/config';
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import {
-  applyOpenUiIssueSuggestions,
   detectLocalRuntimeQualityIssues,
-  type OpenUiValidationResult,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
 import { builderActions } from '@features/builder/store/builderSlice';
@@ -49,7 +47,6 @@ function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
 }
 
 const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
-const DEFAULT_MAX_LOCAL_AUTO_FIX_PASSES = 5;
 const REPAIR_BLOCKING_QUALITY_CODES = new Set([
   'control-action-and-binding',
   'inline-tool-in-each',
@@ -65,7 +62,6 @@ const REPAIR_BLOCKING_QUALITY_CODES = new Set([
 
 type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
 type RepairIssueMode = 'parser' | 'quality';
-type LocalAutoFixStatus = 'valid' | 'stalled' | 'loop-detected' | 'max-passes';
 
 const REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
 const REPAIR_NETWORK_MESSAGE = 'The builder could not reach the backend while repairing the draft. The previous valid app was kept.';
@@ -180,86 +176,6 @@ export function sanitizeRepairValidationIssues(
         statementId: sanitizedIssue.statementId ? truncateRepairField(sanitizedIssue.statementId, 200) : undefined,
       };
     });
-}
-
-function logLocalAutoFix(appliedIssues: BuilderParseIssue[]) {
-  if (appliedIssues.length === 0) {
-    return;
-  }
-
-  const appliedLabels = appliedIssues.map((issue) => `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}`);
-  console.info(`[builder.validation] auto-fixed locally: ${appliedLabels.join(', ')}`);
-}
-
-export function resolveLocalAutoFixes(
-  source: string,
-  options?: {
-    applyIssueSuggestions?: typeof applyOpenUiIssueSuggestions;
-    maxPasses?: number;
-    validateSource?: typeof validateOpenUiSource;
-  },
-): {
-  appliedIssues: BuilderParseIssue[];
-  source: string;
-  status: LocalAutoFixStatus;
-  validation: OpenUiValidationResult;
-} {
-  const applyIssueSuggestions = options?.applyIssueSuggestions ?? applyOpenUiIssueSuggestions;
-  const validateSource = options?.validateSource ?? validateOpenUiSource;
-  const maxPasses =
-    Number.isInteger(options?.maxPasses) && (options?.maxPasses ?? 0) > 0
-      ? options.maxPasses
-      : DEFAULT_MAX_LOCAL_AUTO_FIX_PASSES;
-  const seenSources = new Set([source]);
-  const appliedIssues: BuilderParseIssue[] = [];
-  let candidateSource = source;
-
-  for (let pass = 0; pass < maxPasses; pass += 1) {
-    const validation = validateSource(candidateSource);
-
-    if (validation.isValid) {
-      return {
-        appliedIssues,
-        source: candidateSource,
-        status: 'valid',
-        validation,
-      };
-    }
-
-    const autoFixResult = applyIssueSuggestions(candidateSource, validation.issues);
-
-    if (autoFixResult.appliedIssues.length === 0 || autoFixResult.source === candidateSource) {
-      return {
-        appliedIssues,
-        source: candidateSource,
-        status: 'stalled',
-        validation,
-      };
-    }
-
-    appliedIssues.push(...autoFixResult.appliedIssues);
-    candidateSource = autoFixResult.source;
-
-    if (seenSources.has(candidateSource)) {
-      return {
-        appliedIssues,
-        source: candidateSource,
-        status: 'loop-detected',
-        validation: validateSource(candidateSource),
-      };
-    }
-
-    seenSources.add(candidateSource);
-  }
-
-  const validation = validateSource(candidateSource);
-
-  return {
-    appliedIssues,
-    source: candidateSource,
-    status: validation.isValid ? 'valid' : 'max-passes',
-    validation,
-  };
 }
 
 export function useValidationRepair({
@@ -380,20 +296,9 @@ export function useValidationRepair({
     }
 
     while (true) {
-      const localAutoFixResult = resolveLocalAutoFixes(candidateResponse.source);
-
-      if (localAutoFixResult.appliedIssues.length > 0 && localAutoFixResult.source !== candidateResponse.source) {
-        candidateResponse = {
-          ...candidateResponse,
-          source: localAutoFixResult.source,
-        };
-        logLocalAutoFix(localAutoFixResult.appliedIssues);
-      }
-
-      const validation = localAutoFixResult.validation;
+      const validation = validateOpenUiSource(candidateResponse.source);
 
       if (!validation.isValid) {
-
         const fatalValidationIssues = validation.issues.filter((issue) => FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code));
 
         if (fatalValidationIssues.length > 0) {

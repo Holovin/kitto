@@ -1,6 +1,5 @@
 import { APIUserAbortError } from 'openai';
 import type { AppEnv } from '../../env.js';
-import { UpstreamFailureError } from '../../errors/publicError.js';
 import { getByteLength, getRawStructuredOutputMaxBytes } from '../../limits.js';
 import { createRawStructuredOutputLimitError } from './envelope.js';
 
@@ -42,22 +41,11 @@ function throwIfAborted(signal?: AbortSignal, stream?: AbortableStream) {
 }
 
 function assertDeltaWithinLimit(env: AppEnv, delta: string, streamedTextBytes: number, stream: AbortableStream) {
-  if (env.LLM_STRUCTURED_OUTPUT) {
-    const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
+  const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
 
-    if (streamedTextBytes > rawLimitBytes) {
-      stream.abort();
-      throw createRawStructuredOutputLimitError(streamedTextBytes, rawLimitBytes);
-    }
-
-    return;
-  }
-
-  if (streamedTextBytes > env.LLM_OUTPUT_MAX_BYTES) {
+  if (streamedTextBytes > rawLimitBytes) {
     stream.abort();
-    throw new UpstreamFailureError(
-      `Streamed model output exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
-    );
+    throw createRawStructuredOutputLimitError(streamedTextBytes, rawLimitBytes);
   }
 }
 
