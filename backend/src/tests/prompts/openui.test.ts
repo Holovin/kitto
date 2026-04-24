@@ -7,6 +7,7 @@ import {
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
 } from '../../prompts/openui.js';
+import { getPromptIntentCacheVector } from '../../prompts/openui/promptIntents.js';
 
 interface ComponentSpec {
   components: Record<
@@ -121,6 +122,24 @@ describe('openui prompts', () => {
     expect(themeKey).toMatch(/^kitto:openui:th:[a-f0-9]{12}:[a-f0-9]{16}$/);
     expect(themeKey).not.toBe(todoKey);
     expect(themeKey.length).toBeLessThanOrEqual(64);
+  });
+
+  it('detects Russian intent keywords for scoped prompt rules and examples', () => {
+    const filteringPrompt = buildOpenUiSystemPrompt({ prompt: 'Добавь фильтр и поиск каталога.' });
+    const validationPrompt = buildOpenUiSystemPrompt({ prompt: 'Сделай обязательную валидацию и ошибки для email.' });
+    const computePrompt = buildOpenUiSystemPrompt({ prompt: 'Посчитать расчёт и сравнить даты.' });
+    const randomPrompt = buildOpenUiSystemPrompt({ prompt: 'Случайный рандомный кубик.' });
+
+    expect(getPromptIntentCacheVector('Добавь фильтр и поиск каталога.')).toBe('f');
+    expect(getPromptIntentCacheVector('Сделай обязательную валидацию и ошибки для email.')).toBe('v');
+    expect(getPromptIntentCacheVector('Посчитать расчет и сравнить даты.')).toBe('c');
+    expect(getPromptIntentCacheVector('Посчитать расчёт и сравнить даты.')).toBe('c');
+    expect(getPromptIntentCacheVector('Случайный рандомный кубик.')).toBe('c+r');
+
+    expect(filteringPrompt).toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(validationPrompt).toContain('Input supports these HTML types only:');
+    expect(computePrompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
+    expect(randomPrompt).toContain('roll = Mutation("write_computed_state", {');
   });
 
   it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {

@@ -28,9 +28,34 @@ const promptsInfoState = vi.hoisted(() => ({
     },
     repairPromptTemplate: 'Parser-only repair example\n\nThe previous OpenUI draft cannot be committed yet.',
     systemPrompt: {
+      cacheKey: 'kitto:openui:base:123456789abc:abcd1234efgh5678',
       hash: 'abcd1234efgh5678',
+      id: 'base',
+      intentVector: 'base',
+      label: 'Base',
+      sampleRequest: null,
       text: 'System prompt body',
     },
+    systemPromptVariants: [
+      {
+        cacheKey: 'kitto:openui:base:123456789abc:abcd1234efgh5678',
+        hash: 'abcd1234efgh5678',
+        id: 'base',
+        intentVector: 'base',
+        label: 'Base',
+        sampleRequest: null,
+        text: 'System prompt body',
+      },
+      {
+        cacheKey: 'kitto:openui:t:123456789abc:todo1234efgh5678',
+        hash: 'todo1234efgh5678',
+        id: 'todo',
+        intentVector: 't',
+        label: 'Todo',
+        sampleRequest: 'Create a todo list.',
+        text: 'Todo system prompt body',
+      },
+    ],
     toolSpecs: [
       {
         description: 'Read a value from persisted state.',
@@ -95,6 +120,9 @@ describe('ElementsPage', () => {
     expect(markup).toContain('Backend config');
     expect(markup).toContain('System prompt');
     expect(markup).toContain('systemPromptHash: abcd1234efgh5678');
+    expect(markup).toContain('intentVector: base');
+    expect(markup).toContain('promptCacheKey: kitto:openui:base:123456789abc:abcd1234efgh5678');
+    expect(markup).toContain('Todo');
     expect(markup).toContain('echoed back in generation responses');
     expect(markup).toContain(
       'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, and the final user turn that defines the task.',

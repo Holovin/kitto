@@ -30,6 +30,7 @@ Guardrails:
 - Confirm `Output envelope schema` documents the model envelope only (`summary` + `source`) and does not describe the outer backend response payload fields such as `model` or `compaction`.
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
+- Confirm the system-prompt block shows intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and rejects generic phrasing such as `Updated the app`.
@@ -39,7 +40,7 @@ Guardrails:
 
 ## Prompt baseline
 
-- Intent-scoped structured system prompt baseline: `systemPromptHash = 98b37736fe6935ce`, `systemPromptCharCount = 32700`.
+- Base intent-scoped structured system prompt baseline: `systemPromptHash = 98b37736fe6935ce`, `systemPromptCharCount = 32700`.
 - This replaces the older documented hash `884ba0033452bf56`.
 - Verified on 2026-04-23 from the current prompt builder in the repo.
 

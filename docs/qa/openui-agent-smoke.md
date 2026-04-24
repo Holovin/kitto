@@ -55,6 +55,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
   - `Repair prompt`;
   - `Output envelope schema`.
 - The system-prompt block shows a visible `systemPromptHash`.
+- The system-prompt block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text without issuing another prompt-info request.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.

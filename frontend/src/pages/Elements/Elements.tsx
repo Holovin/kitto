@@ -12,7 +12,7 @@ import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/action
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import type { BuilderParseIssue, PromptInfoToolSpec, PromptsInfoResponse } from '@features/builder/types';
+import type { BuilderParseIssue, PromptInfoSystemPromptVariant, PromptInfoToolSpec, PromptsInfoResponse } from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
 import {
   ACTION_REFERENCE_GROUPS,
@@ -59,8 +59,12 @@ const actionDefinitionByName = new Map(OPENUI_ACTION_DEFINITIONS.map((action) =>
 
 type PromptReferenceSectionDefinition = {
   description: string | ((data: PromptsInfoResponse) => string);
-  formatBody: (data: PromptsInfoResponse) => string;
+  formatBody: (data: PromptsInfoResponse, context: PromptReferenceFormatContext) => string;
   title: PromptReferenceSectionLabel;
+};
+
+type PromptReferenceFormatContext = {
+  selectedSystemPromptVariantId: string;
 };
 
 const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
@@ -81,8 +85,8 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'System prompt',
     description:
-      'Exact system prompt text currently sent to the model, together with the hash logged in prompt I/O telemetry.',
-    formatBody: (data) => [`systemPromptHash: ${data.systemPrompt.hash}`, '', data.systemPrompt.text].join('\n'),
+      'Exact intent-scoped system prompt text sent to the model, together with the hash and cache key logged in prompt I/O telemetry.',
+    formatBody: (data, context) => formatSystemPromptBody(data, context.selectedSystemPromptVariantId),
   },
   {
     title: 'User prompt template',
@@ -119,6 +123,31 @@ function cloneRecord(value?: Record<string, unknown>) {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+function getSystemPromptVariants(data: PromptsInfoResponse): PromptInfoSystemPromptVariant[] {
+  return data.systemPromptVariants.length > 0 ? data.systemPromptVariants : [data.systemPrompt];
+}
+
+function getSelectedSystemPromptVariant(data: PromptsInfoResponse, selectedVariantId: string) {
+  const variants = getSystemPromptVariants(data);
+
+  return variants.find((variant) => variant.id === selectedVariantId) ?? data.systemPrompt;
+}
+
+function formatSystemPromptBody(data: PromptsInfoResponse, selectedVariantId: string) {
+  const variant = getSelectedSystemPromptVariant(data, selectedVariantId);
+  const sampleRequest = variant.sampleRequest ?? '(empty latest user request / base intent)';
+
+  return [
+    `intent: ${variant.label}`,
+    `intentVector: ${variant.intentVector}`,
+    `sampleRequest: ${sampleRequest}`,
+    `systemPromptHash: ${variant.hash}`,
+    `promptCacheKey: ${variant.cacheKey}`,
+    '',
+    variant.text,
+  ].join('\n');
 }
 
 function formatPromptInfoErrorMessage(error: unknown) {
@@ -310,6 +339,36 @@ function PromptReferencePanel({
       <pre className="max-h-[32rem] w-full overflow-auto whitespace-pre-wrap break-words rounded-[1.25rem] bg-slate-950 p-4 text-xs leading-6 text-slate-100">
         <code>{body}</code>
       </pre>
+    </div>
+  );
+}
+
+function SystemPromptIntentTabs({
+  onSelect,
+  selectedVariantId,
+  variants,
+}: {
+  onSelect: (variantId: string) => void;
+  selectedVariantId: string;
+  variants: PromptInfoSystemPromptVariant[];
+}) {
+  return (
+    <div className="flex max-w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1 lg:justify-end" role="tablist">
+      {variants.map((variant) => (
+        <Button
+          key={variant.id}
+          aria-selected={selectedVariantId === variant.id}
+          className="h-7 rounded-lg px-2.5 text-xs shadow-none"
+          role="tab"
+          size="sm"
+          title={`intentVector: ${variant.intentVector}`}
+          type="button"
+          variant={selectedVariantId === variant.id ? 'default' : 'secondary'}
+          onClick={() => onSelect(variant.id)}
+        >
+          {variant.label}
+        </Button>
+      ))}
     </div>
   );
 }
@@ -546,6 +605,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
 export default function ElementsPage() {
   const [activeTab, setActiveTab] = useState<ReferenceTabId>(() => getInitialReferenceTab());
   const [hashTargetId, setHashTargetId] = useState<string | null>(() => getInitialReferenceTargetId());
+  const [selectedSystemPromptVariantId, setSelectedSystemPromptVariantId] = useState('base');
   const { data: promptsInfo, error: promptsInfoError, isError: isPromptsInfoError, isLoading: isPromptsInfoLoading } = useGetPromptsInfoQuery();
 
   useEffect(() => {
@@ -719,6 +779,8 @@ export default function ElementsPage() {
                   <ReferenceContentGroup key={group.id} group={group}>
                     {group.items.map(({ label }) => {
                       const section = promptReferenceSectionByTitle.get(label as PromptReferenceSectionLabel);
+                      const isSystemPromptSection = section?.title === 'System prompt';
+                      const systemPromptVariants = promptsInfo ? getSystemPromptVariants(promptsInfo) : [];
 
                       if (!section) {
                         return null;
@@ -728,7 +790,7 @@ export default function ElementsPage() {
                         ? 'Loading current backend prompt configuration and prompt templates.'
                         : isPromptsInfoError || !promptsInfo
                           ? formatPromptInfoErrorMessage(promptsInfoError)
-                          : section.formatBody(promptsInfo);
+                          : section.formatBody(promptsInfo, { selectedSystemPromptVariantId });
                       const description =
                         isPromptsInfoLoading || isPromptsInfoError || !promptsInfo
                           ? typeof section.description === 'string'
@@ -750,7 +812,16 @@ export default function ElementsPage() {
                                 <BackToTopButton />
                                 <CardTitle className="min-w-0 break-words text-lg">{section.title}</CardTitle>
                               </div>
-                              <p className="max-w-3xl text-sm font-medium leading-6 text-slate-500">{description}</p>
+                              <div className="flex max-w-3xl flex-col items-start gap-3 lg:items-end">
+                                <p className="text-sm font-medium leading-6 text-slate-500 lg:text-right">{description}</p>
+                                {isSystemPromptSection && !isPromptsInfoLoading && !isPromptsInfoError && promptsInfo ? (
+                                  <SystemPromptIntentTabs
+                                    selectedVariantId={selectedSystemPromptVariantId}
+                                    variants={systemPromptVariants}
+                                    onSelect={setSelectedSystemPromptVariantId}
+                                  />
+                                ) : null}
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="min-w-0 pt-6">

@@ -130,6 +130,16 @@ export interface PromptInfoToolSpec {
   signature: string;
 }
 
+export interface PromptInfoSystemPromptVariant {
+  cacheKey: string;
+  hash: string;
+  id: string;
+  intentVector: string;
+  label: string;
+  sampleRequest: string | null;
+  text: string;
+}
+
 export interface PromptsInfoResponse {
   config: {
     cacheKeyPrefix: string;
@@ -142,10 +152,8 @@ export interface PromptsInfoResponse {
   };
   envelopeSchema: Record<string, unknown>;
   repairPromptTemplate: string;
-  systemPrompt: {
-    hash: string;
-    text: string;
-  };
+  systemPrompt: PromptInfoSystemPromptVariant;
+  systemPromptVariants: PromptInfoSystemPromptVariant[];
   toolSpecs: PromptInfoToolSpec[];
   requestPromptTemplate: string;
 }

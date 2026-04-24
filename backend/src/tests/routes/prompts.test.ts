@@ -19,6 +19,7 @@ describe('GET /api/prompts/info', () => {
       },
     });
     const payload = (await response.json()) as ReturnType<typeof getPromptInfoSnapshot>;
+    const todoSystemPromptVariant = payload.systemPromptVariants.find((variant) => variant.id === 'todo');
 
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-allow-origin')).toBe('https://builder.kitto.test');
@@ -31,8 +32,31 @@ describe('GET /api/prompts/info', () => {
       requestMaxBytes: 345_678,
       temperature: 0.6,
     });
+    expect(payload.systemPrompt).toEqual(payload.systemPromptVariants[0]);
+    expect(payload.systemPrompt.id).toBe('base');
+    expect(payload.systemPrompt.intentVector).toBe('base');
     expect(payload.systemPrompt.hash).toHaveLength(16);
+    expect(payload.systemPrompt.cacheKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}:[a-f0-9]{16}$/);
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
+    expect(payload.systemPromptVariants.map((variant) => variant.id)).toEqual([
+      'base',
+      'todo',
+      'theme',
+      'filtering',
+      'validation',
+      'compute',
+      'random',
+      'multi-screen',
+    ]);
+    expect(todoSystemPromptVariant).toMatchObject({
+      id: 'todo',
+      intentVector: 't',
+      label: 'Todo',
+      sampleRequest: 'Create a todo list.',
+    });
+    expect(todoSystemPromptVariant?.cacheKey).toMatch(/^kitto:openui:t:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(todoSystemPromptVariant?.text).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(todoSystemPromptVariant?.hash).not.toBe(payload.systemPrompt.hash);
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
