@@ -60,6 +60,9 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
+    expect(payload.requestPromptTemplate).toContain('<request_intent>');
+    expect(payload.requestPromptTemplate).toContain('operation: create|modify|repair|unknown');
+    expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');

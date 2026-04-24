@@ -8,6 +8,7 @@ import {
   promptRequestsTodo,
   promptRequestsValidation,
   promptRequestsVisualStyling,
+  isSimplePromptRequest,
 } from './qualitySignals.js';
 
 export interface PromptIntentVector {
@@ -20,6 +21,19 @@ export interface PromptIntentVector {
   validation: boolean;
 }
 
+export type PromptRequestOperation = 'create' | 'modify' | 'repair' | 'unknown';
+export type PromptRequestMinimality = 'simple' | 'normal';
+
+export interface PromptRequestIntent extends PromptIntentVector {
+  minimality: PromptRequestMinimality;
+  operation: PromptRequestOperation;
+}
+
+interface DetectPromptRequestIntentOptions {
+  currentSource?: string;
+  mode?: 'initial' | 'repair';
+}
+
 const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
   ['todo', 't'],
   ['theme', 'th'],
@@ -28,6 +42,15 @@ const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
   ['compute', 'c'],
   ['random', 'r'],
   ['multiScreen', 'ms'],
+];
+
+const COMPLEX_MINIMALITY_INTENT_KEYS: Array<keyof PromptIntentVector> = [
+  'compute',
+  'filtering',
+  'multiScreen',
+  'random',
+  'theme',
+  'validation',
 ];
 
 export function detectPromptIntents(prompt: string): PromptIntentVector {
@@ -46,6 +69,50 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
     todo: promptRequestsTodo(trimmedPrompt),
     validation: promptRequestsValidation(trimmedPrompt),
   };
+}
+
+function detectPromptRequestOperation(prompt: string, options: DetectPromptRequestIntentOptions): PromptRequestOperation {
+  if (options.mode === 'repair') {
+    return 'repair';
+  }
+
+  if (!prompt.trim()) {
+    return 'unknown';
+  }
+
+  return options.currentSource?.trim() ? 'modify' : 'create';
+}
+
+function detectPromptRequestMinimality(prompt: string, intents: PromptIntentVector): PromptRequestMinimality {
+  if (!isSimplePromptRequest(prompt)) {
+    return 'normal';
+  }
+
+  return COMPLEX_MINIMALITY_INTENT_KEYS.some((intentKey) => intents[intentKey]) ? 'normal' : 'simple';
+}
+
+export function detectPromptRequestIntent(prompt: string, options: DetectPromptRequestIntentOptions = {}): PromptRequestIntent {
+  const intents = detectPromptIntents(prompt);
+
+  return {
+    ...intents,
+    operation: detectPromptRequestOperation(prompt, options),
+    minimality: detectPromptRequestMinimality(prompt, intents),
+  };
+}
+
+export function formatPromptRequestIntentBlock(intent: PromptRequestIntent) {
+  return [
+    `todo: ${intent.todo}`,
+    `filtering: ${intent.filtering}`,
+    `validation: ${intent.validation}`,
+    `compute: ${intent.compute}`,
+    `random: ${intent.random}`,
+    `theme: ${intent.theme}`,
+    `multiScreen: ${intent.multiScreen}`,
+    `operation: ${intent.operation}`,
+    `minimality: ${intent.minimality}`,
+  ].join('\n');
 }
 
 export function formatPromptIntentVector(intents: PromptIntentVector) {

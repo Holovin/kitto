@@ -58,7 +58,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The system-prompt block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text without issuing another prompt-info request.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
-- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<latest_user_request>` and `<current_source>` blocks.
+- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<request_intent>`, `<latest_user_request>`, and `<current_source>` blocks.
+- The `<request_intent>` block lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`) before `<latest_user_request>`.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and must not use generic phrases like `Updated the app`.
 - The `Repair prompt` section carries the same structured-summary quality guidance and always instructs the model to return the corrected program in `source`.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
