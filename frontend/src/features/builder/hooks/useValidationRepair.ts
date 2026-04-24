@@ -67,9 +67,9 @@ type PendingQualityRepairTelemetry = {
   validationIssues: string[];
 };
 
-const REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
-const REPAIR_NETWORK_MESSAGE = 'The builder could not reach the backend while repairing the draft. The previous valid app was kept.';
-const REPAIR_UPSTREAM_MESSAGE = 'The model service failed while repairing the draft. The previous valid app was kept. Please retry.';
+const REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long.';
+const REPAIR_NETWORK_MESSAGE = 'The builder could not reach the backend while repairing the draft.';
+const REPAIR_UPSTREAM_MESSAGE = 'The model service failed while repairing the draft.';
 const REQUEST_TIMEOUT_MESSAGE = 'The model took too long to respond. Try again with a shorter or more specific prompt.';
 const BACKEND_UNREACHABLE_MESSAGE = 'The builder could not reach the backend. Check that the server is running and try again.';
 const UPSTREAM_FAILURE_MESSAGE = 'The model service failed while generating the draft. Please retry in a moment.';
@@ -114,6 +114,36 @@ function isRepairAbortError(error: unknown) {
   return error instanceof Error && (error.name === 'AbortError' || error.name === 'BuilderRequestAbortedError');
 }
 
+function createRepairRequestError(message: string, error: unknown, fallbackMessage?: string) {
+  const ignoredMessages = new Set([message, fallbackMessage].filter((value): value is string => Boolean(value)));
+  const detailLines: string[] = [];
+
+  if (isRecord(error)) {
+    const code = typeof error.code === 'string' ? error.code.trim() : '';
+    const status = typeof error.status === 'number' ? error.status : undefined;
+    const rawMessage =
+      typeof error.message === 'string'
+        ? error.message.trim()
+        : typeof error.error === 'string'
+          ? error.error.trim()
+          : '';
+
+    if (code) {
+      detailLines.push(`Code: ${code}`);
+    }
+
+    if (status !== undefined) {
+      detailLines.push(`Status: ${status}`);
+    }
+
+    if (rawMessage && !ignoredMessages.has(rawMessage)) {
+      detailLines.push(`Message: ${rawMessage}`);
+    }
+  }
+
+  return new Error(detailLines.length > 0 ? `${message}\n${detailLines.join('\n')}` : message);
+}
+
 function wrapRepairRequestError(error: unknown) {
   if (isRepairAbortError(error)) {
     return error;
@@ -124,29 +154,29 @@ function wrapRepairRequestError(error: unknown) {
     const status = typeof error.status === 'number' ? error.status : undefined;
 
     if (code === 'timeout_error' || status === 504) {
-      return new Error(REPAIR_TIMEOUT_MESSAGE);
+      return createRepairRequestError(REPAIR_TIMEOUT_MESSAGE, error);
     }
 
     if (status === 502 || code === 'upstream_error') {
-      return new Error(REPAIR_UPSTREAM_MESSAGE);
+      return createRepairRequestError(REPAIR_UPSTREAM_MESSAGE, error);
     }
   }
 
   const message = getBuilderRequestErrorMessage(error);
 
   if (message === REQUEST_TIMEOUT_MESSAGE) {
-    return new Error(REPAIR_TIMEOUT_MESSAGE);
+    return createRepairRequestError(REPAIR_TIMEOUT_MESSAGE, error, message);
   }
 
   if (message === BACKEND_UNREACHABLE_MESSAGE) {
-    return new Error(REPAIR_NETWORK_MESSAGE);
+    return createRepairRequestError(REPAIR_NETWORK_MESSAGE, error, message);
   }
 
   if (message === UPSTREAM_FAILURE_MESSAGE) {
-    return new Error(REPAIR_UPSTREAM_MESSAGE);
+    return createRepairRequestError(REPAIR_UPSTREAM_MESSAGE, error, message);
   }
 
-  return new Error(`The automatic repair failed before commit. ${message}`);
+  return createRepairRequestError(`The automatic repair failed before commit. ${message}`, error, message);
 }
 
 export function sanitizeRepairValidationIssues(

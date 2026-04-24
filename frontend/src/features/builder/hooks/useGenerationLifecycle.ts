@@ -30,7 +30,8 @@ export function isAbortError(error: unknown) {
 }
 
 const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
-const GENERATION_FAILED_NOTICE = "Something went wrong and your request couldn’t be completed.";
+const GENERATION_FAILED_NOTICE =
+  "Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.";
 
 export function useGenerationLifecycle({
   abortControllerRef,

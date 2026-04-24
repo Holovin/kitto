@@ -341,7 +341,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - If repair succeeds, the final app is valid and usable.
-- If repair fails, the pending summary card is removed, the previous Preview remains visible, `Repeat` stays available, and a red error card shows `Something went wrong and your request couldn’t be completed.` with expandable `Details` for the technical validation/error text.
+- If repair fails, the pending summary card is removed, the previous Preview remains visible, `Repeat` stays available, and a red error card shows `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` with expandable `Details` for the technical validation/error text. Repair request failures may include technical code/status/message metadata in `Details`.
 - If repair fails because the repair request itself times out, the error text should explicitly mention the automatic repair timing out rather than a generic initial-generation timeout.
 - Partial or bad draft is not committed.
 - The UI does not get stuck in loading/generating state.

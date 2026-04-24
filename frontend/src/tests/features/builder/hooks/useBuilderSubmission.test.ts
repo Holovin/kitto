@@ -109,8 +109,10 @@ const testHarness = vi.hoisted(() => {
 const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
 const AUTOMATIC_REPAIR_RETRY_NOTICE = 'Something went wrong and your request was sent again';
 const AUTOMATIC_REPAIR_RETRY_NOTICE_SECOND_ATTEMPT = 'Something went wrong and your request was sent again (2)';
-const AUTOMATIC_REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
-const GENERATION_FAILED_NOTICE = "Something went wrong and your request couldn’t be completed.";
+const AUTOMATIC_REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long.';
+const AUTOMATIC_REPAIR_UPSTREAM_MESSAGE = 'The model service failed while repairing the draft.';
+const GENERATION_FAILED_NOTICE =
+  "Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.";
 
 vi.mock('react', async () => {
   const actual = await vi.importActual<typeof import('react')>('react');
@@ -1415,8 +1417,54 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
-    expect(getBuilderState().streamError).toBe(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+    expect(getBuilderState().streamError).toContain(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+    expect(getBuilderState().streamError).toContain('Code: timeout_error');
+    expect(getBuilderState().streamError).toContain('Status: 504');
+    expect(getBuilderState().streamError).toContain('Message: The model request timed out.');
+    expect(getBuilderState().chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: GENERATION_FAILED_NOTICE,
+        role: 'system',
+        technicalDetails: expect.not.stringContaining('The previous valid app was kept'),
+        tone: 'error',
+      }),
+    );
     expect(findRepairStatusMessages()).toEqual([]);
+
+    submission.unmount();
+  });
+
+  it('keeps retry guidance in the failure notice instead of upstream repair details', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: PARSER_INVALID_SOURCE,
+    });
+    testHarness.generateMock.mockRejectedValue({
+      code: 'upstream_error',
+      message: 'Provider returned 502.',
+      status: 502,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: GENERATION_FAILED_NOTICE,
+        role: 'system',
+        technicalDetails: expect.stringContaining(AUTOMATIC_REPAIR_UPSTREAM_MESSAGE),
+        tone: 'error',
+      }),
+    );
+    expect(getBuilderState().streamError).toContain('Code: upstream_error');
+    expect(getBuilderState().streamError).toContain('Status: 502');
+    expect(getBuilderState().streamError).toContain('Message: Provider returned 502.');
+    expect(getBuilderState().streamError).not.toContain('The previous valid app was kept');
+    expect(getBuilderState().streamError).not.toContain('Please retry');
 
     submission.unmount();
   });
@@ -1454,7 +1502,9 @@ describe('useBuilderSubmission', () => {
       validationIssues: ['reserved-last-choice-outside-action-mode'],
     });
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
-    expect(getBuilderState().streamError).toBe(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+    expect(getBuilderState().streamError).toContain(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
+    expect(getBuilderState().streamError).toContain('Code: timeout_error');
+    expect(getBuilderState().streamError).toContain('Status: 504');
 
     submission.unmount();
   });
