@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "getsentry/skills",
+      "sourceType": "github",
+      "computedHash": "f0604d278cfd4eac4dac29eb297a5c6b6ebfb9f020235e8aafbe2eff0e42a147"
+    },
+    "frontend-code-review": {
+      "source": "langgenius/dify",
+      "sourceType": "github",
+      "computedHash": "79fa87cd5460c80dc842153155b26bd4a3cad9858475c2e1ee50cab6dcd1fbbe"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "246e65cd72a7e360987d94e6c61564ce6d71c6361d1784d529d70e4cbbe8522d"
+    },
+    "review-and-refactor": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "9236d06a1500089ddb46975b866e9a63478e502afe7095b1980c618678a7c7fe"
+    }
+  }
+}
