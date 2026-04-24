@@ -77,6 +77,8 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
         `model: ${data.config.model}`,
         `temperature: ${data.config.temperature}`,
         `maxOutputTokens: ${data.config.maxOutputTokens}`,
+        `userPromptMaxChars: ${data.config.userPromptMaxChars}`,
+        `modelPromptMaxChars: ${data.config.modelPromptMaxChars}`,
         `requestMaxBytes: ${data.config.requestMaxBytes}`,
         `outputMaxBytes: ${data.config.outputMaxBytes}`,
         `cacheKeyPrefix: ${data.config.cacheKeyPrefix}`,

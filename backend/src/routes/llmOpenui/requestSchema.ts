@@ -84,7 +84,7 @@ function createLlmRequestSchema(env: AppEnv) {
     prompt: z
       .string()
       .min(1, 'Prompt must not be empty.')
-      .max(env.LLM_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_PROMPT_MAX_CHARS} characters.`),
+      .max(env.LLM_USER_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_USER_PROMPT_MAX_CHARS} characters.`),
     currentSource: z.string().default(''),
     invalidDraft: z.string().optional(),
     mode: z.enum(['initial', 'repair']).default('initial'),

@@ -1,3 +1,4 @@
+import { DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '../../limits.js';
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
 import { filterPromptBuildChatHistory } from './chatHistoryFilter.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
@@ -9,7 +10,7 @@ import type { PromptBuildRequest } from './types.js';
 interface BuildOpenUiUserPromptOptions {
   chatHistoryMaxItems?: number;
   maxRepairAttempts?: number;
-  promptMaxChars?: number;
+  modelPromptMaxChars?: number;
 }
 
 function escapePromptDataBlockContent(content: string) {
@@ -141,7 +142,9 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
       maxRepairAttempts:
         typeof options.maxRepairAttempts === 'number' && options.maxRepairAttempts > 0 ? Math.floor(options.maxRepairAttempts) : 1,
       promptMaxChars:
-        typeof options.promptMaxChars === 'number' && options.promptMaxChars > 0 ? Math.floor(options.promptMaxChars) : 4_096,
+        typeof options.modelPromptMaxChars === 'number' && options.modelPromptMaxChars > 0
+          ? Math.floor(options.modelPromptMaxChars)
+          : DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS,
       userPrompt: buildOpenUiRawUserRequest(request),
     });
   }

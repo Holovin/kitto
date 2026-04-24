@@ -26,8 +26,8 @@ describe('createApp', () => {
       FRONTEND_ORIGIN: 'https://builder.kitto.test',
       LLM_CHAT_HISTORY_MAX_ITEMS: 7,
       LLM_MAX_REPAIR_ATTEMPTS: 2,
-      LLM_PROMPT_MAX_CHARS: 321,
       LLM_REQUEST_MAX_BYTES: 654,
+      LLM_USER_PROMPT_MAX_CHARS: 321,
     });
     const app = createApp(env);
 

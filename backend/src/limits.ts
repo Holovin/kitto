@@ -1,4 +1,5 @@
-export const DEFAULT_LLM_PROMPT_MAX_CHARS = 4_096;
+export const DEFAULT_LLM_USER_PROMPT_MAX_CHARS = 4_096;
+export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = 12_288;
 export const DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS = 40;
 export const DEFAULT_LLM_MAX_REPAIR_ATTEMPTS = 2;
 export const MAX_REPAIR_VALIDATION_ISSUES = 20;
@@ -16,7 +17,7 @@ const textEncoder = new TextEncoder();
 interface RuntimeConfigSource {
   LLM_CHAT_HISTORY_MAX_ITEMS: number;
   LLM_MAX_REPAIR_ATTEMPTS: number;
-  LLM_PROMPT_MAX_CHARS: number;
+  LLM_USER_PROMPT_MAX_CHARS: number;
   LLM_REQUEST_MAX_BYTES: number;
   OPENAI_REQUEST_TIMEOUT_MS: number;
 }
@@ -45,7 +46,7 @@ export function getPublicRuntimeConfig(env: RuntimeConfigSource) {
   return {
     limits: {
       chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-      promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
+      promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
       requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
     },
     repair: {

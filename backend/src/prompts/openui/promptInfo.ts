@@ -27,10 +27,12 @@ export interface PromptInfoSnapshot {
     cacheKeyPrefix: string;
     maxOutputTokens: number;
     model: string;
+    modelPromptMaxChars: number;
     outputMaxBytes: number;
     repairTemperature: number;
     requestMaxBytes: number;
     temperature: number;
+    userPromptMaxChars: number;
   };
   envelopeSchema: Record<string, unknown>;
   repairPromptTemplate: string;
@@ -88,8 +90,10 @@ const SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS = [
 function buildPromptInfoSnapshotCacheKey(env: AppEnv) {
   return JSON.stringify({
     model: env.OPENAI_MODEL,
+    modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
     outputMaxBytes: env.LLM_OUTPUT_MAX_BYTES,
     requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
+    userPromptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
   });
 }
 
@@ -129,10 +133,12 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
       cacheKeyPrefix: OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
       maxOutputTokens: getOpenUiMaxOutputTokens(env),
       model: env.OPENAI_MODEL,
+      modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
       outputMaxBytes: env.LLM_OUTPUT_MAX_BYTES,
       repairTemperature: getOpenUiTemperature('repair'),
       requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
       temperature: getOpenUiTemperature('initial'),
+      userPromptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
     },
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
     repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),

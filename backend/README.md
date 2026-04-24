@@ -35,7 +35,8 @@ The backend loads `backend/.env` relative to its own package path, so PM2 can ke
 
 ### Request limits and safeguards
 
-- `LLM_PROMPT_MAX_CHARS` - default `4096`
+- `LLM_USER_PROMPT_MAX_CHARS` - default `4096`, maximum user-authored prompt characters accepted by the API and composer
+- `LLM_MODEL_PROMPT_MAX_CHARS` - default `12288`, maximum assembled repair prompt characters sent to the model
 - `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`
 - `LLM_REQUEST_MAX_BYTES` - default `300000`
 - `LLM_OUTPUT_MAX_BYTES` - default `100000`
@@ -65,6 +66,8 @@ Returns frontend-safe request limits:
   }
 }
 ```
+
+`limits.promptMaxChars` is the browser-facing user prompt limit backed by `LLM_USER_PROMPT_MAX_CHARS`.
 
 ### `POST /api/llm/generate`
 

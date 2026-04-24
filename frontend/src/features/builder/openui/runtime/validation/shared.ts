@@ -22,6 +22,12 @@ export interface OpenUiValidationResult {
   issues: BuilderParseIssue[];
 }
 
+export interface OpenUiValidationContext {
+  normalizedSource: string;
+  parseResult: ParseResult | null;
+  validation: OpenUiValidationResult;
+}
+
 export interface OpenUiFunctionCallMatch {
   args: string[];
   text: string;

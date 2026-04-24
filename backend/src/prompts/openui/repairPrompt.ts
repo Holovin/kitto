@@ -392,8 +392,9 @@ function allocateRepairSectionBudgets(
   totalChars: number,
   desiredLengths: Record<RepairSectionKey, number>,
   hasHints: boolean,
+  mode: RepairIssueMode,
 ) {
-  const priority: RepairSectionKey[] = [
+  const parserPriority: RepairSectionKey[] = [
     'hints',
     'issues',
     'conversationContext',
@@ -403,6 +404,17 @@ function allocateRepairSectionBudgets(
     'committedSource',
     'invalidSource',
   ];
+  const qualityPriority: RepairSectionKey[] = [
+    'hints',
+    'issues',
+    'conversationContext',
+    'rules',
+    'statementExcerpts',
+    'userPrompt',
+    'invalidSource',
+    'committedSource',
+  ];
+  const priority = mode === 'parser' ? parserPriority : qualityPriority;
   const minimumBudgets: Record<RepairSectionKey, number> = {
     userPrompt: 120,
     conversationContext: 240,
@@ -443,10 +455,12 @@ function allocateRepairSectionBudgets(
 
   if (remainingChars <= minimumTotal) {
     if (hasHints) {
-      const draftBudget = Math.min(cappedMinimums.invalidSource, remainingChars > 0 ? 1 : 0);
+      if (mode === 'parser') {
+        const draftBudget = Math.min(cappedMinimums.invalidSource, remainingChars > 0 ? 1 : 0);
 
-      budgets.invalidSource = draftBudget;
-      remainingChars -= draftBudget;
+        budgets.invalidSource = draftBudget;
+        remainingChars -= draftBudget;
+      }
 
       const issueBudget = Math.min(cappedMinimums.issues, remainingChars);
 
@@ -458,7 +472,7 @@ function allocateRepairSectionBudgets(
       budgets.hints = hintBudget;
       remainingChars -= hintBudget;
 
-      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && candidate !== 'invalidSource')) {
+      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && budgets[candidate] === 0)) {
         if (remainingChars <= 0) {
           break;
         }
@@ -850,7 +864,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     rules: rulesSection.length,
     statementExcerpts: statementExcerptLines.length > 0 ? fullStatementExcerptsSectionContent.length : 0,
     hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
-  }, repairHints.length > 0 || repairExemplars.length > 0);
+  }, repairHints.length > 0 || repairExemplars.length > 0, issueMode);
   const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
   const conversationContextSectionContent =
     conversationContextLines.length > 0

@@ -209,7 +209,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects oversized prompts with a validation error', async () => {
     const { app } = createRouteApp({
-      LLM_PROMPT_MAX_CHARS: 8,
+      LLM_USER_PROMPT_MAX_CHARS: 8,
     });
 
     const response = await app.request('/api/llm/generate', {

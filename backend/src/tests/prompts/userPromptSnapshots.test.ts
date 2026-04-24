@@ -49,7 +49,7 @@ describe('buildOpenUiUserPrompt snapshots', () => {
         },
         {
           maxRepairAttempts: 1,
-          promptMaxChars: 4_096,
+          modelPromptMaxChars: 4_096,
         },
       ),
     ).toMatchSnapshot();

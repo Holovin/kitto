@@ -145,10 +145,12 @@ export interface PromptsInfoResponse {
     cacheKeyPrefix: string;
     maxOutputTokens: number;
     model: string;
+    modelPromptMaxChars: number;
     outputMaxBytes: number;
     repairTemperature: number;
     requestMaxBytes: number;
     temperature: number;
+    userPromptMaxChars: number;
   };
   envelopeSchema: Record<string, unknown>;
   repairPromptTemplate: string;

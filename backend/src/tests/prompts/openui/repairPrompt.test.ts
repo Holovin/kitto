@@ -41,6 +41,17 @@ problemGroup = Group("Problem", "block", [
 root = AppShell([problemGroup])`;
 }
 
+function buildRepairPrioritySource(label: string) {
+  const rows = Array.from({ length: 24 }, (_, index) => `Text("${label}-${index + 1}", "body", "start")`).join(',\n    ');
+
+  return `root = AppShell([
+  Screen("main", "Main", [
+    ${rows},
+    Text("${label}-TAIL", "body", "start")
+  ])
+])`;
+}
+
 describe('repair prompt assembly', () => {
   it('keeps initial-generation user prompts free of repair sections', () => {
     const prompt = buildOpenUiUserPrompt({
@@ -278,5 +289,67 @@ root = AppShell([problemGroup])`,
 
     expect(excerptSection.match(/- problemGroup:/g)).toHaveLength(1);
     expect(excerptSection).not.toContain('missingStatement');
+  });
+
+  it('prioritizes the model draft over committed fallback source for tight quality repairs', () => {
+    const baseArgs = {
+      attemptNumber: 1,
+      committedSource: buildRepairPrioritySource('COMMITTED'),
+      invalidSource: buildRepairPrioritySource('DRAFT'),
+      issues: [
+        {
+          code: 'quality-custom',
+          message: 'The syntactically valid draft needs a small product-quality repair.',
+          source: 'quality' as const,
+        },
+      ],
+      maxRepairAttempts: 1,
+      userPrompt: 'Repair the generated app without rewriting unrelated parts.',
+    };
+    const fullPrompt = buildOpenUiRepairPrompt({
+      ...baseArgs,
+      promptMaxChars: 20_000,
+    });
+    const prompt = buildOpenUiRepairPrompt({
+      ...baseArgs,
+      promptMaxChars: fullPrompt.length - 120,
+    });
+    const committedSection = extractSection(prompt, 'Current committed valid OpenUI source', ['Quality issues']);
+    const draftSection = extractSection(prompt, 'Model draft to repair', ['Current critical syntax rules']);
+
+    expect(draftSection).toContain('DRAFT-TAIL');
+    expect(committedSection).toContain('…');
+    expect(committedSection).not.toContain('COMMITTED-TAIL');
+  });
+
+  it('keeps parser repairs biased toward the committed source baseline when tightly budgeted', () => {
+    const baseArgs = {
+      attemptNumber: 1,
+      committedSource: buildRepairPrioritySource('COMMITTED'),
+      invalidSource: buildRepairPrioritySource('DRAFT'),
+      issues: [
+        {
+          code: 'parser-custom',
+          message: 'The invalid draft cannot be parsed safely.',
+          source: 'parser' as const,
+        },
+      ],
+      maxRepairAttempts: 1,
+      userPrompt: 'Repair the generated app without rewriting unrelated parts.',
+    };
+    const fullPrompt = buildOpenUiRepairPrompt({
+      ...baseArgs,
+      promptMaxChars: 20_000,
+    });
+    const prompt = buildOpenUiRepairPrompt({
+      ...baseArgs,
+      promptMaxChars: fullPrompt.length - 120,
+    });
+    const committedSection = extractSection(prompt, 'Current committed valid OpenUI source', ['Validation issues']);
+    const draftSection = extractSection(prompt, 'Invalid model draft', ['Current critical syntax rules']);
+
+    expect(committedSection).toContain('COMMITTED-TAIL');
+    expect(draftSection).toContain('…');
+    expect(draftSection).not.toContain('DRAFT-TAIL');
   });
 });

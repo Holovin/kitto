@@ -27,10 +27,12 @@ describe('GET /api/prompts/info', () => {
       cacheKeyPrefix: 'kitto:openui',
       maxOutputTokens: 30_000,
       model: 'gpt-5.4-mini',
+      modelPromptMaxChars: 12_288,
       outputMaxBytes: 120_000,
       repairTemperature: 0.2,
       requestMaxBytes: 345_678,
       temperature: 0.6,
+      userPromptMaxChars: 4_096,
     });
     expect(payload.systemPrompt).toEqual(payload.systemPromptVariants[0]);
     expect(payload.systemPrompt.id).toBe('base');

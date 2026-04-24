@@ -112,7 +112,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
         buildOpenUiUserPrompt(request, {
           chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
           maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-          promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
+          modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
         }),
       ),
     ];
@@ -127,14 +127,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
         ? createTextInputMessage('assistant', buildOpenUiAssistantSummaryMessage(message.content))
         : createTextInputMessage('user', message.content),
     ),
-    createTextInputMessage(
-      'user',
-      buildOpenUiUserPrompt(request, {
-        chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-        maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-        promptMaxChars: env.LLM_PROMPT_MAX_CHARS,
-      }),
-    ),
+    createTextInputMessage('user', buildOpenUiUserPrompt(request)),
   ];
 }
 

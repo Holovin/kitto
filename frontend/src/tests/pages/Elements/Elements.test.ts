@@ -17,10 +17,12 @@ const promptsInfoState = vi.hoisted(() => ({
       cacheKeyPrefix: 'kitto:openui',
       maxOutputTokens: 25_000,
       model: 'gpt-5.4-mini',
+      modelPromptMaxChars: 12_288,
       outputMaxBytes: 100_000,
       repairTemperature: 0.2,
       requestMaxBytes: 300_000,
       temperature: 0.6,
+      userPromptMaxChars: 4_096,
     },
     envelopeSchema: {
       type: 'object',
