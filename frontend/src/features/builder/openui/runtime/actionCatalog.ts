@@ -186,7 +186,7 @@ const OPENUI_ACTION_DEFINITION_SEEDS: OpenUiActionDefinitionSeed[] = [
           type: 'object',
           additionalProperties: true,
           description:
-            'Plain object row to append. The tool keeps a provided non-empty string or finite number `id`; otherwise it generates one automatically.',
+            'Plain object row to append. The tool keeps a provided unique non-empty string or finite number `id`; otherwise it generates one automatically.',
         },
       },
       required: ['path', 'value'],

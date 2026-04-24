@@ -253,6 +253,88 @@ describe('builderToolProvider', () => {
     });
   });
 
+  it('append_item keeps unique explicit ids', async () => {
+    const randomUUID = vi.fn(() => 'unused-generated-id');
+    vi.stubGlobal('crypto', { randomUUID });
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { id: 'task-3', title: 'Review docs', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'task-3', title: 'Review docs', completed: false },
+    ]);
+
+    expect(randomUUID).not.toHaveBeenCalled();
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [...createTaskRows(), { id: 'task-3', title: 'Review docs', completed: false }],
+      },
+    });
+  });
+
+  it('append_item replaces duplicate explicit ids with generated stable ids', async () => {
+    const randomUUID = vi.fn(() => 'generated-item-id');
+    vi.stubGlobal('crypto', { randomUUID });
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { id: 'task-1', title: 'Duplicate id', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'generated-item-id', title: 'Duplicate id', completed: false },
+    ]);
+
+    expect(randomUUID).toHaveBeenCalledTimes(1);
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Duplicate id', completed: false }],
+      },
+    });
+  });
+
+  it('append_item retries generated ids when they collide with existing rows', async () => {
+    const generatedIds = ['task-1', 'task-2', 'generated-item-id'];
+    const randomUUID = vi.fn(() => generatedIds.shift() ?? 'generated-item-id');
+    vi.stubGlobal('crypto', { randomUUID });
+    seedDomainData({
+      app: {
+        tasks: createTaskRows(),
+      },
+    });
+
+    await expect(
+      builderToolProvider.append_item({
+        path: 'app.tasks',
+        value: { title: 'Collision-safe row', completed: false },
+      }),
+    ).resolves.toEqual([
+      ...createTaskRows(),
+      { id: 'generated-item-id', title: 'Collision-safe row', completed: false },
+    ]);
+
+    expect(randomUUID).toHaveBeenCalledTimes(3);
+    expect(mockState.domain.data).toEqual({
+      app: {
+        tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Collision-safe row', completed: false }],
+      },
+    });
+  });
+
   it('append_item replaces blank and whitespace ids with generated stable ids', async () => {
     let idCounter = 0;
     vi.stubGlobal('crypto', {

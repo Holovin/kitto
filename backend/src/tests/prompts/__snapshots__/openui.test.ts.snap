@@ -203,7 +203,7 @@ Use these with Query() for read operations or Mutation() for write operations. T
 - append_state(path: string, value: any) → any
   Append a JSON-compatible value to an array stored at a non-empty dot-path. Prefer \`append_item\` when the array stores plain-object rows that need stable ids for later row actions.
 - append_item(path: string, value: object) → any
-  Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided non-empty string or finite number \`id\`; otherwise generates a stable \`id\`.
+  Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided unique non-empty string or finite number \`id\`; otherwise generates a stable unique \`id\`.
 - toggle_item_field(path: string, idField: string, id: any, field: string) → any
   Find one plain-object row inside an array by id and toggle one safe field. Use it for booleans such as completed, done, selected, or archived.
 - update_item_field(path: string, idField: string, id: any, field: string, value: any) → any
@@ -339,7 +339,7 @@ Before finishing, walk your output and verify:
 - TOOL MINIMALITY:
 - Use $variables for ephemeral UI state.
 - Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.
-- For persisted object rows that will need row actions, prefer \`append_item\` so each row has a stable \`id\`; if you pass \`value.id\`, use a non-empty string or finite number.
+- For persisted object rows that will need row actions, prefer \`append_item\` so each row has a unique stable \`id\`; if you pass \`value.id\`, use a non-empty string or finite number that is not already used by that collection.
 - Use \`toggle_item_field\`, \`update_item_field\`, and \`remove_item\` for id-based row actions on persisted object collections instead of rebuilding whole arrays manually.
 - Compute tools are opt-in. Do not use \`compute_value\` or \`write_computed_state\` unless the requested task needs them.
 - Do not use \`compute_value\` or \`write_computed_state\` for simple list CRUD, basic screen navigation, filtering, or normal input display.

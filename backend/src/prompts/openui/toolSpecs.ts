@@ -177,7 +177,7 @@ export const toolSpecifications: ToolSpec[] = [
   {
     name: 'append_item',
     description:
-      'Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided non-empty string or finite number `id`; otherwise generates a stable `id`.',
+      'Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided unique non-empty string or finite number `id`; otherwise generates a stable unique `id`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -195,7 +195,7 @@ export const toolSpecifications: ToolSpec[] = [
       required: ['path', 'value'],
     },
     outputSchema: {
-      description: 'The updated array stored at the path, including the appended row with a stable `id`.',
+      description: 'The updated array stored at the path, including the appended row with a unique stable `id`.',
     },
   },
   {

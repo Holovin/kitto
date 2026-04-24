@@ -122,7 +122,7 @@ Notes:
 - Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
 - Collection filtering should use `@Filter(collection, field, operator, value)` with operators `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; use `contains` for substring search, not predicate-style callbacks or `includes`.
 - Keep ephemeral filter selection in local `$variables` such as `$filter`; switching filters should stay local and must not hit `/api/llm/*`.
-- For persisted collections of object rows, prefer `append_item` so new rows get a stable `id` automatically.
+- For persisted collections of object rows, prefer `append_item` so new rows get a unique stable `id` automatically.
 - Plain `Checkbox(item.completed)` stays display-only; add an explicit `Action([...])` when the checkbox itself should persist a row toggle.
 - Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions, and relay `item.id` through local state before `@Run(...)`.
 - `compute_value` and `write_computed_state` both return `{ value }`, where `value` is always a primitive string, number, or boolean.

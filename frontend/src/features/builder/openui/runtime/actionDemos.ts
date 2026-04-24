@@ -50,7 +50,7 @@ addTask = Mutation("append_state", {
 
 // Append the item, then refresh the visible query.
 Button("add-task", "Add task", "default", Action([@Run(addTask), @Run(tasks)]), false)`,
-  append_item: `// Append a plain-object row and ensure it has a stable id.
+  append_item: `// Append a plain-object row and ensure it has a unique stable id.
 tasks = Query("read_state", { path: "app.tasks" }, [])
 addTask = Mutation("append_item", {
   path: "app.tasks",

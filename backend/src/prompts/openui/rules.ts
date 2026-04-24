@@ -69,7 +69,7 @@ const TOOL_MINIMALITY_RULES = [
   'TOOL MINIMALITY:',
   'Use $variables for ephemeral UI state.',
   'Use persisted tools only for data that should survive reload/export, such as user-created lists or saved form submissions.',
-  'For persisted object rows that will need row actions, prefer `append_item` so each row has a stable `id`; if you pass `value.id`, use a non-empty string or finite number.',
+  'For persisted object rows that will need row actions, prefer `append_item` so each row has a unique stable `id`; if you pass `value.id`, use a non-empty string or finite number that is not already used by that collection.',
   'Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions on persisted object collections instead of rebuilding whole arrays manually.',
   'Compute tools are opt-in. Do not use `compute_value` or `write_computed_state` unless the requested task needs them.',
   'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',

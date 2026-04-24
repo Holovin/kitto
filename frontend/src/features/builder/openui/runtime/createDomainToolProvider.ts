@@ -37,6 +37,49 @@ function generateStableId() {
   return typeof randomUuid === 'string' && randomUuid.trim().length > 0 ? randomUuid : nanoid();
 }
 
+function collectExistingItemIds(items: unknown[]) {
+  const existingIds = new Set<ToolItemId>();
+
+  for (const item of items) {
+    if (isPlainObject(item) && isValidToolItemId(item.id)) {
+      existingIds.add(item.id);
+    }
+  }
+
+  return existingIds;
+}
+
+function generateUniqueStableId(existingIds: ReadonlySet<ToolItemId>) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidateId = generateStableId();
+
+    if (!existingIds.has(candidateId)) {
+      return candidateId;
+    }
+  }
+
+  const fallbackBaseId = generateStableId();
+  let fallbackSuffix = 1;
+  let fallbackId = `${fallbackBaseId}-${fallbackSuffix}`;
+
+  while (existingIds.has(fallbackId)) {
+    fallbackSuffix += 1;
+    fallbackId = `${fallbackBaseId}-${fallbackSuffix}`;
+  }
+
+  return fallbackId;
+}
+
+function resolveAppendItemId(items: unknown[], requestedId: unknown) {
+  const existingIds = collectExistingItemIds(items);
+
+  if (isValidToolItemId(requestedId) && !existingIds.has(requestedId)) {
+    return requestedId;
+  }
+
+  return generateUniqueStableId(existingIds);
+}
+
 function readArrayOrEmpty(state: Record<string, unknown>, path: string) {
   const currentValue = readPath(state, path);
 
@@ -115,7 +158,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const value = getRequiredToolObject('append_item', args.value);
         const nextData = readDomainSnapshot(adapter);
         const currentItems = readArrayOrEmpty(nextData, path);
-        const itemId = isValidToolItemId(value.id) ? value.id : generateStableId();
+        const itemId = resolveAppendItemId(currentItems, value.id);
         const nextItems = [...currentItems, { ...value, id: itemId }];
 
         writePathValue(nextData, path, nextItems);
