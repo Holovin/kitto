@@ -133,6 +133,7 @@ Add a required checkbox confirmation before the result screen.
 ### Expected
 
 - Existing quiz flow remains usable.
+- The follow-up may restart Preview from the regenerated app's initial local runtime state; do not require preserving the pre-edit screen.
 - Checkbox appears before result/submit.
 - Checkbox affects the flow or validation.
 - The pre-commit chat summary stays readable under its shimmer loading treatment, and the committed assistant summary remains in chat after success without the loading treatment.
@@ -290,6 +291,7 @@ Show a warning if the name field is empty.
 
 - App restores after reload.
 - Relevant runtime/domain state restores.
+- The follow-up commit may reset local runtime state instead of migrating screen/form variables across source versions.
 - Undo restores previous committed app.
 - Redo restores redone app.
 - If undo or redo starts while a generation is still running, the generation is cancelled first and a late response does not overwrite the restored version.

@@ -100,6 +100,7 @@ Guardrails:
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
+- New chat-generated commits intentionally reset local runtime state instead of migrating screen/form variables across source versions.
 - Invalid or legacy persisted `builderSession` / `domain` slice shapes are dropped back to defaults instead of being migrated from older contracts.
 - The chat toolbar shows `Version: N / M` before the previous-version and next-version buttons, where `N` counts committed non-empty versions and may be `0` after undoing back to a blank canvas with history still available.
 - A pristine blank builder with no committed version history shows `—` in the chat toolbar.
