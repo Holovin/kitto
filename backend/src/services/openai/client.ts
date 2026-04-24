@@ -4,7 +4,6 @@ import type { AppEnv } from '../../env.js';
 import {
   buildOpenUiAssistantSummaryMessage,
   buildOpenUiSystemPrompt,
-  filterPromptBuildChatHistory,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
@@ -118,7 +117,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
     ];
   }
 
-  const recentHistory = filterPromptBuildChatHistory(request.chatHistory);
+  const recentHistory = request.chatHistory;
 
   return [
     systemMessage,

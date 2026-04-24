@@ -94,18 +94,6 @@ export function dedupeQualityIssues(issues: BuilderQualityIssue[]) {
 }
 
 const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
-const REPAIR_BLOCKING_QUALITY_CODES = new Set([
-  'control-action-and-binding',
-  'inline-tool-in-each',
-  'inline-tool-in-prop',
-  'inline-tool-in-repeater',
-  'item-bound-control-without-action',
-  'mutation-uses-array-index-path',
-  'quality-options-shape',
-  'quality-stale-persisted-query',
-  'reserved-last-choice-outside-action-mode',
-  'undefined-state-reference',
-]);
 
 type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
 type RepairIssueMode = 'parser' | 'quality';
@@ -184,10 +172,7 @@ function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
     return 0;
   }
 
-  if (
-    ('severity' in issue && issue.severity === 'blocking-quality') ||
-    REPAIR_BLOCKING_QUALITY_CODES.has(issue.code)
-  ) {
+  if ('severity' in issue && issue.severity === 'blocking-quality') {
     return 1;
   }
 

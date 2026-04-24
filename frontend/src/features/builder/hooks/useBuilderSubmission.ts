@@ -249,11 +249,11 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       );
     } catch (error) {
       if (error instanceof BuilderStreamTimeoutError) {
-        if (hasObservedStreamActivity && generationLifecycle.isActiveRequest(requestId)) {
-          generationLifecycle.failRequest(requestId, error, { retryPrompt: request.prompt });
-        }
-
         if (hasObservedStreamActivity) {
+          if (generationLifecycle.isActiveRequest(requestId)) {
+            generationLifecycle.failRequest(requestId, error, { retryPrompt: request.prompt });
+          }
+
           return;
         }
       }

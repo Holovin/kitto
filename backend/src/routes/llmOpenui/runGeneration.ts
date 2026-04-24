@@ -22,20 +22,23 @@ export function createLlmResponsePayload(
   invocation: PreparedLlmInvocation,
   responseEnvelope: OpenUiGenerationEnvelope,
 ) {
-  assertModelOutputWithinLimit(responseEnvelope.source, env);
+  const { source, summary } = responseEnvelope;
+
+  assertModelOutputWithinLimit(source, env);
 
   return {
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
     qualityIssues: detectPromptAwareQualityIssues(
-      responseEnvelope.source,
+      source,
       invocation.request.prompt,
       invocation.request.currentSource,
       invocation.request.mode,
     ),
-    summaryExcludeFromLlmContext: shouldExcludeSummaryFromLlmContext(responseEnvelope.summary) || undefined,
+    source,
+    summary,
+    summaryExcludeFromLlmContext: shouldExcludeSummaryFromLlmContext(summary) || undefined,
     temperature: getOpenUiTemperature(invocation.request.mode),
-    ...responseEnvelope,
   };
 }
 

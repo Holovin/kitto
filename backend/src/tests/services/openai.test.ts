@@ -101,11 +101,6 @@ const requestWithHistory: PromptBuildRequest = {
       content: 'Built a one-screen todo app.',
     },
     {
-      role: 'assistant',
-      content: 'Applied the latest chat instruction to the app definition.',
-      excludeFromLlmContext: true,
-    },
-    {
       role: 'user',
       content: 'Add filters and a settings screen.',
     },
@@ -382,7 +377,6 @@ describe('generateOpenUiSource', () => {
       },
     ]);
     expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
-    expect(initialCall?.input?.[2]?.content).not.toContain('Applied the latest chat instruction');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<request_intent>\ntodo: true');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(2);

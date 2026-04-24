@@ -103,6 +103,7 @@ describe('sanitizeRepairValidationIssues', () => {
       {
         code: 'inline-tool-in-prop',
         message: 'Mutation(...) and Query(...) must be top-level statements.',
+        severity: 'blocking-quality',
         source: 'quality',
         statementId: 'items',
       },

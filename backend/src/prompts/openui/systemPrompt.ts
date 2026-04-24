@@ -406,11 +406,15 @@ function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples
   return parts.join('\n');
 }
 
-const cachedSystemPrompts = new Map<string, string>();
-const cachedSystemPromptHashes = new Map<string, string>();
-const cachedSystemPromptKeys = new Map<string, string>();
+interface CachedSystemPrompt {
+  cacheKey: string;
+  hash: string;
+  prompt: string;
+}
 
-export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
+const cachedSystemPrompts = new Map<string, CachedSystemPrompt>();
+
+function getCachedSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
   const cacheToken = getPromptCacheToken(options);
   const cachedPrompt = cachedSystemPrompts.get(cacheToken);
 
@@ -424,36 +428,26 @@ export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) 
     examples: buildToolExamples(options),
     tools: toolSpecifications,
   });
+  const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
+  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${getPromptIntentCacheVector(options.prompt)}:${componentSpecHash}:${promptHash}`;
+  const cachedEntry = {
+    prompt,
+    hash: promptHash,
+    cacheKey,
+  };
 
-  cachedSystemPrompts.set(cacheToken, prompt);
-  return prompt;
+  cachedSystemPrompts.set(cacheToken, cachedEntry);
+  return cachedEntry;
+}
+
+export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
+  return getCachedSystemPrompt(options).prompt;
 }
 
 export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions = {}) {
-  const intentVector = getPromptIntentCacheVector(options.prompt);
-  const cacheToken = getPromptCacheToken(options);
-  const cachedKey = cachedSystemPromptKeys.get(cacheToken);
-
-  if (cachedKey) {
-    return cachedKey;
-  }
-
-  const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
-  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${intentVector}:${componentSpecHash}:${promptHash}`;
-
-  cachedSystemPromptKeys.set(cacheToken, cacheKey);
-  return cacheKey;
+  return getCachedSystemPrompt(options).cacheKey;
 }
 
 export function getOpenUiSystemPromptHash(options: BuildOpenUiPromptOptions = {}) {
-  const cacheToken = getPromptCacheToken(options);
-  const cachedHash = cachedSystemPromptHashes.get(cacheToken);
-
-  if (cachedHash) {
-    return cachedHash;
-  }
-
-  const promptHash = createHash('sha256').update(buildOpenUiSystemPrompt(options)).digest('hex').slice(0, 16);
-  cachedSystemPromptHashes.set(cacheToken, promptHash);
-  return promptHash;
+  return getCachedSystemPrompt(options).hash;
 }
