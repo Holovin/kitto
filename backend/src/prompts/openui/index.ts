@@ -19,6 +19,7 @@ export {
   buildOpenUiRawUserRequest,
   buildOpenUiUserPrompt,
 } from './userPrompt.js';
+export { buildCurrentSourceInventory } from './sourceInventory.js';
 export { detectPromptAwareQualityIssues, detectPromptAwareQualityWarnings } from './qualityIssues.js';
 export type {
   PromptBuildRequest,

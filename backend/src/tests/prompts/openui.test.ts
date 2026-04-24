@@ -548,6 +548,7 @@ describe('openui prompts', () => {
     const rawUserRequest = buildOpenUiRawUserRequest(request);
     const requestIntentMatch = prompt.match(/<request_intent>\n([\s\S]*?)\n<\/request_intent>/);
     const userRequestMatch = prompt.match(/<latest_user_request>\n([\s\S]*?)\n<\/latest_user_request>/);
+    const sourceInventoryMatch = prompt.match(/<current_source_inventory>\n([\s\S]*?)\n<\/current_source_inventory>/);
 
     expect(prompt).toMatchInlineSnapshot(`
       "Update the current Kitto app definition based on the latest user request only.
@@ -561,6 +562,10 @@ describe('openui prompts', () => {
       Only \`<latest_user_request>\` contains the user-authored task text.
 
       Treat \`<current_source>\` as authoritative app state.
+
+      Use \`<current_source_inventory>\` as a compact index of existing statements, screens, tools, and state paths.
+
+      If \`<current_source_inventory>\` conflicts with \`<current_source>\`, prefer \`<current_source>\`.
 
       If earlier assistant summaries conflict with \`<current_source>\`, prefer \`<current_source>\`.
 
@@ -581,6 +586,15 @@ describe('openui prompts', () => {
       <latest_user_request>
       make a todo app
       </latest_user_request>
+
+      <current_source_inventory>
+      statements: root
+      screens: none
+      queries: none
+      mutations: none
+      runtime_state: none
+      domain_paths: none
+      </current_source_inventory>
 
       <current_source>
       root = AppShell([])
@@ -638,8 +652,20 @@ describe('openui prompts', () => {
         'minimality: simple',
       ].join('\n'),
     );
-    expect(prompt.indexOf('<request_intent>')).toBeLessThan(prompt.indexOf('<latest_user_request>'));
+    expect(prompt.indexOf('\n<request_intent>\n')).toBeLessThan(prompt.indexOf('\n<latest_user_request>\n'));
+    expect(prompt.indexOf('\n<current_source_inventory>\n')).toBeGreaterThan(prompt.indexOf('\n<latest_user_request>\n'));
+    expect(prompt.indexOf('\n<current_source_inventory>\n')).toBeLessThan(prompt.indexOf('\n<current_source>\n'));
     expect(userRequestMatch?.[1]).toBe(rawUserRequest);
+    expect(sourceInventoryMatch?.[1]).toBe(
+      [
+        'statements: root',
+        'screens: none',
+        'queries: none',
+        'mutations: none',
+        'runtime_state: none',
+        'domain_paths: none',
+      ].join('\n'),
+    );
     expect(prompt).not.toContain('<<<BEGIN');
     expect(prompt).not.toContain('LATEST_USER_REQUEST');
     expect(prompt).not.toContain('"role":"assistant"');
@@ -678,6 +704,7 @@ describe('openui prompts', () => {
     const rawUserRequest = buildOpenUiRawUserRequest(request);
 
     expect(rawUserRequest).toBe('(empty user request)');
+    expect(prompt).not.toContain('\n<current_source_inventory>\n');
     expect(prompt).toContain(
       [
         '<request_intent>',

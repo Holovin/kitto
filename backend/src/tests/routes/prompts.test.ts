@@ -64,6 +64,8 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('operation: create|modify|repair|unknown');
     expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
+    expect(payload.requestPromptTemplate).toContain('<current_source_inventory>');
+    expect(payload.requestPromptTemplate).toContain('queries: [queryName -&gt; tool(path), or none]');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.requestPromptTemplate).toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
