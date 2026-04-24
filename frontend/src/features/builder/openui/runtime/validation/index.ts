@@ -8,7 +8,7 @@ import {
 import { detectArrayIndexPathMutationIssues } from './detectors/mutationIndexPath';
 import { detectChoiceOptionsShapeIssues } from './detectors/optionsShape';
 import { detectPersistedMutationRefreshWarnings } from './detectors/persistedMutationRefresh';
-import { detectStructuralInvariantIssues } from './detectors/structuralInvariants';
+import { FATAL_STRUCTURAL_INVARIANT_CODES, detectStructuralInvariantIssues } from './detectors/structuralInvariants';
 import { detectUndefinedStateReferenceIssues } from './detectors/undefinedStateReference';
 import { collectOpenUiParserValidationIssues } from './parser';
 import {
@@ -16,23 +16,64 @@ import {
   normalizeSourceForValidation,
   parser,
   type OpenUiQualityIssue,
+  type OpenUiValidationContext,
   type OpenUiValidationResult,
 } from './shared';
 
-export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIssue[] {
-  const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
+const INLINE_TOOL_CALL_ISSUE_CODES = new Set([
+  'inline-tool-in-each',
+  'inline-tool-in-prop',
+  'inline-tool-in-repeater',
+]);
+
+type LocalRuntimeQualityIssueOptions = Partial<Pick<OpenUiValidationContext, 'normalizedSource' | 'parseResult'>> & {
+  validationIssues?: OpenUiValidationResult['issues'];
+};
+
+function mapKnownValidationQualityIssues(validationIssues?: OpenUiValidationResult['issues']): OpenUiQualityIssue[] | null {
+  if (!validationIssues) {
+    return null;
+  }
+
+  const qualityIssues: OpenUiQualityIssue[] = [];
+
+  for (const issue of validationIssues) {
+    if (FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code)) {
+      qualityIssues.push({ ...issue, severity: 'fatal-quality' });
+      continue;
+    }
+
+    if (INLINE_TOOL_CALL_ISSUE_CODES.has(issue.code)) {
+      qualityIssues.push({ ...issue, severity: 'blocking-quality' });
+    }
+  }
+
+  return qualityIssues;
+}
+
+export function detectLocalRuntimeQualityIssues(
+  source: string,
+  options: LocalRuntimeQualityIssueOptions = {},
+): OpenUiQualityIssue[] {
+  const trimmedSource =
+    typeof options.normalizedSource === 'string'
+      ? options.normalizedSource
+      : typeof source === 'string'
+        ? normalizeSourceForValidation(source)
+        : '';
 
   if (!trimmedSource) {
     return [];
   }
 
-  const result = parser.parse(trimmedSource);
+  const result = options.parseResult ?? parser.parse(trimmedSource);
 
   if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root) {
     return [];
   }
 
   const issues: OpenUiQualityIssue[] = [];
+  const knownValidationQualityIssues = mapKnownValidationQualityIssues(options.validationIssues);
 
   issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
   issues.push(...detectControlActionBindingConflicts(result.root));
@@ -41,19 +82,24 @@ export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIs
   issues.push(...detectReservedLastChoiceStatementIssues(trimmedSource, result));
   issues.push(...detectUndefinedStateReferenceIssues(trimmedSource, result));
   issues.push(...detectArrayIndexPathMutationIssues(result));
-  issues.push(
-    ...detectStructuralInvariantIssues(trimmedSource, result).map((issue) => ({
-      ...issue,
-      severity: 'fatal-quality' as const,
-    })),
-  );
 
-  issues.push(
-    ...detectInlineToolCallIssues(result).map((issue) => ({
-      ...issue,
-      severity: 'blocking-quality' as const,
-    })),
-  );
+  if (knownValidationQualityIssues) {
+    issues.push(...knownValidationQualityIssues);
+  } else {
+    issues.push(
+      ...detectStructuralInvariantIssues(trimmedSource, result).map((issue) => ({
+        ...issue,
+        severity: 'fatal-quality' as const,
+      })),
+    );
+
+    issues.push(
+      ...detectInlineToolCallIssues(result).map((issue) => ({
+        ...issue,
+        severity: 'blocking-quality' as const,
+      })),
+    );
+  }
 
   issues.push(
     ...detectPersistedMutationRefreshWarnings(result).map((issue) => ({
@@ -65,30 +111,38 @@ export function detectLocalRuntimeQualityIssues(source: string): OpenUiQualityIs
   return issues;
 }
 
-export function validateOpenUiSource(source: string): OpenUiValidationResult {
+export function validateOpenUiSourceWithContext(source: string): OpenUiValidationContext {
   const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
 
   if (!trimmedSource) {
     return {
-      isValid: false,
-      issues: [
-        createParserIssue({
-          code: 'empty-source',
-          message: 'The model returned an empty OpenUI document.',
-        }),
-      ],
+      normalizedSource: trimmedSource,
+      parseResult: null,
+      validation: {
+        isValid: false,
+        issues: [
+          createParserIssue({
+            code: 'empty-source',
+            message: 'The model returned an empty OpenUI document.',
+          }),
+        ],
+      },
     };
   }
 
   if (trimmedSource.includes('```')) {
     return {
-      isValid: false,
-      issues: [
-        createParserIssue({
-          code: 'code-fence-present',
-          message: 'Return raw OpenUI source without Markdown code fences.',
-        }),
-      ],
+      normalizedSource: trimmedSource,
+      parseResult: null,
+      validation: {
+        isValid: false,
+        issues: [
+          createParserIssue({
+            code: 'code-fence-present',
+            message: 'Return raw OpenUI source without Markdown code fences.',
+          }),
+        ],
+      },
     };
   }
 
@@ -100,7 +154,15 @@ export function validateOpenUiSource(source: string): OpenUiValidationResult {
   ];
 
   return {
-    isValid: issues.length === 0,
-    issues,
+    normalizedSource: trimmedSource,
+    parseResult: result,
+    validation: {
+      isValid: issues.length === 0,
+      issues,
+    },
   };
+}
+
+export function validateOpenUiSource(source: string): OpenUiValidationResult {
+  return validateOpenUiSourceWithContext(source).validation;
 }

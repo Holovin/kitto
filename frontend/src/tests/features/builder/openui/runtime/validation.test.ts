@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
+  validateOpenUiSourceWithContext,
 } from '@features/builder/openui/runtime/validation';
 
 const validSource = `root = AppShell([
@@ -711,6 +712,40 @@ ${validSource}`);
 });
 
 describe('detectLocalRuntimeQualityIssues', () => {
+  it('can reuse validation context for validation-backed quality issues', () => {
+    const source = `root = AppShell([
+  Screen("main", "Main", [
+    Group("Body", "vertical", [
+      Screen("details", "Details", [])
+    ])
+  ])
+])`;
+    const validationContext = validateOpenUiSourceWithContext(source);
+
+    expect(validationContext.validation.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'screen-inside-screen',
+        }),
+      ]),
+    );
+    expect(
+      detectLocalRuntimeQualityIssues(source, {
+        normalizedSource: validationContext.normalizedSource,
+        parseResult: validationContext.parseResult,
+        validationIssues: validationContext.validation.issues,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'screen-inside-screen',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('marks logged IQ drafts that use $currentScreen without a top-level declaration', () => {
     const issues = detectLocalRuntimeQualityIssues(LOGGED_IQ_SOURCE);
 

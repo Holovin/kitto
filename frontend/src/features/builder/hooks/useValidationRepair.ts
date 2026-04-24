@@ -6,7 +6,7 @@ import { getBuilderSanitizedLlmRequestForTransport, validateBuilderLlmRequest } 
 import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import {
   detectLocalRuntimeQualityIssues,
-  validateOpenUiSource,
+  validateOpenUiSourceWithContext,
 } from '@features/builder/openui/runtime/validation';
 import type {
   BuilderGeneratedDraft,
@@ -385,7 +385,8 @@ export function useValidationRepair({
     }
 
     while (true) {
-      const validation = validateOpenUiSource(candidateResponse.source);
+      const validationContext = validateOpenUiSourceWithContext(candidateResponse.source);
+      const validation = validationContext.validation;
 
       if (!validation.isValid) {
         const fatalValidationIssues = validation.issues.filter((issue) => FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code));
@@ -399,7 +400,11 @@ export function useValidationRepair({
 
       if (validation.isValid) {
         const qualityIssues = [
-          ...detectLocalRuntimeQualityIssues(candidateResponse.source),
+          ...detectLocalRuntimeQualityIssues(candidateResponse.source, {
+            normalizedSource: validationContext.normalizedSource,
+            parseResult: validationContext.parseResult,
+            validationIssues: validation.issues,
+          }),
           ...(candidateResponse.qualityIssues ?? []),
         ];
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
