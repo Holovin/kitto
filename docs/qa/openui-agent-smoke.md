@@ -19,7 +19,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
    `http://localhost:5555/chat`
 
 3. Wait until the backend model status in the header is `connected`.
-4. Confirm the runtime-config badge is present. Chat send must stay disabled while `/api/config` is still loading, then unlock once runtime config finishes loading.
+4. Confirm no runtime-config badge appears in the header. Chat send must stay disabled while `/api/config` is still loading, then unlock once runtime config finishes loading.
 5. Open DevTools:
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
@@ -60,8 +60,9 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `Repair prompt` section carries the same structured-summary quality guidance and always instructs the model to return the corrected program in `source`.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
 - The prompts page is read-only and does not show edit or copy controls.
-- `/chat` keeps the runtime-config badge visible.
+- `/chat` does not show a runtime-config badge in the header.
 - Chat send stays disabled while `/api/config` is unresolved, with a clear composer hint.
+- If `/api/config` fails, Chat shows one red system message: `Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.`
 - After config load completes successfully, chat send becomes available without a page reload.
 
 ## Scenario 1 — Simple todo stays simple
@@ -401,7 +402,7 @@ After smoke:
 - colors/theme remain readable;
 - filtering works locally;
 - compute actions work locally;
-- the runtime-config badge is not stuck in `loading`;
+- the runtime-config status is not shown as a header badge;
 - the prompts reference page matches the current backend prompt snapshot.
 
 ## Separate Report

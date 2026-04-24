@@ -23,6 +23,7 @@ import { useStreamingSummary } from './useStreamingSummary';
 import { OpenUiValidationError, useValidationRepair } from './useValidationRepair';
 import { resolveBuilderComposerPrompt } from './submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
+import { resolveRuntimeConfigNotice } from '@features/builder/components/chatNotices';
 import {
   selectDraftPrompt,
   selectRetryPrompt,
@@ -173,13 +174,15 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       maxRepairAttempts === null ||
       maxRepairValidationIssues === null
     ) {
-      onSystemNotice({
-        content:
-          configStatus === 'failed'
-            ? 'Chat send is unavailable because the runtime config could not be loaded.'
-            : 'Chat send is unavailable until the runtime config finishes loading.',
-        tone: 'error',
+      const runtimeConfigNotice = resolveRuntimeConfigNotice({
+        configStatus,
+        runtimeConfigStatusContent: null,
       });
+
+      if (runtimeConfigNotice) {
+        onSystemNotice(runtimeConfigNotice);
+      }
+
       return;
     }
 

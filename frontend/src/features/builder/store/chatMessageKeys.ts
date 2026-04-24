@@ -6,5 +6,6 @@ export const SYSTEM_CHAT_MESSAGE_KEYS = {
   definitionImportStatus: 'definition-import-status',
   demoLoadSuccess: 'demo-load-success',
   historyNavigation: 'history-navigation',
+  runtimeConfigStatus: 'runtime-config-status',
   standaloneHtmlDownloadStatus: 'standalone-html-download-status',
 } as const;

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   BACKEND_DISCONNECTED_NOTICE,
   BACKEND_RECONNECTED_NOTICE,
+  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
   resolveBackendConnectionNotice,
+  resolveRuntimeConfigNotice,
 } from '@features/builder/components/chatNotices';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 
@@ -57,5 +59,42 @@ describe('resolveBackendConnectionNotice', () => {
       messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
       tone: 'error',
     });
+  });
+
+  it('emits a keyed red chat notice when runtime config failed', () => {
+    expect(
+      resolveRuntimeConfigNotice({
+        configStatus: 'failed',
+        runtimeConfigStatusContent: null,
+      }),
+    ).toEqual({
+      content: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      tone: 'error',
+    });
+  });
+
+  it('does not emit runtime config chat notices for non-error states', () => {
+    expect(
+      resolveRuntimeConfigNotice({
+        configStatus: 'loading',
+        runtimeConfigStatusContent: null,
+      }),
+    ).toBeNull();
+    expect(
+      resolveRuntimeConfigNotice({
+        configStatus: 'loaded',
+        runtimeConfigStatusContent: null,
+      }),
+    ).toBeNull();
+  });
+
+  it('does not duplicate the current runtime config failure notice', () => {
+    expect(
+      resolveRuntimeConfigNotice({
+        configStatus: 'failed',
+        runtimeConfigStatusContent: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+      }),
+    ).toBeNull();
   });
 });

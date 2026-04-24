@@ -231,6 +231,8 @@ import { domainActions, domainReducer } from '@features/builder/store/domainSlic
 import { BuilderStreamTimeoutError } from '@features/builder/api/streamGenerate';
 import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissionPrompt';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
+import { RUNTIME_CONFIG_UNAVAILABLE_NOTICE } from '@features/builder/components/chatNotices';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
 
@@ -1108,10 +1110,7 @@ describe('useBuilderSubmission', () => {
 
     expect(testHarness.streamMock).not.toHaveBeenCalled();
     expect(testHarness.generateMock).not.toHaveBeenCalled();
-    expect(submission.onSystemNotice).toHaveBeenCalledWith({
-      content: 'Chat send is unavailable until the runtime config finishes loading.',
-      tone: 'error',
-    });
+    expect(submission.onSystemNotice).not.toHaveBeenCalled();
 
     submission.unmount();
   });
@@ -1133,7 +1132,8 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.streamMock).not.toHaveBeenCalled();
     expect(testHarness.generateMock).not.toHaveBeenCalled();
     expect(submission.onSystemNotice).toHaveBeenCalledWith({
-      content: 'Chat send is unavailable because the runtime config could not be loaded.',
+      content: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
       tone: 'error',
     });
 

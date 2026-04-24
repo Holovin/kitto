@@ -7,11 +7,16 @@ import { getBuilderComposerSubmitState } from '@features/builder/hooks/submissio
 import { useBackendConnectionState } from '@features/builder/hooks/useBuilderBootstrap';
 import { useBuilderHistoryControls } from '@features/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@features/builder/hooks/useBuilderSubmission';
-import { resolveBackendConnectionNotice } from '@features/builder/components/chatNotices';
+import {
+  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+  resolveBackendConnectionNotice,
+  resolveRuntimeConfigNotice,
+} from '@features/builder/components/chatNotices';
+import { builderActions } from '@features/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import { selectChatMessages, selectCommittedSource } from '@features/builder/store/selectors';
 import type { BuilderChatMessage, BuilderChatNotice } from '@features/builder/types';
-import { useAppSelector } from '@store/hooks';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
 
 interface ChatToolbarProps {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
@@ -185,13 +190,17 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
 }
 
 function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: ChatComposerProps) {
+  const dispatch = useAppDispatch();
   const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } =
     useBuilderSubmission({
       abortControllerRef,
       cancelActiveRequestRef,
       onSystemNotice,
     });
+  const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
+  const runtimeConfigStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus);
+  const runtimeConfigStatusContent = runtimeConfigStatusMessage?.content ?? null;
   const submitButtonState = getBuilderComposerSubmitState({
     configStatus,
     draftPrompt,
@@ -203,9 +212,31 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
     configStatus === 'loading'
       ? 'Runtime config is still loading. Chat send will unlock after /api/config is ready.'
       : configStatus === 'failed'
-        ? 'Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.'
+        ? RUNTIME_CONFIG_UNAVAILABLE_NOTICE
         : 'Press Cmd/Ctrl+Enter to send.';
   const composerHintToneClassName = configStatus === 'failed' ? 'text-rose-600' : configStatus === 'loading' ? 'text-amber-700' : 'text-slate-500';
+
+  useEffect(() => {
+    const runtimeConfigNotice = resolveRuntimeConfigNotice({
+      configStatus,
+      runtimeConfigStatusContent,
+    });
+
+    if (runtimeConfigNotice) {
+      onSystemNotice(runtimeConfigNotice);
+      return;
+    }
+
+    if (configStatus === 'failed' || runtimeConfigStatusContent === null) {
+      return;
+    }
+
+    dispatch(
+      builderActions.removeChatMessageByKey({
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      }),
+    );
+  }, [configStatus, dispatch, onSystemNotice, runtimeConfigStatusContent]);
 
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
