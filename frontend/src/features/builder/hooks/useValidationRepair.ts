@@ -18,7 +18,7 @@ interface UseValidationRepairOptions {
   runGenerateRequest: (
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
-    options?: { requestKind?: 'automatic-repair'; transportRequestId?: BuilderRequestId },
+    options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
   ) => Promise<BuilderGeneratedDraft>;
   showStreamingSummaryStatus: (requestId: BuilderRequestId, status: string) => void;
   throwIfInactiveRequest: (requestId: BuilderRequestId) => void;

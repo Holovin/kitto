@@ -12,6 +12,11 @@ import {
 } from '../../prompts/openui.js';
 import { getRequestIdFromContext } from '../../requestMetadata.js';
 import type { IntakeFailureRecorder } from './telemetry.js';
+import {
+  AUTOMATIC_REPAIR_ATTEMPT_HEADER,
+  AUTOMATIC_REPAIR_FOR_HEADER,
+  AUTOMATIC_REPAIR_HEADER,
+} from './transportHeaders.js';
 
 export interface LlmRequestCompaction {
   compactedByBytes: boolean;
@@ -109,6 +114,69 @@ function getRequestSizeBytes(request: PromptBuildRequest) {
   return getByteLength(JSON.stringify(request));
 }
 
+function normalizeHeaderValue(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+  return normalizedValue ? normalizedValue : null;
+}
+
+function parsePositiveIntegerHeader(value: string | null | undefined) {
+  const normalizedValue = normalizeHeaderValue(value);
+
+  if (!normalizedValue || !/^[1-9]\d*$/.test(normalizedValue)) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(normalizedValue, 10);
+  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
+}
+
+function createAutomaticRepairMetadataError() {
+  return new RequestValidationError('Automatic repair transport metadata did not match the request body.', 400, {
+    publicMessage: 'The request payload is invalid.',
+  });
+}
+
+async function validateAutomaticRepairTransportMetadata({
+  context,
+  intakeRecorder,
+  parsedBody,
+  request,
+  requestBytes,
+  requestId,
+}: {
+  context: Context;
+  intakeRecorder: IntakeFailureRecorder;
+  parsedBody: unknown;
+  request: PromptBuildRequest;
+  requestBytes: number;
+  requestId: string;
+}) {
+  if (context.req.header(AUTOMATIC_REPAIR_HEADER) !== '1') {
+    return;
+  }
+
+  const parentRequestId = normalizeHeaderValue(context.req.header(AUTOMATIC_REPAIR_FOR_HEADER));
+  const repairAttemptNumber = parsePositiveIntegerHeader(context.req.header(AUTOMATIC_REPAIR_ATTEMPT_HEADER));
+
+  if (
+    request.mode !== 'repair' ||
+    !request.parentRequestId ||
+    request.parentRequestId !== parentRequestId ||
+    !request.repairAttemptNumber ||
+    request.repairAttemptNumber !== repairAttemptNumber
+  ) {
+    const metadataError = createAutomaticRepairMetadataError();
+
+    await intakeRecorder.recordIntake({
+      error: metadataError,
+      partialBody: parsedBody,
+      requestBytes,
+      requestId,
+    });
+    throw metadataError;
+  }
+}
+
 function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedLlmRequest {
   const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
     getSizeBytes: (chatHistory) =>
@@ -178,6 +246,15 @@ export async function parseLlmRequest(
 
     throw error;
   }
+
+  await validateAutomaticRepairTransportMetadata({
+    context,
+    intakeRecorder,
+    parsedBody,
+    request,
+    requestBytes,
+    requestId,
+  });
 
   const compactedRequest = compactLlmRequest(request, env);
   const compactedRequestBytes = getRequestSizeBytes(compactedRequest.request);

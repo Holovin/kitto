@@ -1,4 +1,4 @@
-import { startTransition, useRef, useState } from 'react';
+import { startTransition, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -28,6 +28,12 @@ type StandaloneAppProps = {
   payload?: KittoStandalonePayload;
 };
 
+type StandaloneSnapshotStore = {
+  getSnapshot: () => StandaloneSnapshot;
+  mergeSnapshot: (update: StandaloneSnapshotUpdate) => StandaloneSnapshot;
+  setSnapshot: (nextSnapshot: StandaloneSnapshot) => void;
+};
+
 type StandaloneFallbackProps = {
   details?: BuilderParseIssue[];
   error?: unknown;
@@ -41,6 +47,21 @@ function getErrorMessage(error: unknown) {
   }
 
   return 'Unknown runtime error.';
+}
+
+function createStandaloneSnapshotStore(initialSnapshot: StandaloneSnapshot): StandaloneSnapshotStore {
+  let snapshot = initialSnapshot;
+
+  return {
+    getSnapshot: () => snapshot,
+    mergeSnapshot(update) {
+      snapshot = mergeStandaloneSnapshot(snapshot, update);
+      return snapshot;
+    },
+    setSnapshot(nextSnapshot) {
+      snapshot = nextSnapshot;
+    },
+  };
 }
 
 function StandaloneFallback({ details, error, onResetLocalData, title }: StandaloneFallbackProps) {
@@ -132,13 +153,13 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
         },
   );
   const [runtimeState, setRuntimeState] = useState<Record<string, unknown>>(restoredState.runtimeState);
-  const [domainData, setDomainData] = useState<Record<string, unknown>>(restoredState.domainData);
+  const [, setDomainData] = useState<Record<string, unknown>>(restoredState.domainData);
+  const [standaloneSnapshotStore] = useState(() =>
+    createStandaloneSnapshotStore(createStandaloneSnapshot(restoredState.runtimeState, restoredState.domainData)),
+  );
   const [parseIssues, setParseIssues] = useState<BuilderParseIssue[]>([]);
   const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
   const [resetVersion, setResetVersion] = useState(0);
-  const standaloneSnapshotRef = useRef<StandaloneSnapshot>(
-    createStandaloneSnapshot(restoredState.runtimeState, restoredState.domainData),
-  );
 
   function persistStandaloneState(nextSnapshot: StandaloneSnapshot) {
     if (!parsedPayload) {
@@ -149,9 +170,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
   }
 
   function commitStandaloneSnapshot(update: StandaloneSnapshotUpdate) {
-    const nextSnapshot = mergeStandaloneSnapshot(standaloneSnapshotRef.current, update);
-
-    standaloneSnapshotRef.current = nextSnapshot;
+    const nextSnapshot = standaloneSnapshotStore.mergeSnapshot(update);
 
     if (isStandaloneSnapshotUpdateKey(update, 'runtimeState')) {
       setRuntimeState(nextSnapshot.runtimeState);
@@ -168,6 +187,11 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     commitStandaloneSnapshot({ domainData: nextDomainData });
   }
 
+  const standaloneToolProvider = createDomainToolProvider({
+    readDomainData: () => standaloneSnapshotStore.getSnapshot().domainData,
+    replaceDomainData: replaceStandaloneDomainData,
+  });
+
   function handleRuntimeStateUpdate(nextRuntimeState: Record<string, unknown>) {
     commitStandaloneSnapshot({ runtimeState: nextRuntimeState });
   }
@@ -183,7 +207,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     startTransition(() => {
       setParseIssues([]);
       setRuntimeIssues([]);
-      standaloneSnapshotRef.current = baselineSnapshot;
+      standaloneSnapshotStore.setSnapshot(baselineSnapshot);
       setRuntimeState(baselineSnapshot.runtimeState);
       setDomainData(baselineSnapshot.domainData);
       setResetVersion((currentValue) => currentValue + 1);
@@ -195,10 +219,6 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
   }
 
   const sourceValidation = validateOpenUiSource(parsedPayload.source);
-  const standaloneToolProvider = createDomainToolProvider({
-    readDomainData: () => standaloneSnapshotRef.current.domainData,
-    replaceDomainData: replaceStandaloneDomainData,
-  });
 
   if (!sourceValidation.isValid) {
     return (

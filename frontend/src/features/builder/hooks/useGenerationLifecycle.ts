@@ -150,7 +150,7 @@ export function useGenerationLifecycle({
   async function runGenerateRequest(
     requestId: BuilderRequestId,
     request: BuilderLlmRequest,
-    options?: { requestKind?: 'automatic-repair'; transportRequestId?: BuilderRequestId },
+    options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
   ): Promise<BuilderGeneratedDraft> {
     throwIfInactiveRequest(requestId);
 

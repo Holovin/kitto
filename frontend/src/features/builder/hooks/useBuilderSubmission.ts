@@ -274,7 +274,9 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
 
       if (!hasCompletedStreamRequest && !hasObservedStreamActivity) {
         try {
-          const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, transportRequest);
+          const fallbackResponse = await generationLifecycle.runGenerateRequest(requestId, transportRequest, {
+            requestKind: 'stream-fallback',
+          });
           await commitGeneratedSource(fallbackResponse, transportRequest, requestId);
           return;
         } catch (fallbackError) {

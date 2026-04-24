@@ -933,6 +933,330 @@ describe('createLlmOpenUiRoutes', () => {
     );
   });
 
+  it('does not count a marked fallback after a pre-activity stream failure as a second rate-limit request', async () => {
+    const { app } = createRouteApp({
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+    });
+    streamOpenUiSourceMock.mockRejectedValue(new UpstreamFailureError('The stream failed before emitting content.'));
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const body = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+
+    const streamResponse = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body,
+    });
+    const streamEvents = parseSseEvents(await streamResponse.text());
+    const fallbackResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+        'x-kitto-stream-fallback': '1',
+      },
+      body,
+    });
+    const nextResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-next',
+      },
+      body,
+    });
+
+    expect(streamResponse.status).toBe(200);
+    expect(streamEvents).toEqual([
+      {
+        event: 'error',
+        data: '{"code":"upstream_error","error":"The model service could not complete the request.","status":502}',
+      },
+    ]);
+    expect(fallbackResponse.status).toBe(200);
+    expect(nextResponse.status).toBe(429);
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not count a marked automatic repair after a completed parent generation as a second rate-limit request', async () => {
+    const { app } = createRouteApp({
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const initialBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+    const repairBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      invalidDraft: 'root = AppShell([missing])',
+      mode: 'repair',
+      parentRequestId: 'builder-request-parent',
+      repairAttemptNumber: 1,
+      validationIssues: [unresolvedReferenceIssue],
+      chatHistory: [],
+    });
+
+    const initialResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: initialBody,
+    });
+    const repairResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-automatic-repair': '1',
+        'x-kitto-repair-attempt': '1',
+        'x-kitto-repair-for': 'builder-request-parent',
+        'x-kitto-request-id': 'builder-request-repair-1',
+      },
+      body: repairBody,
+    });
+    const nextResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-next',
+      },
+      body: initialBody,
+    });
+
+    expect(initialResponse.status).toBe(200);
+    expect(repairResponse.status).toBe(200);
+    expect(nextResponse.status).toBe(429);
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not grant an automatic repair rate-limit exemption without a recorded parent generation', async () => {
+    const { app } = createRouteApp({
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const initialBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+    const repairBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      invalidDraft: 'root = AppShell([missing])',
+      mode: 'repair',
+      parentRequestId: 'missing-parent-request',
+      repairAttemptNumber: 1,
+      validationIssues: [unresolvedReferenceIssue],
+      chatHistory: [],
+    });
+
+    const initialResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: initialBody,
+    });
+    const repairResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-automatic-repair': '1',
+        'x-kitto-repair-attempt': '1',
+        'x-kitto-repair-for': 'missing-parent-request',
+        'x-kitto-request-id': 'builder-request-repair-1',
+      },
+      body: repairBody,
+    });
+
+    expect(initialResponse.status).toBe(200);
+    expect(repairResponse.status).toBe(429);
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects automatic repair transport metadata that does not match the request body', async () => {
+    const { app } = createRouteApp();
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const initialBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+    const mismatchedRepairBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      invalidDraft: 'root = AppShell([missing])',
+      mode: 'repair',
+      parentRequestId: 'different-parent-request',
+      repairAttemptNumber: 1,
+      validationIssues: [unresolvedReferenceIssue],
+      chatHistory: [],
+    });
+
+    const initialResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: initialBody,
+    });
+    const repairResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-automatic-repair': '1',
+        'x-kitto-repair-attempt': '1',
+        'x-kitto-repair-for': 'builder-request-parent',
+        'x-kitto-request-id': 'builder-request-repair-1',
+      },
+      body: mismatchedRepairBody,
+    });
+
+    expect(initialResponse.status).toBe(200);
+    expect(repairResponse.status).toBe(400);
+    expect(await repairResponse.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('records one automatic repair credit per configured repair attempt', async () => {
+    const { app } = createRouteApp({
+      LLM_MAX_REPAIR_ATTEMPTS: 2,
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const initialBody = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+    const createRepairBody = (attemptNumber: number) =>
+      JSON.stringify({
+        prompt: 'generate a tiny app',
+        currentSource: '',
+        invalidDraft: 'root = AppShell([missing])',
+        mode: 'repair',
+        parentRequestId: 'builder-request-parent',
+        repairAttemptNumber: attemptNumber,
+        validationIssues: [unresolvedReferenceIssue],
+        chatHistory: [],
+      });
+    const sendRepair = (attemptNumber: number) =>
+      app.request('/api/llm/generate', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-kitto-automatic-repair': '1',
+          'x-kitto-repair-attempt': String(attemptNumber),
+          'x-kitto-repair-for': 'builder-request-parent',
+          'x-kitto-request-id': `builder-request-repair-${attemptNumber}`,
+        },
+        body: createRepairBody(attemptNumber),
+      });
+
+    const initialResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body: initialBody,
+    });
+    const firstRepairResponse = await sendRepair(1);
+    const secondRepairResponse = await sendRepair(2);
+    const thirdRepairResponse = await sendRepair(3);
+
+    expect(initialResponse.status).toBe(200);
+    expect(firstRepairResponse.status).toBe(200);
+    expect(secondRepairResponse.status).toBe(200);
+    expect(thirdRepairResponse.status).toBe(429);
+    expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not grant a fallback rate-limit exemption after streaming activity was sent', async () => {
+    const { app } = createRouteApp({
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+    });
+    streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
+      onTextDelta('root = ');
+      throw new UpstreamFailureError('The stream failed after emitting content.');
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
+    });
+    const body = JSON.stringify({
+      prompt: 'generate a tiny app',
+      currentSource: '',
+      chatHistory: [],
+    });
+
+    const streamResponse = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+      },
+      body,
+    });
+    const streamEvents = parseSseEvents(await streamResponse.text());
+    const fallbackResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-kitto-request-id': 'builder-request-parent',
+        'x-kitto-stream-fallback': '1',
+      },
+      body,
+    });
+
+    expect(streamResponse.status).toBe(200);
+    expect(streamEvents).toEqual([
+      { event: 'chunk', data: 'root = ' },
+      {
+        event: 'error',
+        data: '{"code":"upstream_error","error":"The model service could not complete the request.","status":502}',
+      },
+    ]);
+    expect(fallbackResponse.status).toBe(429);
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('closes the SSE stream without done or error when the upstream stream is aborted', async () => {
     const { app } = createRouteApp();
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
@@ -1120,7 +1444,7 @@ describe('createLlmOpenUiRoutes', () => {
     ]);
   });
 
-  it('accepts client commit telemetry only after a successful generation request from the same client', async () => {
+  it('accepts client commit telemetry only after a successful generation request id', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1131,7 +1455,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
         'x-kitto-request-id': 'builder-request-parent',
       },
       body: JSON.stringify({
@@ -1145,7 +1468,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
       },
       body: JSON.stringify({
         requestId: 'builder-request-parent',
@@ -1183,7 +1505,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
         'x-kitto-request-id': 'builder-request-parent',
       },
       body: JSON.stringify({
@@ -1197,7 +1518,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
       },
       body: JSON.stringify({
         requestId: 'builder-request-parent',
@@ -1250,7 +1570,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(writePromptIoIntakeFailureSafelyMock).not.toHaveBeenCalled();
   });
 
-  it('rejects commit telemetry from a different client even when the request id exists', async () => {
+  it('ignores spoofed forwarding headers when matching commit telemetry to generation requests', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1286,13 +1606,16 @@ describe('createLlmOpenUiRoutes', () => {
     });
 
     expect(generationResponse.status).toBe(200);
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({
-      code: 'validation_error',
-      error: 'Commit telemetry request does not match a completed generation request.',
-      status: 409,
-    });
-    expect(writePromptIoCommitTelemetrySafelyMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(writePromptIoCommitTelemetrySafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        committed: true,
+        parentRequestId: 'builder-request-parent',
+        requestId: expect.any(String),
+      }),
+    );
   });
 
   it('accepts at most three commit telemetry events per completed generation request', async () => {
@@ -1306,7 +1629,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
         'x-kitto-request-id': 'builder-request-parent',
       },
       body: JSON.stringify({
@@ -1319,7 +1641,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
       },
       body: JSON.stringify({
         requestId: 'builder-request-parent',
@@ -1358,7 +1679,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
         'x-kitto-request-id': 'builder-request-parent',
       },
       body: JSON.stringify({
@@ -1372,7 +1692,6 @@ describe('createLlmOpenUiRoutes', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-forwarded-for': '203.0.113.10',
       },
       body: JSON.stringify({
         requestId: 'builder-request-parent',

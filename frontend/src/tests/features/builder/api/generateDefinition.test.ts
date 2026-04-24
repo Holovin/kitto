@@ -259,6 +259,8 @@ describe('generateBuilderDefinition', () => {
         request: {
           ...request,
           mode: 'repair',
+          parentRequestId: 'builder-request-parent',
+          repairAttemptNumber: 1,
         },
       }),
     );
@@ -268,7 +270,45 @@ describe('generateBuilderDefinition', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'x-kitto-automatic-repair': '1',
+          'x-kitto-repair-attempt': '1',
+          'x-kitto-repair-for': 'builder-request-parent',
           'x-kitto-request-id': 'builder-request-repair',
+        }),
+      }),
+    );
+  });
+
+  it('marks stream fallback requests with a dedicated transport header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          model: 'gpt-5.4-mini',
+          source: 'root = AppShell([])',
+          temperature: 0.6,
+        } satisfies BuilderLlmResponse),
+        {
+          headers: {
+            'content-type': 'application/json',
+          },
+          status: 200,
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await generateBuilderDefinition(
+      createGenerateRequestOptions({
+        requestId: 'builder-request-fallback',
+        requestKind: 'stream-fallback',
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/llm/generate',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-kitto-request-id': 'builder-request-fallback',
+          'x-kitto-stream-fallback': '1',
         }),
       }),
     );

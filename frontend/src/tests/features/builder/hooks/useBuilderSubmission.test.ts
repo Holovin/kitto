@@ -1475,12 +1475,21 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
 
     const repairCall = testHarness.generateMock.mock.calls[0]?.[0] as {
-      request: { invalidDraft?: string; mode?: string; prompt: string; validationIssues?: Array<{ code: string }> };
+      request: {
+        invalidDraft?: string;
+        mode?: string;
+        parentRequestId?: string;
+        prompt: string;
+        repairAttemptNumber?: number;
+        validationIssues?: Array<{ code: string }>;
+      };
       requestId?: string;
+      requestKind?: string;
     };
     const repairRequest = repairCall.request;
 
     expect(repairCall.requestId).not.toBe(initialRequestId);
+    expect(repairCall.requestKind).toBe('automatic-repair');
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
       commitSource: 'streaming',
       committed: false,
@@ -1502,6 +1511,8 @@ describe('useBuilderSubmission', () => {
     });
 
     expect(repairRequest.mode).toBe('repair');
+    expect(repairRequest.parentRequestId).toBe(initialRequestId);
+    expect(repairRequest.repairAttemptNumber).toBe(1);
     expect(repairRequest.prompt).toBe('Create an IQ-like test with a quiz screen and a result screen.');
     expect(repairRequest.invalidDraft).toBe(IQ_BUG_SOURCE);
     expect(repairRequest.validationIssues).toEqual(
@@ -1734,6 +1745,11 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(testHarness.generateMock.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        requestKind: 'stream-fallback',
+      }),
+    );
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
     expect(getBuilderState().streamedSource).toBe(VALID_STREAM_SOURCE);

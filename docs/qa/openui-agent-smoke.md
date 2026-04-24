@@ -25,8 +25,10 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
    - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
 6. While a generation is streaming, Chat should surface one human-readable pending assistant summary with a loading shimmer, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
 7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
-8. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
-9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
+8. If the stream fails before any `chunk` or final `done` event and the builder retries through `POST /api/llm/generate`, confirm that fallback reuses the same `x-kitto-request-id`, sends `x-kitto-stream-fallback: 1`, and does not consume a second generation rate-limit slot.
+9. If automatic repair runs, confirm the repair request sends `x-kitto-automatic-repair: 1`, `x-kitto-repair-for: <parent request id>`, and `x-kitto-repair-attempt: <attempt number>`; it should consume only a recorded one-use repair exemption from the completed parent generation, not an open-ended rate-limit bypass.
+10. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
+11. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
 
 ## MCP automation notes
 

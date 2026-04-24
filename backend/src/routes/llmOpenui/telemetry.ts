@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type { AppEnv } from '../../env.js';
 import { toPublicErrorPayload } from '../../errors/publicError.js';
-import { createRequestId, getRequestClientKey } from '../../requestMetadata.js';
+import { createRequestId } from '../../requestMetadata.js';
 import { createCommitTelemetryRegistry } from '../../services/commitTelemetryRegistry.js';
 import { writePromptIoCommitTelemetrySafely, writePromptIoIntakeFailureSafely } from '../../services/openai/logging.js';
 import { mapToPublicError } from './mapToPublicError.js';
@@ -25,11 +25,11 @@ export interface IntakeFailureRecorder {
 }
 
 export interface LlmOpenUiTelemetry extends IntakeFailureRecorder {
-  consumeCommitTelemetry(requestId: string, clientKey: string): ReturnType<
+  consumeCommitTelemetry(requestId: string): ReturnType<
     ReturnType<typeof createCommitTelemetryRegistry>['consumeTelemetry']
   >;
   recordCommit(request: ParsedCommitTelemetryRequest): Promise<void>;
-  recordModelResponse(requestId: string, clientKey: string): void;
+  recordModelResponse(requestId: string): void;
 }
 
 export function createLlmOpenUiTelemetry(env: AppEnv): LlmOpenUiTelemetry {
@@ -54,8 +54,8 @@ export function createLlmOpenUiTelemetry(env: AppEnv): LlmOpenUiTelemetry {
         requestId: options.requestId,
       });
     },
-    consumeCommitTelemetry(requestId, clientKey) {
-      return commitTelemetryRegistry.consumeTelemetry(requestId, clientKey);
+    consumeCommitTelemetry(requestId) {
+      return commitTelemetryRegistry.consumeTelemetry(requestId);
     },
     async recordCommit(request) {
       await writePromptIoCommitTelemetrySafely(env, {
@@ -67,8 +67,8 @@ export function createLlmOpenUiTelemetry(env: AppEnv): LlmOpenUiTelemetry {
         validationIssues: request.validationIssues,
       });
     },
-    recordModelResponse(requestId, clientKey) {
-      commitTelemetryRegistry.registerCompletedRequest(requestId, clientKey);
+    recordModelResponse(requestId) {
+      commitTelemetryRegistry.registerCompletedRequest(requestId);
     },
   };
 }
@@ -77,7 +77,7 @@ export function createCommitTelemetryHandler(telemetry: LlmOpenUiTelemetry) {
   return async function handleCommitTelemetry(context: Context) {
     try {
       const telemetryRequest = await parseCommitTelemetryRequest(context);
-      const telemetryPermission = telemetry.consumeCommitTelemetry(telemetryRequest.requestId, getRequestClientKey(context));
+      const telemetryPermission = telemetry.consumeCommitTelemetry(telemetryRequest.requestId);
 
       if (!telemetryPermission.ok) {
         return context.json(

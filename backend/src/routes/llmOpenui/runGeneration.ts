@@ -5,7 +5,6 @@ import {
   getOpenUiTemperature,
   shouldExcludeSummaryFromLlmContext,
 } from '../../prompts/openui.js';
-import { getRequestClientKey } from '../../requestMetadata.js';
 import { assertModelOutputWithinLimit } from '../../services/openai/envelope.js';
 import { generateOpenUiSource, type OpenUiGenerationEnvelope } from '../../services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
@@ -13,6 +12,10 @@ import { parseLlmRequest, type PreparedLlmInvocation } from './requestSchema.js'
 import type { LlmOpenUiTelemetry } from './telemetry.js';
 
 const GENERATE_SCOPE = 'POST /api/llm/generate';
+
+interface RunGenerationOptions {
+  onCompletedGeneration?: (invocation: PreparedLlmInvocation) => void;
+}
 
 export function createLlmResponsePayload(
   env: AppEnv,
@@ -36,7 +39,12 @@ export function createLlmResponsePayload(
   };
 }
 
-export async function runGeneration(context: Context, env: AppEnv, telemetry: LlmOpenUiTelemetry) {
+export async function runGeneration(
+  context: Context,
+  env: AppEnv,
+  telemetry: LlmOpenUiTelemetry,
+  options: RunGenerationOptions = {},
+) {
   try {
     const invocation = await parseLlmRequest(context, env, telemetry);
     const responseEnvelope = await generateOpenUiSource(env, invocation.request, context.req.raw.signal, {
@@ -47,7 +55,8 @@ export async function runGeneration(context: Context, env: AppEnv, telemetry: Ll
     });
     const responsePayload = createLlmResponsePayload(env, invocation, responseEnvelope);
 
-    telemetry.recordModelResponse(invocation.requestId, getRequestClientKey(context));
+    telemetry.recordModelResponse(invocation.requestId);
+    options.onCompletedGeneration?.(invocation);
 
     return context.json(responsePayload);
   } catch (error) {

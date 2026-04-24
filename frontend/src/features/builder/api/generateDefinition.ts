@@ -6,7 +6,7 @@ import { unwrapAbortableRequestWithTimeout } from './requestTimeout';
 interface GenerateBuilderDefinitionOptions {
   apiBaseUrl: string;
   requestId?: string;
-  requestKind?: 'automatic-repair' | 'default';
+  requestKind?: 'automatic-repair' | 'default' | 'stream-fallback';
   request: BuilderLlmRequest;
   signal?: AbortSignal;
   timeoutMs: number;
@@ -27,6 +27,20 @@ function createLinkedAbortController(signal?: AbortSignal) {
     cleanup() {
       signal?.removeEventListener('abort', handleAbort);
     },
+  };
+}
+
+function getAutomaticRepairHeaders(request: BuilderLlmRequest) {
+  if (!request.parentRequestId || !request.repairAttemptNumber) {
+    return {
+      'x-kitto-automatic-repair': '1',
+    };
+  }
+
+  return {
+    'x-kitto-automatic-repair': '1',
+    'x-kitto-repair-attempt': String(request.repairAttemptNumber),
+    'x-kitto-repair-for': request.parentRequestId,
   };
 }
 
@@ -66,7 +80,8 @@ export async function generateBuilderDefinition({
             headers: {
               'Content-Type': 'application/json',
               Accept: 'application/json',
-              ...(requestKind === 'automatic-repair' ? { 'x-kitto-automatic-repair': '1' } : {}),
+              ...(requestKind === 'automatic-repair' ? getAutomaticRepairHeaders(request) : {}),
+              ...(requestKind === 'stream-fallback' ? { 'x-kitto-stream-fallback': '1' } : {}),
               ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
             },
             body: serializeBuilderLlmRequest(request),

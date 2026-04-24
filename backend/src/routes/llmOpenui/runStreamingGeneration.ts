@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import { APIUserAbortError } from 'openai';
 import type { AppEnv } from '../../env.js';
-import { getRequestClientKey } from '../../requestMetadata.js';
 import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '../../services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
 import { parseLlmRequest } from './requestSchema.js';
@@ -11,6 +10,11 @@ import type { LlmOpenUiTelemetry } from './telemetry.js';
 const STREAM_SCOPE = 'POST /api/llm/generate/stream';
 
 type SseEventWriter = (event: string, data: string) => boolean;
+
+interface StreamingGenerationOptions {
+  onCompletedGeneration?: (invocation: Awaited<ReturnType<typeof parseLlmRequest>>) => void;
+  onPreActivityStreamFailure?: () => void;
+}
 
 function isAbortError(error: unknown) {
   return (
@@ -49,10 +53,12 @@ function createStreamingResponse(
   env: AppEnv,
   telemetry: LlmOpenUiTelemetry,
   invocation: Awaited<ReturnType<typeof parseLlmRequest>>,
+  options: StreamingGenerationOptions = {},
 ) {
   const abortController = new AbortController();
   const encoder = new TextEncoder();
   let isClosed = false;
+  let hasWrittenStreamActivity = false;
   let closeController = () => {
     // Assigned after the stream controller is available.
   };
@@ -83,6 +89,9 @@ function createStreamingResponse(
 
         try {
           controller.enqueue(encoder.encode(formatSseEvent(event, data)));
+          if (event === 'chunk' || event === 'done') {
+            hasWrittenStreamActivity = true;
+          }
           return true;
         } catch {
           abortController.abort();
@@ -123,11 +132,21 @@ function createStreamingResponse(
           );
 
           if (didWriteDoneEvent) {
-            telemetry.recordModelResponse(invocation.requestId, getRequestClientKey(context));
+            telemetry.recordModelResponse(invocation.requestId);
+            options.onCompletedGeneration?.(invocation);
           }
 
           closeController();
         } catch (error) {
+          if (
+            !hasWrittenStreamActivity &&
+            !isAbortError(error) &&
+            !abortController.signal.aborted &&
+            !context.req.raw.signal.aborted
+          ) {
+            options.onPreActivityStreamFailure?.();
+          }
+
           handleStreamingError(error, abortController, closeController, writeEvent);
         }
       })();
@@ -149,10 +168,15 @@ function createStreamingResponse(
   });
 }
 
-export async function runStreamingGeneration(context: Context, env: AppEnv, telemetry: LlmOpenUiTelemetry) {
+export async function runStreamingGeneration(
+  context: Context,
+  env: AppEnv,
+  telemetry: LlmOpenUiTelemetry,
+  options: StreamingGenerationOptions = {},
+) {
   try {
     const invocation = await parseLlmRequest(context, env, telemetry);
-    return createStreamingResponse(context, env, telemetry, invocation);
+    return createStreamingResponse(context, env, telemetry, invocation, options);
   } catch (error) {
     const publicError = mapToPublicError(error, STREAM_SCOPE);
     return context.json(publicError, publicError.status);

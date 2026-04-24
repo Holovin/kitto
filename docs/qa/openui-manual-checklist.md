@@ -19,8 +19,10 @@ Guardrails:
 - malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
 - `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; the backend filters history and assembles the model-visible initial conversation input plus repair prompt text
+- generation rate limiting and commit telemetry matching must ignore client-supplied `x-forwarded-for` and `x-real-ip` headers
+- `POST /api/llm/generate` and `POST /api/llm/generate/stream` share one process-local generation rate-limit bucket; a non-stream fallback after a pre-activity stream failure must reuse the same `x-kitto-request-id`, send `x-kitto-stream-fallback: 1`, and consume only a recorded one-use fallback exemption; an automatic repair must send `x-kitto-automatic-repair: 1`, `x-kitto-repair-for`, and `x-kitto-repair-attempt`, then consume only the recorded one-use repair exemption for that parent request and attempt
 - the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
-- `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation requests from the same client, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
+- `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation request ids, validate its JSON body, reject unmatched or overused request ids, and stay separate from import-only local flows
 
 ## Prompt docs page
 
