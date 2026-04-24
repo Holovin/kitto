@@ -5,7 +5,7 @@ import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js
 import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
-type RepairSectionKey = 'committedSource' | 'hints' | 'invalidSource' | 'issues' | 'userPrompt';
+type RepairSectionKey = 'committedSource' | 'hints' | 'invalidSource' | 'issues' | 'rules' | 'statementExcerpts' | 'userPrompt';
 
 interface RepairIssueSummary {
   issue: PromptBuildValidationIssue;
@@ -19,6 +19,8 @@ interface UndefinedStateReferenceSummary {
 }
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
+const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 480;
+const TOP_LEVEL_STATEMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN =
   /State reference `(\$[A-Za-z_][\w$]*)` is missing a top-level declaration with a literal initial value\.(?: For example, add `\$\w+ = ([^`]+)`\.)?/;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
@@ -135,6 +137,76 @@ function formatRepairExemplarLines(exemplars: ReturnType<typeof getRelevantRepai
   return exemplars.map((exemplar) =>
     [`- Example for ${exemplar.title.toLowerCase()}:`, ...exemplar.text.split('\n').map((line) => `  ${line}`)].join('\n'),
   );
+}
+
+function collectDraftStatements(source: string) {
+  const rawLines = source.split('\n');
+  const statements = new Map<string, string>();
+  let currentStatementId: string | null = null;
+  let currentRawLines: string[] = [];
+
+  function flushCurrentStatement() {
+    if (!currentStatementId || statements.has(currentStatementId)) {
+      return;
+    }
+
+    const statementSource = currentRawLines.join('\n').trimEnd();
+
+    if (statementSource.trim()) {
+      statements.set(currentStatementId, statementSource);
+    }
+  }
+
+  for (const rawLine of rawLines) {
+    const assignmentMatch = rawLine.match(TOP_LEVEL_STATEMENT_LINE_PATTERN);
+
+    if (assignmentMatch) {
+      flushCurrentStatement();
+      currentStatementId = assignmentMatch[1] ?? null;
+      currentRawLines = [rawLine];
+      continue;
+    }
+
+    if (!currentStatementId) {
+      continue;
+    }
+
+    currentRawLines.push(rawLine);
+  }
+
+  flushCurrentStatement();
+  return statements;
+}
+
+function formatStatementExcerpt(statementId: string, statementSource: string) {
+  const excerpt = truncateText(statementSource.trim(), REPAIR_STATEMENT_EXCERPT_MAX_CHARS);
+
+  return [`- ${statementId}:`, ...excerpt.split('\n').map((line) => `  ${line}`)].join('\n');
+}
+
+function buildStatementExcerptLines(issues: PromptBuildValidationIssue[], invalidSource: string) {
+  const draftStatements = collectDraftStatements(invalidSource);
+  const statementExcerptLines: string[] = [];
+  const seenStatementIds = new Set<string>();
+
+  for (const issue of issues) {
+    const statementId = issue.statementId?.trim();
+
+    if (!statementId || seenStatementIds.has(statementId)) {
+      continue;
+    }
+
+    const statementSource = draftStatements.get(statementId);
+
+    if (!statementSource) {
+      continue;
+    }
+
+    seenStatementIds.add(statementId);
+    statementExcerptLines.push(formatStatementExcerpt(statementId, statementSource));
+  }
+
+  return statementExcerptLines;
 }
 
 function buildRepairSourceSectionContent(value: string, maxChars: number, fallback: string) {
@@ -294,12 +366,14 @@ function allocateRepairSectionBudgets(
   desiredLengths: Record<RepairSectionKey, number>,
   hasHints: boolean,
 ) {
-  const priority: RepairSectionKey[] = ['hints', 'issues', 'userPrompt', 'committedSource', 'invalidSource'];
+  const priority: RepairSectionKey[] = ['hints', 'issues', 'rules', 'statementExcerpts', 'userPrompt', 'committedSource', 'invalidSource'];
   const minimumBudgets: Record<RepairSectionKey, number> = {
     userPrompt: 120,
     committedSource: 180,
     invalidSource: 160,
     issues: 300,
+    rules: 1_200,
+    statementExcerpts: 0,
     hints: hasHints ? 520 : 0,
   };
   const budgets: Record<RepairSectionKey, number> = {
@@ -307,6 +381,8 @@ function allocateRepairSectionBudgets(
     committedSource: 0,
     invalidSource: 0,
     issues: 0,
+    rules: 0,
+    statementExcerpts: 0,
     hints: 0,
   };
 
@@ -319,6 +395,8 @@ function allocateRepairSectionBudgets(
     committedSource: Math.min(desiredLengths.committedSource, minimumBudgets.committedSource),
     invalidSource: Math.min(desiredLengths.invalidSource, minimumBudgets.invalidSource),
     issues: Math.min(desiredLengths.issues, minimumBudgets.issues),
+    rules: Math.min(desiredLengths.rules, minimumBudgets.rules),
+    statementExcerpts: Math.min(desiredLengths.statementExcerpts, minimumBudgets.statementExcerpts),
     hints: Math.min(desiredLengths.hints, minimumBudgets.hints),
   };
   const minimumTotal = priority.reduce((sum, key) => sum + cappedMinimums[key], 0);
@@ -326,14 +404,20 @@ function allocateRepairSectionBudgets(
 
   if (remainingChars <= minimumTotal) {
     if (hasHints) {
-      const issueBudget = Math.min(cappedMinimums.issues, Math.floor(remainingChars * 0.1));
-      const draftBudget = Math.min(cappedMinimums.invalidSource, Math.max(0, remainingChars - issueBudget) > 0 ? 1 : 0);
-      const hintBudget = Math.min(cappedMinimums.hints, remainingChars - issueBudget - draftBudget);
+      const draftBudget = Math.min(cappedMinimums.invalidSource, remainingChars > 0 ? 1 : 0);
+
+      budgets.invalidSource = draftBudget;
+      remainingChars -= draftBudget;
+
+      const issueBudget = Math.min(cappedMinimums.issues, remainingChars);
 
       budgets.issues = issueBudget;
+      remainingChars -= issueBudget;
+
+      const hintBudget = Math.min(cappedMinimums.hints, remainingChars);
+
       budgets.hints = hintBudget;
-      budgets.invalidSource = draftBudget;
-      remainingChars -= issueBudget + hintBudget + draftBudget;
+      remainingChars -= hintBudget;
 
       for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && candidate !== 'invalidSource')) {
         if (remainingChars <= 0) {
@@ -680,19 +764,24 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
   const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
+  const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
   const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
   const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const rulesSection = buildRepairPromptCriticalRules()
-    .map((rule) => `- ${rule}`)
-    .join('\n');
+  const ruleLines = buildRepairPromptCriticalRules().map((rule) => `- ${rule}`);
+  const rulesSection = ruleLines.join('\n');
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
     [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
     Number.MAX_SAFE_INTEGER,
     '- No targeted repair hints were available.',
+  );
+  const fullStatementExcerptsSectionContent = buildBoundedSectionContent(
+    statementExcerptLines,
+    Number.MAX_SAFE_INTEGER,
+    '- No matching draft statements were found.',
   );
   const sectionSkeleton = [
     introSection,
@@ -701,7 +790,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     buildRepairSection(issuesSectionTitle, ''),
     repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
     buildRepairSection(draftSectionTitle, ''),
-    buildRepairSection('Current critical syntax rules', rulesSection),
+    buildRepairSection('Current critical syntax rules', ''),
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -710,6 +799,8 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     committedSource: (committedSource.trim() ? committedSource : '(blank canvas, no committed OpenUI source yet)').length,
     invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
     issues: fullIssuesSectionContent.length,
+    rules: rulesSection.length,
+    statementExcerpts: statementExcerptLines.length > 0 ? fullStatementExcerptsSectionContent.length : 0,
     hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
   }, repairHints.length > 0 || repairExemplars.length > 0);
   const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
@@ -727,7 +818,12 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
           '- No targeted repair hints were available.',
         )
       : '';
+  const statementExcerptsSectionContent =
+    statementExcerptLines.length > 0
+      ? buildBoundedSectionContent(statementExcerptLines, budgets.statementExcerpts, '- No matching draft statements were found.')
+      : '';
   const draftSectionContent = buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback);
+  const rulesSectionContent = buildBoundedSectionContent(ruleLines, budgets.rules, '- Critical syntax rules were truncated.');
 
   return truncateText(
     [
@@ -736,8 +832,9 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
       buildRepairSection('Current committed valid OpenUI source', committedSourceSectionContent),
       buildRepairSection(issuesSectionTitle, issuesSectionContent),
       repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
+      statementExcerptsSectionContent ? buildRepairSection('Relevant draft statement excerpts', statementExcerptsSectionContent) : null,
       buildRepairSection(draftSectionTitle, draftSectionContent),
-      buildRepairSection('Current critical syntax rules', rulesSection),
+      buildRepairSection('Current critical syntax rules', rulesSectionContent),
     ]
       .filter(Boolean)
       .join('\n\n'),

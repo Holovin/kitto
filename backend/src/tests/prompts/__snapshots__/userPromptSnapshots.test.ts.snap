@@ -111,7 +111,10 @@ Targeted repair hints:
 - If you need Group variant "block" or "inline", place it in the optional fourth argument.
 - Never put "block" or "inline" in the second Group argument.
 - The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add @Run(items) later in the same Action after @Run(addItem).
-- A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(…
+- A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.
+- Example for refresh visible query after mutation:
+  WRONG: Button("add-task", "Add", "default", Action([@Run(addItem), @Reset($draft)]), $draft == "")
+  OK: Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
 
 Model draft to repair:
 root = AppShell([Group("Todo", "block", [])])
@@ -121,6 +124,8 @@ Current critical syntax rules:
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
+- Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
 - AppShell signature is AppShell(children, appearance?).
 - Screen signature is Screen(id, title, children, isActive?, appearance?).
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
@@ -131,14 +136,8 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- Validation props must be literal arrays. When skipping validation before \`action\` or \`appearance\`, use [] instead of null.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
-- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
-- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
-- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
-- Use $currentScreen + @Set for screen navigation.
-- Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+- Do not read \`$last…"
 `;

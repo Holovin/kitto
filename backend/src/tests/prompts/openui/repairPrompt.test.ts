@@ -28,6 +28,19 @@ function buildHugeDraft() {
 ])`;
 }
 
+function buildLateStatementDraft() {
+  const fillerStatements = Array.from(
+    { length: 220 },
+    (_, index) => `filler${index + 1} = Text("line-${index + 1}", "body", "start")`,
+  ).join('\n');
+
+  return `${fillerStatements}
+problemGroup = Group("Problem", "block", [
+  Text("Bad group", "body", "start")
+])
+root = AppShell([problemGroup])`;
+}
+
 describe('repair prompt assembly', () => {
   it('keeps initial-generation user prompts free of repair sections', () => {
     const prompt = buildOpenUiUserPrompt({
@@ -118,7 +131,7 @@ describe('repair prompt assembly', () => {
       promptMaxChars: 4_500,
       userPrompt: 'Fix the inline groups.',
     });
-    const hintsSection = extractSection(prompt, 'Targeted repair hints', ['Invalid model draft']);
+    const hintsSection = extractSection(prompt, 'Targeted repair hints', ['Relevant draft statement excerpts', 'Invalid model draft']);
 
     expect(hintsSection.match(/Check component argument order against the documented signature before returning\./g)).toHaveLength(1);
     expect(
@@ -158,7 +171,7 @@ describe('repair prompt assembly', () => {
       promptMaxChars: 3_400,
       userPrompt: 'Repair the quiz draft.',
     });
-    const hintsSection = extractSection(prompt, 'Targeted repair hints', ['Model draft to repair']);
+    const hintsSection = extractSection(prompt, 'Targeted repair hints', ['Relevant draft statement excerpts', 'Model draft to repair']);
     const draftSection = extractSection(prompt, 'Model draft to repair', ['Current critical syntax rules']);
 
     expect(hintsSection).toContain('Wrap each option in `{ label: "...", value: "..." }`.');
@@ -168,5 +181,67 @@ describe('repair prompt assembly', () => {
     expect(hintsSection).toContain('`$draft = ""`');
     expect(draftSection).toContain('…');
     expect(draftSection).not.toContain('END-OF-DRAFT');
+  });
+
+  it('adds matching statement excerpts before a truncated draft', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: 'root = AppShell([])',
+      invalidSource: buildLateStatementDraft(),
+      issues: [
+        {
+          code: 'quality-custom',
+          message: 'The statement uses an invalid Group direction.',
+          source: 'quality',
+          statementId: 'problemGroup',
+        },
+      ],
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_200,
+      userPrompt: 'Repair the late statement.',
+    });
+    const excerptSection = extractSection(prompt, 'Relevant draft statement excerpts', ['Model draft to repair']);
+    const draftSection = extractSection(prompt, 'Model draft to repair', ['Current critical syntax rules']);
+
+    expect(excerptSection).toContain('- problemGroup:');
+    expect(excerptSection).toContain('problemGroup = Group("Problem", "block", [');
+    expect(draftSection).toContain('…');
+    expect(draftSection).not.toContain('problemGroup = Group("Problem", "block", [');
+  });
+
+  it('dedupes statement excerpts and skips statement IDs absent from the draft', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: 'root = AppShell([])',
+      invalidSource: `problemGroup = Group("Problem", "block", [])
+root = AppShell([problemGroup])`,
+      issues: [
+        {
+          code: 'quality-custom',
+          message: 'The statement uses an invalid Group direction.',
+          source: 'quality',
+          statementId: 'problemGroup',
+        },
+        {
+          code: 'quality-custom',
+          message: 'The same statement was reported again.',
+          source: 'quality',
+          statementId: 'problemGroup',
+        },
+        {
+          code: 'quality-custom',
+          message: 'This statement is missing from the draft.',
+          source: 'quality',
+          statementId: 'missingStatement',
+        },
+      ],
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_200,
+      userPrompt: 'Repair the draft.',
+    });
+    const excerptSection = extractSection(prompt, 'Relevant draft statement excerpts', ['Model draft to repair']);
+
+    expect(excerptSection.match(/- problemGroup:/g)).toHaveLength(1);
+    expect(excerptSection).not.toContain('missingStatement');
   });
 });

@@ -45,6 +45,26 @@ Targeted repair hints:
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
 
+Relevant draft statement excerpts:
+- root:
+  root = AppShell([
+    Screen("quiz", "Quiz", [
+  Group("Question 1", "vertical", [
+    Text("Question 1", "body", "start"),
+    RadioGroup("question-1", "Question 1", $q1, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 2", "vertical", [
+    Text("Question 2", "body", "start"),
+    RadioGroup("question-2", "Question 2", $q2, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 3", "vertical", […
+
 Model draft to repair:
 root = AppShell([
   Screen("quiz", "Quiz", [
@@ -85,47 +105,15 @@ Group("Question 5", "vertical", [
 ]),
 Group("Question 6", "vertical", [
   Text("Question 6", "body", "start"),
-  RadioGroup("question-6", "Question 6", $q6, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 7", "vertical", [
-  Text("Question 7", "body", "start"),
-  RadioGroup("question-7", "Question 7", $q7, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 8", "vertical", [
-  Text("Question 8", "body", "start"),
-  RadioGroup("question-8", "Question 8", $q8, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 9", "vertical", [
-  Text("Question 9", "body", "start"),
-  RadioGroup("question-9", "Question 9", $q9, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 10", "vertical", [
-  Text("Question 10", "body", "start"),
-  RadioGroup("question-10", "Question 10", $q10, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 11", "vertical", [
-  Text("Question 11", "body"…
+  RadioGroup("question-6…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
+- Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
 - AppShell signature is AppShell(children, appearance?).
 - Screen signature is Screen(id, title, children, isActive?, appearance?).
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
@@ -136,6 +124,7 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- Validation props must be literal arrays. When skipping validation before \`action\` or \`appearance\`, use [] instead of null.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
 - Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
@@ -145,7 +134,7 @@ Current critical syntax rules:
 - Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
 - Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+- Button signature is Button(id, label, vari…"
 `;
 
 exports[`buildOpenUiRepairPrompt > truncates the draft before issues and hints when the repair prompt is over budget 1`] = `
@@ -198,28 +187,15 @@ root = AppShell([
   Screen("quiz", "Quiz", [
 Group("Question 1", "vertical", [
   Text("Question 1", "body", "start"),
-  RadioGroup("question-1", "Question 1", $q1, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 2", "vertical", [
-  Text("Question 2", "body", "start"),
-  RadioGroup("question-2", "Question 2", $q2, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 3", "vertical", [
-  Text("Question 3", "body", "start"),
-  RadioGroup("question-3", "Question 3", $q3, [
-    { label: "Yes", value: "yes" },…
+  RadioGroup("question-1", "Question 1",…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
+- Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
 - AppShell signature is AppShell(children, appearance?).
 - Screen signature is Screen(id, title, children, isActive?, appearance?).
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
@@ -230,6 +206,7 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- Validation props must be literal arrays. When skipping validation before \`action\` or \`appearance\`, use [] instead of null.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
 - Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
@@ -239,7 +216,7 @@ Current critical syntax rules:
 - Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
 - Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+- Button signature is Button(id, label, variant, action?, disabled?, appearanc…"
 `;
 
 exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
@@ -277,6 +254,8 @@ Current critical syntax rules:
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
+- Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
+- Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
 - AppShell signature is AppShell(children, appearance?).
 - Screen signature is Screen(id, title, children, isActive?, appearance?).
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
@@ -287,14 +266,12 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
+- Validation props must be literal arrays. When skipping validation before \`action\` or \`appearance\`, use [] instead of null.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
 - Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
-- Use $currentScreen + @Set for screen navigation.
-- Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, variant, action?, disabled?, appearance?)."
+- Never use CSS, className, sty…"
 `;
