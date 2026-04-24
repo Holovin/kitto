@@ -653,6 +653,7 @@ export const builderSlice = createSlice({
         source: string;
       }>,
     ) {
+      state.chatMessages = createInitialChatMessages();
       state.committedSource = action.payload.source;
       state.streamedSource = action.payload.source;
       state.currentRequestId = null;
@@ -678,6 +679,7 @@ export const builderSlice = createSlice({
       }>,
     ) {
       state.activeTab = 'preview';
+      state.chatMessages = createInitialChatMessages();
       state.committedSource = action.payload.snapshot.source;
       state.currentRequestId = null;
       state.definitionWarnings = [];

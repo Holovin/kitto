@@ -1108,6 +1108,131 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('does not send stale chat history after a successful import', async () => {
+    appendChatMessages([
+      { content: 'Build a stale CRM app.', role: 'user' },
+      { content: 'Built the stale CRM app.', role: 'assistant' },
+    ]);
+    const submission = createSubmissionHarness();
+    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+
+    await historyControls.result().handleImport(
+      createImportEvent({
+        name: 'import.json',
+        text: async () => createImportPayload(),
+      }),
+    );
+
+    setDraftPrompt('Add filtering.');
+    submission.rerender();
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { chatHistory: Array<{ content: string; role: string }> };
+    }).request;
+
+    expect(request.chatHistory).toEqual([]);
+
+    historyControls.unmount();
+    submission.unmount();
+  });
+
+  it('does not send stale chat history after loading a demo definition', async () => {
+    appendChatMessages([
+      { content: 'Build a stale CRM app.', role: 'user' },
+      { content: 'Built the stale CRM app.', role: 'assistant' },
+    ]);
+    const demoSnapshot = createBuilderSnapshot(VALID_TODO_SOURCE, {}, { app: { items: [] as string[] } });
+
+    testHarness.storeRef.current?.dispatch(domainActions.replaceData(demoSnapshot.domainData));
+    testHarness.storeRef.current?.dispatch(builderSessionActions.replaceRuntimeSessionState(demoSnapshot.runtimeState));
+    testHarness.storeRef.current?.dispatch(
+      builderActions.applyDemoDefinition({
+        label: 'Todo demo',
+        snapshot: demoSnapshot,
+      }),
+    );
+    setDraftPrompt('Add sorting.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { chatHistory: Array<{ content: string; role: string }> };
+    }).request;
+
+    expect(request.chatHistory).toEqual([]);
+
+    submission.unmount();
+  });
+
+  it('does not send stale chat history after resetting the builder to empty', async () => {
+    appendChatMessages([
+      { content: 'Build a stale CRM app.', role: 'user' },
+      { content: 'Built the stale CRM app.', role: 'assistant' },
+    ]);
+
+    testHarness.storeRef.current?.dispatch(builderActions.resetToEmpty());
+    setDraftPrompt('Create a new small app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { chatHistory: Array<{ content: string; role: string }> };
+    }).request;
+
+    expect(request.chatHistory).toEqual([]);
+
+    submission.unmount();
+  });
+
+  it('keeps the failed prompt in chat history when Repeat resubmits it', async () => {
+    setDraftPrompt('Create a settings app.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock
+      .mockImplementationOnce(async ({ onChunk }: { onChunk: (chunk: string) => void }) => {
+        onChunk(SHORT_PARTIAL_DRAFT);
+        throw new Error('The stream failed after it started.');
+      })
+      .mockResolvedValueOnce({
+        source: VALID_STREAM_SOURCE,
+      });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
+
+    await submission.rerender().handleSubmit(createFormEvent());
+
+    const repeatRequest = (testHarness.streamMock.mock.calls[1]?.[0] as {
+      request: { chatHistory: Array<{ content: string; role: string }>; prompt: string };
+    }).request;
+
+    expect(repeatRequest.prompt).toBe('Create a settings app.');
+    expect(repeatRequest.chatHistory).toEqual([
+      {
+        content: 'Create a settings app.',
+        role: 'user',
+      },
+    ]);
+
+    submission.unmount();
+  });
+
   it('keeps chat send unavailable until the first runtime config load completes', async () => {
     setDraftPrompt('Build a small app.');
     testHarness.configRef.current = undefined;

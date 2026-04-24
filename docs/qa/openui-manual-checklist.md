@@ -57,7 +57,7 @@ Guardrails:
 - Definition may show streamed draft text while generation is still in progress, but it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available. The pending summary uses a shimmer loading treatment instead of adding a textual status prefix.
 - Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
-- When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
+- When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request for the current app context plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Committed assistant summaries that stay in LLM context should describe concrete user-visible changes; generic status-only summaries such as `Updated the app` or `Made the requested changes` should not survive as context.
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.
@@ -92,6 +92,7 @@ Guardrails:
 - Clicking `Cancel` mid-generation clears the in-progress request without appending a red chat error or committing partial source, and adds one neutral system confirmation message.
 - Leaving `/chat` mid-generation clears the in-progress request without appending a red chat error or committing partial source.
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
+- Successful JSON import, demo load, and builder reset start fresh builder chat context for the new app or blank canvas; stale pre-change user requests must not be sent on the next generation.
 - Undo, redo, and builder reset also stay available during generation; each must abort the active request first, apply the requested snapshot change, and ignore any late response from the cancelled run.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.

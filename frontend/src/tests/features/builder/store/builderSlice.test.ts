@@ -439,7 +439,7 @@ describe('builderSlice', () => {
     expect(removed.chatMessages).toHaveLength(0);
   });
 
-  it('appends successful import messages to the end of existing chat history', () => {
+  it('clears existing chat history when loading an imported definition', () => {
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
@@ -459,13 +459,8 @@ describe('builderSlice', () => {
       }),
     );
 
-    expect(loaded.chatMessages).toHaveLength(2);
-    expect(loaded.chatMessages.at(-2)).toEqual(
-      expect.objectContaining({
-        content: 'Keep this context',
-        role: 'user',
-      }),
-    );
+    expect(loaded.chatMessages).toHaveLength(1);
+    expect(loaded.chatMessages.some((message) => message.content === 'Keep this context')).toBe(false);
     expect(loaded.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Imported a saved Kitto definition from disk (first-import.json).',
@@ -476,7 +471,7 @@ describe('builderSlice', () => {
     );
   });
 
-  it('updates the existing import success message instead of appending a duplicate', () => {
+  it('keeps only the latest import success message after repeated imports', () => {
     const importedSnapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
     const withFirstImport = builderReducer(
       createInitialState(),
@@ -488,7 +483,6 @@ describe('builderSlice', () => {
         source: importedSnapshot.source,
       }),
     );
-    const firstImportMessageId = withFirstImport.chatMessages.at(-1)?.id;
     const withSecondImport = builderReducer(
       withFirstImport,
       builderActions.loadDefinition({
@@ -504,7 +498,6 @@ describe('builderSlice', () => {
     expect(withSecondImport.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Imported a saved Kitto definition from disk (second-import.json).',
-        id: firstImportMessageId,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
         role: 'system',
         tone: 'success',
@@ -776,16 +769,37 @@ describe('builderSlice', () => {
     );
   });
 
-  it('updates the demo load message instead of appending duplicates', () => {
-    const demoSnapshot = createBuilderSnapshot(validSource, {}, {});
-    const withFirstDemo = builderReducer(
+  it('clears existing chat history when resetting the builder to empty', () => {
+    const started = builderReducer(
       createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Build a stale app',
+        requestId: 'request-reset-context',
+      }),
+    );
+    const reset = builderReducer(started, builderActions.resetToEmpty());
+
+    expect(reset.chatMessages).toEqual([]);
+    expect(reset.committedSource).toBe('');
+    expect(reset.retryPrompt).toBeNull();
+  });
+
+  it('clears existing chat history when loading a demo definition', () => {
+    const demoSnapshot = createBuilderSnapshot(validSource, {}, {});
+    const started = builderReducer(
+      createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Build a stale app',
+        requestId: 'request-demo-context',
+      }),
+    );
+    const withFirstDemo = builderReducer(
+      started,
       builderActions.applyDemoDefinition({
         label: 'First demo',
         snapshot: demoSnapshot,
       }),
     );
-    const firstDemoMessageId = withFirstDemo.chatMessages.at(-1)?.id;
     const withSecondDemo = builderReducer(
       withFirstDemo,
       builderActions.applyDemoDefinition({
@@ -795,10 +809,10 @@ describe('builderSlice', () => {
     );
 
     expect(withSecondDemo.chatMessages.filter((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess)).toHaveLength(1);
+    expect(withFirstDemo.chatMessages.some((message) => message.content === 'Build a stale app')).toBe(false);
     expect(withSecondDemo.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Loaded the "Second demo" demo into the blank canvas.',
-        id: firstDemoMessageId,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess,
         role: 'system',
         tone: 'success',
