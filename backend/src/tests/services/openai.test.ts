@@ -386,7 +386,7 @@ describe('generateOpenUiSource', () => {
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(2);
     expect(repairCall?.input?.[1]?.role).toBe('user');
-    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 1.');
+    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 2.');
   });
 
   it('keeps the full filtered role-based history when request compaction has already finished upstream', async () => {

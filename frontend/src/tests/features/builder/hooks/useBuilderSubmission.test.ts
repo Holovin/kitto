@@ -107,9 +107,10 @@ const testHarness = vi.hoisted(() => {
 });
 
 const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
-const AUTOMATIC_REPAIR_NOTICE = 'The model returned a draft that cannot be committed yet. Sending an automatic repair request now.';
-const AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE = 'Repairing draft automatically (parser pass 1 of 1)…';
+const AUTOMATIC_REPAIR_RETRY_NOTICE = 'Something went wrong and your request was sent again';
+const AUTOMATIC_REPAIR_RETRY_NOTICE_SECOND_ATTEMPT = 'Something went wrong and your request was sent again (2)';
 const AUTOMATIC_REPAIR_TIMEOUT_MESSAGE = 'The automatic repair took too long. The previous valid app was kept. Try again.';
+const GENERATION_FAILED_NOTICE = "Something went wrong and your request couldn’t be completed.";
 
 vi.mock('react', async () => {
   const actual = await vi.importActual<typeof import('react')>('react');
@@ -574,7 +575,7 @@ const DEFAULT_CONFIG = {
     requestMaxBytes: 300_000,
   },
   repair: {
-    maxRepairAttempts: 1,
+    maxRepairAttempts: 2,
     maxValidationIssues: 20,
   },
   timeouts: {
@@ -829,6 +830,15 @@ function createImportPayload(source = IMPORTED_SOURCE) {
 
 function findChatMessage(content: string) {
   return getBuilderState().chatMessages.find((message) => message.content === content);
+}
+
+function findRepairStatusMessages() {
+  return getBuilderState().chatMessages.filter(
+    (message) =>
+      message.content.includes('The model returned a draft that cannot be committed yet.') ||
+      message.content.includes('Repairing draft automatically') ||
+      message.content.includes(AUTOMATIC_REPAIR_RETRY_NOTICE),
+  );
 }
 
 function getComposerSubmitState(submission: ReturnType<typeof createSubmissionHarness>) {
@@ -1159,7 +1169,7 @@ describe('useBuilderSubmission', () => {
 
     expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+    expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had parser issues, so it was repaired automatically before commit.',
@@ -1171,35 +1181,91 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('shows and clears the in-progress automatic repair status while waiting for the repair response', async () => {
+  it('updates the pending streamed summary with the automatic retry status while waiting for repair', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a todo list.');
     const submission = createSubmissionHarness();
-    const repairResult = createDeferred<{ source: string }>();
+    const repairResult = createDeferred<{ source: string; summary: string }>();
 
-    testHarness.streamMock.mockResolvedValue({
-      source: PARSER_INVALID_SOURCE,
+    testHarness.streamMock.mockImplementationOnce(async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
+      onSummary?.('Builds a todo list');
+
+      return {
+        source: PARSER_INVALID_SOURCE,
+      };
     });
     testHarness.generateMock.mockImplementationOnce(() => repairResult.promise);
 
     const requestPromise = submission.result().handleSubmit(createFormEvent());
     await flushMicrotasks();
 
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
-    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toEqual(
+    const repairStatus = findChatMessage(AUTOMATIC_REPAIR_RETRY_NOTICE);
+
+    expect(findRepairStatusMessages()).toEqual([
       expect.objectContaining({
-        content: AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE,
-        role: 'system',
-        tone: 'info',
+        content: AUTOMATIC_REPAIR_RETRY_NOTICE,
+        excludeFromLlmContext: true,
+        isStreaming: true,
+        role: 'assistant',
       }),
-    );
+    ]);
+    expect(repairStatus?.id).toBeDefined();
 
     repairResult.resolve({
+      summary: 'Builds a repaired todo list',
       source: VALID_TODO_SOURCE,
     });
     await requestPromise;
 
-    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toBeUndefined();
+    expect(findRepairStatusMessages()).toEqual([]);
+    expect(findChatMessage('Builds a repaired todo list')?.id).toBe(repairStatus?.id);
+    expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
+
+    submission.unmount();
+  });
+
+  it('edits the same pending summary when a second automatic repair starts', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+    const secondRepairResult = createDeferred<{ source: string; summary: string }>();
+
+    testHarness.streamMock.mockImplementationOnce(async ({ onSummary }: { onSummary?: (summary: string) => void }) => {
+      onSummary?.('Builds a todo list');
+
+      return {
+        source: PARSER_INVALID_SOURCE,
+      };
+    });
+    testHarness.generateMock
+      .mockResolvedValueOnce({
+        source: PARSER_INVALID_SOURCE,
+      })
+      .mockImplementationOnce(() => secondRepairResult.promise);
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    const secondRetryStatus = findChatMessage(AUTOMATIC_REPAIR_RETRY_NOTICE_SECOND_ATTEMPT);
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(2);
+    expect(findChatMessage(AUTOMATIC_REPAIR_RETRY_NOTICE)).toBeUndefined();
+    expect(secondRetryStatus).toEqual(
+      expect.objectContaining({
+        content: AUTOMATIC_REPAIR_RETRY_NOTICE_SECOND_ATTEMPT,
+        isStreaming: true,
+        role: 'assistant',
+      }),
+    );
+
+    secondRepairResult.resolve({
+      summary: 'Builds a repaired todo list',
+      source: VALID_TODO_SOURCE,
+    });
+    await requestPromise;
+
+    expect(findChatMessage('Builds a repaired todo list')?.id).toBe(secondRetryStatus?.id);
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
 
     submission.unmount();
@@ -1225,7 +1291,7 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
     expect(getBuilderState().streamError).toBe(AUTOMATIC_REPAIR_TIMEOUT_MESSAGE);
-    expect(findChatMessage(AUTOMATIC_REPAIR_PENDING_PARSER_NOTICE)).toBeUndefined();
+    expect(findRepairStatusMessages()).toEqual([]);
 
     submission.unmount();
   });
@@ -1284,7 +1350,7 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().retryPrompt).toBe('Create a small app.');
     expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
     expect(getBuilderState().streamError).toContain('screen-inside-screen');
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeUndefined();
+    expect(findRepairStatusMessages()).toEqual([]);
 
     submission.unmount();
   });
@@ -1309,7 +1375,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('keeps the previous source when parser repair stays invalid', async () => {
+  it('keeps the previous source after two parser repairs stay invalid', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a todo list.');
     const submission = createSubmissionHarness();
@@ -1323,14 +1389,16 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
 
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(2);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
-    expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
+    expect(getBuilderState().streamError).toContain('after 2 automatic repair attempts');
     expect(getBuilderState().streamError).toContain('incomplete-source');
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: expect.stringContaining('after 1 automatic repair attempt'),
+        content: GENERATION_FAILED_NOTICE,
         role: 'system',
+        technicalDetails: expect.stringContaining('after 2 automatic repair attempts'),
         tone: 'error',
       }),
     );
@@ -1377,7 +1445,7 @@ describe('useBuilderSubmission', () => {
     });
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+    expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
@@ -1481,7 +1549,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('keeps the previous source when a repaired quality-blocked draft is still blocked', async () => {
+  it('keeps the previous source after two quality repairs are still blocked', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a todo list.');
     const submission = createSubmissionHarness();
@@ -1495,11 +1563,13 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
     const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
-    const repairRequestId = (testHarness.generateMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+    const firstRepairRequestId = (testHarness.generateMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+    const secondRepairRequestId = (testHarness.generateMock.mock.calls[1]?.[0] as { requestId?: string }).requestId;
 
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(2);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a todo list.');
-    expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
+    expect(getBuilderState().streamError).toContain('after 2 automatic repair attempts');
     expect(getBuilderState().streamError).toContain('reserved-last-choice-outside-action-mode');
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(1, {
       commitSource: 'streaming',
@@ -1510,10 +1580,16 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
       commitSource: 'fallback',
       committed: false,
-      requestId: repairRequestId,
+      requestId: firstRepairRequestId,
       validationIssues: ['reserved-last-choice-outside-action-mode'],
     });
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
+      commitSource: 'fallback',
+      committed: false,
+      requestId: secondRepairRequestId,
+      validationIssues: ['reserved-last-choice-outside-action-mode'],
+    });
+    expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(4, {
       commitSource: 'streaming',
       committed: false,
       repairOutcome: 'failed',
@@ -1522,8 +1598,9 @@ describe('useBuilderSubmission', () => {
     });
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: expect.stringContaining('reserved-last-choice-outside-action-mode'),
+        content: GENERATION_FAILED_NOTICE,
         role: 'system',
+        technicalDetails: expect.stringContaining('reserved-last-choice-outside-action-mode'),
         tone: 'error',
       }),
     );
@@ -1555,7 +1632,7 @@ describe('useBuilderSubmission', () => {
       expect((repairCalls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
       expect(getBuilderState().committedSource).toBe(repairedSource);
       expect(getBuilderState().streamError).toBeNull();
-      expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+      expect(findRepairStatusMessages()).toEqual([]);
       expect(getBuilderState().chatMessages.at(-1)).toEqual(
         expect.objectContaining({
           content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
@@ -1567,7 +1644,7 @@ describe('useBuilderSubmission', () => {
       submission.unmount();
     });
 
-    it(`fails cleanly after one repair when ${controlName} still combines action mode with a writable binding`, async () => {
+    it(`fails cleanly after two repairs when ${controlName} still combines action mode with a writable binding`, async () => {
       seedCommittedSource();
       setDraftPrompt(prompt);
       const submission = createSubmissionHarness();
@@ -1586,13 +1663,13 @@ describe('useBuilderSubmission', () => {
         return request.mode === 'repair' && request.prompt === prompt;
       });
 
-      expect(repairCalls).toHaveLength(1);
+      expect(repairCalls).toHaveLength(2);
       expect((repairCalls[0]?.[0] as { request: { mode?: string } }).request.mode).toBe('repair');
       expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
       expect(getBuilderState().retryPrompt).toBe(prompt);
-      expect(getBuilderState().streamError).toContain('after 1 automatic repair attempt');
+      expect(getBuilderState().streamError).toContain('after 2 automatic repair attempts');
       expect(getBuilderState().streamError).toContain('control-action-and-binding');
-      expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+      expect(findRepairStatusMessages()).toEqual([]);
       expect(getComposerSubmitState(submission)).toEqual({
         disabled: false,
         label: 'Repeat',
@@ -1632,7 +1709,7 @@ describe('useBuilderSubmission', () => {
     );
     expect(getBuilderState().committedSource).toBe(REPAIRED_SMOKE_COMPLEX_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
-    expect(findChatMessage(AUTOMATIC_REPAIR_NOTICE)).toBeTruthy();
+    expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',

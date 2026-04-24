@@ -94,6 +94,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     maxRepairValidationIssues,
     requestLimits,
     runGenerateRequest: generationLifecycle.runGenerateRequest,
+    showStreamingSummaryStatus: streamingSummary.upsertStreamingStatusMessage,
     throwIfInactiveRequest: generationLifecycle.throwIfInactiveRequest,
   });
 
@@ -132,6 +133,8 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
       streamingSummary.upsertStreamingSummaryMessage(requestId, committedSummary, {
         excludeFromLlmContext: committedSummaryExcludeFromLlmContext,
       });
+    } else {
+      streamingSummary.clearStreamingSummaryMessage(requestId);
     }
 
     applyCompactionNotice(requestId, response.compaction);

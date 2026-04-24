@@ -58,6 +58,7 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         excludeFromLlmContext: message.excludeFromLlmContext,
         isStreaming: message.isStreaming,
         role: message.role,
+        technicalDetails: message.technicalDetails,
         tone: message.tone,
       });
 
@@ -77,6 +78,7 @@ function createMessage(
   messageKey?: BuilderChatMessage['messageKey'],
   excludeFromLlmContext?: BuilderChatMessage['excludeFromLlmContext'],
   isStreaming?: BuilderChatMessage['isStreaming'],
+  technicalDetails?: BuilderChatMessage['technicalDetails'],
 ): BuilderChatMessage {
   return {
     id: nanoid(),
@@ -87,6 +89,7 @@ function createMessage(
     excludeFromLlmContext,
     isStreaming,
     messageKey,
+    technicalDetails,
   };
 }
 
@@ -119,6 +122,7 @@ function normalizeChatMessages(value: unknown) {
         content: message.content,
         excludeFromLlmContext: message.excludeFromLlmContext === true ? true : undefined,
         messageKey: typeof message.messageKey === 'string' ? message.messageKey : undefined,
+        technicalDetails: typeof message.technicalDetails === 'string' ? message.technicalDetails : undefined,
         tone:
           typeof message.tone === 'string' && BUILDER_CHAT_TONES.has(message.tone as NonNullable<BuilderChatMessage['tone']>)
             ? (message.tone as BuilderChatMessage['tone'])
@@ -464,6 +468,7 @@ export const builderSlice = createSlice({
         message: string;
         requestId: BuilderRequestId;
         retryPrompt: string | null;
+        technicalDetails?: string;
       }>,
     ) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -474,10 +479,13 @@ export const builderSlice = createSlice({
       state.lastStreamChunkAt = null;
       state.hasRejectedDefinition = false;
       state.retryPrompt = action.payload.retryPrompt;
-      state.streamError = action.payload.message;
+      state.streamError = action.payload.technicalDetails ?? action.payload.message;
       state.streamedSource = state.committedSource;
       state.parseIssues = [];
-      pushMessage(state.chatMessages, createMessage('system', action.payload.message, 'error'));
+      pushMessage(
+        state.chatMessages,
+        createMessage('system', action.payload.message, 'error', undefined, undefined, undefined, action.payload.technicalDetails),
+      );
     },
     cancelStreaming(state, action: PayloadAction<{ requestId: BuilderRequestId }>) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -521,6 +529,7 @@ export const builderSlice = createSlice({
         isStreaming?: BuilderChatMessage['isStreaming'];
         messageKey?: BuilderChatMessage['messageKey'];
         role: BuilderChatMessage['role'];
+        technicalDetails?: BuilderChatMessage['technicalDetails'];
         tone?: BuilderChatMessage['tone'];
       }>,
     ) {
@@ -533,6 +542,7 @@ export const builderSlice = createSlice({
           action.payload.messageKey,
           action.payload.excludeFromLlmContext,
           action.payload.isStreaming,
+          action.payload.technicalDetails,
         ),
       );
     },

@@ -15,6 +15,7 @@ export interface BuilderChatMessage {
   excludeFromLlmContext?: boolean;
   isStreaming?: boolean;
   messageKey?: string;
+  technicalDetails?: string;
   tone?: BuilderMessageTone;
 }
 

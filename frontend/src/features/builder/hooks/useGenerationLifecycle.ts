@@ -30,6 +30,7 @@ export function isAbortError(error: unknown) {
 }
 
 const USER_CANCELLED_NOTICE = 'Cancelled the in-progress generation at your request.';
+const GENERATION_FAILED_NOTICE = "Something went wrong and your request couldn’t be completed.";
 
 export function useGenerationLifecycle({
   abortControllerRef,
@@ -118,6 +119,7 @@ export function useGenerationLifecycle({
   }
 
   function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
+    const technicalDetails = getBuilderRequestErrorMessage(error);
     clearStreamingSummaryMessage(requestId);
 
     if (options?.abort) {
@@ -130,8 +132,9 @@ export function useGenerationLifecycle({
     dispatch(
       builderActions.failStreaming({
         requestId,
-        message: getBuilderRequestErrorMessage(error),
+        message: GENERATION_FAILED_NOTICE,
         retryPrompt: options?.retryPrompt ?? null,
+        technicalDetails,
       }),
     );
   }

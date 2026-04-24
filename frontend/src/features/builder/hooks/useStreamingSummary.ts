@@ -132,6 +132,10 @@ export function useStreamingSummary() {
       return latestPendingSummary;
     }
 
+    if (pendingSummaryStatesRef.current.has(requestId)) {
+      return '';
+    }
+
     const pendingSummaryMessage = store
       .getState()
       .builder.chatMessages.find((message) => message.messageKey === getStreamingSummaryMessageKey(requestId));
@@ -181,9 +185,33 @@ export function useStreamingSummary() {
     }, PENDING_SUMMARY_THROTTLE_MS - elapsedSinceLastFlush);
   }
 
+  function upsertStreamingStatusMessage(requestId: BuilderRequestId, status: string) {
+    const trimmedStatus = status.trim();
+
+    if (!trimmedStatus) {
+      return;
+    }
+
+    const pendingSummaryState = getPendingSummaryState(requestId);
+    pendingSummaryState.excludeFromLlmContext = true;
+    clearPendingSummaryTimer(pendingSummaryState);
+
+    dispatch(
+      builderActions.appendChatMessage({
+        content: trimmedStatus,
+        excludeFromLlmContext: true,
+        isStreaming: true,
+        messageKey: getStreamingSummaryMessageKey(requestId),
+        role: 'assistant',
+      }),
+    );
+    pendingSummaryState.lastFlushedAt = Date.now();
+  }
+
   return {
     clearStreamingSummaryMessage,
     getCommittedSummary,
     upsertStreamingSummaryMessage,
+    upsertStreamingStatusMessage,
   };
 }

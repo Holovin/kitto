@@ -1,4 +1,4 @@
-import { memo, useEffect, useEffectEvent, useRef, type MutableRefObject } from 'react';
+import { memo, useEffect, useEffectEvent, useRef, useState, type MutableRefObject } from 'react';
 import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -56,6 +56,8 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
 
 const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message: BuilderChatMessage }) {
   const isStreamingAssistantMessage = message.role === 'assistant' && message.isStreaming === true;
+  const hasTechnicalDetails = message.tone === 'error' && typeof message.technicalDetails === 'string' && message.technicalDetails.trim().length > 0;
+  const [isShowingDetails, setIsShowingDetails] = useState(false);
 
   return (
     <article
@@ -65,6 +67,19 @@ const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message
       } ${getMessageBubbleClasses(message)}`}
     >
       <p className="relative z-[1] whitespace-pre-wrap break-words">{message.content}</p>
+      {hasTechnicalDetails ? (
+        <div className="relative z-[1] mt-2">
+          <button
+            aria-expanded={isShowingDetails}
+            className="cursor-pointer border-0 bg-transparent p-0 text-left text-current underline decoration-dotted underline-offset-4"
+            type="button"
+            onClick={() => setIsShowingDetails((value) => !value)}
+          >
+            Details
+          </button>
+          {isShowingDetails ? <p className="mt-2 whitespace-pre-wrap break-words">{message.technicalDetails}</p> : null}
+        </div>
+      ) : null}
     </article>
   );
 });

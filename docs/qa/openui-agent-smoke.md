@@ -222,7 +222,7 @@ Create a task list with completed status and a filter with All, Active and Compl
 - User can add multiple items.
 - Completion is interactive through an explicit persisted mutation plus refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggleItem)`, and `@Run(items)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
 - Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
-- If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder sends one repair request before commit; if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
+- If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder can send up to two repair requests before commit; if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
 - Row actions use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
 - Persisted rows keep meaningful stable ids; blank or whitespace `value.id` drafts should not survive commit as row ids and should be replaced by generated stable ids.
 - The committed source does not mutate persisted array rows by numeric paths such as `app.items.0`; item updates stay id-based through collection-item tools.
@@ -330,12 +330,12 @@ Create a complex app with two screens, filtering, a random number button, valida
 
 ### Expected
 
-- If the first draft is invalid, or valid but fails a blocking product-quality check, one repair attempt may run.
-- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that one-repair path instead of failing immediately on the first draft.
+- If the first draft is invalid, or valid but fails a blocking product-quality check, up to two repair attempts may run.
+- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
-- If repair runs, chat shows one repair-start notice plus one pending repair-status message while waiting, and that pending status disappears after success or failure.
+- If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - If repair succeeds, the final app is valid and usable.
-- If repair fails, the previous Preview remains visible and `Repeat` stays available.
+- If repair fails, the pending summary card is removed, the previous Preview remains visible, `Repeat` stays available, and a red error card shows `Something went wrong and your request couldn’t be completed.` with expandable `Details` for the technical validation/error text.
 - If repair fails because the repair request itself times out, the error text should explicitly mention the automatic repair timing out rather than a generic initial-generation timeout.
 - Partial or bad draft is not committed.
 - The UI does not get stuck in loading/generating state.

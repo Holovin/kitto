@@ -8,9 +8,7 @@ import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
-import { builderActions } from '@features/builder/store/builderSlice';
 import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderQualityIssue, BuilderRequestId } from '@features/builder/types';
-import { useAppDispatch } from '@store/hooks';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
@@ -22,6 +20,7 @@ interface UseValidationRepairOptions {
     request: BuilderLlmRequest,
     options?: { requestKind?: 'automatic-repair'; transportRequestId?: BuilderRequestId },
   ) => Promise<BuilderGeneratedDraft>;
+  showStreamingSummaryStatus: (requestId: BuilderRequestId, status: string) => void;
   throwIfInactiveRequest: (requestId: BuilderRequestId) => void;
 }
 
@@ -105,17 +104,10 @@ function sortRepairValidationIssues(issues: RepairValidationIssue[]) {
     .map(({ issue }) => issue);
 }
 
-function getRepairStatusMessageKey(requestId: BuilderRequestId) {
-  return `generation-repair:${requestId}`;
-}
+function formatRepairPendingMessage(attemptNumber: number) {
+  const baseMessage = 'Something went wrong and your request was sent again';
 
-function formatRepairPendingMessage(issueMode: RepairIssueMode, attemptNumber: number, maxRepairAttempts: number | null) {
-  if (issueMode === 'quality') {
-    return `Repairing draft automatically (blocking-quality pass ${attemptNumber} of 1)…`;
-  }
-
-  const maxAttempts = Math.max(1, maxRepairAttempts ?? 1);
-  return `Repairing draft automatically (parser pass ${attemptNumber} of ${maxAttempts})…`;
+  return attemptNumber > 1 ? `${baseMessage} (${attemptNumber})` : baseMessage;
 }
 
 function isRepairAbortError(error: unknown) {
@@ -188,10 +180,9 @@ export function useValidationRepair({
   maxRepairValidationIssues,
   requestLimits,
   runGenerateRequest,
+  showStreamingSummaryStatus,
   throwIfInactiveRequest,
 }: UseValidationRepairOptions) {
-  const dispatch = useAppDispatch();
-
   async function ensureValidGeneratedSource(
     initialResponse: BuilderGeneratedDraft,
     request: BuilderLlmRequest,
@@ -200,7 +191,7 @@ export function useValidationRepair({
     let candidateResponse: BuilderGeneratedDraft = { ...initialResponse };
     let parserRepairCount = 0;
     let qualityRepairCount = 0;
-    let hasAnnouncedRepair = false;
+    let repairAttemptCount = 0;
     let hasCompletedRepairRequest = false;
     let pendingQualityRepairTelemetry: PendingQualityRepairTelemetry | null = null;
 
@@ -236,6 +227,10 @@ export function useValidationRepair({
     }
 
     function queueQualityRepairOutcome(issues: BuilderQualityIssue[]) {
+      if (pendingQualityRepairTelemetry) {
+        return;
+      }
+
       if (candidateResponse.requestId.trim().length === 0) {
         pendingQualityRepairTelemetry = null;
         return;
@@ -265,7 +260,7 @@ export function useValidationRepair({
       });
     }
 
-    async function runRepairRequest(issues: RepairValidationIssue[], attemptNumber: number, issueMode: RepairIssueMode) {
+    async function runRepairRequest(issues: RepairValidationIssue[], issueMode: RepairIssueMode) {
       if (requestLimits === null) {
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
@@ -274,6 +269,20 @@ export function useValidationRepair({
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
+      if (maxRepairAttempts === null) {
+        throw new Error('Chat send is unavailable until the runtime config has loaded.');
+      }
+
+      if (repairAttemptCount >= maxRepairAttempts) {
+        throw new OpenUiValidationError(
+          createValidationFailureMessage(
+            issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)),
+            parserRepairCount + qualityRepairCount,
+          ),
+        );
+      }
+
+      repairAttemptCount += 1;
       reportRejectedCandidate(issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)));
       const repairRequest: BuilderLlmRequest = {
         prompt: request.prompt,
@@ -282,7 +291,7 @@ export function useValidationRepair({
         invalidDraft: candidateResponse.source,
         mode: 'repair',
         parentRequestId: requestId,
-        repairAttemptNumber: attemptNumber,
+        repairAttemptNumber: repairAttemptCount,
         validationIssues: sanitizeRepairValidationIssues(issues, maxRepairValidationIssues),
       };
       const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest, requestLimits);
@@ -292,26 +301,8 @@ export function useValidationRepair({
         throw new Error(repairRequestValidationError);
       }
 
-      if (!hasAnnouncedRepair) {
-        throwIfInactiveRequest(requestId);
-        dispatch(
-          builderActions.appendChatMessage({
-            role: 'system',
-            tone: 'info',
-            content: 'The model returned a draft that cannot be committed yet. Sending an automatic repair request now.',
-          }),
-        );
-        hasAnnouncedRepair = true;
-      }
-
-      dispatch(
-        builderActions.appendChatMessage({
-          content: formatRepairPendingMessage(issueMode, attemptNumber, maxRepairAttempts),
-          messageKey: getRepairStatusMessageKey(requestId),
-          role: 'system',
-          tone: 'info',
-        }),
-      );
+      throwIfInactiveRequest(requestId);
+      showStreamingSummaryStatus(requestId, formatRepairPendingMessage(repairAttemptCount));
 
       try {
         const repairedResponse = await runGenerateRequest(requestId, transportRequest, {
@@ -327,12 +318,6 @@ export function useValidationRepair({
         }
 
         throw wrapRepairRequestError(error);
-      } finally {
-        dispatch(
-          builderActions.removeChatMessageByKey({
-            messageKey: getRepairStatusMessageKey(requestId),
-          }),
-        );
       }
     }
 
@@ -370,7 +355,11 @@ export function useValidationRepair({
         }
 
         if (blockingQualityIssues.length > 0) {
-          if (qualityRepairCount >= 1) {
+          if (maxRepairAttempts === null) {
+            throw new Error('Chat send is unavailable until the runtime config has loaded.');
+          }
+
+          if (repairAttemptCount >= maxRepairAttempts) {
             reportRejectedCandidate(blockingQualityIssues.map(stripQualitySeverity));
             reportQualityRepairOutcome('failed');
             throw new OpenUiValidationError(
@@ -383,7 +372,7 @@ export function useValidationRepair({
 
           qualityRepairCount += 1;
           queueQualityRepairOutcome(blockingQualityIssues);
-          await runRepairRequest(blockingQualityIssues, qualityRepairCount, 'quality');
+          await runRepairRequest(blockingQualityIssues, 'quality');
           continue;
         }
 
@@ -403,14 +392,14 @@ export function useValidationRepair({
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
-      if (parserRepairCount >= maxRepairAttempts) {
+      if (repairAttemptCount >= maxRepairAttempts) {
         reportRejectedCandidate(validation.issues);
         reportQualityRepairOutcome('failed');
         throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
       }
 
       parserRepairCount += 1;
-      await runRepairRequest(validation.issues, parserRepairCount, 'parser');
+      await runRepairRequest(validation.issues, 'parser');
     }
   }
 

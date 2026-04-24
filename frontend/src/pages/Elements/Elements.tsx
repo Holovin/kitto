@@ -101,7 +101,7 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'Repair prompt',
     description: (data) =>
-      `Repair-message template used as the baseline shape when the first draft needs one automatic fix pass. Automatic repair retries use temperature ${data.config.repairTemperature}.`,
+      `Repair-message template used as the baseline shape when the first draft needs an automatic fix pass. Automatic repair retries use temperature ${data.config.repairTemperature}.`,
     formatBody: (data) => data.repairPromptTemplate,
   },
   {
