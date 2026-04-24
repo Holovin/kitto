@@ -31,6 +31,8 @@ const REPAIR_CORE_CRITICAL_RULES = [
   'Use only supported components and tools.',
   'Every @Run(ref) must reference a defined Query or Mutation.',
   'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
+  'Define `$state`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.',
+  'Component children arrays may contain only component refs or component calls, not declarations such as `$x = ...`, `items = [...]`, or `row = Group(...)`.',
 ] as const;
 
 const REPAIR_LAYOUT_CRITICAL_RULES = [
@@ -47,6 +49,7 @@ const REPAIR_LAYOUT_CRITICAL_RULES = [
 const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
   'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
+  'Validation props must be literal arrays. When skipping validation before `action` or `appearance`, use [] instead of null.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
 ] as const;
 

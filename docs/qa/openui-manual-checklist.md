@@ -216,6 +216,7 @@ Repeater(children, emptyText?, appearance?)
 
 - `RadioGroup` / `Select` `options` must be arrays of `{ label, value }` objects.
 - If choice options come from collection rows such as `questions[i].options` or `item.options`, each row's `.options` field must already use `{ label, value }` objects; bare string or number arrays are a blocking product-quality issue.
+- Generated positional calls should use `[]` when skipping `validation` before `action` or `appearance`; `null` validation placeholders should behave as no validation rules rather than crashing the runtime.
 
 Typed inputs and declarative validation:
 
@@ -305,6 +306,7 @@ Todo request guardrails:
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - `RadioGroup(...)` and `Select(...)` must receive `options` as `{ label, value }` objects, not bare strings or numbers.
 - Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.
+- When an action-mode `RadioGroup(...)` or `Select(...)` has no validation rules, pass `null` for helper and `[]` for validation before `Action([...])`.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
 - Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.
 - For persisted collection row actions, define top-level `Mutation(...)` statements such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row `Action(...)`.

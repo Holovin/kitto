@@ -265,7 +265,7 @@ export function inspectValidationConfig(args: {
 }): ValidationConfigIssue[] {
   const { componentType, inputType, validation } = args;
 
-  if (validation === undefined) {
+  if (validation === undefined || validation === null) {
     return [];
   }
 

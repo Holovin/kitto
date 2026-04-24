@@ -168,6 +168,49 @@ root = AppShell([
     });
   });
 
+  it('treats null validation placeholders as omitted validation rules', () => {
+    const result = validateOpenUiSource(`$answer = ""
+answerOptions = [
+  { label: "Hallo", value: "hallo" },
+  { label: "Danke", value: "danke" }
+]
+root = AppShell([
+  Screen("main", "Main", [
+    RadioGroup("answer", "Answer", $answer, answerOptions, null, null)
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it('lets null validation placeholders reach action-binding quality repair checks', () => {
+    const source = `$answer = ""
+answerOptions = [
+  { label: "Hallo", value: "hallo" },
+  { label: "Danke", value: "danke" }
+]
+answerSelect = RadioGroup("answer", "Answer", $answer, answerOptions, null, null, Action([@Set($answer, $lastChoice)]))
+root = AppShell([
+  Screen("main", "Main", [answerSelect])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'control-action-and-binding',
+          statementId: 'answerSelect',
+        }),
+      ]),
+    );
+  });
+
   it('accepts filtered collections, counts, and @Each templates over derived rows', () => {
     const result = validateOpenUiSource(`items = [
   { title: "Write tests", completed: true },

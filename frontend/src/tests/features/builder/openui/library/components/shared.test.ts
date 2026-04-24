@@ -5,6 +5,7 @@ import {
   getValidationFeedback,
   hexColorSchema,
   inputTypeSchema,
+  inspectValidationConfig,
   normalizeChoiceOptions,
   sanitizeValidationRules,
   textAppearanceSchema,
@@ -81,6 +82,10 @@ describe('validationRuleSchema', () => {
 });
 
 describe('validation helpers', () => {
+  it('treats null validation config as no validation rules', () => {
+    expect(inspectValidationConfig({ componentType: 'RadioGroup', validation: null })).toEqual([]);
+  });
+
   it('fails required validation for empty text', () => {
     const rules = sanitizeValidationRules({ componentType: 'Input', inputType: 'text' }, [{ type: 'required' }]);
 

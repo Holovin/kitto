@@ -14,6 +14,8 @@ const SIMPLE_APP_RULES = [
 const CORE_PROGRAM_RULES = [
   'Return the full updated program every time, not a patch.',
   'The root statement must be `root = AppShell([...])`.',
+  'Define `$state`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.',
+  'Component children arrays may contain only component refs or component calls, not declarations such as `$x = ...`, `items = [...]`, or `row = Group(...)`.',
   'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
   'Use only the supported components and tools provided in this prompt.',
   'Use only documented shallow objects:',
@@ -133,6 +135,7 @@ const INPUT_AND_VALIDATION_RULES = [
   'Date inputs store strict `YYYY-MM-DD` strings, and time inputs store browser-style `HH:mm` strings.',
   'For due dates, store values as `YYYY-MM-DD` strings.',
   'Use declarative validation rules only: `[{ type: "required", message: "..." }]`.',
+  'When skipping validation in a positional component call before `action` or `appearance`, pass `[]` for validation; use `null` only for helper text.',
   'Supported validation rules are `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, and `email`.',
   'Never generate JavaScript validators, regex validators, Function constructors, eval, or script-like validation code.',
   'Only use validation rules that match the component and input type.',

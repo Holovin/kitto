@@ -298,6 +298,8 @@ Before finishing, walk your output and verify:
 - If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.
 - Return the full updated program every time, not a patch.
 - The root statement must be \`root = AppShell([...])\`.
+- Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
+- Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Use only the supported components and tools provided in this prompt.
 - Use only documented shallow objects:

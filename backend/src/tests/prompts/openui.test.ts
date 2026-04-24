@@ -227,6 +227,12 @@ describe('openui prompts', () => {
       'Do not use `compute_value` or `write_computed_state` for simple list CRUD, basic screen navigation, filtering, or normal input display.',
     );
     expect(prompt).toContain('Use only documented shallow objects:');
+    expect(prompt).toContain(
+      'Define `$state`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.',
+    );
+    expect(prompt).toContain(
+      'Component children arrays may contain only component refs or component calls, not declarations such as `$x = ...`, `items = [...]`, or `row = Group(...)`.',
+    );
     expect(prompt).toContain('Do not invent any other nested config objects.');
     expect(prompt).not.toContain('Avoid deeply nested configuration objects');
     expect(prompt).not.toContain('$currentTheme = "light"');
@@ -305,6 +311,9 @@ describe('openui prompts', () => {
       'Use `Checkbox(..., validation)` with a `required` rule for agreement, consent, confirmation, or acknowledgement fields.',
     );
     expect(prompt).toContain('Use declarative validation rules only: `[{ type: "required", message: "..." }]`.');
+    expect(prompt).toContain(
+      'When skipping validation in a positional component call before `action` or `appearance`, pass `[]` for validation; use `null` only for helper text.',
+    );
     expect(prompt).toContain('Supported validation rules are `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, and `email`.');
     expect(prompt).toContain('Only use validation rules that match the component and input type.');
     expect(prompt).toContain('For checkboxes, `required` means the checkbox must be checked.');
