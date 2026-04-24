@@ -91,6 +91,41 @@ describe('openui prompts', () => {
     expect(prompt).not.toContain('Return only raw OpenUI Lang source. Do not wrap it in markdown, prose, or code fences.');
   });
 
+  it('keeps system prompt scaffolding aligned to the supported Kitto surface', () => {
+    const prompt = buildOpenUiSystemPrompt();
+    const unsupportedGenericSnippets = [
+      'Stack(',
+      'Col(',
+      'Form("',
+      'FormControl',
+      'SelectItem',
+      'TextContent',
+      'Comp(',
+      'SomeComp',
+      'SomeChart',
+      'Auto-declare',
+      'Undeclared $variables are auto-created',
+      '## Interactive Filters',
+      '## Forms',
+      '## Data Workflow',
+      'root = AppShell(...) is the FIRST line',
+      'Always write the root = AppShell(...) statement first',
+      'tables for comparisons',
+      'chart values',
+      'charts, tables',
+    ];
+
+    for (const snippet of unsupportedGenericSnippets) {
+      expect(prompt).not.toContain(snippet);
+    }
+
+    expect(prompt).toContain('Write `Group("Filters", "horizontal", [child], "inline")`');
+    expect(prompt).toContain('Declare every mutable state ref with `$varName = defaultValue` before use.');
+    expect(prompt).toContain('Manual refresh: `Button("refresh", "Refresh", "secondary", Action([@Run(query1), @Run(query2)]), false)`');
+    expect(prompt).toContain('**Recommended statement order for Kitto:**');
+    expect(prompt).toContain('4. `root = AppShell(...)` - the single render entry point');
+  });
+
   it('keeps the structured system prompt snapshot stable', () => {
     expect(buildOpenUiSystemPrompt()).toMatchSnapshot();
   });
@@ -121,7 +156,7 @@ describe('openui prompts', () => {
     expect(todoPrompt).not.toContain('$currentTheme = "light"');
     expect(todoPrompt).not.toContain('Input supports these HTML types only:');
     expect(todoPrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
-    expect(todoPrompt).not.toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(todoPrompt).not.toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(todoPrompt).not.toContain('$currentScreen = "question"');
   });
 
@@ -149,7 +184,7 @@ describe('openui prompts', () => {
     expect(getPromptIntentCacheVector('Посчитать расчёт и сравнить даты.')).toBe('c');
     expect(getPromptIntentCacheVector('Случайный рандомный кубик.')).toBe('c+r');
 
-    expect(filteringPrompt).toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(filteringPrompt).toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(validationPrompt).toContain('Input supports these HTML types only:');
     expect(computePrompt).toContain('today = Query("compute_value", { op: "today_date", returnType: "string" }, { value: "" })');
     expect(randomPrompt).toContain('roll = Mutation("write_computed_state", {');
@@ -197,6 +232,28 @@ describe('openui prompts', () => {
     expect(prompt).toContain('@Set($currentScreen');
   });
 
+  it('includes compact negative examples for frequent OpenUI mistakes', () => {
+    const basePrompt = buildBasePrompt();
+    const filteringPrompt = buildFilteringPrompt();
+    const randomPrompt = buildRandomPrompt();
+
+    expect(basePrompt).toContain(
+      'BAD/GOOD Group variant: BAD `Group("x", "block", [Text("Hi", "body", "start")])`; GOOD `Group("x", "vertical", [Text("Hi", "body", "start")], "block")`.',
+    );
+    expect(basePrompt).toContain(
+      'BAD/GOOD Repeater data flow: BAD `Repeater(Query("read_state", { path: "app.items" }, []), "No items")`; GOOD `items = Query(...)`, `rows = @Each(items, "item", Group(null, "horizontal", [Text(item.title, "body", "start")], "inline"))`, `Repeater(rows, "No items")`.',
+    );
+    expect(basePrompt).toContain(
+      'BAD/GOOD Checkbox modes: BAD `Checkbox("done", "Done", $done, null, [], Action([@Run(saveDone)]))`; GOOD binding `Checkbox("done", "Done", $done)`; GOOD action `Checkbox("done-" + item.id, "Done", item.done, null, [], Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`.',
+    );
+    expect(filteringPrompt).toContain(
+      'BAD/GOOD @Filter syntax: BAD `@Filter(items, item => item.title.contains($query))`; GOOD `@Filter(items, "title", "contains", $query)`.',
+    );
+    expect(randomPrompt).toContain(
+      '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
+    );
+  });
+
   it('adds short request exemplars only for matching frequent smoke intents', () => {
     const basePrompt = buildInitialUserPrompt('Build a small contact card.');
     const todoPrompt = buildInitialUserPrompt('Create a todo list.');
@@ -223,9 +280,9 @@ describe('openui prompts', () => {
 
     expect(filteredTodoPrompt).toContain('Filtered todo list pattern:');
     expect(filteredTodoPrompt).toContain(
-      'visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items',
+      'visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items',
     );
-    expect(filteredTodoPrompt).toContain('Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))');
+    expect(filteredTodoPrompt).toContain('Select("filter", "Show", $filter, filterOptions)');
     expect(filteredTodoPrompt).not.toContain('Todo/task list pattern:');
 
     expect(validationPrompt).toContain('Validation form pattern:');
@@ -359,7 +416,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Do not invent any other nested config objects.');
     expect(prompt).not.toContain('Avoid deeply nested configuration objects');
     expect(prompt).not.toContain('$currentTheme = "light"');
-    expect(prompt).not.toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(prompt).not.toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(prompt).not.toContain('Input supports these HTML types only:');
     expect(prompt).not.toContain('$email = ""');
     expect(prompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
@@ -508,7 +565,7 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain('Use `contains` for simple text search such as `@Filter(items, "title", "contains", $query)`; do not invent `includes`.');
     expect(prompt).toContain('Use `>`, `<`, `>=`, and `<=` for numeric values or numeric strings such as `@Filter(items, "score", ">=", 80)`.');
-    expect(prompt).toContain('visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items');
+    expect(prompt).toContain('visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items');
     expect(prompt).toContain('visibleCount = @Count(visibleItems)');
     expect(prompt).toContain('Expressions are allowed inside the source argument to `@Each(...)`');
   });
@@ -536,12 +593,11 @@ describe('openui prompts', () => {
     expect(computePrompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
     expect(computePrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
     expect(computePrompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
-    expect(computePrompt).toContain('4. `Text(...)` reads `rollValue`, not the Mutation ref.');
     expect(computePrompt).toContain(
-      'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
+      '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
     );
     expect(computePrompt).toContain(
-      'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`; display the persisted primitive, not a Mutation ref or `mutationRef.data.value`.',
+      'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
     );
     expect(computePrompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.');
     expect(computePrompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');

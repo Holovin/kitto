@@ -23,7 +23,7 @@ This package contains the Kitto builder UI. It lets you prompt the backend for O
 - polls `GET /api/health` every 30 seconds and on focus/reconnect
 - streams generation from `POST /api/llm/generate/stream`
 - falls back to `POST /api/llm/generate` if streaming fails before the first chunk
-- validates generated OpenUI locally and retries automatic repair up to two times
+- validates generated OpenUI locally and retries automatic repair up to the configured limit (default: 2 attempts)
 - persists builder state in `localStorage`
 - supports import/export, undo/redo, builder reset, and runtime state reset
 

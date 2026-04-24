@@ -138,7 +138,7 @@ Steps:
 - If streaming fails before the first chunk, the frontend falls back to `POST /api/llm/generate`
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
 - The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected streamed or imported source stays in Definition while Preview keeps the last committed source
-- If the generated source is invalid, the frontend performs 1 automatic repair attempt by sending a repair prompt back to the backend
+- If the generated source is invalid or fails blocking quality checks, the frontend performs up to the configured automatic repair limit by sending repair prompts back to the backend (default: 2 attempts)
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
 - Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context

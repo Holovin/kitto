@@ -46,8 +46,7 @@ const FILTERED_TODO_REQUEST_EXEMPLAR: PromptExemplar = {
   title: 'Filtered todo list pattern',
   text: `$draft = ""
 $targetItemId = ""
-savedFilter = Query("read_state", { path: "ui.todoFilter" }, "all")
-setFilter = Mutation("write_state", { path: "ui.todoFilter", value: $lastChoice })
+$filter = "all"
 items = Query("read_state", { path: "app.items" }, [])
 addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
 toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
@@ -56,7 +55,7 @@ filterOptions = [
   { label: "Active", value: "active" },
   { label: "Completed", value: "completed" }
 ]
-visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
 rows = @Each(visibleItems, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
   Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
@@ -64,7 +63,7 @@ rows = @Each(visibleItems, "item", Group(null, "horizontal", [
 
 root = AppShell([
   Screen("main", "Todos", [
-    Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)])),
+    Select("filter", "Show", $filter, filterOptions),
     Group("Add task", "horizontal", [
       Input("draft", "Task", $draft, "New task"),
       Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
@@ -241,8 +240,8 @@ OK: Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Re
     key: 'reserved-last-choice-outside-action-mode',
     title: 'Use $lastChoice only inside action-mode flows',
     text: `WRONG: Text("Selected filter: " + $lastChoice, "body", "start")
-OK: setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })
-OK: Select("filter", "Filter", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))`,
+OK: savePlan = Mutation("write_state", { path: "ui.plan", value: $lastChoice })
+OK: Select("plan", "Plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)]))`,
   },
   'undefined-state-reference': {
     key: 'undefined-state-reference',

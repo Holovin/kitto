@@ -58,6 +58,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The system-prompt block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text without issuing another prompt-info request.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
+- The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<request_intent>`, `<latest_user_request>`, optional `<current_source_inventory>`, and `<current_source>` blocks.
 - The `<request_intent>` block lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`) before `<latest_user_request>`.
 - The optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
@@ -227,7 +228,7 @@ Create a task list with completed status and a filter with All, Active and Compl
 - User can add multiple items.
 - Completion is interactive through an explicit persisted mutation plus refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggleItem)`, and `@Run(items)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
 - Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
-- If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder can send up to two repair requests before commit; if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
+- If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder can send repair requests up to `repair.maxRepairAttempts` before commit (default: 2 attempts); if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
 - Row actions use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
 - Persisted rows keep meaningful unique stable ids; blank, whitespace, or duplicate `value.id` drafts should not survive commit as row ids and should be replaced by generated stable ids.
 - The committed source does not mutate persisted array rows by numeric paths such as `app.items.0`; item updates stay id-based through collection-item tools.
@@ -336,7 +337,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 
 ### Expected
 
-- If the first draft is invalid, or valid but fails a blocking product-quality check, up to two repair attempts may run.
+- If the first draft is invalid, or valid but fails a blocking product-quality check, repair attempts may run up to `repair.maxRepairAttempts` (default: 2 attempts).
 - Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.

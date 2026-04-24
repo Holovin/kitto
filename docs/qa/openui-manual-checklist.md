@@ -38,11 +38,12 @@ Guardrails:
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and rejects generic phrasing such as `Updated the app`.
 - Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
+- Confirm the system prompt does not contain legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - Confirm the prompts tab stays read-only and does not show edit or copy controls.
 
 ## Prompt baseline
 
-- Base intent-scoped structured system prompt baseline: `systemPromptHash = 98b37736fe6935ce`, `systemPromptCharCount = 32700`.
+- Base intent-scoped structured system prompt baseline: `systemPromptHash = ebb69b47f13a54d7`, `systemPromptCharCount = 30194`.
 - This replaces the older documented hash `884ba0033452bf56`.
 - Verified on 2026-04-23 from the current prompt builder in the repo.
 
@@ -65,7 +66,7 @@ Guardrails:
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.` when backend prompt-aware quality validation classifies it as a warning instead of a blocker.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
-- Blocking product-quality issues may trigger up to two automatic repair attempts before commit even when the draft is syntactically valid.
+- Blocking product-quality issues may trigger automatic repair attempts up to `repair.maxRepairAttempts` before commit (default: 2 attempts) even when the draft is syntactically valid.
 - When an automatic repair request is in flight, chat should reuse the pending assistant summary card with shimmer and show `Something went wrong and your request was sent again`; if a second repair starts, the same card should update to `Something went wrong and your request was sent again (2)`.
 - If all repair attempts fail, remove the pending assistant summary card and show one red error card with `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` plus an expandable dotted-underlined `Details` control containing the technical error text and any available code/status/message metadata.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.

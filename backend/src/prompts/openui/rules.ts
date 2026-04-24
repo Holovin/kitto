@@ -31,12 +31,13 @@ const GENERAL_CONTROL_ACTION_MODE_RULES = [
   'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
   'RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.',
   'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
+  'BAD/GOOD Checkbox modes: BAD `Checkbox("done", "Done", $done, null, [], Action([@Run(saveDone)]))`; GOOD binding `Checkbox("done", "Done", $done)`; GOOD action `Checkbox("done-" + item.id, "Done", item.done, null, [], Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`.',
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
   'Do not read `$lastChoice` directly in Text(...), disabled expressions, or unrelated statements.',
   'For persisted collection row actions, define top-level Mutations such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row Action.',
   'Collection-item relay recipe: `$targetItemId = ""`, `toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })`, then inside `@Each(...)` use `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`.',
-  'Select/RadioGroup action-mode recipe: `savedFilter = Query("read_state", { path: "ui.filter" }, "all")`, `setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })`, then `Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))`.',
+  'Select/RadioGroup action-mode recipe for persisted choices: `savedPlan = Query("read_state", { path: "ui.plan" }, "basic")`, `savePlan = Mutation("write_state", { path: "ui.plan", value: $lastChoice })`, then `Select("plan", "Plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)]))`.',
   'Inside `@Each(collection, "item", ...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`.',
   'Do not mutate persisted array rows through numeric paths such as `app.items.0`; use `toggle_item_field`, `update_item_field`, or `remove_item` with `idField` + `id`.',
 ] as const;
@@ -60,6 +61,7 @@ const LAYOUT_RULES = [
   'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put `"block"` or `"inline"` in the second Group argument.',
+  'BAD/GOOD Group variant: BAD `Group("x", "block", [Text("Hi", "body", "start")])`; GOOD `Group("x", "vertical", [Text("Hi", "body", "start")], "block")`.',
   'Use Group variant "block" for standalone visual sections.',
   'Do not over-nest block Groups.',
   'Without appearance, button variants keep their semantic fallback styles such as filled, outlined, or destructive.',
@@ -100,6 +102,7 @@ const APPEARANCE_AND_THEME_RULES = [
 const COLLECTION_RULES = [
   'Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.',
   'Repeater renders an array of already-built row nodes. Build those rows with `@Each(collection, "item", rowNode)` before passing them to Repeater.',
+  'BAD/GOOD Repeater data flow: BAD `Repeater(Query("read_state", { path: "app.items" }, []), "No items")`; GOOD `items = Query(...)`, `rows = @Each(items, "item", Group(null, "horizontal", [Text(item.title, "body", "start")], "inline"))`, `Repeater(rows, "No items")`.',
   'When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.',
   'If collection data is persisted browser data, read it through Query("read_state", { path: "..." }, defaultValue) before passing it to @Each(...).',
   'Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).',
@@ -113,6 +116,7 @@ const COLLECTION_RULES = [
 const FILTER_RULES = [
   'Prefer built-in collection helpers such as `@Filter(collection, field, operator, value)` and `@Count(collection)` for derived filtered views and counts.',
   'Use `@Filter(collection, field, operator, value)` with a field string and one of these operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; do not invent predicate-form filters or JavaScript callbacks.',
+  'BAD/GOOD @Filter syntax: BAD `@Filter(items, item => item.title.contains($query))`; GOOD `@Filter(items, "title", "contains", $query)`.',
   'Use `contains` for simple text search such as `@Filter(items, "title", "contains", $query)`; do not invent `includes`.',
   'Use `>`, `<`, `>=`, and `<=` for numeric values or numeric strings such as `@Filter(items, "score", ">=", 80)`.',
   'When the user asks for all, active, completed, or similar filtered views of one collection, keep one source collection and derive the visible collection with `@Filter(...)` instead of inventing a new tool.',
@@ -203,9 +207,8 @@ const COMPUTE_TOOL_RULES = [
   '1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`',
   '2. `rollValue = Query("read_state", { path: "app.roll" }, null)`',
   '3. Button action: `Action([@Run(roll), @Run(rollValue)])`.',
-  '4. `Text(...)` reads `rollValue`, not the Mutation ref.',
+  '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
   'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
-  'For button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`; display the persisted primitive, not a Mutation ref or `mutationRef.data.value`.',
   'Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.',
 ] as const;
 

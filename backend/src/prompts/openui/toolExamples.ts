@@ -55,13 +55,9 @@ root = AppShell([
   ])
 ], appTheme)`;
 
-const filteredItemsExample = `savedFilter = Query("read_state", { path: "ui.filter" }, "all")
-setFilter = Mutation("write_state", {
-  path: "ui.filter",
-  value: $lastChoice
-})
+const filteredItemsExample = `$filter = "all"
 items = Query("read_state", { path: "app.items" }, [])
-visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
 visibleCount = @Count(visibleItems)
 filterOptions = [
   { label: "All items", value: "all" },
@@ -75,7 +71,7 @@ itemRows = @Each(visibleItems, "item", Group(null, "horizontal", [
 
 root = AppShell([
   Screen("main", "Filtered items", [
-    Select("filter", "Filter", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)])),
+    Select("filter", "Filter", $filter, filterOptions),
     Text("Visible items: " + visibleCount, "muted", "start"),
     Repeater(itemRows, "No matching items.")
   ])

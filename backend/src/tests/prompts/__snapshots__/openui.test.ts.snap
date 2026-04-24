@@ -6,13 +6,13 @@ exports[`openui prompts > keeps the structured system prompt snapshot stable 1`]
 ## Syntax Rules
 
 1. Each statement is on its own line: \`identifier = Expression\`
-2. \`root\` is the entry point — every program must define \`root = AppShell(...)\`
+2. \`root\` is the entry point - every program must define \`root = AppShell(...)\`
 3. Expressions are: strings ("..."), numbers, booleans (true/false), null, arrays ([...]), objects ({...}), or component calls TypeName(arg1, arg2, ...)
 4. Use references for readability: define \`name = ...\` on one line, then use \`name\` later
 5. EVERY variable (except root) MUST be referenced by at least one other variable. Unreferenced variables are silently dropped and will NOT render. Always include defined variables in their parent's children/items array.
-6. Arguments are POSITIONAL (order matters, not names). Write \`Stack([children], "row", "l")\` NOT \`Stack([children], direction: "row", gap: "l")\` — colon syntax is NOT supported and silently breaks
+6. Arguments are POSITIONAL (order matters, not names). Write \`Group("Filters", "horizontal", [child], "inline")\` NOT \`Group("Filters", direction: "horizontal", children: [child])\`; colon syntax is NOT supported and silently breaks
 7. Optional arguments can be omitted from the end
-8. Declare mutable state with \`$varName = defaultValue\`. Components marked with \`$binding\` can read/write these. Undeclared $variables are auto-created with null default.
+8. Declare every mutable state ref with \`$varName = defaultValue\` before use. Components marked with \`$binding\` can read/write these.
 9. String concatenation: \`"text" + $var + "more"\`
 10. Dot member access: \`query.field\` reads a field; on arrays it extracts that field from every element
 11. Index access: \`arr[0]\`, \`data[index]\`
@@ -25,15 +25,16 @@ exports[`openui prompts > keeps the structured system prompt snapshot stable 1`]
 
 ## Component Signatures
 
-Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for better streaming.
+Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for readable top-level structure.
+Props typed \`ActionExpression\` accept an \`Action([@steps...])\` expression. See the Action section for available steps.
 Props marked \`$binding<type>\` accept a \`$variable\` reference for two-way binding.
 
 ### Containers
-AppShell(children?: any[], appearance?: {mainColor?: string, contrastColor?: string}) — Technical root wrapper for the generated app. Use it once as root; optional appearance sets the global theme for all nested content.
-Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) — Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility. Optional appearance overrides theme colors for the whole screen subtree.
-Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", appearance?: {mainColor?: string, contrastColor?: string}) — Local layout container for related controls or content. Use variant "block" for standalone sections and variant "inline" for lightweight nested groups, repeated rows, or inline controls. Optional appearance overrides theme colors for the group subtree.
-Repeater(children?: any[], emptyText?: string | any, appearance?: {mainColor?: string, contrastColor?: string}) — Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, "item", rowNode) to build rows from local arrays, runtime state, or Query("read_state", ...) results. Do not hardcode repeated rows when the user asked for dynamic data.
-Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {contrastColor?: string}) — Generic text node for headings, helper copy, code-style snippets, and status lines.
+AppShell(children?: any[], appearance?: {mainColor?: string, contrastColor?: string}) - Technical root wrapper for the generated app. Use it once as root; optional appearance sets the global theme for all nested content.
+Screen(id: string, title: string, children?: any[], isActive?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) - Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility. Optional appearance overrides theme colors for the whole screen subtree.
+Group(title?: string | any, direction?: "vertical" | "horizontal", children?: any[], variant?: "block" | "inline", appearance?: {mainColor?: string, contrastColor?: string}) - Local layout container for related controls or content. Use variant "block" for standalone sections and variant "inline" for lightweight nested groups, repeated rows, or inline controls. Optional appearance overrides theme colors for the group subtree.
+Repeater(children?: any[], emptyText?: string | any, appearance?: {mainColor?: string, contrastColor?: string}) - Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, "item", rowNode) to build rows from local arrays, runtime state, or Query("read_state", ...) results. Do not hardcode repeated rows when the user asked for dynamic data.
+Text(value?: string | number | boolean | any, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {contrastColor?: string}) - Generic text node for headings, helper copy, code-style snippets, and status lines.
 Use Screen for major steps and Group for local layout.
 Use Group variant "block" for standalone visual sections and variant "inline" for nested groups, inline controls, and repeated rows.
 Use AppShell.appearance for one shared theme pair, with mainColor as the main surface and contrastColor as the contrasting text/action color.
@@ -41,178 +42,145 @@ Use Screen/Group/Repeater appearance only when a subtree needs a local theme ove
 Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.
 
 ### Inputs
-Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, type?: "text" | "email" | "number" | "date" | "time" | "password", validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) — Single-line input with HTML type support, optional helper text, and declarative validation. Values always stay strings, including number, date, and time inputs.
-TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) — Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes.
-Checkbox(name: string, label: string, checked?: $binding<boolean> | boolean, helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) — Boolean toggle for either local form state or explicit action flows. Use a $binding<boolean> for form state, or a display-only boolean plus action for persisted row toggles. Required validation means the checkbox must be checked.
-RadioGroup(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) — Single-choice list of options with optional helper text and declarative validation. Use a $binding<string> for form state, or a display-only string plus action for persisted choice updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
-Select(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) — Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs. Use a $binding<string> for form state, or a display-only string plus action for persisted updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
+Input(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, type?: "text" | "email" | "number" | "date" | "time" | "password", validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) - Single-line input with HTML type support, optional helper text, and declarative validation. Values always stay strings, including number, date, and time inputs.
+TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | any, helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) - Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes.
+Checkbox(name: string, label: string, checked?: $binding<boolean> | boolean, helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) - Boolean toggle for either local form state or explicit action flows. Use a $binding<boolean> for form state, or a display-only boolean plus action for persisted row toggles. Required validation means the checkbox must be checked.
+RadioGroup(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) - Single-choice list of options with optional helper text and declarative validation. Use a $binding<string> for form state, or a display-only string plus action for persisted choice updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
+Select(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string}) - Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs. Use a $binding<string> for form state, or a display-only string plus action for persisted updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
 Bind interactive values to $variables when the user should control them.
 Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).
 Never combine action with a writable $binding on Checkbox, RadioGroup, or Select. Action mode uses display values; binding mode uses only $variables.
 RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.
 
 ### Actions
-Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string}) — Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text.
-Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) — Text link for navigation to an external URL or a known browser route.
+Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string}) - Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text.
+Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) - Text link for navigation to an external URL or a known browser route.
 Use Button with Action([...]) for Query and Mutation flows. When appearance is present, all button variants use mainColor for background and contrastColor for text.
 
 ## Built-in Functions
 
-Data functions prefixed with \`@\` to distinguish from components. These are the ONLY functions available — do NOT invent new ones.
-Use @-prefixed built-in functions (@Count, @Sum, @Avg, @Min, @Max, @Round) on Query results — do NOT hardcode computed values.
+Data functions prefixed with \`@\` to distinguish from components. These are the ONLY functions available - do NOT invent new ones.
+Use @-prefixed built-in functions (@Count, @Sum, @Avg, @Min, @Max, @Round) on Query results - do NOT hardcode computed values.
 
-@Count(array) → number — Returns array length
-@First(array) → element — Returns first element of array
-@Last(array) → element — Returns last element of array
-@Sum(numbers[]) → number — Sum of numeric array
-@Avg(numbers[]) → number — Average of numeric array
-@Min(numbers[]) → number — Minimum value in array
-@Max(numbers[]) → number — Maximum value in array
-@Sort(array, field, direction?) → sorted array — Sort array by field. Direction: "asc" (default) or "desc"
-@Filter(array, field, operator: "==" | "!=" | ">" | "<" | ">=" | "<=" | "contains", value) → filtered array — Filter array by field value
-@Round(number, decimals?) → number — Round to N decimal places (default 0)
-@Abs(number) → number — Absolute value
-@Floor(number) → number — Round down to nearest integer
-@Ceil(number) → number — Round up to nearest integer
-@Each(array, varName, template) — Evaluate template for each element. varName is the loop variable — use it ONLY inside the template expression (inline). Do NOT create a separate statement for the template.
+@Count(array) → number - Returns array length
+@First(array) → element - Returns first element of array
+@Last(array) → element - Returns last element of array
+@Sum(numbers[]) → number - Sum of numeric array
+@Avg(numbers[]) → number - Average of numeric array
+@Min(numbers[]) → number - Minimum value in array
+@Max(numbers[]) → number - Maximum value in array
+@Sort(array, field, direction?) → sorted array - Sort array by field. Direction: "asc" (default) or "desc"
+@Filter(array, field, operator: "==" | "!=" | ">" | "<" | ">=" | "<=" | "contains", value) → filtered array - Filter array by field value
+@Round(number, decimals?) → number - Round to N decimal places (default 0)
+@Abs(number) → number - Absolute value
+@Floor(number) → number - Round down to nearest integer
+@Ceil(number) → number - Round up to nearest integer
+@Each(array, varName, template) - Evaluate template for each element. varName is the loop variable - use it ONLY inside the template expression (inline). Do NOT create a separate statement for the template.
 
-Builtins compose — output of one is input to the next:
-\`@Count(@Filter(data.rows, "field", "==", "val"))\` for KPIs/chart values, \`@Round(@Avg(data.rows.score), 1)\`, \`@Each(data.rows, "item", Comp(item.field))\` for per-item rendering.
-Array pluck: \`data.rows.field\` extracts a field from every row → use with @Sum, @Avg, charts, tables.
+Builtins compose - output of one is input to the next:
+\`@Count(@Filter(data.rows, "field", "==", "val"))\` for counts, \`@Round(@Avg(data.rows.score), 1)\`, \`@Each(data.rows, "item", Group(null, "horizontal", [Text(item.field, "body", "start")], "inline"))\` for per-item rendering.
+Array pluck: \`data.rows.field\` extracts a field from every row; use with @Sum, @Avg, @Min, @Max, or other supported built-ins.
 
-IMPORTANT @Each rule: The loop variable (e.g. "item") is ONLY available inside the @Each template expression. Always inline the template — do NOT extract it to a separate statement.
-CORRECT: \`Col("Actions", @Each(rows, "t", Button("Edit", Action([@Set($id, t.id)]))))\`
-WRONG: \`myBtn = Button("Edit", Action([@Set($id, t.id)]))\` then \`Col("Actions", @Each(rows, "t", myBtn))\` — t is undefined in myBtn.
+IMPORTANT @Each rule: The loop variable (e.g. "item") is ONLY available inside the @Each template expression. Always inline the template - do NOT extract it to a separate statement.
+CORRECT: \`@Each(rows, "t", Group(null, "horizontal", [Button("edit-" + t.id, "Edit", "secondary", Action([@Set($id, t.id)]), false)], "inline"))\`
+WRONG: \`rowButton = Button("edit", "Edit", "secondary", Action([@Set($id, t.id)]), false)\` then \`@Each(rows, "t", rowButton)\` - t is undefined in rowButton.
 
-## Query — Live Data Fetching
+## Query - Live Data Fetching
 
-Fetch data from available tools. Returns defaults instantly, swaps in real data when it arrives.
-
-\`\`\`
-metrics = Query("tool_name", {arg1: value, arg2: $binding}, {defaultField: 0, defaultData: []}, refreshInterval?)
-\`\`\`
-
-- First arg: tool name (string)
-- Second arg: arguments object (may reference $bindings — re-fetches automatically on change)
-- Third arg: default data (rendered immediately before fetch resolves)
-- Fourth arg (optional): refresh interval in seconds (e.g. 30 for auto-refresh every 30s)
-- Use dot access on results: metrics.totalEvents, metrics.data.day (array pluck)
-- Query results must use regular identifiers: \`metrics = Query(...)\`, NOT \`$metrics = Query(...)\`
-- Manual refresh: \`Button("Refresh", Action([@Run(query1), @Run(query2)]), "secondary")\` — re-fetches the listed queries
-- Refresh all queries: create Action with @Run for each query
-
-## Mutation — Write Operations
-
-Execute state-changing tool calls (create, update, delete). Unlike Query (auto-fetches on render), Mutation fires only on button click via Action.
+Read data from available tools. Returns defaults instantly, swaps in real data when it arrives.
 
 \`\`\`
-result = Mutation("tool_name", {arg1: $binding, arg2: "value"})
+items = Query("tool_name", { arg1: value, arg2: $binding }, { rows: [] }, refreshInterval?)
 \`\`\`
 
 - First arg: tool name (string)
-- Second arg: arguments object (evaluated with current $binding values at click time)
-- result.status: "idle" | "loading" | "success" | "error"
-- result.data: tool response on success
-- result.error: error message on failure
-- Mutation results use regular identifiers: \`result = Mutation(...)\`, NOT \`$result\`
-- Show loading state: \`result.status == "loading" ? TextContent("Saving...") : null\`
+- Second arg: arguments object (may reference $bindings; re-fetches automatically on change)
+- Third arg: default data rendered immediately before fetch resolves
+- Fourth arg (optional): refresh interval in seconds, for example 30
+- Use dot access on results: items.rows, profile.name, data.rows.score
+- Query results must use regular identifiers: \`items = Query(...)\`, NOT \`$items = Query(...)\`
+- Manual refresh: \`Button("refresh", "Refresh", "secondary", Action([@Run(query1), @Run(query2)]), false)\` re-fetches the listed queries
 
-## Interactive Filters
+## Mutation - Write Operations
 
-To let the user filter data with a dropdown:
-1. Declare a $variable with a default: \`$dateRange = "14"\`
-2. Create a Select with name, items, and binding: \`Select("dateRange", [SelectItem("7", "Last 7 days"), ...], null, null, $dateRange)\`
-3. Wrap in FormControl for a label: \`FormControl("Date Range", Select(...))\`
-4. Pass $dateRange in Query args: \`Query("tool", {dateRange: $dateRange}, {defaults})\`
-5. When the user changes the Select, $dateRange updates and the Query automatically re-fetches
+Execute state-changing tool calls. Unlike Query, Mutation fires only when an Action runs it.
 
-FILTER WIRING RULE: If a $binding filter is visible in the UI, EVERY relevant Query MUST reference that $binding in its args. Never show a filter dropdown while hardcoding the query args.
-
-Rules for $variables:
-- $variables hold simple values (strings or numbers), NOT arrays or objects
-- $variables must be bound to a Select/Input component via the value argument (last positional arg) to be interactive
-- Queries must use regular identifiers (NOT $variables): \`metrics = Query(...)\` not \`$metrics = Query(...)\`
-- **Auto-declare**: You do NOT need to explicitly declare $variables. If you use \`$foo\` without declaring it, the parser auto-creates \`$foo = null\`. You can still declare explicitly to set a default: \`$days = "14"\`
-
-## Forms
-
-Simple form — no $bindings needed. Field values are managed internally by the Form via the name prop:
 \`\`\`
-contactForm = Form("contact", submitBtn, [nameField, emailField])
-nameField = FormControl("Name", Input("name", "Your name", "text", {required: true}))
-emailField = FormControl("Email", Input("email", "your@email.com", "email", {required: true, email: true}))
-submitBtn = Button("Submit")
+saveItem = Mutation("tool_name", { field: $binding })
 \`\`\`
 
-Use $bindings when you need to read field values elsewhere (in Action context, Query args, or conditionals). They are auto-declared:
+- First arg: tool name (string)
+- Second arg: arguments object evaluated with current $binding values at action time
+- Mutation refs expose status, data, and error metadata
+- Mutation results use regular identifiers: \`saveItem = Mutation(...)\`, NOT \`$saveItem\`
+- Show loading state with supported components, for example \`Text(saveItem.status == "loading" ? "Saving..." : "", "muted", "start")\`
+
+## Action - Control Behavior
+
+Action([@steps...]) wires Button clicks and action-mode controls to operations. Steps execute in order.
+
+Available steps:
+- @Run(queryOrMutationRef) - Execute a Mutation or re-fetch a Query
+- @Set($variable, value) - Set a $variable to a specific value
+- @Reset($var1, $var2, ...) - Reset $variables to their declared defaults
+- @ToAssistant("message") - Send a message to the assistant
+- @OpenUrl("https://...") - Navigate to a safe URL
+
+Example - mutation + refresh + reset:
 \`\`\`
-$role = "engineer"
-contactForm = Form("contact", submitBtn, [nameField, emailField, roleField])
-nameField = FormControl("Name", Input("name", "Enter your name", "text", {required: true}, $name))
-emailField = FormControl("Email", Input("email", "Enter your email", "email", {required: true, email: true}, $email))
-roleField = FormControl("Role", Select("role", [SelectItem("engineer", "Engineer"), SelectItem("designer", "Designer"), SelectItem("pm", "PM")], null, {required: true}, $role))
-submitBtn = Button("Submit")
+$draft = ""
+addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+items = Query("read_state", { path: "app.items" }, [])
+Button("add-item", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
 \`\`\`
 
-For form + mutation patterns (create, refresh, reset), see the Action section example above.
+Rules:
+- Action can be assigned to a variable or inlined.
+- If a @Run(mutation) step fails, remaining steps are skipped.
+- @Run(queryRef) re-fetches the query.
 
-IMPORTANT: Always add validation rules to form fields used with Mutations. Use OBJECT syntax: {required: true, email: true, minLength: 8}. The renderer shows error messages automatically and blocks submit when validation fails.
+## Kitto Data Workflow
 
-## Data Workflow
+When persisted browser data is needed:
+1. Use Query("read_state", ...) for READ operations that should stay live.
+2. Use Mutation(...) for WRITE operations triggered by Action([...]).
+3. After a write, re-run the Query that reads the changed path.
+4. Use @Each, @Filter, @Count, and other built-ins to derive rendered rows and counts from the Query result.
+5. Hardcoded arrays are only for static display data such as labels and options.
 
-When tools are available, follow this workflow:
-1. FIRST: Call the most relevant tool to inspect the real data shape before generating code
-2. Use Query() for READ operations (data that should stay live) — NEVER hardcode tool results as literal arrays or objects
-3. Use Mutation() for WRITE operations (create, update, delete) — triggered by button clicks via Action([@Run(mutationRef)])
-4. Use the real data from step 1 as condensed Query defaults (3-5 rows) so the UI renders immediately
-5. Use @-prefixed builtins (@Count, @Filter, @Sort, @Sum) on Query results for KPIs and aggregations — the runtime evaluates these live on every refresh
-6. Hardcoded arrays are ONLY for static display data (labels, options) where no tool exists
-
-WRONG — you called a tool and got data back, but you inlined the results:
+RIGHT:
 \`\`\`
-openCount = 2
-item1 = SomeComp("first item title")
-item2 = SomeComp("second item title")
-list = Stack([item1, item2])
-chart = SomeChart(["A", "B"], [12, 8])
+items = Query("read_state", { path: "app.items" }, [])
+visibleItems = @Filter(items, "completed", "==", false)
+rows = @Each(visibleItems, "item", Group(null, "horizontal", [Text(item.title, "body", "start")], "inline"))
+root = AppShell([Screen("main", "Items", [Repeater(rows, "No items")])])
 \`\`\`
-This is static — it shows stale data and won't update. Creating item1, item2, item3... manually is ALWAYS wrong when a tool exists.
-
-RIGHT — use Query() for live data, Mutation() for writes, @builtins to derive values:
-\`\`\`
-data = Query("tool_name", {}, {rows: []})
-openCount = @Count(@Filter(data.rows, "field", "==", "value"))
-list = @Each(data.rows, "item", SomeComp(item.title, item.field))
-createResult = Mutation("create_tool", {title: $title})
-submitBtn = Button("Create", Action([@Run(createResult), @Run(data), @Reset($title)]))
-\`\`\`
-Everything derives from the Query — when data refreshes, the entire dashboard updates automatically.
 
 ## Available Tools
 
-Use these with Query() for read operations or Mutation() for write operations. The LLM decides which is appropriate based on the tool's purpose.
+Use these with Query() for read operations or Mutation() for write operations. The tool list is closed; do not invent tool names.
 
-- read_state(path: string) → any
+- read_state(path: string) -> any
   Read a value from the persisted browser data tree at a non-empty dot-path.
-- compute_value(op: "truthy" | "falsy" | "not" | "and" | "or" | "equals" | "not_equals" | "number_gt" | "number_gte" | "number_lt" | "number_lte" | "is_empty" | "not_empty" | "contains_text" | "starts_with" | "ends_with" | "to_lower" | "to_upper" | "trim" | "to_number" | "add" | "subtract" | "multiply" | "divide" | "clamp" | "random_int" | "today_date" | "date_before" | "date_after" | "date_on_or_before" | "date_on_or_after", input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: "string" | "number" | "boolean") → any
+- compute_value(op: string, input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: string) -> any
   Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Do not use it for button-triggered roll-on-click randomness; use \`write_computed_state\` plus \`Query("read_state", ...)\` instead. Returns an object shaped like \`{ value }\`.
-- write_state(path: string, value: any) → any
+- write_state(path: string, value: any) -> any
   Replace the persisted value at a non-empty dot-path.
-- merge_state(path: string, patch: object) → any
+- merge_state(path: string, patch: object) -> any
   Shallow-merge a plain-object patch into the persisted value at a non-empty dot-path.
-- append_state(path: string, value: any) → any
+- append_state(path: string, value: any) -> any
   Append a JSON-compatible value to an array stored at a non-empty dot-path. Prefer \`append_item\` when the array stores plain-object rows that need stable ids for later row actions.
-- append_item(path: string, value: object) → any
+- append_item(path: string, value: object) -> any
   Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided unique non-empty string or finite number \`id\`; otherwise generates a stable unique \`id\`.
-- toggle_item_field(path: string, idField: string, id: any, field: string) → any
+- toggle_item_field(path: string, idField: string, id: string | number, field: string) -> any
   Find one plain-object row inside an array by id and toggle one safe field. Use it for booleans such as completed, done, selected, or archived.
-- update_item_field(path: string, idField: string, id: any, field: string, value: any) → any
+- update_item_field(path: string, idField: string, id: string | number, field: string, value: any) -> any
   Find one plain-object row inside an array by id and replace one safe field with a JSON-compatible value.
-- remove_item(path: string, idField: string, id: any) → any
+- remove_item(path: string, idField: string, id: string | number) -> any
   Remove one plain-object row from an array by matching an item id field. Prefer it over index-based deletion when the collection stores object rows.
-- write_computed_state(path: string, op: "truthy" | "falsy" | "not" | "and" | "or" | "equals" | "not_equals" | "number_gt" | "number_gte" | "number_lt" | "number_lte" | "is_empty" | "not_empty" | "contains_text" | "starts_with" | "ends_with" | "to_lower" | "to_upper" | "trim" | "to_number" | "add" | "subtract" | "multiply" | "divide" | "clamp" | "random_int" | "today_date" | "date_before" | "date_after" | "date_on_or_before" | "date_on_or_after", input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: "string" | "number" | "boolean") → any
+- write_computed_state(path: string, op: string, input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: string) -> any
   Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like \`{ value }\`. Use it for button-triggered computed values such as random rolls that should persist for later rendering. After the action, re-read the visible value with \`Query("read_state", ...)\` instead of rendering the Mutation ref directly.
-- remove_state(path: string, index: number) → any
+- remove_state(path: string, index: number) -> any
   Remove an array item by non-negative index from the persisted value at a non-empty dot-path.
 
 ### Default values for Query results
@@ -230,22 +198,17 @@ Use these shapes as minimal Query defaults:
 - write_computed_state: \`null\`
 - remove_state: \`null\`
 
-CRITICAL: Use ONLY the tools listed above in Query() and Mutation() calls. Do NOT invent or guess tool names. If the user asks for functionality that doesn't match any available tool, use realistic mock data instead of fabricating a tool call.
+CRITICAL: Use ONLY the tools listed above in Query() and Mutation() calls. Do NOT invent or guess tool names. If the user asks for functionality that does not match any available tool, use local state or realistic static data instead of fabricating a tool call.
 
-## Hoisting & Streaming (CRITICAL)
+## Hoisting & Statement Order
 
-openui-lang supports hoisting: a reference can be used BEFORE it is defined. The parser resolves all references after the full input is parsed.
+OpenUI Lang supports hoisting: a reference can be used before it is defined, and the parser resolves references after the full input is parsed.
 
-During streaming, the output is re-parsed on every chunk. Undefined references are temporarily unresolved and appear once their definitions stream in. This creates a progressive top-down reveal — structure first, then data fills in.
-
-**Recommended statement order for optimal streaming:**
-1. \`root = AppShell(...)\` — UI shell appears immediately
-2. $variable declarations — state ready for bindings
-3. Query statements — defaults resolve immediately so components render with data
-4. Component definitions — fill in with data already available
-5. Data values — leaf content last
-
-Always write the root = AppShell(...) statement first so the UI shell appears immediately, even before child data has streamed in.
+**Recommended statement order for Kitto:**
+1. $variable declarations - state defaults are explicit
+2. Query and Mutation statements - tools are named before actions use them
+3. Derived collections and reusable component refs - rows and sections stay readable
+4. \`root = AppShell(...)\` - the single render entry point
 
 ## Examples
 
@@ -281,13 +244,13 @@ addTag = Mutation("append_state", { path: "app.tags", value: "urgent" })
 removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })
 
 ## Important Rules
-- When asked about data, generate realistic/plausible data
-- Choose components that best represent the content (tables for comparisons, charts for trends, forms for input, etc.)
+- When asked about data, generate realistic/plausible data.
+- Choose only supported components that best represent the content: Group/Repeater/Text for structure, Input/TextArea/Checkbox/RadioGroup/Select for controls, Button/Link for actions.
 
 ## Final Verification
 Before finishing, walk your output and verify:
-1. root = AppShell(...) is the FIRST line (for optimal streaming).
-2. Every referenced name is defined. Every defined name (other than root) is reachable from root.
+1. The program defines exactly one \`root = AppShell(...)\` statement.
+2. Every referenced name is defined. Every defined name other than root is reachable from root.
 3. Every Query result is referenced by at least one component.
 4. Every $binding appears in at least one component or expression.
 
@@ -312,12 +275,13 @@ Before finishing, walk your output and verify:
 - RadioGroup and Select also support action mode: use a display-only string plus \`Action([...])\` when the newly chosen option should trigger a persisted update instead of local form binding.
 - RadioGroup/Select options must be \`[{ label, value }]\`, never \`["Email", "Phone"]\`.
 - Never combine \`action\` with a writable \`$binding<...>\` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only \`$binding\`.
+- BAD/GOOD Checkbox modes: BAD \`Checkbox("done", "Done", $done, null, [], Action([@Run(saveDone)]))\`; GOOD binding \`Checkbox("done", "Done", $done)\`; GOOD action \`Checkbox("done-" + item.id, "Done", item.done, null, [], Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))\`.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
 - Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
 - For persisted collection row actions, define top-level Mutations such as \`append_item\`, \`toggle_item_field\`, \`update_item_field\`, or \`remove_item\`, then relay item context through local state inside the row Action.
 - Collection-item relay recipe: \`$targetItemId = ""\`, \`toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })\`, then inside \`@Each(...)\` use \`Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])\`.
-- Select/RadioGroup action-mode recipe: \`savedFilter = Query("read_state", { path: "ui.filter" }, "all")\`, \`setFilter = Mutation("write_state", { path: "ui.filter", value: $lastChoice })\`, then \`Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))\`.
+- Select/RadioGroup action-mode recipe for persisted choices: \`savedPlan = Query("read_state", { path: "ui.plan" }, "basic")\`, \`savePlan = Mutation("write_state", { path: "ui.plan", value: $lastChoice })\`, then \`Select("plan", "Plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)]))\`.
 - Inside \`@Each(collection, "item", ...)\`, do not bind \`Input\`, \`TextArea\`, \`Checkbox\`, \`RadioGroup\`, or \`Select\` directly to \`item.<field>\` without an explicit \`Action([...])\`.
 - Do not mutate persisted array rows through numeric paths such as \`app.items.0\`; use \`toggle_item_field\`, \`update_item_field\`, or \`remove_item\` with \`idField\` + \`id\`.
 - LAYOUT RULES:
@@ -333,6 +297,7 @@ Before finishing, walk your output and verify:
 - The second Group argument is direction and must be \`"vertical"\` or \`"horizontal"\`.
 - If you pass a Group variant, place it in the optional fourth argument.
 - Never put \`"block"\` or \`"inline"\` in the second Group argument.
+- BAD/GOOD Group variant: BAD \`Group("x", "block", [Text("Hi", "body", "start")])\`; GOOD \`Group("x", "vertical", [Text("Hi", "body", "start")], "block")\`.
 - Use Group variant "block" for standalone visual sections.
 - Do not over-nest block Groups.
 - Without appearance, button variants keep their semantic fallback styles such as filled, outlined, or destructive.
@@ -345,6 +310,7 @@ Before finishing, walk your output and verify:
 - Do not use \`compute_value\` or \`write_computed_state\` for simple list CRUD, basic screen navigation, filtering, or normal input display.
 - Use Repeater only for dynamic or generated collections. Static one-off content should be written directly as normal nodes.
 - Repeater renders an array of already-built row nodes. Build those rows with \`@Each(collection, "item", rowNode)\` before passing them to Repeater.
+- BAD/GOOD Repeater data flow: BAD \`Repeater(Query("read_state", { path: "app.items" }, []), "No items")\`; GOOD \`items = Query(...)\`, \`rows = @Each(items, "item", Group(null, "horizontal", [Text(item.title, "body", "start")], "inline"))\`, \`Repeater(rows, "No items")\`.
 - When the user asks for selected answers, saved items, cards, results, or any other data-driven list, derive rows from local arrays, runtime state, or Query("read_state", ...) data instead of hardcoding repeated values.
 - If collection data is persisted browser data, read it through Query("read_state", { path: "..." }, defaultValue) before passing it to @Each(...).
 - Even when the current data may contain only one row, keep requested lists modeled as collections with @Each(...) + Repeater(...).
