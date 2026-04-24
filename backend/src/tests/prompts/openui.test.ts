@@ -352,6 +352,12 @@ describe('openui prompts', () => {
       'If the request is only for color tags, accents, badges, or one-off color changes, use direct `appearance` overrides instead of shared theme state.',
     );
     expect(prompt).toContain(
+      'Use a distinct `activeThemeButton` appearance with explicit `mainColor` and `contrastColor` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
+    );
+    expect(prompt).not.toContain(
+      'Use `activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }` for the active toggle',
+    );
+    expect(prompt).toContain(
       'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
     );
     expect(prompt).toContain('Use `appearance` for visual color changes.');

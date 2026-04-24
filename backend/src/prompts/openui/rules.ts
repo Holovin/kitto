@@ -82,7 +82,7 @@ const APPEARANCE_AND_THEME_RULES = [
   'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
   'Only introduce `$currentTheme`, `lightTheme`, `darkTheme`, and theme-toggle buttons when the user asks for app-wide light/dark switching or a theme toggle.',
   'If the request is only for color tags, accents, badges, or one-off color changes, use direct `appearance` overrides instead of shared theme state.',
-  'Use `activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
+  'Use a distinct `activeThemeButton` appearance with explicit `mainColor` and `contrastColor` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
   'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
   'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
   'Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.',
