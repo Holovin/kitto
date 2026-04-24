@@ -120,6 +120,72 @@ describe('sanitizeRepairValidationIssues', () => {
     expect(sanitizedIssues.at(-1)?.statementId).toBe('row-16');
     expect(sanitizedIssues.some((issue) => 'severity' in issue)).toBe(false);
   });
+
+  it('preserves structured undefined-state context and drops unsupported issue context', () => {
+    const issues: BuilderParseIssue[] = [
+      {
+        code: 'undefined-state-reference',
+        context: {
+          exampleInitializer: '"quiz"',
+          refName: ' $currentScreen ',
+        },
+        message: 'State reference `$currentScreen` is missing a top-level declaration with a literal initial value.',
+        source: 'quality',
+        statementId: 'root',
+      },
+      {
+        code: 'invalid-prop',
+        context: {
+          exampleInitializer: '"block"',
+          refName: '$direction',
+        },
+        message: 'Group.direction must be one of "vertical", "horizontal".',
+        source: 'parser',
+        statementId: 'root',
+      },
+      {
+        code: 'quality-stale-persisted-query',
+        context: {
+          mutationStatementId: ' addItem ',
+          path: ' app.items ',
+          queryStatementIds: [' items ', ''],
+        },
+        message: 'Persisted mutation may not refresh visible query.',
+        source: 'quality',
+        statementId: 'addItem',
+      },
+    ];
+
+    expect(sanitizeRepairValidationIssues(issues)).toEqual([
+      {
+        code: 'invalid-prop',
+        message: 'Group.direction must be one of "vertical", "horizontal".',
+        source: 'parser',
+        statementId: 'root',
+      },
+      {
+        code: 'undefined-state-reference',
+        context: {
+          exampleInitializer: '"quiz"',
+          refName: '$currentScreen',
+        },
+        message: 'State reference `$currentScreen` is missing a top-level declaration with a literal initial value.',
+        source: 'quality',
+        statementId: 'root',
+      },
+      {
+        code: 'quality-stale-persisted-query',
+        context: {
+          mutationStatementId: 'addItem',
+          path: 'app.items',
+          queryStatementIds: ['items'],
+        },
+        message: 'Persisted mutation may not refresh visible query.',
+        source: 'quality',
+        statementId: 'addItem',
+      },
+    ]);
+  });
 });
 
 describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {

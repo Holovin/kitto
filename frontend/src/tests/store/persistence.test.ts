@@ -97,7 +97,7 @@ describe('store persistence', () => {
 ])`,
       }),
       'builder',
-    );
+    ) as ReturnType<typeof normalizeBuilderState>;
 
     expect(restored).toEqual(
       expect.objectContaining({

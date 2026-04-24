@@ -57,19 +57,69 @@ interface CompactedLlmRequest {
   request: PromptBuildRequest;
 }
 
-const validationIssueSchema = z.object({
-  code: z.string().trim().min(1).max(200),
-  message: z.string().trim().min(1).max(2_000),
-  source: z.enum(['mutation', 'parser', 'quality', 'query', 'runtime']).optional(),
-  statementId: z.string().trim().min(1).max(200).optional(),
-  suggestion: z
-    .object({
-      kind: z.literal('replace-text'),
-      from: z.string().max(1_000),
-      to: z.string().max(1_000),
-    })
-    .optional(),
+const stateReferenceNameSchema = z.string().trim().min(1).max(200).regex(/^\$[A-Za-z_][\w$]*$/);
+
+const undefinedStateReferenceContextSchema = z.object({
+  exampleInitializer: z.string().max(1_000).nullable(),
+  refName: stateReferenceNameSchema,
 });
+
+const stalePersistedQueryContextSchema = z.object({
+  mutationStatementId: z.string().trim().min(1).max(200),
+  path: z.string().trim().min(1).max(500),
+  queryStatementIds: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
+});
+
+const validationIssueContextSchema = z.union([undefinedStateReferenceContextSchema, stalePersistedQueryContextSchema]);
+
+const validationIssueSchema = z
+  .object({
+    code: z.string().trim().min(1).max(200),
+    context: validationIssueContextSchema.optional(),
+    message: z.string().trim().min(1).max(2_000),
+    source: z.enum(['mutation', 'parser', 'quality', 'query', 'runtime']).optional(),
+    statementId: z.string().trim().min(1).max(200).optional(),
+    suggestion: z
+      .object({
+        kind: z.literal('replace-text'),
+        from: z.string().max(1_000),
+        to: z.string().max(1_000),
+      })
+      .optional(),
+  })
+  .superRefine((issue, context) => {
+    if (issue.code === 'undefined-state-reference') {
+      if (!issue.context || !('refName' in issue.context)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'undefined-state-reference issues require structured context.',
+          path: ['context'],
+        });
+      }
+
+      return;
+    }
+
+    if (issue.code === 'quality-stale-persisted-query') {
+      if (!issue.context || !('queryStatementIds' in issue.context)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'quality-stale-persisted-query issues require structured context.',
+          path: ['context'],
+        });
+      }
+
+      return;
+    }
+
+    if (issue.context) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Validation issue context is not supported for this issue code.',
+        path: ['context'],
+      });
+    }
+  });
 
 const commitTelemetrySchema = z.object({
   requestId: z.string().trim().min(1).max(200),
@@ -80,14 +130,12 @@ const commitTelemetrySchema = z.object({
 });
 
 function createLlmRequestSchema(env: AppEnv) {
-  return z.object({
+  const baseLlmRequestSchema = z.object({
     prompt: z
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(env.LLM_USER_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_USER_PROMPT_MAX_CHARS} characters.`),
     currentSource: z.string().default(''),
-    invalidDraft: z.string().optional(),
-    mode: z.enum(['initial', 'repair']).default('initial'),
     parentRequestId: z.string().trim().min(1).max(200).optional(),
     repairAttemptNumber: z.coerce.number().int().positive().optional(),
     validationIssues: z.array(validationIssueSchema).max(MAX_REPAIR_VALIDATION_ISSUES).optional(),
@@ -101,6 +149,28 @@ function createLlmRequestSchema(env: AppEnv) {
       )
       .default([]),
   });
+
+  const requestSchema = z.discriminatedUnion('mode', [
+    baseLlmRequestSchema.extend({
+      invalidDraft: z.string().optional(),
+      mode: z.literal('initial'),
+    }),
+    baseLlmRequestSchema.extend({
+      invalidDraft: z.string(),
+      mode: z.literal('repair'),
+    }),
+  ]);
+
+  return z.preprocess((value) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && !('mode' in value)) {
+      return {
+        ...value,
+        mode: 'initial',
+      };
+    }
+
+    return value;
+  }, requestSchema);
 }
 
 function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {

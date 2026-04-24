@@ -30,7 +30,7 @@ function createLinkedAbortController(signal?: AbortSignal) {
   };
 }
 
-function getAutomaticRepairHeaders(request: BuilderLlmRequest) {
+function getAutomaticRepairHeaders(request: BuilderLlmRequest): Record<string, string> {
   if (!request.parentRequestId || !request.repairAttemptNumber) {
     return {
       'x-kitto-automatic-repair': '1',
@@ -42,6 +42,31 @@ function getAutomaticRepairHeaders(request: BuilderLlmRequest) {
     'x-kitto-repair-attempt': String(request.repairAttemptNumber),
     'x-kitto-repair-for': request.parentRequestId,
   };
+}
+
+function createGenerationHeaders(
+  request: BuilderLlmRequest,
+  requestKind: GenerateBuilderDefinitionOptions['requestKind'],
+  requestId?: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+
+  if (requestKind === 'automatic-repair') {
+    Object.assign(headers, getAutomaticRepairHeaders(request));
+  }
+
+  if (requestKind === 'stream-fallback') {
+    headers['x-kitto-stream-fallback'] = '1';
+  }
+
+  if (requestId) {
+    headers['x-kitto-request-id'] = requestId;
+  }
+
+  return headers;
 }
 
 async function getResponseError(response: Response) {
@@ -77,13 +102,7 @@ export async function generateBuilderDefinition({
         unwrap: async () => {
           const response = await fetch(`${apiBaseUrl}/llm/generate`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-              ...(requestKind === 'automatic-repair' ? getAutomaticRepairHeaders(request) : {}),
-              ...(requestKind === 'stream-fallback' ? { 'x-kitto-stream-fallback': '1' } : {}),
-              ...(requestId ? { 'x-kitto-request-id': requestId } : {}),
-            },
+            headers: createGenerationHeaders(request, requestKind, requestId),
             body: serializeBuilderLlmRequest(request),
             signal: abortController.signal,
           });

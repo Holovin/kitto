@@ -753,6 +753,10 @@ describe('detectLocalRuntimeQualityIssues', () => {
       expect.arrayContaining([
         expect.objectContaining({
           code: 'undefined-state-reference',
+          context: {
+            exampleInitializer: '"quiz"',
+            refName: '$currentScreen',
+          },
           message: expect.stringContaining('$currentScreen'),
           severity: 'blocking-quality',
           source: 'quality',
@@ -1224,6 +1228,11 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
+          context: {
+            mutationStatementId: 'addItem',
+            path: 'app.items',
+            queryStatementIds: ['items'],
+          },
           message:
             'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
           severity: 'blocking-quality',
@@ -1260,6 +1269,11 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
+          context: {
+            mutationStatementId: 'toggleItem',
+            path: 'app.items',
+            queryStatementIds: ['items'],
+          },
           message:
             'Persisted mutation may not refresh visible query. After @Run(toggleItem), also run @Run(items) later in the same Action for affected path "app.items".',
           severity: 'blocking-quality',
@@ -1295,6 +1309,11 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
+          context: {
+            mutationStatementId: 'addItem',
+            path: 'app.items',
+            queryStatementIds: ['items'],
+          },
           message:
             'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
           severity: 'blocking-quality',
@@ -1329,6 +1348,11 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
+          context: {
+            mutationStatementId: 'toggleFirst',
+            path: 'app.items.0',
+            queryStatementIds: ['items'],
+          },
           message:
             'Persisted mutation may not refresh visible query. After @Run(toggleFirst), also run @Run(items) later in the same Action for affected path "app.items.0".',
           severity: 'blocking-quality',
@@ -1358,6 +1382,11 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
+          context: {
+            mutationStatementId: 'saveSettings',
+            path: 'app.settings',
+            queryStatementIds: ['themeValue'],
+          },
           message:
             'Persisted mutation may not refresh visible query. After @Run(saveSettings), also run @Run(themeValue) later in the same Action for affected path "app.settings".',
           severity: 'blocking-quality',

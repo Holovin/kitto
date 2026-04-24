@@ -34,6 +34,16 @@ const unresolvedReferenceIssue = {
   source: 'parser' as const,
   statementId: 'items',
 };
+const undefinedStateReferenceIssue = {
+  code: 'undefined-state-reference',
+  context: {
+    exampleInitializer: '""',
+    refName: '$filter',
+  },
+  message: 'State reference `$filter` is missing a top-level declaration with a literal initial value. For example, add `$filter = ""`.',
+  source: 'quality' as const,
+  statementId: 'root',
+};
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
@@ -587,6 +597,135 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
+  it('rejects repair requests without an invalid draft before calling the OpenAI service', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        mode: 'repair',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects undefined-state repair issues without structured context', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Text($filter, "body", "start")])',
+        mode: 'repair',
+        validationIssues: [
+          {
+            code: 'undefined-state-reference',
+            message: 'State reference `$filter` is missing a top-level declaration with a literal initial value.',
+            source: 'quality',
+            statementId: 'root',
+          },
+        ],
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects structured validation context on issue codes that do not support it', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Group("Bad", "block", [])])',
+        mode: 'repair',
+        validationIssues: [
+          {
+            ...unresolvedReferenceIssue,
+            context: {
+              exampleInitializer: '""',
+              refName: '$filter',
+            },
+          },
+        ],
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects stale persisted-query repair issues without structured context', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Button("add", "Add", "default", Action([@Run(addItem)]), false)])',
+        mode: 'repair',
+        validationIssues: [
+          {
+            code: 'quality-stale-persisted-query',
+            message:
+              'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+            source: 'quality',
+            statementId: 'addItem',
+          },
+        ],
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('passes parentRequestId and validationIssues through to the OpenAI service request', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
@@ -602,7 +741,7 @@ describe('createLlmOpenUiRoutes', () => {
         invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'repair',
         parentRequestId: 'builder-request-parent',
-        validationIssues: [unresolvedReferenceIssue],
+        validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue],
         chatHistory: [],
       }),
     });
@@ -615,7 +754,7 @@ describe('createLlmOpenUiRoutes', () => {
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
-      validationIssues: [unresolvedReferenceIssue],
+      validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue],
       chatHistory: [],
     });
   });

@@ -26,11 +26,15 @@ interface UndefinedStateReferenceSummary {
   repeatCount: number;
 }
 
+interface StalePersistedQueryContext {
+  mutationStatementId: string;
+  path: string;
+  queryStatementIds: string[];
+}
+
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 480;
 const TOP_LEVEL_STATEMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
-const UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN =
-  /State reference `(\$[A-Za-z_][\w$]*)` is missing a top-level declaration with a literal initial value\.(?: For example, add `\$\w+ = ([^`]+)`\.)?/;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
@@ -275,21 +279,33 @@ function buildRepairConversationContextLines(chatHistory: PromptBuildChatHistory
     .filter((line): line is string => line !== null);
 }
 
-function parseUndefinedStateReferenceIssue(issue: PromptBuildValidationIssue) {
+function getUndefinedStateReferenceIssueContext(issue: PromptBuildValidationIssue) {
   if (issue.code !== 'undefined-state-reference') {
     return null;
   }
 
-  const match = issue.message.match(UNDEFINED_STATE_REFERENCE_MESSAGE_PATTERN);
-
-  if (!match?.[1]) {
+  if (!issue.context || !('refName' in issue.context)) {
     return null;
   }
 
+  const { exampleInitializer, refName } = issue.context;
+
   return {
-    exampleInitializer: match[2] ?? null,
-    refName: match[1],
+    exampleInitializer,
+    refName,
   };
+}
+
+function getStalePersistedQueryIssueContext(issue: PromptBuildValidationIssue): StalePersistedQueryContext | null {
+  if (issue.code !== 'quality-stale-persisted-query') {
+    return null;
+  }
+
+  if (!issue.context || !('queryStatementIds' in issue.context)) {
+    return null;
+  }
+
+  return issue.context;
 }
 
 function summarizeUndefinedStateReferenceIssues(issues: PromptBuildValidationIssue[]) {
@@ -297,7 +313,7 @@ function summarizeUndefinedStateReferenceIssues(issues: PromptBuildValidationIss
   const indexesByRefName = new Map<string, number>();
 
   for (const issue of issues) {
-    const parsedIssue = parseUndefinedStateReferenceIssue(issue);
+    const parsedIssue = getUndefinedStateReferenceIssueContext(issue);
 
     if (!parsedIssue) {
       continue;
@@ -337,7 +353,7 @@ function summarizeRepairIssues(issues: PromptBuildValidationIssue[]) {
   const undefinedStateIssueIndexes = new Map<string, number>();
 
   for (const issue of issues) {
-    const parsedUndefinedStateIssue = parseUndefinedStateReferenceIssue(issue);
+    const parsedUndefinedStateIssue = getUndefinedStateReferenceIssueContext(issue);
 
     if (parsedUndefinedStateIssue) {
       const existingIndex = undefinedStateIssueIndexes.get(parsedUndefinedStateIssue.refName);
@@ -655,16 +671,17 @@ function buildRepairHints(issues: PromptBuildValidationIssue[], invalidSource: s
     }
 
     if (issue.code === 'quality-stale-persisted-query') {
-      const referencedRuns = [...issue.message.matchAll(/@Run\(([^)]+)\)/g)].map((match) => match[1]);
-      const suggestedQueryRuns = referencedRuns.filter((statementId) => statementId !== issue.statementId);
+      const staleQueryContext = getStalePersistedQueryIssueContext(issue);
+      const mutationStatementId = staleQueryContext?.mutationStatementId ?? issue.statementId;
+      const suggestedQueryRuns = staleQueryContext?.queryStatementIds ?? [];
 
-      if (issue.statementId && suggestedQueryRuns.length > 0) {
+      if (mutationStatementId && suggestedQueryRuns.length > 0) {
         addUniqueLine(
           hints,
           seenHints,
           `The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add ${suggestedQueryRuns
             .map((statementId) => `@Run(${statementId})`)
-            .join(' or ')} later in the same Action after @Run(${issue.statementId}).`,
+            .join(' or ')} later in the same Action after @Run(${mutationStatementId}).`,
         );
       } else {
         addUniqueLine(
@@ -925,6 +942,11 @@ export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
   const qualityExampleIssues: PromptBuildValidationIssue[] = [
     {
       code: 'quality-stale-persisted-query',
+      context: {
+        mutationStatementId: 'addItem',
+        path: 'app.items',
+        queryStatementIds: ['items'],
+      },
       message:
         'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
       source: 'quality',

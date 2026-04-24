@@ -116,6 +116,10 @@ export function detectUndefinedStateReferenceIssues(source: string, result: Pars
         issues.push(
           createOpenUiQualityIssue('blocking-quality', {
             code: 'undefined-state-reference',
+            context: {
+              exampleInitializer,
+              refName,
+            },
             message: `State reference \`${refName}\` is missing a top-level declaration with a literal initial value.${exampleMessage}`,
             statementId: statement.statementId,
           }),

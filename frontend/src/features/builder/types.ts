@@ -54,8 +54,22 @@ export interface BuilderParseIssueSuggestion {
   to: string;
 }
 
+export interface BuilderUndefinedStateReferenceIssueContext {
+  exampleInitializer: string | null;
+  refName: string;
+}
+
+export interface BuilderStalePersistedQueryIssueContext {
+  mutationStatementId: string;
+  path: string;
+  queryStatementIds: string[];
+}
+
+export type BuilderParseIssueContext = BuilderStalePersistedQueryIssueContext | BuilderUndefinedStateReferenceIssueContext;
+
 export interface BuilderParseIssue {
   code: string;
+  context?: BuilderParseIssueContext;
   message: string;
   statementId?: string;
   suggestion?: BuilderParseIssueSuggestion;

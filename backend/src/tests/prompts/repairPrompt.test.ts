@@ -8,6 +8,10 @@ function buildUndefinedStateReferenceIssues(count: number) {
 
     return {
       code: 'undefined-state-reference',
+      context: {
+        exampleInitializer: '""',
+        refName,
+      },
       message: `State reference \`${refName}\` is missing a top-level declaration with a literal initial value. For example, add \`${refName} = ""\`.`,
       source: 'quality',
       statementId: 'root',
@@ -139,8 +143,12 @@ describe('buildOpenUiRepairPrompt', () => {
     const issues: PromptBuildValidationIssue[] = [
       {
         code: 'quality-stale-persisted-query',
-        message:
-          'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+        context: {
+          mutationStatementId: 'addItem',
+          path: 'app.items',
+          queryStatementIds: ['items'],
+        },
+        message: 'Persisted mutation may not refresh visible query.',
         source: 'quality',
         statementId: 'addItem',
       },
@@ -170,7 +178,7 @@ describe('buildOpenUiRepairPrompt', () => {
       'A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.',
     );
     expect(prompt).toContain(
-      'quality-stale-persisted-query in addItem: Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
+      'quality-stale-persisted-query in addItem: Persisted mutation may not refresh visible query.',
     );
   });
 
@@ -390,9 +398,39 @@ root = AppShell([
     }
   });
 
+  it('builds missing-state hints from structured issue context instead of message text', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Build a filtered list.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Text($filter, "body", "start")])',
+      issues: [
+        {
+          code: 'undefined-state-reference',
+          context: {
+            exampleInitializer: '"all"',
+            refName: '$filter',
+          },
+          message: 'Missing local state declaration.',
+          source: 'quality',
+          statementId: 'root',
+        },
+      ],
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_500,
+    });
+
+    expect(prompt).toContain('Add every missing `$var` before root.');
+    expect(prompt).toContain('`$filter = "all"`');
+  });
+
   it('dedupes repeated undefined-state issues by variable name and annotates the repeat count', () => {
     const repeatedIssues: PromptBuildValidationIssue[] = Array.from({ length: 5 }, () => ({
       code: 'undefined-state-reference',
+      context: {
+        exampleInitializer: '0',
+        refName: '$score',
+      },
       message: 'State reference `$score` is missing a top-level declaration with a literal initial value. For example, add `$score = 0`.',
       source: 'quality',
       statementId: 'results',

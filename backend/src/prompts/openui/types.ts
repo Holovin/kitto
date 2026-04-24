@@ -8,6 +8,21 @@ export interface PromptBuildValidationIssueSuggestion {
   to: string;
 }
 
+export interface PromptBuildUndefinedStateReferenceIssueContext {
+  exampleInitializer: string | null;
+  refName: string;
+}
+
+export interface PromptBuildStalePersistedQueryIssueContext {
+  mutationStatementId: string;
+  path: string;
+  queryStatementIds: string[];
+}
+
+export type PromptBuildValidationIssueContext =
+  | PromptBuildStalePersistedQueryIssueContext
+  | PromptBuildUndefinedStateReferenceIssueContext;
+
 export interface RawPromptBuildChatHistoryMessage {
   content: string;
   excludeFromLlmContext?: boolean;
@@ -21,6 +36,7 @@ export interface PromptBuildChatHistoryMessage {
 
 export interface PromptBuildValidationIssue {
   code: string;
+  context?: PromptBuildValidationIssueContext;
   message: string;
   source?: PromptBuildValidationIssueSource;
   statementId?: string;

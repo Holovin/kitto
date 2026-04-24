@@ -1691,7 +1691,15 @@ describe('useBuilderSubmission', () => {
     expect(repairRequest.prompt).toBe('Create an IQ-like test with a quiz screen and a result screen.');
     expect(repairRequest.invalidDraft).toBe(IQ_BUG_SOURCE);
     expect(repairRequest.validationIssues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'undefined-state-reference' })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'undefined-state-reference',
+          context: {
+            exampleInitializer: '"32"',
+            refName: '$q1',
+          },
+        }),
+      ]),
     );
     expect(getBuilderState().committedSource).toBe(REPAIRED_IQ_SOURCE);
     expect(getBuilderState().streamError).toBeNull();

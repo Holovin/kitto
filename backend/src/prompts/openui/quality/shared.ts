@@ -65,12 +65,25 @@ export function createOpenUiQualityIssue(
 }
 
 export function stripQualityIssueSeverity(issue: OpenUiQualityIssue): PromptBuildValidationIssue {
-  return {
+  const strippedIssue: PromptBuildValidationIssue = {
     code: issue.code,
     message: issue.message,
     source: issue.source,
-    statementId: issue.statementId,
   };
+
+  if (issue.context) {
+    strippedIssue.context = issue.context;
+  }
+
+  if (issue.statementId) {
+    strippedIssue.statementId = issue.statementId;
+  }
+
+  if (issue.suggestion) {
+    strippedIssue.suggestion = issue.suggestion;
+  }
+
+  return strippedIssue;
 }
 
 export function extractStringLiteral(toolAst: ToolAst) {

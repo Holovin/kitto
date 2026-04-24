@@ -84,6 +84,10 @@ describe('repair prompt assembly', () => {
       validationIssues: [
         {
           code: 'undefined-state-reference',
+          context: {
+            exampleInitializer: null,
+            refName: '$filter',
+          },
           message: 'State reference `$filter` is missing a top-level declaration with a literal initial value.',
           source: 'quality',
           statementId: 'root',
@@ -196,12 +200,20 @@ describe('repair prompt assembly', () => {
       },
       {
         code: 'undefined-state-reference',
+        context: {
+          exampleInitializer: '""',
+          refName: '$filter',
+        },
         message: 'State reference `$filter` is missing a top-level declaration with a literal initial value. For example, add `$filter = ""`.',
         source: 'quality',
         statementId: 'root',
       },
       {
         code: 'undefined-state-reference',
+        context: {
+          exampleInitializer: '""',
+          refName: '$draft',
+        },
         message: 'State reference `$draft` is missing a top-level declaration with a literal initial value. For example, add `$draft = ""`.',
         source: 'quality',
         statementId: 'root',

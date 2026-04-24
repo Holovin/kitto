@@ -47,8 +47,27 @@ function truncateRepairField(value: string, maxLength: number) {
 }
 
 function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
-  const { severity, ...strippedIssue } = issue;
-  void severity;
+  const strippedIssue: BuilderParseIssue = {
+    code: issue.code,
+    message: issue.message,
+  };
+
+  if (issue.context) {
+    strippedIssue.context = issue.context;
+  }
+
+  if (issue.source) {
+    strippedIssue.source = issue.source;
+  }
+
+  if (issue.statementId) {
+    strippedIssue.statementId = issue.statementId;
+  }
+
+  if (issue.suggestion) {
+    strippedIssue.suggestion = issue.suggestion;
+  }
+
   return strippedIssue;
 }
 
@@ -105,6 +124,59 @@ const UPSTREAM_FAILURE_MESSAGE = 'The model service failed while generating the 
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+  if (issue.code !== 'undefined-state-reference' || !isRecord(issue.context)) {
+    return undefined;
+  }
+
+  const refName = typeof issue.context.refName === 'string' ? issue.context.refName.trim() : '';
+
+  if (!refName) {
+    return undefined;
+  }
+
+  const rawExampleInitializer = issue.context.exampleInitializer;
+
+  if (rawExampleInitializer !== null && typeof rawExampleInitializer !== 'string') {
+    return undefined;
+  }
+
+  return {
+    exampleInitializer: rawExampleInitializer,
+    refName,
+  };
+}
+
+function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+  if (issue.code !== 'quality-stale-persisted-query' || !isRecord(issue.context)) {
+    return undefined;
+  }
+
+  const mutationStatementId =
+    typeof issue.context.mutationStatementId === 'string' ? issue.context.mutationStatementId.trim() : '';
+  const path = typeof issue.context.path === 'string' ? issue.context.path.trim() : '';
+  const queryStatementIds = Array.isArray(issue.context.queryStatementIds)
+    ? issue.context.queryStatementIds.flatMap((statementId) => {
+        const normalizedStatementId = typeof statementId === 'string' ? statementId.trim() : '';
+        return normalizedStatementId ? [normalizedStatementId] : [];
+      })
+    : [];
+
+  if (!mutationStatementId || !path || queryStatementIds.length === 0) {
+    return undefined;
+  }
+
+  return {
+    mutationStatementId,
+    path,
+    queryStatementIds,
+  };
+}
+
+function sanitizeRepairIssueContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+  return sanitizeUndefinedStateReferenceContext(issue) ?? sanitizeStalePersistedQueryContext(issue);
 }
 
 function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
@@ -220,17 +292,25 @@ export function sanitizeRepairValidationIssues(
   return sortRepairValidationIssues(issues)
     .slice(0, boundedMaxValidationIssues)
     .map((issue) => {
-      const { severity, suggestion, ...sanitizedIssue } = issue as RepairValidationIssue & {
-        severity?: BuilderQualityIssue['severity'];
+      const sanitizedContext = sanitizeRepairIssueContext(issue);
+      const sanitizedRepairIssue: BuilderParseIssue = {
+        code: truncateRepairField(issue.code, 200),
+        message: truncateRepairField(issue.message, 2_000),
       };
-      void suggestion;
-      void severity;
-      return {
-        ...sanitizedIssue,
-        code: truncateRepairField(sanitizedIssue.code, 200),
-        message: truncateRepairField(sanitizedIssue.message, 2_000),
-        statementId: sanitizedIssue.statementId ? truncateRepairField(sanitizedIssue.statementId, 200) : undefined,
-      };
+
+      if (issue.source) {
+        sanitizedRepairIssue.source = issue.source;
+      }
+
+      if (issue.statementId) {
+        sanitizedRepairIssue.statementId = truncateRepairField(issue.statementId, 200);
+      }
+
+      if (sanitizedContext) {
+        sanitizedRepairIssue.context = sanitizedContext;
+      }
+
+      return sanitizedRepairIssue;
     });
 }
 
