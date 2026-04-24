@@ -52,6 +52,10 @@ const ASSISTANT_SUMMARY_PREFIX_LINES = [
 ] as const;
 
 const STRUCTURED_OUTPUT_INSTRUCTION = `Place the full updated OpenUI Lang program in \`source\`. ${STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION}`;
+const FOLLOW_UP_OUTPUT_REQUIREMENT_LINES = [
+  'Follow-up output requirement:',
+  '- Summary must describe the specific change made to the existing app.',
+] as const;
 const REQUEST_INTENT_TEMPLATE_BLOCK = [
   'todo: true|false',
   'filtering: true|false',
@@ -87,6 +91,7 @@ function buildOpenUiLatestUserTurn(
   userRequest: string,
   requestIntentBlock: string,
   currentSourceInventory: string | null,
+  isFollowUp: boolean,
 ) {
   const relevantExemplars = getRelevantRequestExemplars(userRequest);
 
@@ -97,6 +102,7 @@ function buildOpenUiLatestUserTurn(
     currentSourceInventory ? buildPromptDataBlock('current_source_inventory', currentSourceInventory) : null,
     buildPromptDataBlock('current_source', currentSource),
     buildPromptExemplarSection('Relevant patterns', relevantExemplars),
+    isFollowUp ? FOLLOW_UP_OUTPUT_REQUIREMENT_LINES.join('\n') : null,
     STRUCTURED_OUTPUT_INSTRUCTION,
   ]
     .filter(Boolean)
@@ -124,6 +130,7 @@ export function buildOpenUiUserPromptTemplate() {
       '[latest user request text]',
       REQUEST_INTENT_TEMPLATE_BLOCK,
       CURRENT_SOURCE_INVENTORY_TEMPLATE_BLOCK,
+      true,
     ),
   ].join('\n\n');
 }
@@ -161,5 +168,11 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
     }),
   );
 
-  return buildOpenUiLatestUserTurn(currentSource, rawUserRequest, requestIntentBlock, currentSourceInventory);
+  return buildOpenUiLatestUserTurn(
+    currentSource,
+    rawUserRequest,
+    requestIntentBlock,
+    currentSourceInventory,
+    currentSourceValue.trim().length > 0,
+  );
 }

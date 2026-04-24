@@ -35,7 +35,8 @@ Guardrails:
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<request_intent>`, `<latest_user_request>`, optional `<current_source_inventory>`, and `<current_source>` blocks.
 - Confirm the `<request_intent>` block appears before `<latest_user_request>` and lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
-- Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences and rejects generic phrasing such as `Updated the app`.
+- Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
+- Confirm the user prompt template includes a follow-up output requirement that the summary must describe the specific change made to the existing app.
 - Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the system prompt does not contain legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.

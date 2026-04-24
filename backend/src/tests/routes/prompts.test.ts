@@ -71,6 +71,8 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.requestPromptTemplate).toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
+    expect(payload.requestPromptTemplate).toContain('Bad summary: "Updated the app." Good summary:');
+    expect(payload.requestPromptTemplate).toContain('- Summary must describe the specific change made to the existing app.');
     expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
     expect(payload.repairPromptTemplate).toContain('Quality-only repair example');
     expect(payload.repairPromptTemplate).toContain('Mixed repair example');

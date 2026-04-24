@@ -84,7 +84,10 @@ root = AppShell([
   ])
 ])
 
-Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in 1-2 short user-facing sentences. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition"."
+Follow-up output requirement:
+- Summary must describe the specific change made to the existing app.
+
+Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in 1-2 short user-facing sentences. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition". Bad summary: "Updated the app." Good summary: "Adds a required confirmation checkbox before the quiz result screen." Bad summary: "Made the requested changes." Good summary: "Adds a search filter above the product list and keeps existing item cards.""
 `;
 
 exports[`buildOpenUiUserPrompt snapshots > keeps the repair prompt snapshot stable 1`] = `

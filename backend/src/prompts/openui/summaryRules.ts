@@ -1,6 +1,8 @@
 export const STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT_LINES = [
   'The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.',
   'Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition".',
+  'Bad summary: "Updated the app." Good summary: "Adds a required confirmation checkbox before the quiz result screen."',
+  'Bad summary: "Made the requested changes." Good summary: "Adds a search filter above the product list and keeps existing item cards."',
 ] as const;
 
 export const COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT =
