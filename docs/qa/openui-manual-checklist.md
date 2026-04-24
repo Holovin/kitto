@@ -52,7 +52,7 @@ Guardrails:
 - Structural nesting is hard-invalid: keep exactly one `root = AppShell([...])` statement, never nest `AppShell(...)`, never put `Screen(...)` inside another `Screen(...)`, and never put `Repeater(...)` inside another `Repeater(...)`.
 - `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
 - Definition may show streamed draft text while generation is still in progress, but it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
-- While a generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available.
+- While a generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available. The pending summary uses a shimmer loading treatment instead of adding a textual status prefix.
 - Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 - When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
@@ -81,6 +81,7 @@ Guardrails:
 - Required controls do not render red validation styling on first mount before any touch or submit-like interaction.
 - Validation sets `aria-invalid` and error styling on the relevant control without rendering inline error text below it; helper text remains helper-only.
 - Submit-like validation touch is scoped to the submitted screen/form subtree only and must not light up unrelated controls in other screens.
+- Open `Select` dropdowns should render above adjacent `Group(...)` sections and remain fully visible, not clipped or hidden behind the next block.
 - Buttons are not globally auto-disabled by validation; any disabled state must still be expressed explicitly in generated OpenUI.
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.

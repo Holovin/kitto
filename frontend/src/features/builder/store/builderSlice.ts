@@ -56,6 +56,7 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         content: message.content,
         createdAt: message.createdAt,
         excludeFromLlmContext: message.excludeFromLlmContext,
+        isStreaming: message.isStreaming,
         role: message.role,
         tone: message.tone,
       });
@@ -75,6 +76,7 @@ function createMessage(
   tone: BuilderChatMessage['tone'] = 'default',
   messageKey?: BuilderChatMessage['messageKey'],
   excludeFromLlmContext?: BuilderChatMessage['excludeFromLlmContext'],
+  isStreaming?: BuilderChatMessage['isStreaming'],
 ): BuilderChatMessage {
   return {
     id: nanoid(),
@@ -83,6 +85,7 @@ function createMessage(
     tone,
     createdAt: new Date().toISOString(),
     excludeFromLlmContext,
+    isStreaming,
     messageKey,
   };
 }
@@ -515,6 +518,7 @@ export const builderSlice = createSlice({
       action: PayloadAction<{
         content: string;
         excludeFromLlmContext?: BuilderChatMessage['excludeFromLlmContext'];
+        isStreaming?: BuilderChatMessage['isStreaming'];
         messageKey?: BuilderChatMessage['messageKey'];
         role: BuilderChatMessage['role'];
         tone?: BuilderChatMessage['tone'];
@@ -528,6 +532,7 @@ export const builderSlice = createSlice({
           action.payload.tone,
           action.payload.messageKey,
           action.payload.excludeFromLlmContext,
+          action.payload.isStreaming,
         ),
       );
     },

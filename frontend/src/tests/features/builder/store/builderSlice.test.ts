@@ -44,6 +44,16 @@ describe('builderSlice', () => {
     const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
 
     const state = normalizeBuilderState({
+      chatMessages: [
+        {
+          id: 'pending-summary',
+          role: 'assistant',
+          content: 'Adds a welcome screen',
+          createdAt: '2026-04-19T10:00:00.000Z',
+          isStreaming: true,
+          messageKey: 'generation-summary:request-restore',
+        },
+      ],
       committedSource: validSource,
       currentRequestId: 'request-restore',
       history: [snapshot],
@@ -62,6 +72,13 @@ describe('builderSlice', () => {
     expect(state.retryPrompt).toBeNull();
     expect(state.streamError).toBeNull();
     expect(state.streamedSource).toBe(validSource);
+    expect(state.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Adds a welcome screen',
+        messageKey: 'generation-summary:request-restore',
+      }),
+    );
+    expect(state.chatMessages.at(-1)).not.toHaveProperty('isStreaming');
   });
 
   it('rebuilds rejected-definition state from the persisted invalid draft instead of trusting raw parse issues', () => {
@@ -223,7 +240,8 @@ describe('builderSlice', () => {
     const withPendingSummary = builderReducer(
       started,
       builderActions.appendChatMessage({
-        content: 'Building: Adds a welcome screen…',
+        content: 'Adds a welcome screen',
+        isStreaming: true,
         messageKey: 'generation-summary:request-summary',
         role: 'assistant',
       }),
@@ -246,7 +264,8 @@ describe('builderSlice', () => {
     expect(completed.chatMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          content: 'Building: Adds a welcome screen…',
+          content: 'Adds a welcome screen',
+          isStreaming: true,
           messageKey: 'generation-summary:request-summary',
           role: 'assistant',
         }),
@@ -404,7 +423,8 @@ describe('builderSlice', () => {
     const withSummary = builderReducer(
       createInitialState(),
       builderActions.appendChatMessage({
-        content: 'Building: Adds a welcome screen…',
+        content: 'Adds a welcome screen',
+        isStreaming: true,
         messageKey: 'generation-summary:request-remove',
         role: 'assistant',
       }),

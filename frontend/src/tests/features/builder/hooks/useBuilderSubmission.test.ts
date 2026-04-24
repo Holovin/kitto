@@ -900,10 +900,11 @@ describe('useBuilderSubmission', () => {
     const requestPromise = submission.result().handleSubmit(createFormEvent());
     await flushMicrotasks();
 
-    expect(findChatMessage('Building: Adds a welcome…')).toEqual(
+    expect(findChatMessage('Adds a welcome')).toEqual(
       expect.objectContaining({
-        content: 'Building: Adds a welcome…',
+        content: 'Adds a welcome',
         excludeFromLlmContext: true,
+        isStreaming: true,
         role: 'assistant',
       }),
     );
@@ -914,11 +915,12 @@ describe('useBuilderSubmission', () => {
     });
     await requestPromise;
 
-    expect(findChatMessage('Building: Adds a welcome…')).toBeUndefined();
+    expect(findChatMessage('Adds a welcome')).toBeUndefined();
     expect(findChatMessage('Adds a welcome screen')).toEqual(
       expect.objectContaining({
         content: 'Adds a welcome screen',
         excludeFromLlmContext: undefined,
+        isStreaming: undefined,
         role: 'assistant',
       }),
     );
@@ -939,7 +941,6 @@ describe('useBuilderSubmission', () => {
     await submission.rerender().handleSubmit(createFormEvent());
 
     expect(testHarness.generateMock).not.toHaveBeenCalled();
-    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
     expect(findChatMessage('Creates a settings app')).toBeUndefined();
     expect(findChatMessage('Adds a welcome screen')).toEqual(
       expect.objectContaining({
@@ -998,24 +999,26 @@ describe('useBuilderSubmission', () => {
       const requestPromise = submission.result().handleSubmit(createFormEvent());
       await flushMicrotasks();
 
-      expect(findChatMessage('Building: Creates…')).toEqual(
+      expect(findChatMessage('Creates')).toEqual(
         expect.objectContaining({
-          content: 'Building: Creates…',
+          content: 'Creates',
+          isStreaming: true,
           role: 'assistant',
         }),
       );
-      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+      expect(findChatMessage('Creates a settings app')).toBeUndefined();
 
       await vi.advanceTimersByTimeAsync(149);
 
-      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
+      expect(findChatMessage('Creates a settings app')).toBeUndefined();
 
       await vi.advanceTimersByTimeAsync(1);
 
-      expect(findChatMessage('Building: Creates…')).toBeUndefined();
-      expect(findChatMessage('Building: Creates a settings app…')).toEqual(
+      expect(findChatMessage('Creates')).toBeUndefined();
+      expect(findChatMessage('Creates a settings app')).toEqual(
         expect.objectContaining({
-          content: 'Building: Creates a settings app…',
+          content: 'Creates a settings app',
+          isStreaming: true,
           role: 'assistant',
         }),
       );
@@ -1026,10 +1029,10 @@ describe('useBuilderSubmission', () => {
       });
       await requestPromise;
 
-      expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
       expect(findChatMessage('Creates a settings app')).toEqual(
         expect.objectContaining({
           content: 'Creates a settings app',
+          isStreaming: undefined,
           role: 'assistant',
         }),
       );
@@ -1700,7 +1703,6 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
     expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().retryPrompt).toBe('Create a settings app.');
-    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
     expect(findChatMessage('Creates a settings app')).toBeUndefined();
 
     submission.unmount();
@@ -1760,7 +1762,6 @@ describe('useBuilderSubmission', () => {
 
     await submission.result().handleSubmit(createFormEvent());
 
-    expect(findChatMessage('Building: Creates a settings app…')).toBeUndefined();
     expect(findChatMessage('Creates a settings app')).toBeUndefined();
     expect(getBuilderState().streamError).toBe('The model stopped before it returned a usable draft. Please try again.');
 
@@ -1827,9 +1828,10 @@ describe('useBuilderSubmission', () => {
     const requestPromise = submission.result().handleSubmit(createFormEvent());
     await flushMicrotasks();
 
-    expect(findChatMessage('Building: Builds a cancellable draft…')).toEqual(
+    expect(findChatMessage('Builds a cancellable draft')).toEqual(
       expect.objectContaining({
-        content: 'Building: Builds a cancellable draft…',
+        content: 'Builds a cancellable draft',
+        isStreaming: true,
         role: 'assistant',
       }),
     );
@@ -1843,7 +1845,6 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().retryPrompt).toBeNull();
     expect(getBuilderState().currentRequestId).toBeNull();
     expect(getBuilderState().history).toHaveLength(previousHistoryLength);
-    expect(findChatMessage('Building: Builds a cancellable draft…')).toBeUndefined();
     expect(findChatMessage('Builds a cancellable draft')).toBeUndefined();
     expect(findChatMessage(USER_CANCELLED_NOTICE)).toEqual(
       expect.objectContaining({

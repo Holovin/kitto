@@ -55,11 +55,16 @@ function getMessageBubbleClasses(message: BuilderChatMessage) {
 }
 
 const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message: BuilderChatMessage }) {
+  const isStreamingAssistantMessage = message.role === 'assistant' && message.isStreaming === true;
+
   return (
     <article
-      className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${getMessageBubbleClasses(message)}`}
+      aria-busy={isStreamingAssistantMessage || undefined}
+      className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${
+        isStreamingAssistantMessage ? 'chat-summary-shimmer relative overflow-hidden' : ''
+      } ${getMessageBubbleClasses(message)}`}
     >
-      <p className="whitespace-pre-wrap break-words">{message.content}</p>
+      <p className="relative z-[1] whitespace-pre-wrap break-words">{message.content}</p>
     </article>
   );
 });

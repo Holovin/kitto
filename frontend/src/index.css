@@ -60,3 +60,36 @@ pre {
   background-color: var(--selection-bg);
   color: var(--selection-text);
 }
+
+.chat-summary-shimmer::after {
+  animation: chat-summary-shimmer 1.8s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, 0.72) 50%,
+    rgba(255, 255, 255, 0) 66%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-120%);
+  z-index: 0;
+}
+
+@keyframes chat-summary-shimmer {
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-summary-shimmer::after {
+    animation: none;
+    opacity: 0.18;
+    transform: none;
+  }
+}

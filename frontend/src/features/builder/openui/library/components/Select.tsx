@@ -8,12 +8,16 @@ import {
   type StateField,
 } from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { z } from 'zod';
 import {
   ACTION_MODE_LAST_CHOICE_STATE,
+  KITTO_CONTRAST_COLOR_VAR,
+  KITTO_MAIN_COLOR_VAR,
   appearanceSchema,
   choiceOptionSchema,
   getAppearanceStyle,
+  isStrictHexColor,
   nullableTextSchema,
   normalizeChoiceOptions,
   useKittoAppearanceScope,
@@ -38,6 +42,11 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
   const isStreaming = useIsStreaming();
   const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [portalAppearanceVars, setPortalAppearanceVars] = useState<{
+    contrastColor?: string;
+    mainColor?: string;
+  }>({});
   const { isActionMode, isPending, runAction } = useActionModeControl({
     action: props.action,
     beforeRun: (nextValue: string) => {
@@ -75,6 +84,46 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     hasInheritedContrastColor: appearanceScope.hasContrastColor,
   });
   const options = normalizeChoiceOptions(props.options);
+  const syncPortalAppearanceVars = useCallback(() => {
+    const node = triggerRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const computedStyle = window.getComputedStyle(node);
+    const mainColor = computedStyle.getPropertyValue(KITTO_MAIN_COLOR_VAR).trim();
+    const contrastColor = computedStyle.getPropertyValue(KITTO_CONTRAST_COLOR_VAR).trim();
+    const nextVars = {
+      mainColor: isStrictHexColor(mainColor) ? mainColor : undefined,
+      contrastColor: isStrictHexColor(contrastColor) ? contrastColor : undefined,
+    };
+
+    setPortalAppearanceVars((currentVars) =>
+      currentVars.mainColor === nextVars.mainColor && currentVars.contrastColor === nextVars.contrastColor
+        ? currentVars
+        : nextVars,
+    );
+  }, []);
+  const contentStyle = useMemo(() => {
+    if (!portalAppearanceVars.mainColor && !portalAppearanceVars.contrastColor) {
+      return selectStyle;
+    }
+
+    const nextStyle: CSSProperties = {
+      ...selectStyle,
+    };
+
+    if (portalAppearanceVars.mainColor) {
+      (nextStyle as Record<string, string>)[KITTO_MAIN_COLOR_VAR] = portalAppearanceVars.mainColor;
+    }
+
+    if (portalAppearanceVars.contrastColor) {
+      (nextStyle as Record<string, string>)[KITTO_CONTRAST_COLOR_VAR] = portalAppearanceVars.contrastColor;
+    }
+
+    return nextStyle;
+  }, [portalAppearanceVars.contrastColor, portalAppearanceVars.mainColor, selectStyle]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -86,6 +135,11 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         disabled={isActionMode ? isStreaming || isPending : isStreaming}
         name={props.name}
         value={selectedValue}
+        onOpenChange={(open: boolean) => {
+          if (open) {
+            syncPortalAppearanceVars();
+          }
+        }}
         onValueChange={(nextValue: string) => {
           if (isActionMode) {
             void runAction(nextValue);
@@ -98,14 +152,16 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
       >
         <SelectTrigger
           {...ariaProps}
+          ref={triggerRef}
           aria-label={props.label}
           className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
           style={selectStyle}
+          onPointerDown={syncPortalAppearanceVars}
           onBlur={isActionMode ? undefined : onBlur}
         >
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
-        <SelectContent portalled={false} style={selectStyle}>
+        <SelectContent style={contentStyle}>
           {options.map((option, index) => (
             <SelectItem key={`${option.value}:${index}`} style={itemStyle} value={option.value}>
               {option.label}

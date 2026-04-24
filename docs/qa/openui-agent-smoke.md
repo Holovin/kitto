@@ -23,7 +23,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 5. Open DevTools:
    - `Console` for runtime/parser errors.
    - `Network` filtered to `/api/config`, `/api/prompts/info`, and `/api/llm`.
-6. While a generation is streaming, Chat should surface one human-readable pending assistant summary, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
+6. While a generation is streaming, Chat should surface one human-readable pending assistant summary with a loading shimmer, and Definition should show only parsed OpenUI source text rather than the raw structured JSON envelope.
 7. In streaming responses, confirm the final `done` payload can include `source`, `model`, `summary`, `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
 8. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent together with the newest surviving context instead of collapsing to a newest-only tail.
 9. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
@@ -76,7 +76,7 @@ Create a todo list.
 ### Expected
 
 - The app commits successfully.
-- While the request is streaming, chat shows one human-readable pending assistant summary before commit.
+- While the request is streaming, chat shows one human-readable pending assistant summary before commit. The pending summary uses a shimmer loading treatment instead of adding a textual status prefix.
 - The app has a simple todo UI:
   - task input;
   - add button;
@@ -129,7 +129,7 @@ Add a required checkbox confirmation before the result screen.
 - Existing quiz flow remains usable.
 - Checkbox appears before result/submit.
 - Checkbox affects the flow or validation.
-- The pre-commit chat summary stays readable and the committed assistant summary remains in chat after success.
+- The pre-commit chat summary stays readable under its shimmer loading treatment, and the committed assistant summary remains in chat after success without the loading treatment.
 - The committed assistant summary says what changed in concrete user terms rather than generic status text such as `Updated the app`.
 - Final committed source is valid.
 - If repair runs, final repaired app still works.
@@ -159,6 +159,7 @@ Build an app with every control you know. Add a separate top group with two butt
   - select;
   - button;
   - link.
+- Open select dropdowns above nearby groups and verify menu options are not clipped or hidden behind the next section.
 - Internal theme clicks do not trigger fresh `/api/llm/generate*` requests.
 - Generated source does not contain raw styling:
   - `style`;

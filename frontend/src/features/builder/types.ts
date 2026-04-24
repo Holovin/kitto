@@ -13,6 +13,7 @@ export interface BuilderChatMessage {
   content: string;
   createdAt: string;
   excludeFromLlmContext?: boolean;
+  isStreaming?: boolean;
   messageKey?: string;
   tone?: BuilderMessageTone;
 }

@@ -18,13 +18,7 @@ function getStreamingSummaryMessageKey(requestId: BuilderRequestId) {
 }
 
 function formatPendingSummary(summary: string) {
-  const trimmedSummary = summary.trim();
-
-  if (!trimmedSummary) {
-    return '';
-  }
-
-  return `Building: ${trimmedSummary}${trimmedSummary.endsWith('…') ? '' : '…'}`;
+  return summary.trim();
 }
 
 function normalizeCommittedSummary(messageContent: string) {
@@ -101,6 +95,7 @@ export function useStreamingSummary() {
       builderActions.appendChatMessage({
         content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
         excludeFromLlmContext: pendingSummaryState.excludeFromLlmContext,
+        isStreaming: options?.pending ? true : undefined,
         messageKey: getStreamingSummaryMessageKey(requestId),
         role: 'assistant',
       }),
