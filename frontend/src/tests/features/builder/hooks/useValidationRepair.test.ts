@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { BuilderParseIssue, BuilderQualityIssue } from '@features/builder/types';
-import { sanitizeRepairValidationIssues } from '@features/builder/hooks/useValidationRepair';
+import type { BuilderLlmChatMessage, BuilderParseIssue, BuilderQualityIssue } from '@features/builder/types';
+import {
+  buildRepairChatHistoryWithRejectedDraftNotice,
+  sanitizeRepairValidationIssues,
+} from '@features/builder/hooks/useValidationRepair';
 
 describe('sanitizeRepairValidationIssues', () => {
   it('drops parser suggestions and trims fields to backend request limits', () => {
@@ -85,5 +88,28 @@ describe('sanitizeRepairValidationIssues', () => {
     expect(sanitizedIssues.slice(3).every((issue) => issue.code === 'unresolved-reference')).toBe(true);
     expect(sanitizedIssues.at(-1)?.statementId).toBe('row-16');
     expect(sanitizedIssues.some((issue) => 'severity' in issue)).toBe(false);
+  });
+});
+
+describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
+  it('appends an assistant repair-memory notice with unique issue codes', () => {
+    const chatHistory: BuilderLlmChatMessage[] = [
+      { role: 'user', content: 'Build a todo app.' },
+      { role: 'assistant', content: 'Built a todo app.' },
+    ];
+    const issues: BuilderParseIssue[] = [
+      { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here.' },
+      { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here either.' },
+      { code: 'undefined-state-reference', message: 'Declare $filter first.' },
+    ];
+
+    expect(buildRepairChatHistoryWithRejectedDraftNotice(chatHistory, issues)).toEqual([
+      ...chatHistory,
+      {
+        role: 'assistant',
+        content: 'Previous draft rejected due to: `reserved-last-choice-outside-action-mode`, `undefined-state-reference`.',
+      },
+    ]);
+    expect(chatHistory).toHaveLength(2);
   });
 });

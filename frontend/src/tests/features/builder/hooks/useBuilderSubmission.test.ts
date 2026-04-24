@@ -1717,7 +1717,14 @@ describe('useBuilderSubmission', () => {
     const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
-      request: { invalidDraft?: string; mode?: string; parentRequestId?: string; prompt: string; validationIssues?: Array<{ code: string }> };
+      request: {
+        chatHistory?: Array<{ content: string; role: string }>;
+        invalidDraft?: string;
+        mode?: string;
+        parentRequestId?: string;
+        prompt: string;
+        validationIssues?: Array<{ code: string }>;
+      };
     }).request;
 
     expect(repairRequest.mode).toBe('repair');
@@ -1730,6 +1737,12 @@ describe('useBuilderSubmission', () => {
         expect.objectContaining({ code: 'mutation-uses-array-index-path' }),
       ]),
     );
+    const repairNotice = repairRequest.chatHistory?.at(-1);
+
+    expect(repairNotice?.role).toBe('assistant');
+    expect(repairNotice?.content).toContain('Previous draft rejected due to:');
+    expect(repairNotice?.content).toContain('`item-bound-control-without-action`');
+    expect(repairNotice?.content).toContain('`mutation-uses-array-index-path`');
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
 
     submission.unmount();

@@ -1,4 +1,5 @@
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
+import { filterPromptBuildChatHistory } from './chatHistoryFilter.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
 import { detectPromptRequestIntent, formatPromptRequestIntentBlock } from './promptIntents.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';
@@ -133,6 +134,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
         typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
           ? Math.floor(request.repairAttemptNumber)
           : 1,
+      chatHistory: filterPromptBuildChatHistory(request.chatHistory, options.chatHistoryMaxItems),
       committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
       invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
       issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],

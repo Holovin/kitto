@@ -57,6 +57,41 @@ describe('repair prompt assembly', () => {
     expect(prompt).not.toContain('Invalid model draft:');
   });
 
+  it('includes filtered repair chat history in the repair prompt with newest context first', () => {
+    const prompt = buildOpenUiUserPrompt({
+      prompt: 'Create a todo app.',
+      currentSource: 'root = AppShell([])',
+      invalidDraft: 'root = AppShell([missing])',
+      mode: 'repair',
+      chatHistory: [
+        { role: 'system', content: 'Internal UI notice.' },
+        { role: 'user', content: 'Earlier user request.' },
+        { role: 'assistant', content: 'Previous assistant summary.' },
+        { role: 'assistant', content: 'Excluded assistant summary.', excludeFromLlmContext: true },
+        { role: 'assistant', content: 'Previous draft rejected due to: `undefined-state-reference`.' },
+      ],
+      validationIssues: [
+        {
+          code: 'undefined-state-reference',
+          message: 'State reference `$filter` is missing a top-level declaration with a literal initial value.',
+          source: 'quality',
+          statementId: 'root',
+        },
+      ],
+    });
+    const contextSection = extractSection(prompt, 'Recent conversation context (newest first)', [
+      'Current committed valid OpenUI source',
+    ]);
+
+    expect(contextSection.split('\n')[0]).toBe(
+      '- Assistant: Previous draft rejected due to: `undefined-state-reference`.',
+    );
+    expect(contextSection).toContain('- Assistant: Previous assistant summary.');
+    expect(contextSection).toContain('- User: Earlier user request.');
+    expect(contextSection).not.toContain('Internal UI notice.');
+    expect(contextSection).not.toContain('Excluded assistant summary.');
+  });
+
   it('caps repair issues to the backend limit while preserving parser and blocking-quality priority', () => {
     const issues: PromptBuildValidationIssue[] = [
       ...Array.from({ length: 22 }, (_, index) => ({

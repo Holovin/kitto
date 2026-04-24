@@ -8,7 +8,14 @@ import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
 } from '@features/builder/openui/runtime/validation';
-import type { BuilderGeneratedDraft, BuilderLlmRequest, BuilderParseIssue, BuilderQualityIssue, BuilderRequestId } from '@features/builder/types';
+import type {
+  BuilderGeneratedDraft,
+  BuilderLlmChatMessage,
+  BuilderLlmRequest,
+  BuilderParseIssue,
+  BuilderQualityIssue,
+  BuilderRequestId,
+} from '@features/builder/types';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
@@ -205,6 +212,31 @@ export function sanitizeRepairValidationIssues(
     });
 }
 
+export function buildRepairChatHistoryWithRejectedDraftNotice(
+  chatHistory: BuilderLlmChatMessage[],
+  issues: BuilderParseIssue[],
+): BuilderLlmChatMessage[] {
+  const issueCodes = [
+    ...new Set(
+      issues
+        .map((issue) => issue.code.trim())
+        .filter((code) => code.length > 0),
+    ),
+  ];
+  const codeSummary =
+    issueCodes.length > 0
+      ? issueCodes.map((code) => `\`${code}\``).join(', ')
+      : 'validation issues';
+
+  return [
+    ...chatHistory,
+    {
+      role: 'assistant',
+      content: `Previous draft rejected due to: ${codeSummary}.`,
+    },
+  ];
+}
+
 export function useValidationRepair({
   maxRepairAttempts,
   maxRepairValidationIssues,
@@ -314,15 +346,16 @@ export function useValidationRepair({
 
       repairAttemptCount += 1;
       reportRejectedCandidate(issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)));
+      const validationIssues = sanitizeRepairValidationIssues(issues, maxRepairValidationIssues);
       const repairRequest: BuilderLlmRequest = {
         prompt: request.prompt,
         currentSource: request.currentSource,
-        chatHistory: request.chatHistory,
+        chatHistory: buildRepairChatHistoryWithRejectedDraftNotice(request.chatHistory, validationIssues),
         invalidDraft: candidateResponse.source,
         mode: 'repair',
         parentRequestId: requestId,
         repairAttemptNumber: repairAttemptCount,
-        validationIssues: sanitizeRepairValidationIssues(issues, maxRepairValidationIssues),
+        validationIssues,
       };
       const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest, requestLimits);
       const repairRequestValidationError = validateBuilderLlmRequest(transportRequest, requestLimits);

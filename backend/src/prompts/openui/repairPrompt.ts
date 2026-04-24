@@ -2,10 +2,18 @@ import { MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
-import type { PromptBuildValidationIssue } from './types.js';
+import type { PromptBuildChatHistoryMessage, PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
-type RepairSectionKey = 'committedSource' | 'hints' | 'invalidSource' | 'issues' | 'rules' | 'statementExcerpts' | 'userPrompt';
+type RepairSectionKey =
+  | 'committedSource'
+  | 'conversationContext'
+  | 'hints'
+  | 'invalidSource'
+  | 'issues'
+  | 'rules'
+  | 'statementExcerpts'
+  | 'userPrompt';
 
 interface RepairIssueSummary {
   issue: PromptBuildValidationIssue;
@@ -248,6 +256,25 @@ function buildBoundedSectionContent(lines: string[], maxChars: number, fallback:
   return selectedLines.length ? selectedLines.join('\n') : truncateText(lines[0] ?? fallback, maxChars);
 }
 
+function normalizeRepairConversationContextContent(content: string) {
+  return content.trim().replace(/\s+/g, ' ');
+}
+
+function buildRepairConversationContextLines(chatHistory: PromptBuildChatHistoryMessage[] = []) {
+  return [...chatHistory]
+    .reverse()
+    .map((message) => {
+      const content = normalizeRepairConversationContextContent(message.content);
+
+      if (!content) {
+        return null;
+      }
+
+      return `- ${message.role === 'assistant' ? 'Assistant' : 'User'}: ${content}`;
+    })
+    .filter((line): line is string => line !== null);
+}
+
 function parseUndefinedStateReferenceIssue(issue: PromptBuildValidationIssue) {
   if (issue.code !== 'undefined-state-reference') {
     return null;
@@ -366,9 +393,19 @@ function allocateRepairSectionBudgets(
   desiredLengths: Record<RepairSectionKey, number>,
   hasHints: boolean,
 ) {
-  const priority: RepairSectionKey[] = ['hints', 'issues', 'rules', 'statementExcerpts', 'userPrompt', 'committedSource', 'invalidSource'];
+  const priority: RepairSectionKey[] = [
+    'hints',
+    'issues',
+    'conversationContext',
+    'rules',
+    'statementExcerpts',
+    'userPrompt',
+    'committedSource',
+    'invalidSource',
+  ];
   const minimumBudgets: Record<RepairSectionKey, number> = {
     userPrompt: 120,
+    conversationContext: 240,
     committedSource: 180,
     invalidSource: 160,
     issues: 300,
@@ -378,6 +415,7 @@ function allocateRepairSectionBudgets(
   };
   const budgets: Record<RepairSectionKey, number> = {
     userPrompt: 0,
+    conversationContext: 0,
     committedSource: 0,
     invalidSource: 0,
     issues: 0,
@@ -392,6 +430,7 @@ function allocateRepairSectionBudgets(
 
   const cappedMinimums: Record<RepairSectionKey, number> = {
     userPrompt: Math.min(desiredLengths.userPrompt, minimumBudgets.userPrompt),
+    conversationContext: Math.min(desiredLengths.conversationContext, minimumBudgets.conversationContext),
     committedSource: Math.min(desiredLengths.committedSource, minimumBudgets.committedSource),
     invalidSource: Math.min(desiredLengths.invalidSource, minimumBudgets.invalidSource),
     issues: Math.min(desiredLengths.issues, minimumBudgets.issues),
@@ -750,6 +789,7 @@ function getRepairIssuesSectionTitle(mode: RepairIssueMode) {
 
 interface BuildOpenUiRepairPromptArgs {
   attemptNumber: number;
+  chatHistory?: PromptBuildChatHistoryMessage[];
   committedSource: string;
   invalidSource: string;
   issues: PromptBuildValidationIssue[];
@@ -759,11 +799,12 @@ interface BuildOpenUiRepairPromptArgs {
 }
 
 export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
-  const { attemptNumber, committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
+  const { attemptNumber, chatHistory = [], committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
   const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
+  const conversationContextLines = buildRepairConversationContextLines(chatHistory);
   const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
@@ -778,6 +819,11 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     Number.MAX_SAFE_INTEGER,
     '- No targeted repair hints were available.',
   );
+  const fullConversationContextSectionContent = buildBoundedSectionContent(
+    conversationContextLines,
+    Number.MAX_SAFE_INTEGER,
+    '- No recent conversation context was provided.',
+  );
   const fullStatementExcerptsSectionContent = buildBoundedSectionContent(
     statementExcerptLines,
     Number.MAX_SAFE_INTEGER,
@@ -786,6 +832,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   const sectionSkeleton = [
     introSection,
     buildRepairSection('Original user request', ''),
+    conversationContextLines.length > 0 ? buildRepairSection('Recent conversation context (newest first)', '') : null,
     buildRepairSection('Current committed valid OpenUI source', ''),
     buildRepairSection(issuesSectionTitle, ''),
     repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
@@ -796,6 +843,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     .join('\n\n');
   const budgets = allocateRepairSectionBudgets(promptMaxChars - sectionSkeleton.length, {
     userPrompt: (userPrompt.trim() ? userPrompt : '(empty user request)').length,
+    conversationContext: conversationContextLines.length > 0 ? fullConversationContextSectionContent.length : 0,
     committedSource: (committedSource.trim() ? committedSource : '(blank canvas, no committed OpenUI source yet)').length,
     invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
     issues: fullIssuesSectionContent.length,
@@ -804,6 +852,14 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
   }, repairHints.length > 0 || repairExemplars.length > 0);
   const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
+  const conversationContextSectionContent =
+    conversationContextLines.length > 0
+      ? buildBoundedSectionContent(
+          conversationContextLines,
+          budgets.conversationContext,
+          '- Recent conversation context was truncated.',
+        )
+      : '';
   const committedSourceSectionContent = buildRepairSourceSectionContent(
     committedSource,
     budgets.committedSource,
@@ -829,6 +885,7 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
     [
       introSection,
       buildRepairSection('Original user request', userRequestSectionContent),
+      conversationContextSectionContent ? buildRepairSection('Recent conversation context (newest first)', conversationContextSectionContent) : null,
       buildRepairSection('Current committed valid OpenUI source', committedSourceSectionContent),
       buildRepairSection(issuesSectionTitle, issuesSectionContent),
       repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
