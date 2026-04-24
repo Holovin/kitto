@@ -1,3 +1,4 @@
+import { detectPromptIntents } from './promptIntents.js';
 import { promptRequiresBlockingTodoControls } from './qualityIntents.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
@@ -39,6 +40,152 @@ root = AppShell([
   ])
 ])`,
 };
+
+const FILTERED_TODO_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'filtered-todo-task-list',
+  title: 'Filtered todo list pattern',
+  text: `$draft = ""
+$targetItemId = ""
+savedFilter = Query("read_state", { path: "ui.todoFilter" }, "all")
+setFilter = Mutation("write_state", { path: "ui.todoFilter", value: $lastChoice })
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Completed", value: "completed" }
+]
+visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items
+rows = @Each(visibleItems, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Todos", [
+    Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)])),
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No matching tasks.")
+  ])
+])`,
+};
+
+const VALIDATION_FORM_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'validation-form',
+  title: 'Validation form pattern',
+  text: `$email = ""
+$quantity = ""
+$agreement = false
+
+root = AppShell([
+  Screen("main", "Request form", [
+    Input("email", "Email", $email, "ada@example.com", "Required email", "email", [
+      { type: "required", message: "Email is required" },
+      { type: "email", message: "Enter a valid email" }
+    ]),
+    Input("quantity", "Quantity", $quantity, "1", "1-10", "number", [
+      { type: "required", message: "Quantity is required" },
+      { type: "minNumber", value: 1, message: "Minimum is 1" },
+      { type: "maxNumber", value: 10, message: "Maximum is 10" }
+    ]),
+    Checkbox("agreement", "I agree", $agreement, "Required to submit", [{ type: "required", message: "Agreement is required" }]),
+    Button("submit", "Submit", "default", Action([]), false)
+  ])
+])`,
+};
+
+const THEME_TOGGLE_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'theme-toggle',
+  title: 'Theme toggle pattern',
+  text: `$currentTheme = "light"
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
+appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }
+inactiveThemeButton = appTheme
+
+root = AppShell([
+  Screen("main", "Theme", [
+    Group("Theme", "horizontal", [
+      Button("theme-light", "Light", "default", Action([@Set($currentTheme, "light")]), false, $currentTheme == "light" ? activeThemeButton : inactiveThemeButton),
+      Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
+    ], "inline"),
+    Text("Current theme: " + $currentTheme, "body", "start")
+  ])
+], appTheme)`,
+};
+
+const RANDOM_DICE_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'random-dice',
+  title: 'Random dice pattern',
+  text: `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+};
+
+const DATE_COMPARISON_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'date-comparison',
+  title: 'Date comparison pattern',
+  text: `$startDate = ""
+$endDate = ""
+endsOnOrAfterStart = Query("compute_value", {
+  op: "date_on_or_after",
+  left: $endDate,
+  right: $startDate,
+  returnType: "boolean"
+}, { value: false })
+
+root = AppShell([
+  Screen("main", "Date check", [
+    Input("startDate", "Start date", $startDate, "", "YYYY-MM-DD", "date", [{ type: "required", message: "Choose a start date" }]),
+    Input("endDate", "End date", $endDate, "", "YYYY-MM-DD", "date", [{ type: "required", message: "Choose an end date" }]),
+    Text($startDate == "" || $endDate == "" ? "Choose both dates." : endsOnOrAfterStart.value ? "End date is valid." : "End date is before start date.", "body", "start")
+  ])
+])`,
+};
+
+const MULTI_SCREEN_QUIZ_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'multi-screen-quiz',
+  title: 'Multi-screen quiz pattern',
+  text: `$currentScreen = "intro"
+$answer = ""
+answerOptions = [
+  { label: "3", value: "3" },
+  { label: "4", value: "4" }
+]
+
+root = AppShell([
+  Screen("intro", "Quiz", [
+    Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
+  ], $currentScreen == "intro"),
+  Screen("question", "Question", [
+    RadioGroup("answer", "2 + 2?", $answer, answerOptions, null, [{ type: "required", message: "Choose an answer" }]),
+    Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
+  ], $currentScreen == "question"),
+  Screen("result", "Result", [
+    Text($answer == "4" ? "Correct." : "Try again.", "title", "start"),
+    Button("restart-quiz", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($answer)]), false)
+  ], $currentScreen == "result")
+])`,
+};
+
+const DATE_COMPARISON_REQUEST_PATTERN =
+  /\b(date\s+comparison|compare\s+dates?|deadline|deadlines?|due\s+dates?)\b|(?:сравн[а-яё]*\s+дат[а-яё]*|дедлайн[а-яё]*|срок[а-яё]*)/i;
 
 const REPAIR_EXEMPLARS: Record<string, PromptExemplar> = {
   'control-action-and-binding': {
@@ -128,9 +275,30 @@ export function getRelevantRepairExemplars(issues: PromptBuildValidationIssue[])
 
 export function getRelevantRequestExemplars(userPrompt: string) {
   const exemplars: PromptExemplar[] = [];
+  const intents = detectPromptIntents(userPrompt);
 
-  if (promptRequiresBlockingTodoControls(userPrompt)) {
+  if (intents.todo && intents.filtering) {
+    exemplars.push(FILTERED_TODO_REQUEST_EXEMPLAR);
+  } else if (promptRequiresBlockingTodoControls(userPrompt)) {
     exemplars.push(TODO_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.validation) {
+    exemplars.push(VALIDATION_FORM_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.theme) {
+    exemplars.push(THEME_TOGGLE_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.random) {
+    exemplars.push(RANDOM_DICE_REQUEST_EXEMPLAR);
+  } else if (intents.compute && DATE_COMPARISON_REQUEST_PATTERN.test(userPrompt)) {
+    exemplars.push(DATE_COMPARISON_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.multiScreen) {
+    exemplars.push(MULTI_SCREEN_QUIZ_REQUEST_EXEMPLAR);
   }
 
   return dedupeExemplars(exemplars);

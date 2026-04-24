@@ -71,6 +71,15 @@ function buildComputePrompt() {
   return buildOpenUiSystemPrompt({ prompt: 'Compare dates in a deadline checker' });
 }
 
+function buildInitialUserPrompt(prompt: string) {
+  return buildOpenUiUserPrompt({
+    prompt,
+    currentSource: '',
+    mode: 'initial',
+    chatHistory: [],
+  });
+}
+
 describe('openui prompts', () => {
   it('keeps the generated component spec artifact committed in the repository', () => {
     expect(fs.existsSync(componentSpecPath)).toBe(true);
@@ -186,6 +195,65 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: any, disabled?: $binding<boolean>, appearance?: {');
     expect(prompt).toContain('$currentScreen');
     expect(prompt).toContain('@Set($currentScreen');
+  });
+
+  it('adds short request exemplars only for matching frequent smoke intents', () => {
+    const basePrompt = buildInitialUserPrompt('Build a small contact card.');
+    const todoPrompt = buildInitialUserPrompt('Create a todo list.');
+    const filteredTodoPrompt = buildInitialUserPrompt('Create a task list with completed status and a filter with All, Active and Completed.');
+    const validationPrompt = buildInitialUserPrompt(
+      'Create a form with name, email, quantity, due date, description and required agreement checkbox. Add basic validation.',
+    );
+    const themePrompt = buildInitialUserPrompt(
+      'Build an app with every control you know. Add a separate top group with two buttons for light and dark themes. The active theme must be shown as a RED button with white text.',
+    );
+    const randomPrompt = buildInitialUserPrompt('Create a random dice roller.');
+    const datePrompt = buildInitialUserPrompt('Compare dates in a deadline checker.');
+    const quizPrompt = buildInitialUserPrompt(
+      'Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.',
+    );
+
+    expect(basePrompt).not.toContain('Relevant patterns:');
+
+    expect(todoPrompt).toContain('Todo/task list pattern:');
+    expect(todoPrompt).toContain('Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")');
+    expect(todoPrompt).not.toContain('Filtered todo list pattern:');
+    expect(todoPrompt).not.toContain('Theme toggle pattern:');
+    expect(todoPrompt).not.toContain('Random dice pattern:');
+
+    expect(filteredTodoPrompt).toContain('Filtered todo list pattern:');
+    expect(filteredTodoPrompt).toContain(
+      'visibleItems = savedFilter == "completed" ? @Filter(items, "completed", "==", true) : savedFilter == "active" ? @Filter(items, "completed", "==", false) : items',
+    );
+    expect(filteredTodoPrompt).toContain('Select("filter", "Show", savedFilter, filterOptions, null, [], Action([@Run(setFilter), @Run(savedFilter)]))');
+    expect(filteredTodoPrompt).not.toContain('Todo/task list pattern:');
+
+    expect(validationPrompt).toContain('Validation form pattern:');
+    expect(validationPrompt).toContain('{ type: "email", message: "Enter a valid email" }');
+    expect(validationPrompt).toContain('{ type: "minNumber", value: 1, message: "Minimum is 1" }');
+    expect(validationPrompt).toContain('Checkbox("agreement", "I agree", $agreement');
+
+    expect(themePrompt).toContain('Theme toggle pattern:');
+    expect(themePrompt).toContain('appTheme = $currentTheme == "dark" ? darkTheme : lightTheme');
+    expect(themePrompt).toContain('activeThemeButton = { mainColor: "#DC2626", contrastColor: "#FFFFFF" }');
+    expect(themePrompt).toContain('], appTheme)');
+
+    expect(randomPrompt).toContain('Random dice pattern:');
+    expect(randomPrompt).toContain('rollDice = Mutation("write_computed_state", {');
+    expect(randomPrompt).toContain('options: { min: 1, max: 6 }');
+    expect(randomPrompt).toContain('Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)');
+    expect(randomPrompt).not.toContain('Date comparison pattern:');
+
+    expect(datePrompt).toContain('Date comparison pattern:');
+    expect(datePrompt).toContain('op: "date_on_or_after"');
+    expect(datePrompt).toContain('Input("startDate", "Start date", $startDate');
+    expect(datePrompt).not.toContain('Random dice pattern:');
+
+    expect(quizPrompt).toContain('Multi-screen quiz pattern:');
+    expect(quizPrompt).toContain('$currentScreen = "intro"');
+    expect(quizPrompt).toContain('Screen("intro", "Quiz", [');
+    expect(quizPrompt).toContain('Screen("question", "Question", [');
+    expect(quizPrompt).toContain('Screen("result", "Result", [');
   });
 
   it('keeps the committed Group signature and variant guidance aligned', () => {
