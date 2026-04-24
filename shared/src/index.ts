@@ -10,3 +10,9 @@ export {
   type PromptConversationChatHistoryRole,
   type RawPromptBuildChatHistoryMessage,
 } from './promptBuildChatHistory.js';
+export {
+  detectChoiceOptionsShapeIssues,
+  type DetectChoiceOptionsShapeIssuesOptions,
+  type SharedOpenUiQualityIssue,
+  type SharedOpenUiQualityIssueSeverity,
+} from './openuiQualityOptionsShape.js';

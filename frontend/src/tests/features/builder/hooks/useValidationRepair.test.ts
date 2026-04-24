@@ -2,8 +2,39 @@ import { describe, expect, it } from 'vitest';
 import type { BuilderLlmChatMessage, BuilderParseIssue, BuilderQualityIssue } from '@features/builder/types';
 import {
   buildRepairChatHistoryWithRejectedDraftNotice,
+  dedupeQualityIssues,
   sanitizeRepairValidationIssues,
 } from '@features/builder/hooks/useValidationRepair';
+
+describe('dedupeQualityIssues', () => {
+  it('keeps the first matching quality issue by severity, source, code, statement, and message', () => {
+    const duplicateIssue: BuilderQualityIssue = {
+      code: 'quality-options-shape',
+      message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+      severity: 'blocking-quality',
+      source: 'quality',
+      statementId: 'rickrollOptions',
+    };
+    const sameCodeDifferentStatement: BuilderQualityIssue = {
+      ...duplicateIssue,
+      statementId: 'questions',
+    };
+    const sameCodeDifferentMessage: BuilderQualityIssue = {
+      ...duplicateIssue,
+      message: 'Collection `questions` contains `.options` arrays with bare strings or numbers.',
+    };
+
+    const dedupedIssues = dedupeQualityIssues([
+      duplicateIssue,
+      { ...duplicateIssue },
+      sameCodeDifferentStatement,
+      sameCodeDifferentMessage,
+    ]);
+
+    expect(dedupedIssues).toEqual([duplicateIssue, sameCodeDifferentStatement, sameCodeDifferentMessage]);
+    expect(dedupedIssues[0]).toBe(duplicateIssue);
+  });
+});
 
 describe('sanitizeRepairValidationIssues', () => {
   it('drops parser suggestions and trims fields to backend request limits', () => {

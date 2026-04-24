@@ -52,6 +52,28 @@ function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
   return strippedIssue;
 }
 
+function getQualityIssueDedupeKey(issue: BuilderQualityIssue) {
+  return [issue.severity, issue.source ?? '', issue.code.trim(), issue.statementId?.trim() ?? '', issue.message.trim()].join('\0');
+}
+
+export function dedupeQualityIssues(issues: BuilderQualityIssue[]) {
+  const seenIssueKeys = new Set<string>();
+  const dedupedIssues: BuilderQualityIssue[] = [];
+
+  for (const issue of issues) {
+    const issueKey = getQualityIssueDedupeKey(issue);
+
+    if (seenIssueKeys.has(issueKey)) {
+      continue;
+    }
+
+    seenIssueKeys.add(issueKey);
+    dedupedIssues.push(issue);
+  }
+
+  return dedupedIssues;
+}
+
 const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
 const REPAIR_BLOCKING_QUALITY_CODES = new Set([
   'control-action-and-binding',
@@ -399,14 +421,14 @@ export function useValidationRepair({
       }
 
       if (validation.isValid) {
-        const qualityIssues = [
+        const qualityIssues = dedupeQualityIssues([
           ...detectLocalRuntimeQualityIssues(candidateResponse.source, {
             normalizedSource: validationContext.normalizedSource,
             parseResult: validationContext.parseResult,
             validationIssues: validation.issues,
           }),
           ...(candidateResponse.qualityIssues ?? []),
-        ];
+        ]);
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
         const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
         const qualityWarnings = qualityIssues.filter((issue) => issue.severity === 'soft-warning').map(stripQualitySeverity);
