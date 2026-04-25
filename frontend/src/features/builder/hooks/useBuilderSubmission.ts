@@ -153,6 +153,7 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
     void postCommitTelemetry({
       commitSource: validatedResult.commitSource,
       committed: true,
+      qualityWarnings: [...new Set(validatedResult.warnings.map((warning) => warning.code))],
       requestId: validatedResult.requestId,
       validationIssues: [],
     });

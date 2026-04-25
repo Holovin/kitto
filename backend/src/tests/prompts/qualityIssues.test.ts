@@ -54,6 +54,20 @@ root = AppShell([
     );
   });
 
+  it('does not treat theme text or state names as theme styling by themselves', () => {
+    const warnings = detectPromptAwareQualityWarnings(
+      `$currentTheme = "dark"
+root = AppShell([
+  Screen("main", "Status", [
+    Text("Current theme: " + $currentTheme, "body", "start")
+  ])
+])`,
+      'Create a status display.',
+    );
+
+    expect(warnings.find((warning) => warning.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
   it('does not warn about existing theme styling when the latest request edits app content', () => {
     const currentSource = `$currentTheme = "dark"
 root = AppShell([
@@ -74,6 +88,35 @@ root = AppShell([
     );
 
     expect(warnings.find((warning) => warning.code === 'quality-unrequested-theme')).toBeUndefined();
+  });
+
+  it('warns when filtering was added without being requested', () => {
+    const warnings = detectPromptAwareQualityWarnings(
+      `tasks = [
+  { title: "Design landing page", done: false },
+  { title: "Write onboarding copy", done: true }
+]
+filteredTasks = @Filter(tasks, "done", "==", false)
+
+root = AppShell([
+  Screen("main", "Task dashboard", [
+    Repeater(@Each(filteredTasks, "task", Group(task.title, "vertical", [
+      Text(task.done ? "Done" : "Open", "body", "start")
+    ])), "No tasks match.")
+  ])
+])`,
+      'Create a task dashboard.',
+    );
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-unrequested-filter',
+          message: 'Filtering was added even though not requested.',
+          source: 'quality',
+        }),
+      ]),
+    );
   });
 
   it('does not warn about unrequested filters when the prompt explicitly asks for filtering', () => {

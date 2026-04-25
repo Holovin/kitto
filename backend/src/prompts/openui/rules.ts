@@ -90,6 +90,7 @@ const APPEARANCE_AND_THEME_RULES = [
   'Use `appearance.mainColor` and `appearance.contrastColor` only.',
   'appearance.mainColor is the main theme surface color, usually the background for containers.',
   'appearance.contrastColor is the contrasting text or primary action color.',
+  'For Text, `appearance.contrastColor` is the text color itself. Do not treat it as a background contrast target.',
   'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
   'Only use #RRGGBB colors.',
   'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
@@ -167,6 +168,26 @@ const MULTI_SCREEN_RULES = [
   'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
 ] as const;
 
+const COMPUTE_TOOL_RULES = [
+  'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
+  'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
+  'Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.',
+  'Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.',
+  'Use compute tools only for numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
+  'Both compute tools return `{ value }`.',
+  'Date compute operations only accept strict YYYY-MM-DD strings.',
+] as const;
+
+const RANDOM_RULES = [
+  'CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:',
+  '1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`',
+  '2. `rollValue = Query("read_state", { path: "app.roll" }, null)`',
+  '3. Button action: `Action([@Run(roll), @Run(rollValue)])`.',
+  '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
+  'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
+  '`random_int` only accepts integer min/max options.',
+] as const;
+
 function buildIntentSpecificRules(intents: PromptIntentVector) {
   return [
     ...SIMPLE_APP_RULES,
@@ -182,6 +203,7 @@ function buildIntentSpecificRules(intents: PromptIntentVector) {
     ...SCREEN_AND_COMPONENT_BASE_RULES,
     ...(intents.multiScreen ? MULTI_SCREEN_RULES : []),
     ...(intents.compute ? COMPUTE_TOOL_RULES : []),
+    ...(intents.random ? RANDOM_RULES : []),
     ...PERSISTED_TOOL_AND_COMPLETENESS_RULES,
   ];
 }
@@ -195,22 +217,6 @@ const BASE_PROMPT_INTENTS: PromptIntentVector = {
   todo: false,
   validation: false,
 };
-
-const COMPUTE_TOOL_RULES = [
-  'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
-  'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
-  'Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.',
-  'Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.',
-  'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
-  'Both compute tools return `{ value }`.',
-  'CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:',
-  '1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`',
-  '2. `rollValue = Query("read_state", { path: "app.roll" }, null)`',
-  '3. Button action: `Action([@Run(roll), @Run(rollValue)])`.',
-  '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
-  'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
-  'Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.',
-] as const;
 
 const PERSISTED_TOOL_AND_COMPLETENESS_RULES = [
   'Use write_state, merge_state, append_state, append_item, toggle_item_field, update_item_field, remove_item, remove_state, and write_computed_state for exportable persistent data.',

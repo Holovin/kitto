@@ -4,6 +4,7 @@ import { getBackendApiBaseUrl } from '@helpers/environment';
 interface PostCommitTelemetryOptions {
   commitSource: BuilderCommitSource;
   committed: boolean;
+  qualityWarnings?: string[];
   repairOutcome?: BuilderCommitRepairOutcome;
   requestId: BuilderRequestId;
   validationIssues: string[];
@@ -12,6 +13,7 @@ interface PostCommitTelemetryOptions {
 export async function postCommitTelemetry({
   commitSource,
   committed,
+  qualityWarnings = [],
   repairOutcome,
   requestId,
   validationIssues,
@@ -26,6 +28,7 @@ export async function postCommitTelemetry({
       body: JSON.stringify({
         commitSource,
         committed,
+        qualityWarnings,
         ...(repairOutcome ? { repairOutcome } : {}),
         requestId,
         validationIssues,

@@ -13,24 +13,18 @@ export const OpenUiGenerationEnvelopeSchema = z
 
 export type OpenUiGenerationEnvelope = z.infer<typeof OpenUiGenerationEnvelopeSchema>;
 
+function createOpenUiEnvelopeJsonSchema() {
+  const jsonSchema = z.toJSONSchema(OpenUiGenerationEnvelopeSchema);
+
+  delete jsonSchema.$schema;
+  return jsonSchema;
+}
+
 export const openUiEnvelopeFormat: ResponseFormatTextJSONSchemaConfig = {
   type: 'json_schema',
   name: 'kitto_openui_source',
   strict: true,
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['summary', 'source'],
-    properties: {
-      summary: {
-        type: 'string',
-        maxLength: 200,
-      },
-      source: {
-        type: 'string',
-      },
-    },
-  },
+  schema: createOpenUiEnvelopeJsonSchema(),
 };
 
 export function createRawStructuredOutputLimitError(outputSizeBytes: number, rawLimitBytes: number) {
@@ -48,9 +42,13 @@ export function assertRawStructuredOutputWithinLimit(rawOutput: string, env: App
   }
 }
 
-export function parseOpenUiGenerationEnvelope(rawModelText: unknown) {
+export function parseOpenUiGenerationEnvelope(rawModelText: unknown, env?: AppEnv) {
   if (typeof rawModelText !== 'string') {
     throw new UpstreamFailureError('The model response did not include text output.');
+  }
+
+  if (env) {
+    assertRawStructuredOutputWithinLimit(rawModelText, env);
   }
 
   const trimmedEnvelopeText = rawModelText.trim();
@@ -74,15 +72,6 @@ export function parseOpenUiGenerationEnvelope(rawModelText: unknown) {
   }
 
   return envelopeResult.data;
-}
-
-export function extractOpenUiEnvelopeFromModelText(rawModelText: unknown, env: AppEnv): OpenUiGenerationEnvelope {
-  if (typeof rawModelText !== 'string') {
-    throw new UpstreamFailureError('The model response did not include text output.');
-  }
-
-  assertRawStructuredOutputWithinLimit(rawModelText, env);
-  return parseOpenUiGenerationEnvelope(rawModelText);
 }
 
 export function assertModelOutputWithinLimit(source: string, env: AppEnv) {

@@ -3,7 +3,6 @@ import type { PromptBuildRequest } from '../../prompts/openui.js';
 import { buildResponseRequest, getClient, resetOpenAiClientForTesting, setOpenAiClientFactoryForTesting } from './client.js';
 import {
   assertModelOutputWithinLimit,
-  extractOpenUiEnvelopeFromModelText,
   OpenUiGenerationEnvelopeSchema,
   parseOpenUiGenerationEnvelope,
   type OpenUiGenerationEnvelope,
@@ -36,7 +35,7 @@ async function finalizeOpenUiModelResponse(
   let parsedEnvelope: OpenUiGenerationEnvelope | null = null;
 
   try {
-    parsedEnvelope = extractOpenUiEnvelopeFromModelText(rawModelText, env);
+    parsedEnvelope = parseOpenUiGenerationEnvelope(rawModelText, env);
     // Streaming enforces a raw envelope byte cap while deltas are in flight, but
     // structured responses still need a final extracted-source check here before
     // callers can treat the result as eligible for a `done` event or JSON reply.

@@ -233,6 +233,7 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
               },
               source: {
                 type: 'string',
+                minLength: 1,
               },
             },
           },
@@ -271,6 +272,22 @@ describe('parseOpenUiGenerationEnvelope', () => {
         JSON.stringify({
           summary: 'Builds a simple one-screen app.',
         }),
+      ),
+    ).toThrow(UpstreamFailureError);
+  });
+
+  it('can enforce the raw structured output limit during parsing', () => {
+    const env = createTestEnv({
+      LLM_OUTPUT_MAX_BYTES: 5,
+    });
+
+    expect(() =>
+      parseOpenUiGenerationEnvelope(
+        JSON.stringify({
+          source: 'root = AppShell([])',
+          summary: 'Builds a simple one-screen app.',
+        }),
+        env,
       ),
     ).toThrow(UpstreamFailureError);
   });

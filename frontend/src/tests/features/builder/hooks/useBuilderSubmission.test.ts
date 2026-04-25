@@ -880,6 +880,7 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.commitTelemetryMock).toHaveBeenCalledWith({
       commitSource: 'streaming',
       committed: true,
+      qualityWarnings: [],
       requestId: initialRequestId,
       validationIssues: [],
     });
@@ -893,6 +894,36 @@ describe('useBuilderSubmission', () => {
         tone: 'success',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('reports soft quality warnings on successful commit telemetry', async () => {
+    setDraftPrompt('Add a welcome screen.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+      qualityIssues: [
+        {
+          code: 'quality-unrequested-theme',
+          message: 'Theme styling was added even though not requested.',
+          severity: 'soft-warning',
+          source: 'quality',
+        },
+      ],
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+    const initialRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+
+    expect(testHarness.commitTelemetryMock).toHaveBeenCalledWith({
+      commitSource: 'streaming',
+      committed: true,
+      qualityWarnings: ['quality-unrequested-theme'],
+      requestId: initialRequestId,
+      validationIssues: [],
+    });
 
     submission.unmount();
   });
@@ -1615,6 +1646,7 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
       commitSource: 'fallback',
       committed: true,
+      qualityWarnings: [],
       requestId: repairRequestId,
       validationIssues: [],
     });
@@ -1681,6 +1713,7 @@ describe('useBuilderSubmission', () => {
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
       commitSource: 'fallback',
       committed: true,
+      qualityWarnings: [],
       requestId: repairCall.requestId,
       validationIssues: [],
     });

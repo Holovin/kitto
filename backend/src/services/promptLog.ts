@@ -36,6 +36,7 @@ interface PromptIoLogEntryFields {
   modelOutputRaw?: string;
   parsedEnvelope?: unknown;
   usage?: unknown;
+  qualityWarnings?: string[];
   validationIssues: string[];
   durationMs?: number;
   errorCode?: string;

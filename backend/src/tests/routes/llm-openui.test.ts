@@ -1610,6 +1610,7 @@ describe('createLlmOpenUiRoutes', () => {
       },
       body: JSON.stringify({
         requestId: 'builder-request-parent',
+        qualityWarnings: ['quality-unrequested-theme'],
         validationIssues: [],
         committed: true,
         commitSource: 'streaming',
@@ -1626,6 +1627,7 @@ describe('createLlmOpenUiRoutes', () => {
         commitSource: 'streaming',
         committed: true,
         parentRequestId: 'builder-request-parent',
+        qualityWarnings: ['quality-unrequested-theme'],
         repairOutcome: 'fixed',
         requestId: expect.any(String),
         validationIssues: [],
@@ -1676,6 +1678,7 @@ describe('createLlmOpenUiRoutes', () => {
         commitSource: 'streaming',
         committed: false,
         parentRequestId: 'builder-request-parent',
+        qualityWarnings: [],
         repairOutcome: 'failed',
         requestId: expect.any(String),
         validationIssues: ['reserved-last-choice-outside-action-mode'],

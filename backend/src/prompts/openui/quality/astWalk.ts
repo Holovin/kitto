@@ -50,12 +50,17 @@ export function visitOpenUiValue(
 export function collectQualityMetrics(value: unknown): OpenUiQualityMetrics {
   const metrics: OpenUiQualityMetrics = {
     blockGroupCount: 0,
+    hasFilterUsage: false,
     hasThemeStyling: false,
     hasValidationRules: false,
     screenCount: 0,
   };
 
   visitOpenUiValue(value, (node) => {
+    if (isAstNode(node) && node.k === 'Comp' && node.name === 'Filter') {
+      metrics.hasFilterUsage = true;
+    }
+
     if (!isElementNode(node)) {
       return;
     }

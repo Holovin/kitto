@@ -28,6 +28,7 @@ export type PersistedPathStatementRef = {
 
 export type OpenUiQualityMetrics = {
   blockGroupCount: number;
+  hasFilterUsage: boolean;
   hasThemeStyling: boolean;
   hasValidationRules: boolean;
   screenCount: number;

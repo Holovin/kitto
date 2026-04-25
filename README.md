@@ -139,7 +139,7 @@ The supported backend API lives under `/api/*` only.
 - `GET /api/config` returns frontend-safe request limits, stream timeout policy, and repair-attempt policy.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
 - `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events. `chunk` can contain raw structured JSON draft text, while `done.source` carries the extracted OpenUI source used for commit.
-- `POST /api/llm/commit-telemetry` records client-side validation and commit outcomes for a completed generation request without blocking the UI, rejecting unmatched or overused request ids.
+- `POST /api/llm/commit-telemetry` records client-side validation, soft quality warnings, and commit outcomes for a completed generation request without blocking the UI, rejecting unmatched or overused request ids.
 
 ## 10. Additional docs
 

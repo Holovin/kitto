@@ -364,6 +364,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Use `appearance.mainColor` and `appearance.contrastColor` only.');
     expect(prompt).toContain('appearance.mainColor is the main theme surface color, usually the background for containers.');
     expect(prompt).toContain('appearance.contrastColor is the contrasting text or primary action color.');
+    expect(prompt).toContain('For Text, `appearance.contrastColor` is the text color itself. Do not treat it as a background contrast target.');
     expect(prompt).toContain('Only use #RRGGBB colors.');
     expect(prompt).toContain(
       'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
@@ -592,20 +593,22 @@ describe('openui prompts', () => {
     expect(computePrompt).toContain('Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.');
     expect(computePrompt).toContain('Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.');
     expect(computePrompt).toContain(
-      'Use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
+      'Use compute tools only for numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
     );
     expect(computePrompt).toContain('Both compute tools return `{ value }`.');
-    expect(computePrompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
-    expect(computePrompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
-    expect(computePrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
-    expect(computePrompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
-    expect(computePrompt).toContain(
+    expect(computePrompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings.');
+    expect(computePrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(randomPrompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
+    expect(randomPrompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
+    expect(randomPrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
+    expect(randomPrompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
+    expect(randomPrompt).toContain(
       '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',
     );
-    expect(computePrompt).toContain(
+    expect(randomPrompt).toContain(
       'For button-triggered random values, use `write_computed_state` with `op: "random_int"`; do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior.',
     );
-    expect(computePrompt).toContain('Date compute operations only accept strict YYYY-MM-DD strings, and `random_int` only accepts integer min/max options.');
+    expect(randomPrompt).toContain('`random_int` only accepts integer min/max options.');
     expect(computePrompt).toContain('Never generate JavaScript functions, eval, Function constructors, regex code, script tags, or user-provided code strings.');
     expect(computePrompt).toContain(
       'After every Mutation that changes persisted state used by visible UI, re-run later in the same Action at least one Query that reads the same path, a parent path, or a child path.',

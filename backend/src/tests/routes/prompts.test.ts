@@ -83,6 +83,7 @@ describe('GET /api/prompts/info', () => {
       additionalProperties: false,
       properties: {
         source: {
+          minLength: 1,
           type: 'string',
         },
         summary: {

@@ -25,9 +25,6 @@ import {
 } from './qualitySignals.js';
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
-const FILTER_USAGE_PATTERN = /@Filter\s*\(/i;
-const THEME_REFERENCE_PATTERN = /\$[\w$]*theme\b/i;
-const THEME_KEYWORD_PATTERN = /\btheme\b/i;
 
 type PromptAwareGenerationMode = 'initial' | 'repair';
 
@@ -44,13 +41,12 @@ function collectSourceFeatureFlags(source: string) {
     return null;
   }
 
-  const maskedSource = maskStringLiterals(source);
   const metrics = collectQualityMetrics(parseResult.root);
 
   return {
     compute: hasComputeTools(parseResult),
-    filter: FILTER_USAGE_PATTERN.test(maskedSource),
-    theme: metrics.hasThemeStyling || THEME_REFERENCE_PATTERN.test(maskedSource) || THEME_KEYWORD_PATTERN.test(maskedSource),
+    filter: metrics.hasFilterUsage,
+    theme: metrics.hasThemeStyling,
     validation: metrics.hasValidationRules,
   };
 }
@@ -101,8 +97,8 @@ export function detectPromptAwareQualityIssues(
   const metrics = collectQualityMetrics(result.root);
   const nextFeatureFlags = {
     compute: hasComputeTools(result),
-    filter: FILTER_USAGE_PATTERN.test(maskedSource),
-    theme: metrics.hasThemeStyling || THEME_REFERENCE_PATTERN.test(maskedSource) || THEME_KEYWORD_PATTERN.test(maskedSource),
+    filter: metrics.hasFilterUsage,
+    theme: metrics.hasThemeStyling,
     validation: metrics.hasValidationRules,
   };
   const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;

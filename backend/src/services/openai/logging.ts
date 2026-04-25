@@ -4,7 +4,7 @@ import { toPublicErrorPayload } from '../../errors/publicError.js';
 import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '../../prompts/openui.js';
 import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '../promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
-import { getResponseInputShape, getSystemPromptHash } from './client.js';
+import { getSystemPromptHash } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
 
 type ResponseInputItem = ResponseInput[number];
@@ -262,7 +262,7 @@ export async function writePromptIoLogSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
-        inputShape: getResponseInputShape(request),
+        inputShape: request.mode === 'repair' ? 'flat-text' : 'role-based',
         systemPromptHash: getSystemPromptHash(request.prompt),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -316,7 +316,7 @@ export async function writePromptIoFailureSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
-        inputShape: getResponseInputShape(request),
+        inputShape: request.mode === 'repair' ? 'flat-text' : 'role-based',
         systemPromptHash: getSystemPromptHash(request.prompt),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -382,6 +382,7 @@ export async function writePromptIoCommitTelemetrySafely(
     commitSource: PromptIoCommitSource;
     committed: boolean;
     parentRequestId: string | null;
+    qualityWarnings?: string[];
     repairOutcome?: PromptIoRepairOutcome;
     requestId: string | null;
     validationIssues?: string[];
@@ -396,6 +397,7 @@ export async function writePromptIoCommitTelemetrySafely(
         repairAttempt: 0,
         mode: null,
         phase: 'client-commit',
+        qualityWarnings: getSanitizedValidationIssues(options.qualityWarnings),
         validationIssues: getSanitizedValidationIssues(options.validationIssues),
         committed: options.committed,
         commitSource: options.commitSource,

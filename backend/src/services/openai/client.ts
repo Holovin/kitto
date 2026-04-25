@@ -18,28 +18,10 @@ type OpenAiClientFactory = (env: AppEnv) => OpenAiClient;
 let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenAiClientFactory | null } | null = null;
 let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
-function getSystemPrompt(prompt?: string) {
-  return buildOpenUiSystemPrompt({
-    prompt,
-  });
-}
-
-function getSystemPromptCacheKey(prompt?: string) {
-  return getOpenUiSystemPromptCacheKey({
-    prompt,
-  });
-}
-
 export function getSystemPromptHash(prompt?: string) {
   return getOpenUiSystemPromptHash({
     prompt,
   });
-}
-
-export type OpenUiResponseInputShape = 'flat-text' | 'role-based';
-
-export function getResponseInputShape(request: PromptBuildRequest): OpenUiResponseInputShape {
-  return request.mode === 'repair' ? 'flat-text' : 'role-based';
 }
 
 function createDefaultOpenAiClient(env: AppEnv): OpenAiClient {
@@ -101,7 +83,7 @@ function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: str
 }
 
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
-  const systemMessage = createTextInputMessage('system', getSystemPrompt(request.prompt));
+  const systemMessage = createTextInputMessage('system', buildOpenUiSystemPrompt({ prompt: request.prompt }));
 
   if (request.mode === 'repair') {
     return [
@@ -135,7 +117,7 @@ export function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
     model: env.OPENAI_MODEL,
     input: buildResponseInput(env, request),
     max_output_tokens: getOpenUiMaxOutputTokens(env),
-    prompt_cache_key: getSystemPromptCacheKey(request.prompt),
+    prompt_cache_key: getOpenUiSystemPromptCacheKey({ prompt: request.prompt }),
     temperature: getOpenUiTemperature(request.mode),
     text: {
       format: openUiEnvelopeFormat,
