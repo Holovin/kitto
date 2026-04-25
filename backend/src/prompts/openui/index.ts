@@ -13,9 +13,10 @@ export {
   retainPromptBuildChatHistoryTail,
 } from './chatHistoryFilter.js';
 export { shouldExcludeSummaryFromLlmContext } from './summaryContext.js';
-export { buildOpenUiRepairPrompt } from './repairPrompt.js';
+export { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages } from './repairPrompt.js';
 export {
   buildOpenUiAssistantSummaryMessage,
+  buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
   buildOpenUiUserPrompt,
 } from './userPrompt.js';

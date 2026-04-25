@@ -2,11 +2,19 @@ export type SharedOpenUiQualityIssueSeverity = 'blocking-quality' | 'fatal-quali
 
 export interface SharedOpenUiQualityIssue {
   code: string;
+  context?: SharedOpenUiQualityIssueContext;
   message: string;
   severity: SharedOpenUiQualityIssueSeverity;
   source: 'quality';
   statementId?: string;
 }
+
+export interface SharedOptionsShapeIssueContext {
+  groupId: string;
+  invalidValues: Array<number | string>;
+}
+
+export type SharedOpenUiQualityIssueContext = SharedOptionsShapeIssueContext;
 
 export interface DetectChoiceOptionsShapeIssuesOptions {
   parseExpressionValue: (expressionSource: string) => unknown;
@@ -15,6 +23,7 @@ export interface DetectChoiceOptionsShapeIssuesOptions {
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const CHOICE_CONTROL_TYPE_NAMES = ['RadioGroup', 'Select'] as const;
 const BARE_OPTIONS_MESSAGE = 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.';
+const MAX_CONTEXT_INVALID_VALUES = 20;
 
 type ComponentCallMatch = {
   args: string[];
@@ -256,18 +265,34 @@ function isBarePrimitiveChoiceOptionsArray(value: unknown): value is Array<numbe
   );
 }
 
-function collectionContainsBarePrimitiveOptions(value: unknown) {
-  return (
-    Array.isArray(value) &&
-    value.some(
-      (entry) =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        !Array.isArray(entry) &&
-        'options' in entry &&
-        isBarePrimitiveChoiceOptionsArray((entry as { options?: unknown }).options),
-    )
-  );
+function capInvalidValues(invalidValues: Array<number | string>) {
+  return invalidValues.slice(0, MAX_CONTEXT_INVALID_VALUES);
+}
+
+function getBarePrimitiveOptionValues(value: unknown) {
+  return isBarePrimitiveChoiceOptionsArray(value) ? capInvalidValues(value) : null;
+}
+
+function getCollectionBarePrimitiveOptionValues(value: unknown) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const invalidValues: Array<number | string> = [];
+
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry) || !('options' in entry)) {
+      continue;
+    }
+
+    const optionValues = getBarePrimitiveOptionValues((entry as { options?: unknown }).options);
+
+    if (optionValues) {
+      invalidValues.push(...optionValues);
+    }
+  }
+
+  return invalidValues.length > 0 ? capInvalidValues(invalidValues) : null;
 }
 
 function extractIdentifier(value: string) {
@@ -326,16 +351,36 @@ function resolveOptionsShapeIssue(
   }
 
   if (trimmedSource.startsWith('[')) {
-    return isBarePrimitiveChoiceOptionsArray(parseExpressionValue(trimmedSource))
-      ? { message: BARE_OPTIONS_MESSAGE, statementId: ownerStatementId }
+    const invalidValues = getBarePrimitiveOptionValues(parseExpressionValue(trimmedSource));
+
+    return invalidValues
+      ? {
+          context: {
+            groupId: ownerStatementId,
+            invalidValues,
+          },
+          message: BARE_OPTIONS_MESSAGE,
+          statementId: ownerStatementId,
+        }
       : null;
   }
 
   const directIdentifier = extractIdentifier(trimmedSource);
 
   if (directIdentifier && statementSources.has(directIdentifier)) {
-    return isBarePrimitiveChoiceOptionsArray(getParsedStatementValue(directIdentifier, statementSources, valueCache, parseExpressionValue))
-      ? { message: BARE_OPTIONS_MESSAGE, statementId: directIdentifier }
+    const invalidValues = getBarePrimitiveOptionValues(
+      getParsedStatementValue(directIdentifier, statementSources, valueCache, parseExpressionValue),
+    );
+
+    return invalidValues
+      ? {
+          context: {
+            groupId: directIdentifier,
+            invalidValues,
+          },
+          message: BARE_OPTIONS_MESSAGE,
+          statementId: directIdentifier,
+        }
       : null;
   }
 
@@ -346,10 +391,16 @@ function resolveOptionsShapeIssue(
     return null;
   }
 
-  return collectionContainsBarePrimitiveOptions(
+  const invalidValues = getCollectionBarePrimitiveOptionValues(
     getParsedStatementValue(declarationStatementId, statementSources, valueCache, parseExpressionValue),
   )
+
+  return invalidValues
     ? {
+        context: {
+          groupId: declarationStatementId,
+          invalidValues,
+        },
         message: `Collection \`${declarationStatementId}\` contains \`.options\` arrays with bare strings or numbers. RadioGroup/Select options must be \`{label, value}\` objects.`,
         statementId: declarationStatementId,
       }
@@ -392,6 +443,7 @@ function detectOptionsShapeIssuesInFragment(
       issues.push(
         createSharedOpenUiQualityIssue('blocking-quality', {
           code: 'quality-options-shape',
+          context: resolvedIssue.context,
           message: resolvedIssue.message,
           statementId: resolvedIssue.statementId,
         }),

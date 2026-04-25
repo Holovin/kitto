@@ -420,7 +420,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
-      temperature: 0.6,
+      temperature: 0.4,
     });
     expect(calledEnv).toBe(env);
     expect(calledRequest).toEqual({
@@ -479,7 +479,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
-      temperature: 0.6,
+      temperature: 0.4,
     });
     expect(calledRequest).toEqual({
       prompt: 'build a compact app',
@@ -557,7 +557,7 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
       summaryExcludeFromLlmContext: true,
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -726,6 +726,40 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
+  it('rejects options-shape repair issues without structured context', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        invalidDraft: 'options = ["A"]\nroot = AppShell([])',
+        mode: 'repair',
+        validationIssues: [
+          {
+            code: 'quality-options-shape',
+            message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
+            source: 'quality',
+            statementId: 'options',
+          },
+        ],
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('passes parentRequestId and validationIssues through to the OpenAI service request', async () => {
     const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
@@ -831,7 +865,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: '',
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -891,7 +925,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -928,7 +962,7 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
       summaryExcludeFromLlmContext: true,
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -984,7 +1018,7 @@ describe('createLlmOpenUiRoutes', () => {
               "qualityIssues": [],
               "source": "root = AppShell([])",
               "summary": "Builds a tiny app.",
-              "temperature": 0.6,
+              "temperature": 0.4,
             },
             "event": "done",
           },
@@ -1039,7 +1073,7 @@ describe('createLlmOpenUiRoutes', () => {
   ])
 ])`,
       summary: 'Builds a todo draft.',
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -1447,7 +1481,7 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Adds a welcome screen.',
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -1482,7 +1516,7 @@ describe('createLlmOpenUiRoutes', () => {
           "qualityIssues": [],
           "source": "root = AppShell([])",
           "summary": "Adds a welcome screen.",
-          "temperature": 0.6,
+          "temperature": 0.4,
         },
         "status": 200,
       }

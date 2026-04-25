@@ -1,8 +1,8 @@
 import type { AppEnv } from '../../env.js';
 import type { PromptBuildRequest } from './types.js';
 
-// Keep initial drafts somewhat creative, but repair passes should stay tighter.
-const INITIAL_OPENUI_TEMPERATURE = 0.6;
+// Structured OpenUI DSL output should stay conservative; repair passes stay tighter.
+const INITIAL_OPENUI_TEMPERATURE = 0.4;
 const REPAIR_OPENUI_TEMPERATURE = 0.2;
 const OPENUI_MAX_OUTPUT_TOKENS_FLOOR = 4_096;
 

@@ -75,11 +75,7 @@ function getPromptLogMode(mode: unknown): PromptIoLogMode {
 }
 
 function getPromptLogInputShape(mode: PromptIoLogMode) {
-  if (mode === 'repair') {
-    return 'flat-text' as const;
-  }
-
-  if (mode === 'initial') {
+  if (mode === 'initial' || mode === 'repair') {
     return 'role-based' as const;
   }
 
@@ -262,7 +258,7 @@ export async function writePromptIoLogSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
-        inputShape: request.mode === 'repair' ? 'flat-text' : 'role-based',
+        inputShape: 'role-based',
         systemPromptHash: getSystemPromptHash(request.prompt),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
@@ -316,7 +312,7 @@ export async function writePromptIoFailureSafely(
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
-        inputShape: request.mode === 'repair' ? 'flat-text' : 'role-based',
+        inputShape: 'role-based',
         systemPromptHash: getSystemPromptHash(request.prompt),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),

@@ -1,3 +1,5 @@
+import { getOpenUiTemperature } from './prompts/openui/requestConfig.js';
+
 export const DEFAULT_LLM_USER_PROMPT_MAX_CHARS = 4_096;
 export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = 12_288;
 export const DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS = 40;
@@ -44,6 +46,10 @@ export function getRawStructuredOutputMaxBytes(env: LlmOutputLimitSource) {
 
 export function getPublicRuntimeConfig(env: RuntimeConfigSource) {
   return {
+    generation: {
+      repairTemperature: getOpenUiTemperature('repair'),
+      temperature: getOpenUiTemperature('initial'),
+    },
     limits: {
       chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
       promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,

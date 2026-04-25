@@ -40,6 +40,10 @@ describe('createApp', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-allow-origin')).toBe('https://builder.kitto.test');
     expect(await response.json()).toEqual({
+      generation: {
+        repairTemperature: 0.2,
+        temperature: 0.4,
+      },
       limits: {
         chatHistoryMaxItems: 7,
         promptMaxChars: 321,

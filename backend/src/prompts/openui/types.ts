@@ -9,17 +9,22 @@ export interface PromptBuildValidationIssueSuggestion {
 }
 
 export interface PromptBuildUndefinedStateReferenceIssueContext {
-  exampleInitializer: string | null;
+  exampleInitializer?: string;
   refName: string;
 }
 
 export interface PromptBuildStalePersistedQueryIssueContext {
-  mutationStatementId: string;
-  path: string;
-  queryStatementIds: string[];
+  statementId: string;
+  suggestedQueryRefs: string[];
+}
+
+export interface PromptBuildOptionsShapeIssueContext {
+  groupId: string;
+  invalidValues: Array<number | string>;
 }
 
 export type PromptBuildValidationIssueContext =
+  | PromptBuildOptionsShapeIssueContext
   | PromptBuildStalePersistedQueryIssueContext
   | PromptBuildUndefinedStateReferenceIssueContext;
 

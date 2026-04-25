@@ -38,7 +38,7 @@ describe('promptLog.write', () => {
         requestBytes: 1_200,
         compactedRequestBytes: 800,
         omittedChatMessages: 2,
-        inputShape: 'flat-text',
+        inputShape: 'role-based',
         systemPromptHash: 'abc123def456',
         modelInput: {
           input: [
@@ -86,7 +86,7 @@ describe('promptLog.write', () => {
 
     expect(entry.rawUserRequest).toBe('uuuuuuuuuuuuuuuu… [truncated 24 chars]');
     expect(entry.omittedChatMessages).toBe(2);
-    expect(entry.inputShape).toBe('flat-text');
+    expect(entry.inputShape).toBe('role-based');
     expect(entry).not.toHaveProperty('compactionTrimmedItems');
     expect(entry.modelInput.input[0]?.content[0]?.text).toBe('mmmmmmmmmmmmmmmm… [truncated 24 chars]');
     expect(entry.modelOutputRaw).toBe('oooooooooooooooo… [truncated 24 chars]');
@@ -200,7 +200,7 @@ describe('promptLog.write', () => {
         requestBytes: 900,
         compactedRequestBytes: 700,
         omittedChatMessages: 1,
-        inputShape: 'flat-text',
+        inputShape: 'role-based',
         systemPromptHash: 'hash123',
         modelInput: {
           input: [{ content: [{ text: 'model input body', type: 'input_text' }], role: 'user' }],

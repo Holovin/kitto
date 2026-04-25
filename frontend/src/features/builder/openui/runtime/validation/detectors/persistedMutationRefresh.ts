@@ -64,9 +64,8 @@ export function detectPersistedMutationRefreshWarnings(result: ParseResult): Bui
         createQualityIssue({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: runRef.statementId,
-            path,
-            queryStatementIds: matchingQueryIds,
+            statementId: runRef.statementId,
+            suggestedQueryRefs: matchingQueryIds,
           },
           message: `Persisted mutation may not refresh visible query. After @Run(${runRef.statementId}), also run ${matchingQueryIds
             .map((statementId) => `@Run(${statementId})`)

@@ -144,9 +144,8 @@ describe('buildOpenUiRepairPrompt', () => {
       {
         code: 'quality-stale-persisted-query',
         context: {
-          mutationStatementId: 'addItem',
-          path: 'app.items',
-          queryStatementIds: ['items'],
+          statementId: 'addItem',
+          suggestedQueryRefs: ['items'],
         },
         message: 'Persisted mutation may not refresh visible query.',
         source: 'quality',
@@ -258,6 +257,10 @@ root = AppShell([
     const issues: PromptBuildValidationIssue[] = [
       {
         code: 'quality-options-shape',
+        context: {
+          groupId: 'questions',
+          invalidValues: ['Never gonna give you up', 'Never gonna let you down'],
+        },
         message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
         source: 'quality',
         statementId: 'questions',
@@ -275,6 +278,9 @@ root = AppShell([
     });
 
     expect(prompt).toContain('Targeted repair hints:');
+    expect(prompt).toContain(
+      'In `questions`, convert invalid option values "Never gonna give you up", "Never gonna let you down" into objects with both label and value.',
+    );
     expect(prompt).toContain('Wrap each option in `{ label: "...", value: "..." }`.');
     expect(prompt).toContain(
       'quality-options-shape in questions: RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',

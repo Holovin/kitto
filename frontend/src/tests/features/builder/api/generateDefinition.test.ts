@@ -147,7 +147,7 @@ describe('generateBuilderDefinition', () => {
         JSON.stringify({
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
-          temperature: 0.6,
+          temperature: 0.4,
         } satisfies BuilderLlmResponse),
         {
           headers: {
@@ -167,7 +167,7 @@ describe('generateBuilderDefinition', () => {
         JSON.stringify({
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
-          temperature: 0.6,
+          temperature: 0.4,
         } satisfies BuilderLlmResponse),
         {
           headers: {
@@ -189,7 +189,7 @@ describe('generateBuilderDefinition', () => {
       model: 'gpt-5.4-mini',
       qualityIssues: [],
       source: 'root = AppShell([])',
-      temperature: 0.6,
+      temperature: 0.4,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -212,7 +212,7 @@ describe('generateBuilderDefinition', () => {
             source: 'root = AppShell([])',
             summary: 'Updated the app.',
             summaryExcludeFromLlmContext: true,
-            temperature: 0.6,
+            temperature: 0.4,
           } satisfies BuilderLlmResponse),
           {
             headers: {
@@ -230,7 +230,7 @@ describe('generateBuilderDefinition', () => {
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
       summaryExcludeFromLlmContext: true,
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 
@@ -284,7 +284,7 @@ describe('generateBuilderDefinition', () => {
         JSON.stringify({
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
-          temperature: 0.6,
+          temperature: 0.4,
         } satisfies BuilderLlmResponse),
         {
           headers: {
@@ -400,7 +400,7 @@ describe('generateBuilderDefinition', () => {
             },
           ],
           source: 'root = AppShell([])',
-          temperature: 0.6,
+          temperature: 0.4,
         } satisfies BuilderLlmResponse),
           {
             headers: {
@@ -423,7 +423,7 @@ describe('generateBuilderDefinition', () => {
         },
       ],
       source: 'root = AppShell([])',
-      temperature: 0.6,
+      temperature: 0.4,
     });
   });
 });

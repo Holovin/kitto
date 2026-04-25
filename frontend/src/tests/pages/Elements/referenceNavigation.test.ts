@@ -42,6 +42,7 @@ describe('referenceNavigation', () => {
     expect(PROMPT_REFERENCE_ITEMS.map(({ label }) => label)).toEqual([
       'Backend config',
       'System prompt',
+      'Intent context',
       'User prompt template',
       'Tool specs',
       'Repair prompt',
@@ -68,7 +69,11 @@ describe('referenceNavigation', () => {
     ]);
 
     expect(PROMPT_REFERENCE_GROUPS.map(({ label }) => label)).toEqual(['Backend', 'Templates', 'Contracts']);
-    expect(PROMPT_REFERENCE_GROUPS[0]?.items.map(({ label }) => label)).toEqual(['Backend config', 'System prompt']);
+    expect(PROMPT_REFERENCE_GROUPS[0]?.items.map(({ label }) => label)).toEqual([
+      'Backend config',
+      'System prompt',
+      'Intent context',
+    ]);
   });
 
   it('resolves direct hashes to the right tab and canonical anchor id', () => {

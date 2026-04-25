@@ -12,7 +12,13 @@ import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/action
 import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import type { BuilderParseIssue, PromptInfoSystemPromptVariant, PromptInfoToolSpec, PromptsInfoResponse } from '@features/builder/types';
+import type {
+  BuilderParseIssue,
+  PromptInfoIntentContextVariant,
+  PromptInfoSystemPromptVariant,
+  PromptInfoToolSpec,
+  PromptsInfoResponse,
+} from '@features/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
 import {
   ACTION_REFERENCE_GROUPS,
@@ -64,6 +70,7 @@ type PromptReferenceSectionDefinition = {
 };
 
 type PromptReferenceFormatContext = {
+  selectedIntentContextVariantId: string;
   selectedSystemPromptVariantId: string;
 };
 
@@ -87,13 +94,19 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'System prompt',
     description:
-      'Exact intent-scoped system prompt text sent to the model, together with the hash and cache key logged in prompt I/O telemetry.',
+      'Exact stable system prompt text sent to the model, together with the hash and cache key logged in prompt I/O telemetry.',
     formatBody: (data, context) => formatSystemPromptBody(data, context.selectedSystemPromptVariantId),
+  },
+  {
+    title: 'Intent context',
+    description:
+      'Intent-specific user message sent before the final latest-request turn. It carries backend-derived intent hints, focused rules, and relevant patterns without changing the stable system prompt.',
+    formatBody: (data, context) => formatIntentContextBody(data, context.selectedIntentContextVariantId),
   },
   {
     title: 'User prompt template',
     description:
-      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, and the final user turn that defines the task.',
+      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, intent context, and the final user turn that defines the task.',
     formatBody: (data) => data.requestPromptTemplate,
   },
   {
@@ -107,7 +120,7 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
   {
     title: 'Repair prompt',
     description: (data) =>
-      `Repair-message template used as the baseline shape when the first draft needs an automatic fix pass. Automatic repair retries use temperature ${data.config.repairTemperature}.`,
+      `Role-based repair input template used when the first draft needs an automatic fix pass. Automatic repair retries use temperature ${data.config.repairTemperature}.`,
     formatBody: (data) => data.repairPromptTemplate,
   },
   {
@@ -131,10 +144,20 @@ function getSystemPromptVariants(data: PromptsInfoResponse): PromptInfoSystemPro
   return data.systemPromptVariants.length > 0 ? data.systemPromptVariants : [data.systemPrompt];
 }
 
+function getIntentContextVariants(data: PromptsInfoResponse): PromptInfoIntentContextVariant[] {
+  return data.intentContextVariants.length > 0 ? data.intentContextVariants : [data.intentContext];
+}
+
 function getSelectedSystemPromptVariant(data: PromptsInfoResponse, selectedVariantId: string) {
   const variants = getSystemPromptVariants(data);
 
   return variants.find((variant) => variant.id === selectedVariantId) ?? data.systemPrompt;
+}
+
+function getSelectedIntentContextVariant(data: PromptsInfoResponse, selectedVariantId: string) {
+  const variants = getIntentContextVariants(data);
+
+  return variants.find((variant) => variant.id === selectedVariantId) ?? data.intentContext;
 }
 
 function formatSystemPromptBody(data: PromptsInfoResponse, selectedVariantId: string) {
@@ -147,6 +170,19 @@ function formatSystemPromptBody(data: PromptsInfoResponse, selectedVariantId: st
     `sampleRequest: ${sampleRequest}`,
     `systemPromptHash: ${variant.hash}`,
     `promptCacheKey: ${variant.cacheKey}`,
+    '',
+    variant.text,
+  ].join('\n');
+}
+
+function formatIntentContextBody(data: PromptsInfoResponse, selectedVariantId: string) {
+  const variant = getSelectedIntentContextVariant(data, selectedVariantId);
+  const sampleRequest = variant.sampleRequest ?? '(empty latest user request / base intent)';
+
+  return [
+    `intent: ${variant.label}`,
+    `intentVector: ${variant.intentVector}`,
+    `sampleRequest: ${sampleRequest}`,
     '',
     variant.text,
   ].join('\n');
@@ -345,14 +381,14 @@ function PromptReferencePanel({
   );
 }
 
-function SystemPromptIntentTabs({
+function PromptVariantTabs({
   onSelect,
   selectedVariantId,
   variants,
 }: {
   onSelect: (variantId: string) => void;
   selectedVariantId: string;
-  variants: PromptInfoSystemPromptVariant[];
+  variants: Array<Pick<PromptInfoIntentContextVariant | PromptInfoSystemPromptVariant, 'id' | 'intentVector' | 'label'>>;
 }) {
   return (
     <div className="flex max-w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1 lg:justify-end" role="tablist">
@@ -608,6 +644,7 @@ export default function ElementsPage() {
   const [activeTab, setActiveTab] = useState<ReferenceTabId>(() => getInitialReferenceTab());
   const [hashTargetId, setHashTargetId] = useState<string | null>(() => getInitialReferenceTargetId());
   const [selectedSystemPromptVariantId, setSelectedSystemPromptVariantId] = useState('base');
+  const [selectedIntentContextVariantId, setSelectedIntentContextVariantId] = useState('base');
   const { data: promptsInfo, error: promptsInfoError, isError: isPromptsInfoError, isLoading: isPromptsInfoLoading } = useGetPromptsInfoQuery();
 
   useEffect(() => {
@@ -782,17 +819,19 @@ export default function ElementsPage() {
                     {group.items.map(({ label }) => {
                       const section = promptReferenceSectionByTitle.get(label as PromptReferenceSectionLabel);
                       const isSystemPromptSection = section?.title === 'System prompt';
+                      const isIntentContextSection = section?.title === 'Intent context';
                       const systemPromptVariants = promptsInfo ? getSystemPromptVariants(promptsInfo) : [];
+                      const intentContextVariants = promptsInfo ? getIntentContextVariants(promptsInfo) : [];
 
                       if (!section) {
                         return null;
                       }
 
                       const body = isPromptsInfoLoading
-                        ? 'Loading current backend prompt configuration and prompt templates.'
-                        : isPromptsInfoError || !promptsInfo
-                          ? formatPromptInfoErrorMessage(promptsInfoError)
-                          : section.formatBody(promptsInfo, { selectedSystemPromptVariantId });
+                          ? 'Loading current backend prompt configuration and prompt templates.'
+                          : isPromptsInfoError || !promptsInfo
+                            ? formatPromptInfoErrorMessage(promptsInfoError)
+                            : section.formatBody(promptsInfo, { selectedIntentContextVariantId, selectedSystemPromptVariantId });
                       const description =
                         isPromptsInfoLoading || isPromptsInfoError || !promptsInfo
                           ? typeof section.description === 'string'
@@ -817,10 +856,17 @@ export default function ElementsPage() {
                               <div className="flex max-w-3xl flex-col items-start gap-3 lg:items-end">
                                 <p className="text-sm font-medium leading-6 text-slate-500 lg:text-right">{description}</p>
                                 {isSystemPromptSection && !isPromptsInfoLoading && !isPromptsInfoError && promptsInfo ? (
-                                  <SystemPromptIntentTabs
+                                  <PromptVariantTabs
                                     selectedVariantId={selectedSystemPromptVariantId}
                                     variants={systemPromptVariants}
                                     onSelect={setSelectedSystemPromptVariantId}
+                                  />
+                                ) : null}
+                                {isIntentContextSection && !isPromptsInfoLoading && !isPromptsInfoError && promptsInfo ? (
+                                  <PromptVariantTabs
+                                    selectedVariantId={selectedIntentContextVariantId}
+                                    variants={intentContextVariants}
+                                    onSelect={setSelectedIntentContextVariantId}
                                   />
                                 ) : null}
                               </div>

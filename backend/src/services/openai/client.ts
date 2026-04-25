@@ -3,6 +3,9 @@ import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '../../env.js';
 import {
   buildOpenUiAssistantSummaryMessage,
+  buildOpenUiIntentContextPrompt,
+  buildOpenUiRawUserRequest,
+  buildOpenUiRepairRoleMessages,
   buildOpenUiSystemPrompt,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
@@ -83,22 +86,30 @@ function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: str
 }
 
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
-  const systemMessage = createTextInputMessage('system', buildOpenUiSystemPrompt({ prompt: request.prompt }));
-
   if (request.mode === 'repair') {
+    const repairMessages = buildOpenUiRepairRoleMessages({
+      attemptNumber:
+        typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
+          ? Math.floor(request.repairAttemptNumber)
+          : 1,
+      committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
+      invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
+      issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],
+      maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
+      promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
+      userPrompt: buildOpenUiRawUserRequest(request),
+    });
+
     return [
-      systemMessage,
-      createTextInputMessage(
-        'user',
-        buildOpenUiUserPrompt(request, {
-          chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-          maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-          modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
-        }),
-      ),
+      createTextInputMessage('system', [buildOpenUiSystemPrompt(), repairMessages.systemInstruction].join('\n\n')),
+      createTextInputMessage('user', repairMessages.requestContext),
+      createTextInputMessage('assistant', repairMessages.failedDraft),
+      createTextInputMessage('user', repairMessages.correctionRequest),
     ];
   }
 
+  const systemMessage = createTextInputMessage('system', buildOpenUiSystemPrompt());
+  const intentContextMessage = createTextInputMessage('user', buildOpenUiIntentContextPrompt(request));
   const recentHistory = request.chatHistory;
 
   return [
@@ -108,6 +119,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
         ? createTextInputMessage('assistant', buildOpenUiAssistantSummaryMessage(message.content))
         : createTextInputMessage('user', message.content),
     ),
+    intentContextMessage,
     createTextInputMessage('user', buildOpenUiUserPrompt(request)),
   ];
 }

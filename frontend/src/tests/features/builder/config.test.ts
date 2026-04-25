@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getBuilderGenerationConfig,
   getBuilderMaxRepairAttempts,
   getBuilderMaxRepairValidationIssues,
   getApproximateBuilderRequestSizeBytes,
@@ -18,6 +19,10 @@ const TEST_LIMITS: BuilderRequestLimits = {
   requestMaxBytes: 300_000,
 };
 const TEST_CONFIG: BuilderConfigResponse = {
+  generation: {
+    repairTemperature: 0.2,
+    temperature: 0.4,
+  },
   limits: TEST_LIMITS,
   repair: {
     maxRepairAttempts: 3,
@@ -41,6 +46,7 @@ function createRequest(overrides: Partial<BuilderLlmRequest> = {}): BuilderLlmRe
 
 describe('builder request preflight', () => {
   it('stays unresolved until /api/config has loaded', () => {
+    expect(getBuilderGenerationConfig()).toBeNull();
     expect(getBuilderMaxRepairAttempts()).toBeNull();
     expect(getBuilderRequestLimits()).toBeNull();
     expect(getBuilderStreamTimeouts()).toBeNull();
@@ -48,6 +54,7 @@ describe('builder request preflight', () => {
   });
 
   it('resolves runtime config only from /api/config data', () => {
+    expect(getBuilderGenerationConfig(TEST_CONFIG)).toEqual(TEST_CONFIG.generation);
     expect(getBuilderMaxRepairAttempts(TEST_CONFIG)).toBe(3);
     expect(getBuilderMaxRepairValidationIssues(TEST_CONFIG)).toBe(20);
     expect(getBuilderRequestLimits(TEST_CONFIG)).toEqual(TEST_LIMITS);

@@ -197,19 +197,22 @@ function dedupeToolExamples(examples: string[]) {
   return [...new Set(examples)];
 }
 
-export function buildToolExamplesForPrompt(prompt?: string) {
-  const intents =
-    typeof prompt === 'string' && prompt.trim().length > 0
-      ? detectPromptIntents(prompt)
-      : {
-          compute: false,
-          filtering: false,
-          multiScreen: false,
-          random: false,
-          theme: false,
-          todo: false,
-          validation: false,
-        };
+function getToolExampleIntents(prompt?: string) {
+  return typeof prompt === 'string' && prompt.trim().length > 0
+    ? detectPromptIntents(prompt)
+    : {
+        compute: false,
+        filtering: false,
+        multiScreen: false,
+        random: false,
+        theme: false,
+        todo: false,
+        validation: false,
+      };
+}
+
+export function buildIntentToolExamplesForPrompt(prompt?: string) {
+  const intents = getToolExampleIntents(prompt);
   const selectedExamples: string[] = [];
 
   if (intents.todo) {
@@ -238,6 +241,12 @@ export function buildToolExamplesForPrompt(prompt?: string) {
     selectedExamples.push(multiScreenExample);
   }
 
+  return dedupeToolExamples(selectedExamples);
+}
+
+export function buildToolExamplesForPrompt(prompt?: string) {
+  const selectedExamples = buildIntentToolExamplesForPrompt(prompt);
+
   if (selectedExamples.length === 0) {
     selectedExamples.push(expenseEditExample);
   }
@@ -245,4 +254,8 @@ export function buildToolExamplesForPrompt(prompt?: string) {
   selectedExamples.push(stateMutationExamples);
 
   return dedupeToolExamples(selectedExamples);
+}
+
+export function buildStableToolExamples() {
+  return dedupeToolExamples([expenseEditExample, stateMutationExamples]);
 }

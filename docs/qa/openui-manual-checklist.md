@@ -17,8 +17,8 @@ Guardrails:
 - frontend submit-time preflight must block requests whose serialized payload already exceeds `GET /api/config` `limits.requestMaxBytes`, show one clear builder error, and avoid sending that oversized request; the backend `413` limit remains the security boundary
 - backend model output above the configured byte limit must fail with a controlled `upstream_error`
 - malformed JSON envelopes, missing required `summary` / `source`, empty `source`, invalid `summary`, or extra envelope fields must fail as controlled errors instead of reaching the OpenUI parser
-- `GET /api/config` must expose frontend-safe request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
-- `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; issue-specific repair context must be structured, such as `undefined-state-reference` `context.refName` / `context.exampleInitializer` and `quality-stale-persisted-query` `context.mutationStatementId` / `context.queryStatementIds`. The backend filters history and assembles the model-visible initial conversation input plus repair prompt text
+- `GET /api/config` must expose frontend-safe generation temperatures, request limits, the stream timeout policy used by the builder UI, and `repair.maxRepairAttempts`
+- `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues; issue-specific repair context must be structured, such as `undefined-state-reference` `context.refName` / `context.exampleInitializer`, `quality-stale-persisted-query` `context.statementId` / `context.suggestedQueryRefs`, and `quality-options-shape` `context.groupId` / `context.invalidValues`. The backend filters history and assembles the model-visible initial conversation input plus repair prompt text
 - generation rate limiting and commit telemetry matching must ignore client-supplied `x-forwarded-for` and `x-real-ip` headers
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` share one process-local generation rate-limit bucket; a non-stream fallback after a pre-activity stream failure must reuse the same `x-kitto-request-id`, send `x-kitto-stream-fallback: 1`, and consume only a recorded one-use fallback exemption; an automatic repair must send `x-kitto-automatic-repair: 1`, `x-kitto-repair-for`, and `x-kitto-repair-attempt`, then consume only the recorded one-use repair exemption for that parent request and attempt
 - the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
@@ -26,14 +26,17 @@ Guardrails:
 
 ## Prompt docs page
 
-- Open `/elements`, switch to the `Prompts` tab, and verify the page renders the backend config, system prompt, user prompt template, tool specs, repair prompt, and output envelope schema sections.
+- Open `/elements`, switch to the `Prompts` tab, and verify the page renders the backend config, system prompt, intent context, user prompt template, tool specs, repair prompt, and output envelope schema sections.
 - Confirm `Output envelope schema` documents the model envelope only (`summary` + `source`) and does not describe the outer backend response payload fields such as `model` or `compaction`.
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
-- Confirm the system-prompt block shows intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text using the single `/api/prompts/info` response.
+- Confirm the system-prompt block is stable: it shows `Base`, `intentVector: base`, and one stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
+- Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
-- Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<request_intent>`, `<latest_user_request>`, optional `<current_source_inventory>`, and `<current_source>` blocks.
-- Confirm the `<request_intent>` block appears before `<latest_user_request>` and lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
+- Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
+- Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- Confirm the final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
 - Confirm the user prompt template includes a follow-up output requirement that the summary must describe the specific change made to the existing app.
@@ -44,9 +47,9 @@ Guardrails:
 
 ## Prompt baseline
 
-- Base intent-scoped structured system prompt baseline: `systemPromptHash = ebb69b47f13a54d7`, `systemPromptCharCount = 30194`.
+- Stable structured system prompt baseline: `systemPromptHash = ebb69b47f13a54d7`, `systemPromptCharCount = 30194`.
 - This replaces the older documented hash `884ba0033452bf56`.
-- Verified on 2026-04-23 from the current prompt builder in the repo.
+- Verified on 2026-04-25 from the current prompt builder in the repo.
 
 ## Runtime invariants
 
@@ -70,6 +73,7 @@ Guardrails:
 - Blocking product-quality issues may trigger automatic repair attempts up to `repair.maxRepairAttempts` before commit (default: 2 attempts) even when the draft is syntactically valid.
 - When an automatic repair request is in flight, chat should reuse the pending assistant summary card with shimmer and show `Something went wrong and your request was sent again`; if a second repair starts, the same card should update to `Something went wrong and your request was sent again (2)`.
 - Each automatic repair request should append model-visible context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before the corrected-source instruction.
+- The backend model input for automatic repair must be role-based, with the rejected draft in an assistant message and the issue/hint correction request in the final user message.
 - If all repair attempts fail, remove the pending assistant summary card and show one red error card with `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` plus an expandable dotted-underlined `Details` control containing the technical error text and any available code/status/message metadata.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.

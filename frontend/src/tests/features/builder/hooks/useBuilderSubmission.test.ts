@@ -571,6 +571,10 @@ const REDO_SOURCE = `root = AppShell([
 ])`;
 
 const DEFAULT_CONFIG = {
+  generation: {
+    repairTemperature: 0.2,
+    temperature: 0.4,
+  },
   limits: {
     chatHistoryMaxItems: 40,
     promptMaxChars: 4_096,

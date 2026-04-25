@@ -50,17 +50,22 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `Prompts` tab renders:
   - `Backend config`;
   - `System prompt`;
+  - `Intent context`;
   - `User prompt template`;
   - `Tool specs`;
   - `Repair prompt`;
   - `Output envelope schema`.
 - The system-prompt block shows a visible `systemPromptHash`.
-- The system-prompt block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, `promptCacheKey`, `systemPromptHash`, sample request, and system prompt text without issuing another prompt-info request.
+- The system-prompt block is stable: it shows the `Base` system prompt, `intentVector: base`, and a single stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
+- The `Intent context` block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, sample request, and `<intent_context>` text without issuing another prompt-info request.
+- `/api/config` exposes runtime generation temperatures for builder startup: initial `0.4` and repair `0.2`.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
-- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, and the final user turn contains the `<request_intent>`, `<latest_user_request>`, optional `<current_source_inventory>`, and `<current_source>` blocks.
-- The `<request_intent>` block lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`) before `<latest_user_request>`.
+- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
+- The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
+- The `<request_intent>` block inside `<intent_context>` lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- The final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - The optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
 - The user prompt template adds a follow-up output requirement that the summary must describe the specific change made to the existing app.
@@ -345,8 +350,10 @@ Create a complex app with two screens, filtering, a random number button, valida
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - Each automatic repair request should add model context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before asking for the corrected source.
+- The repair request sent to the model must be role-based: the rejected model draft appears in an assistant message as `<model_draft_that_failed>`, and the final user message contains `<validation_issues>` plus targeted hints before asking for the corrected `source`.
 - For `undefined-state-reference`, the repair request must carry structured issue context for the missing ref name and optional initializer example; the backend repair hint should not rely on parsing the issue message text.
-- For `quality-stale-persisted-query`, the repair request must carry structured issue context for the mutation and refresh-query statement ids; the backend repair hint should not rely on parsing the issue message text.
+- For `quality-stale-persisted-query`, the repair request must carry structured issue context as `context.statementId` plus `context.suggestedQueryRefs`; the backend repair hint should not rely on parsing the issue message text.
+- For `quality-options-shape`, the repair request must carry structured issue context as `context.groupId` plus `context.invalidValues`; the backend repair hint should not rely on parsing the issue message text.
 - If repair succeeds, the final app is valid and usable.
 - If repair fails, the pending summary card is removed, the previous Preview remains visible, `Repeat` stays available, and a red error card shows `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` with expandable `Details` for the technical validation/error text. Repair request failures may include technical code/status/message metadata in `Details`.
 - If repair fails because the repair request itself times out, the error text should explicitly mention the automatic repair timing out rather than a generic initial-generation timeout.

@@ -886,6 +886,10 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
+          context: {
+            groupId: 'rickrollOptions',
+            invalidValues: ['Never gonna give you up', 'Never gonna let you down'],
+          },
           message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
           severity: 'blocking-quality',
           source: 'quality',
@@ -923,6 +927,10 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
+          context: {
+            groupId: 'questions',
+            invalidValues: ['Never gonna give you up', 'Never gonna let you down'],
+          },
           message: expect.stringContaining('Collection `questions` contains `.options` arrays'),
           severity: 'blocking-quality',
           source: 'quality',
@@ -1229,9 +1237,8 @@ root = AppShell([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: 'addItem',
-            path: 'app.items',
-            queryStatementIds: ['items'],
+            statementId: 'addItem',
+            suggestedQueryRefs: ['items'],
           },
           message:
             'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
@@ -1270,9 +1277,8 @@ root = AppShell([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: 'toggleItem',
-            path: 'app.items',
-            queryStatementIds: ['items'],
+            statementId: 'toggleItem',
+            suggestedQueryRefs: ['items'],
           },
           message:
             'Persisted mutation may not refresh visible query. After @Run(toggleItem), also run @Run(items) later in the same Action for affected path "app.items".',
@@ -1310,9 +1316,8 @@ root = AppShell([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: 'addItem',
-            path: 'app.items',
-            queryStatementIds: ['items'],
+            statementId: 'addItem',
+            suggestedQueryRefs: ['items'],
           },
           message:
             'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',
@@ -1349,9 +1354,8 @@ root = AppShell([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: 'toggleFirst',
-            path: 'app.items.0',
-            queryStatementIds: ['items'],
+            statementId: 'toggleFirst',
+            suggestedQueryRefs: ['items'],
           },
           message:
             'Persisted mutation may not refresh visible query. After @Run(toggleFirst), also run @Run(items) later in the same Action for affected path "app.items.0".',
@@ -1383,9 +1387,8 @@ root = AppShell([
         expect.objectContaining({
           code: 'quality-stale-persisted-query',
           context: {
-            mutationStatementId: 'saveSettings',
-            path: 'app.settings',
-            queryStatementIds: ['themeValue'],
+            statementId: 'saveSettings',
+            suggestedQueryRefs: ['themeValue'],
           },
           message:
             'Persisted mutation may not refresh visible query. After @Run(saveSettings), also run @Run(themeValue) later in the same Action for affected path "app.settings".',

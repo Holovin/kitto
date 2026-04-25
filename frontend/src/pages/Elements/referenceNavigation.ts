@@ -6,6 +6,7 @@ export type ReferenceTabId = 'elements' | 'actions' | 'prompts';
 export type PromptReferenceSectionLabel =
   | 'Backend config'
   | 'System prompt'
+  | 'Intent context'
   | 'User prompt template'
   | 'Tool specs'
   | 'Repair prompt'
@@ -71,6 +72,7 @@ export const ACTION_REFERENCE_ITEMS = OPENUI_ACTION_DEFINITIONS.map((action) => 
 export const PROMPT_REFERENCE_ITEMS: ReferenceItem[] = [
   createReferenceItem('Backend config', 'prompts'),
   createReferenceItem('System prompt', 'prompts'),
+  createReferenceItem('Intent context', 'prompts'),
   createReferenceItem('User prompt template', 'prompts'),
   createReferenceItem('Tool specs', 'prompts'),
   createReferenceItem('Repair prompt', 'prompts'),
@@ -121,7 +123,7 @@ export const ACTION_REFERENCE_GROUPS = ACTION_GROUP_DEFINITIONS.map((group) =>
 const PROMPT_GROUP_DEFINITIONS = [
   {
     label: 'Backend',
-    items: ['Backend config', 'System prompt'],
+    items: ['Backend config', 'System prompt', 'Intent context'],
   },
   {
     label: 'Templates',

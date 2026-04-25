@@ -11,7 +11,7 @@ export type PromptIoLogPhase = 'client-commit' | 'intake' | 'parse' | 'request' 
 export type PromptIoRepairAttempt = 0 | 1;
 export type PromptIoRepairOutcome = 'failed' | 'fixed';
 export type PromptIoCommitSource = 'fallback' | 'streaming';
-export type PromptIoInputShape = 'flat-text' | 'role-based';
+export type PromptIoInputShape = 'role-based';
 
 interface PromptIoLogEntryFields {
   ts: string;

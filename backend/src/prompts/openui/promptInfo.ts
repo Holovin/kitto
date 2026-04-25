@@ -9,12 +9,20 @@ import {
 } from './systemPrompt.js';
 import { getPromptIntentCacheVector } from './promptIntents.js';
 import { getPromptToolSpecSummaries, type PromptToolSpecSummary } from './toolSpecs.js';
-import { buildOpenUiUserPromptTemplate } from './userPrompt.js';
+import { buildOpenUiIntentContextPrompt, buildOpenUiUserPromptTemplate } from './userPrompt.js';
 import { buildOpenUiRepairPromptTemplate } from './repairPrompt.js';
 
 export interface PromptInfoSystemPromptVariant {
   cacheKey: string;
   hash: string;
+  id: string;
+  intentVector: string;
+  label: string;
+  sampleRequest: string | null;
+  text: string;
+}
+
+export interface PromptInfoIntentContextVariant {
   id: string;
   intentVector: string;
   label: string;
@@ -35,6 +43,8 @@ export interface PromptInfoSnapshot {
     userPromptMaxChars: number;
   };
   envelopeSchema: Record<string, unknown>;
+  intentContext: PromptInfoIntentContextVariant;
+  intentContextVariants: PromptInfoIntentContextVariant[];
   repairPromptTemplate: string;
   systemPrompt: PromptInfoSystemPromptVariant;
   systemPromptVariants: PromptInfoSystemPromptVariant[];
@@ -45,6 +55,14 @@ export interface PromptInfoSnapshot {
 let cachedPromptInfoSnapshot: { cacheKey: string; snapshot: PromptInfoSnapshot } | null = null;
 
 const SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS = [
+  {
+    id: 'base',
+    label: 'Base',
+    prompt: null,
+  },
+] as const;
+
+const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
   {
     id: 'base',
     label: 'Base',
@@ -114,6 +132,25 @@ function buildSystemPromptVariant(
   };
 }
 
+function buildIntentContextVariant(
+  definition: (typeof INTENT_CONTEXT_VARIANT_DEFINITIONS)[number],
+): PromptInfoIntentContextVariant {
+  const prompt = definition.prompt ?? '';
+
+  return {
+    id: definition.id,
+    intentVector: getPromptIntentCacheVector(definition.prompt ?? undefined),
+    label: definition.label,
+    sampleRequest: definition.prompt,
+    text: buildOpenUiIntentContextPrompt({
+      chatHistory: [],
+      currentSource: '',
+      mode: 'initial',
+      prompt,
+    }),
+  };
+}
+
 export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
   const cacheKey = buildPromptInfoSnapshotCacheKey(env);
 
@@ -123,9 +160,15 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
 
   const systemPromptVariants = SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS.map(buildSystemPromptVariant);
   const baseSystemPrompt = systemPromptVariants[0];
+  const intentContextVariants = INTENT_CONTEXT_VARIANT_DEFINITIONS.map(buildIntentContextVariant);
+  const baseIntentContext = intentContextVariants[0];
 
   if (!baseSystemPrompt) {
     throw new Error('Prompt diagnostics must include a base system prompt variant.');
+  }
+
+  if (!baseIntentContext) {
+    throw new Error('Prompt diagnostics must include a base intent context variant.');
   }
 
   const snapshot: PromptInfoSnapshot = {
@@ -141,6 +184,8 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
       userPromptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
     },
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
+    intentContext: baseIntentContext,
+    intentContextVariants,
     repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),
     systemPrompt: baseSystemPrompt,
     systemPromptVariants,

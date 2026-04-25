@@ -21,7 +21,7 @@ const promptsInfoState = vi.hoisted(() => ({
       outputMaxBytes: 100_000,
       repairTemperature: 0.2,
       requestMaxBytes: 300_000,
-      temperature: 0.6,
+      temperature: 0.4,
       userPromptMaxChars: 4_096,
     },
     envelopeSchema: {
@@ -29,8 +29,31 @@ const promptsInfoState = vi.hoisted(() => ({
       required: ['summary', 'source'],
     },
     repairPromptTemplate: 'Parser-only repair example\n\nThe previous OpenUI draft cannot be committed yet.',
+    intentContext: {
+      id: 'base',
+      intentVector: 'base',
+      label: 'Base',
+      sampleRequest: null,
+      text: '<intent_context>\nBase intent context\n</intent_context>',
+    },
+    intentContextVariants: [
+      {
+        id: 'base',
+        intentVector: 'base',
+        label: 'Base',
+        sampleRequest: null,
+        text: '<intent_context>\nBase intent context\n</intent_context>',
+      },
+      {
+        id: 'todo',
+        intentVector: 't',
+        label: 'Todo',
+        sampleRequest: 'Create a todo list.',
+        text: '<intent_context>\nTodo intent context\n</intent_context>',
+      },
+    ],
     systemPrompt: {
-      cacheKey: 'kitto:openui:base:123456789abc:abcd1234efgh5678',
+      cacheKey: 'kitto:openui:base:123456789abc',
       hash: 'abcd1234efgh5678',
       id: 'base',
       intentVector: 'base',
@@ -40,22 +63,13 @@ const promptsInfoState = vi.hoisted(() => ({
     },
     systemPromptVariants: [
       {
-        cacheKey: 'kitto:openui:base:123456789abc:abcd1234efgh5678',
+        cacheKey: 'kitto:openui:base:123456789abc',
         hash: 'abcd1234efgh5678',
         id: 'base',
         intentVector: 'base',
         label: 'Base',
         sampleRequest: null,
         text: 'System prompt body',
-      },
-      {
-        cacheKey: 'kitto:openui:t:123456789abc:todo1234efgh5678',
-        hash: 'todo1234efgh5678',
-        id: 'todo',
-        intentVector: 't',
-        label: 'Todo',
-        sampleRequest: 'Create a todo list.',
-        text: 'Todo system prompt body',
       },
     ],
     toolSpecs: [
@@ -121,13 +135,14 @@ describe('ElementsPage', () => {
     expect(markup).toContain('Prompts');
     expect(markup).toContain('Backend config');
     expect(markup).toContain('System prompt');
+    expect(markup).toContain('Intent context');
     expect(markup).toContain('systemPromptHash: abcd1234efgh5678');
     expect(markup).toContain('intentVector: base');
-    expect(markup).toContain('promptCacheKey: kitto:openui:base:123456789abc:abcd1234efgh5678');
+    expect(markup).toContain('promptCacheKey: kitto:openui:base:123456789abc');
     expect(markup).toContain('Todo');
     expect(markup).toContain('echoed back in generation responses');
     expect(markup).toContain(
-      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, and the final user turn that defines the task.',
+      'Readable outline of the initial model input: stable system prompt, optional earlier turns for context, intent context, and the final user turn that defines the task.',
     );
     expect(markup).toContain('Automatic repair retries use temperature 0.2.');
     expect(markup).toContain('Tool specs');

@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 import { buildAdditionalRulesForPrompt } from './rules.js';
-import { getPromptIntentCacheVector } from './promptIntents.js';
-import { buildToolExamplesForPrompt } from './toolExamples.js';
+import { buildStableToolExamples } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
 
 interface BuildOpenUiPromptOptions {
@@ -31,13 +30,13 @@ function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
 }
 
 function buildToolExamples(options: BuildOpenUiPromptOptions = {}) {
-  return buildToolExamplesForPrompt(options.prompt);
+  void options;
+  return buildStableToolExamples();
 }
 
 function getPromptCacheToken(options: BuildOpenUiPromptOptions = {}) {
-  const intentVector = getPromptIntentCacheVector(options.prompt);
-
-  return intentVector;
+  void options;
+  return 'base';
 }
 
 function jsonSchemaTypeStr(schema: unknown): string {
@@ -429,7 +428,7 @@ function getCachedSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
     tools: toolSpecifications,
   });
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
-  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${getPromptIntentCacheVector(options.prompt)}:${componentSpecHash}:${promptHash}`;
+  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${cacheToken}:${componentSpecHash}`;
   const cachedEntry = {
     prompt,
     hash: promptHash,

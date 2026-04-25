@@ -40,9 +40,8 @@ describe('buildOpenUiUserPrompt snapshots', () => {
             {
               code: 'quality-stale-persisted-query',
               context: {
-                mutationStatementId: 'addItem',
-                path: 'app.items',
-                queryStatementIds: ['items'],
+                statementId: 'addItem',
+                suggestedQueryRefs: ['items'],
               },
               message:
                 'Persisted mutation may not refresh visible query. After @Run(addItem), also run @Run(items) later in the same Action for affected path "app.items".',

@@ -14,6 +14,10 @@ function parsePositiveInteger(value: unknown) {
   return value;
 }
 
+function parseFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function formatLimitValue(value: number) {
   return new Intl.NumberFormat().format(value);
 }
@@ -27,6 +31,11 @@ export interface BuilderRequestLimits {
 export interface BuilderStreamTimeouts {
   streamIdleTimeoutMs: number;
   streamMaxDurationMs: number;
+}
+
+export interface BuilderGenerationConfig {
+  repairTemperature: number;
+  temperature: number;
 }
 
 function compactBuilderLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
@@ -88,16 +97,37 @@ export function getBuilderStreamTimeouts(config?: BuilderConfigResponse): Builde
   };
 }
 
+export function getBuilderGenerationConfig(config?: BuilderConfigResponse): BuilderGenerationConfig | null {
+  const temperature = parseFiniteNumber(config?.generation?.temperature);
+  const repairTemperature = parseFiniteNumber(config?.generation?.repairTemperature);
+
+  if (temperature === null || repairTemperature === null) {
+    return null;
+  }
+
+  return {
+    repairTemperature,
+    temperature,
+  };
+}
+
 export function getBuilderRuntimeConfigStatus(queryState: {
   data?: BuilderConfigResponse;
   isError?: boolean;
 }): BuilderRuntimeConfigStatus {
+  const hasResolvedGenerationConfig = getBuilderGenerationConfig(queryState.data) !== null;
   const hasResolvedLimits = getBuilderRequestLimits(queryState.data) !== null;
   const hasResolvedTimeouts = getBuilderStreamTimeouts(queryState.data) !== null;
   const hasResolvedRepairPolicy = getBuilderMaxRepairAttempts(queryState.data) !== null;
   const hasResolvedRepairValidationLimit = getBuilderMaxRepairValidationIssues(queryState.data) !== null;
 
-  if (hasResolvedLimits && hasResolvedTimeouts && hasResolvedRepairPolicy && hasResolvedRepairValidationLimit) {
+  if (
+    hasResolvedGenerationConfig &&
+    hasResolvedLimits &&
+    hasResolvedTimeouts &&
+    hasResolvedRepairPolicy &&
+    hasResolvedRepairValidationLimit
+  ) {
     return 'loaded';
   }
 

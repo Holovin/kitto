@@ -55,17 +55,24 @@ export interface BuilderParseIssueSuggestion {
 }
 
 export interface BuilderUndefinedStateReferenceIssueContext {
-  exampleInitializer: string | null;
+  exampleInitializer?: string;
   refName: string;
 }
 
 export interface BuilderStalePersistedQueryIssueContext {
-  mutationStatementId: string;
-  path: string;
-  queryStatementIds: string[];
+  statementId: string;
+  suggestedQueryRefs: string[];
 }
 
-export type BuilderParseIssueContext = BuilderStalePersistedQueryIssueContext | BuilderUndefinedStateReferenceIssueContext;
+export interface BuilderOptionsShapeIssueContext {
+  groupId: string;
+  invalidValues: Array<number | string>;
+}
+
+export type BuilderParseIssueContext =
+  | BuilderOptionsShapeIssueContext
+  | BuilderStalePersistedQueryIssueContext
+  | BuilderUndefinedStateReferenceIssueContext;
 
 export interface BuilderParseIssue {
   code: string;
@@ -116,6 +123,10 @@ export interface BuilderGeneratedDraft
 }
 
 export interface BuilderConfigResponse {
+  generation: {
+    repairTemperature: number;
+    temperature: number;
+  };
   limits: {
     chatHistoryMaxItems: number;
     promptMaxChars: number;
@@ -154,6 +165,14 @@ export interface PromptInfoSystemPromptVariant {
   text: string;
 }
 
+export interface PromptInfoIntentContextVariant {
+  id: string;
+  intentVector: string;
+  label: string;
+  sampleRequest: string | null;
+  text: string;
+}
+
 export interface PromptsInfoResponse {
   config: {
     cacheKeyPrefix: string;
@@ -167,6 +186,8 @@ export interface PromptsInfoResponse {
     userPromptMaxChars: number;
   };
   envelopeSchema: Record<string, unknown>;
+  intentContext: PromptInfoIntentContextVariant;
+  intentContextVariants: PromptInfoIntentContextVariant[];
   repairPromptTemplate: string;
   systemPrompt: PromptInfoSystemPromptVariant;
   systemPromptVariants: PromptInfoSystemPromptVariant[];

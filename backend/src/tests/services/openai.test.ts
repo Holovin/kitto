@@ -216,7 +216,7 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
   expect(callArgument).toEqual(
     expect.objectContaining({
       max_output_tokens: 25_000,
-      temperature: options?.temperature ?? 0.6,
+      temperature: options?.temperature ?? 0.4,
       text: {
         format: {
           type: 'json_schema',
@@ -342,7 +342,7 @@ describe('generateOpenUiSource', () => {
     expect(responsesCreateMock.mock.calls[0]?.[0]).not.toHaveProperty('seed');
   });
 
-  it('builds role-based initial input while keeping repair requests flat-text', async () => {
+  it('builds role-based input for initial and repair requests', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-role-based',
     });
@@ -388,6 +388,15 @@ describe('generateOpenUiSource', () => {
         content: [
           {
             type: 'input_text',
+            text: expect.stringContaining('<intent_context>'),
+          },
+        ],
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
             text: expect.stringContaining('<latest_user_request>\nBuild a todo app\n</latest_user_request>'),
           },
         ],
@@ -395,10 +404,20 @@ describe('generateOpenUiSource', () => {
     ]);
     expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
     expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<request_intent>\ntodo: true');
-    expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
-    expect(repairCall?.input).toHaveLength(2);
+    expect(initialCall?.input?.[5]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
+    expect(repairCall?.input).toHaveLength(4);
+    expect(repairCall?.input?.[0]?.role).toBe('system');
+    expect(repairCall?.input?.[0]?.content?.[0]?.text).toContain('Repair-mode instruction:');
+    expect(repairCall?.input?.[0]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 2.');
     expect(repairCall?.input?.[1]?.role).toBe('user');
-    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 2.');
+    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('<original_user_request>\nBuild a todo app\n</original_user_request>');
+    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('<current_source_inventory>');
+    expect(repairCall?.input?.[2]?.role).toBe('assistant');
+    expect(repairCall?.input?.[2]?.content).toContain('<model_draft_that_failed>');
+    expect(repairCall?.input?.[2]?.content).toContain('root = AppShell([Button("broken", "Broken", "default")])');
+    expect(repairCall?.input?.[3]?.role).toBe('user');
+    expect(repairCall?.input?.[3]?.content?.[0]?.text).toContain('<validation_issues>');
+    expect(repairCall?.input?.[3]?.content?.[0]?.text).toContain('Return the corrected complete OpenUI Lang program in `source`.');
   });
 
   it('keeps the full filtered role-based history when request compaction has already finished upstream', async () => {
@@ -419,7 +438,7 @@ describe('generateOpenUiSource', () => {
 
     const initialCall = responsesCreateMock.mock.calls[0]?.[0];
 
-    expect(initialCall?.input).toHaveLength(8);
+    expect(initialCall?.input).toHaveLength(9);
     expect(initialCall?.input?.[0]).toEqual({
       role: 'system',
       content: [{ type: 'input_text', text: expect.any(String) }],
@@ -453,6 +472,10 @@ describe('generateOpenUiSource', () => {
     });
     expect(initialCall?.input?.[7]).toEqual({
       role: 'user',
+      content: [{ type: 'input_text', text: expect.stringContaining('<intent_context>') }],
+    });
+    expect(initialCall?.input?.[8]).toEqual({
+      role: 'user',
       content: [
         {
           type: 'input_text',
@@ -480,8 +503,8 @@ describe('generateOpenUiSource', () => {
 
     const initialCall = responsesCreateMock.mock.calls[0]?.[0];
 
-    expect(initialCall?.input).toHaveLength(10);
-    expect(initialCall?.input?.slice(1, -1)).toEqual([
+    expect(initialCall?.input).toHaveLength(11);
+    expect(initialCall?.input?.slice(1, -2)).toEqual([
       {
         role: 'user',
         content: [{ type: 'input_text', text: 'Create a signup form with name, email, and a required agreement checkbox.' }],
@@ -519,6 +542,10 @@ describe('generateOpenUiSource', () => {
         phase: 'final_answer',
       },
     ]);
+    expect(initialCall?.input?.at(-2)).toEqual({
+      role: 'user',
+      content: [{ type: 'input_text', text: expect.stringContaining('<intent_context>') }],
+    });
     expect(initialCall?.input?.at(-1)).toEqual({
       role: 'user',
       content: [
@@ -559,13 +586,14 @@ describe('generateOpenUiSource', () => {
     const initialSystemPrompt = initialCall?.input?.[0]?.content?.[0]?.text;
     const repairSystemPrompt = repairCall?.input?.[0]?.content?.[0]?.text;
 
-    expect(initialSystemPrompt).toBe(repairSystemPrompt);
+    expect(repairSystemPrompt).toContain('Repair-mode instruction:');
+    expect(repairSystemPrompt?.startsWith(initialSystemPrompt ?? '')).toBe(true);
     expect(initialCall?.prompt_cache_key).toBe(repairCall?.prompt_cache_key);
-    expect(initialCall?.temperature).toBe(0.6);
+    expect(initialCall?.temperature).toBe(0.4);
     expect(repairCall?.temperature).toBe(0.2);
   });
 
-  it('reuses prompt cache keys within one intent vector and varies them across different intent vectors', async () => {
+  it('reuses one stable prompt cache key while varying intent context by request', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-intent-cache',
     });
@@ -603,11 +631,11 @@ describe('generateOpenUiSource', () => {
     const themeCall = responsesCreateMock.mock.calls[2]?.[0];
 
     expect(firstTodoCall?.prompt_cache_key).toBe(secondTodoCall?.prompt_cache_key);
-    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:t:/);
-    expect(themeCall?.prompt_cache_key).toMatch(/^kitto:openui:th:/);
-    expect(firstTodoCall?.prompt_cache_key).not.toBe(themeCall?.prompt_cache_key);
+    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
+    expect(themeCall?.prompt_cache_key).toBe(firstTodoCall?.prompt_cache_key);
     expect(firstTodoCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
-    expect(themeCall?.input?.[0]?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
+    expect(themeCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
+    expect(themeCall?.input?.at(-2)?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
   });
 
   it('logs cached token usage from non-stream Responses API usage details', async () => {
@@ -734,7 +762,7 @@ describe('generateOpenUiSource', () => {
         parentRequestId: 'builder-request-parent',
         mode: 'repair',
         rawUserRequest: 'Build a todo app',
-        inputShape: 'flat-text',
+        inputShape: 'role-based',
         modelOutputRaw: 'not-json',
         parsedEnvelope: null,
         validationIssues: ['unresolved-reference', 'quality-missing-todo-controls'],

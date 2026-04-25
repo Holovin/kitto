@@ -255,6 +255,10 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
+          context: {
+            groupId: 'rickrollOptions',
+            invalidValues: ['Never gonna give you up', 'Never gonna let you down'],
+          },
           message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
           severity: 'blocking-quality',
           source: 'quality',
@@ -290,6 +294,10 @@ root = AppShell([
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-options-shape',
+          context: {
+            groupId: 'questions',
+            invalidValues: ['Never gonna give you up', 'Never gonna let you down'],
+          },
           message: expect.stringContaining('Collection `questions` contains `.options` arrays'),
           severity: 'blocking-quality',
           source: 'quality',

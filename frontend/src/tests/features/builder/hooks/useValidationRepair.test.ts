@@ -147,13 +147,22 @@ describe('sanitizeRepairValidationIssues', () => {
       {
         code: 'quality-stale-persisted-query',
         context: {
-          mutationStatementId: ' addItem ',
-          path: ' app.items ',
-          queryStatementIds: [' items ', ''],
+          statementId: ' addItem ',
+          suggestedQueryRefs: [' items ', ''],
         },
         message: 'Persisted mutation may not refresh visible query.',
         source: 'quality',
         statementId: 'addItem',
+      },
+      {
+        code: 'quality-options-shape',
+        context: {
+          groupId: ' questions ',
+          invalidValues: [' Never gonna give you up ', 7],
+        },
+        message: 'RadioGroup/Select options must be `{label, value}` objects.',
+        source: 'quality',
+        statementId: 'questions',
       },
     ];
 
@@ -177,13 +186,22 @@ describe('sanitizeRepairValidationIssues', () => {
       {
         code: 'quality-stale-persisted-query',
         context: {
-          mutationStatementId: 'addItem',
-          path: 'app.items',
-          queryStatementIds: ['items'],
+          statementId: 'addItem',
+          suggestedQueryRefs: ['items'],
         },
         message: 'Persisted mutation may not refresh visible query.',
         source: 'quality',
         statementId: 'addItem',
+      },
+      {
+        code: 'quality-options-shape',
+        context: {
+          groupId: 'questions',
+          invalidValues: [' Never gonna give you up ', 7],
+        },
+        message: 'RadioGroup/Select options must be `{label, value}` objects.',
+        source: 'quality',
+        statementId: 'questions',
       },
     ]);
   });

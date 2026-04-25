@@ -13,6 +13,8 @@ export {
 export {
   detectChoiceOptionsShapeIssues,
   type DetectChoiceOptionsShapeIssuesOptions,
+  type SharedOpenUiQualityIssueContext,
   type SharedOpenUiQualityIssue,
   type SharedOpenUiQualityIssueSeverity,
+  type SharedOptionsShapeIssueContext,
 } from './openuiQualityOptionsShape.js';

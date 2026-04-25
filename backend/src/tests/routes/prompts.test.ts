@@ -19,7 +19,7 @@ describe('GET /api/prompts/info', () => {
       },
     });
     const payload = (await response.json()) as ReturnType<typeof getPromptInfoSnapshot>;
-    const todoSystemPromptVariant = payload.systemPromptVariants.find((variant) => variant.id === 'todo');
+    const todoIntentContextVariant = payload.intentContextVariants.find((variant) => variant.id === 'todo');
 
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-allow-origin')).toBe('https://builder.kitto.test');
@@ -31,16 +31,18 @@ describe('GET /api/prompts/info', () => {
       outputMaxBytes: 120_000,
       repairTemperature: 0.2,
       requestMaxBytes: 345_678,
-      temperature: 0.6,
+      temperature: 0.4,
       userPromptMaxChars: 4_096,
     });
     expect(payload.systemPrompt).toEqual(payload.systemPromptVariants[0]);
     expect(payload.systemPrompt.id).toBe('base');
     expect(payload.systemPrompt.intentVector).toBe('base');
     expect(payload.systemPrompt.hash).toHaveLength(16);
-    expect(payload.systemPrompt.cacheKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}:[a-f0-9]{16}$/);
+    expect(payload.systemPrompt.cacheKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
-    expect(payload.systemPromptVariants.map((variant) => variant.id)).toEqual([
+    expect(payload.systemPromptVariants.map((variant) => variant.id)).toEqual(['base']);
+    expect(payload.intentContext).toEqual(payload.intentContextVariants[0]);
+    expect(payload.intentContextVariants.map((variant) => variant.id)).toEqual([
       'base',
       'todo',
       'theme',
@@ -50,18 +52,18 @@ describe('GET /api/prompts/info', () => {
       'random',
       'multi-screen',
     ]);
-    expect(todoSystemPromptVariant).toMatchObject({
+    expect(todoIntentContextVariant).toMatchObject({
       id: 'todo',
       intentVector: 't',
       label: 'Todo',
       sampleRequest: 'Create a todo list.',
     });
-    expect(todoSystemPromptVariant?.cacheKey).toMatch(/^kitto:openui:t:[a-f0-9]{12}:[a-f0-9]{16}$/);
-    expect(todoSystemPromptVariant?.text).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
-    expect(todoSystemPromptVariant?.hash).not.toBe(payload.systemPrompt.hash);
+    expect(todoIntentContextVariant?.text).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
+    expect(todoIntentContextVariant?.text).toContain('Todo/task list pattern:');
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
+    expect(payload.requestPromptTemplate).toContain('<intent_context>');
     expect(payload.requestPromptTemplate).toContain('<request_intent>');
     expect(payload.requestPromptTemplate).toContain('operation: create|modify|repair|unknown');
     expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
@@ -71,7 +73,9 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.requestPromptTemplate).toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
-    expect(payload.requestPromptTemplate).toContain('Bad summary: "Updated the app." Good summary:');
+    expect(payload.requestPromptTemplate).toContain(
+      'Bad: "Updated the app." Good: "Added a required email field with inline validation to the signup form."',
+    );
     expect(payload.requestPromptTemplate).toContain('- Summary must describe the specific change made to the existing app.');
     expect(payload.repairPromptTemplate).toContain('Parser-only repair example');
     expect(payload.repairPromptTemplate).toContain('Quality-only repair example');

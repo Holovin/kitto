@@ -127,14 +127,16 @@ function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): B
 
   const rawExampleInitializer = issue.context.exampleInitializer;
 
-  if (rawExampleInitializer !== null && typeof rawExampleInitializer !== 'string') {
+  if (rawExampleInitializer !== undefined && typeof rawExampleInitializer !== 'string') {
     return undefined;
   }
 
-  return {
-    exampleInitializer: rawExampleInitializer,
-    refName,
-  };
+  return rawExampleInitializer === undefined
+    ? { refName }
+    : {
+        exampleInitializer: rawExampleInitializer,
+        refName,
+      };
 }
 
 function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
@@ -142,29 +144,50 @@ function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): Build
     return undefined;
   }
 
-  const mutationStatementId =
-    typeof issue.context.mutationStatementId === 'string' ? issue.context.mutationStatementId.trim() : '';
-  const path = typeof issue.context.path === 'string' ? issue.context.path.trim() : '';
-  const queryStatementIds = Array.isArray(issue.context.queryStatementIds)
-    ? issue.context.queryStatementIds.flatMap((statementId) => {
+  const statementId = typeof issue.context.statementId === 'string' ? issue.context.statementId.trim() : '';
+  const suggestedQueryRefs = Array.isArray(issue.context.suggestedQueryRefs)
+    ? issue.context.suggestedQueryRefs.flatMap((statementId) => {
         const normalizedStatementId = typeof statementId === 'string' ? statementId.trim() : '';
         return normalizedStatementId ? [normalizedStatementId] : [];
       })
     : [];
 
-  if (!mutationStatementId || !path || queryStatementIds.length === 0) {
+  if (!statementId || suggestedQueryRefs.length === 0) {
     return undefined;
   }
 
   return {
-    mutationStatementId,
-    path,
-    queryStatementIds,
+    statementId,
+    suggestedQueryRefs,
+  };
+}
+
+function sanitizeOptionsShapeContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+  if (issue.code !== 'quality-options-shape' || !isRecord(issue.context)) {
+    return undefined;
+  }
+
+  const groupId = typeof issue.context.groupId === 'string' ? issue.context.groupId.trim() : '';
+  const invalidValues = Array.isArray(issue.context.invalidValues)
+    ? issue.context.invalidValues.flatMap((value) => (typeof value === 'string' || typeof value === 'number' ? [value] : []))
+    : [];
+
+  if (!groupId || invalidValues.length === 0) {
+    return undefined;
+  }
+
+  return {
+    groupId,
+    invalidValues,
   };
 }
 
 function sanitizeRepairIssueContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
-  return sanitizeUndefinedStateReferenceContext(issue) ?? sanitizeStalePersistedQueryContext(issue);
+  return (
+    sanitizeUndefinedStateReferenceContext(issue) ??
+    sanitizeStalePersistedQueryContext(issue) ??
+    sanitizeOptionsShapeContext(issue)
+  );
 }
 
 function getRepairValidationIssuePriority(issue: RepairValidationIssue) {

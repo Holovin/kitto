@@ -79,25 +79,10 @@ const TOOL_MINIMALITY_RULES = [
 
 const APPEARANCE_AND_THEME_RULES = [
   'APPEARANCE / THEME CONTRACT:',
-  'When the user asks for a shared light/dark theme, start with `$currentTheme = "light"`, define `lightTheme`, `darkTheme`, `appTheme`, and apply `root = AppShell([...], appTheme)`.',
-  'Only introduce `$currentTheme`, `lightTheme`, `darkTheme`, and theme-toggle buttons when the user asks for app-wide light/dark switching or a theme toggle.',
-  'If the request is only for color tags, accents, badges, or one-off color changes, use direct `appearance` overrides instead of shared theme state.',
-  'Use a distinct `activeThemeButton` appearance with explicit `mainColor` and `contrastColor` for the active toggle, `inactiveThemeButton = appTheme` for the inactive toggle, and conditional appearance on the active theme button.',
-  'When the goal is one shared theme, do not manually pass `appearance` to every Input, Select, RadioGroup, or other control. Let them inherit from `AppShell(..., appTheme)` first.',
-  'Children inherit appearance theme pairs from parent AppShell, Screen, Group, or Repeater containers.',
-  'Use local `appearance` only when a specific subtree or control needs an override on top of the shared theme.',
-  'Use `appearance` for visual color changes.',
-  'Use `appearance.mainColor` and `appearance.contrastColor` only.',
-  'appearance.mainColor is the main theme surface color, usually the background for containers.',
-  'appearance.contrastColor is the contrasting text or primary action color.',
-  'For Text, `appearance.contrastColor` is the text color itself. Do not treat it as a background contrast target.',
-  'Text supports only `appearance.contrastColor`. Do not pass `appearance.mainColor` to Text.',
-  'Only use #RRGGBB colors.',
-  'Use conditional appearance for active or selected buttons instead of inventing activeColor props.',
-  BUTTON_APPEARANCE_RULE,
-  'Do not use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.',
-  'Local appearance overrides inherited theme colors, and buttons use the same main/background + contrast/text mapping as other controls.',
-  'Variants are fallback styles, not the primary mechanism for theme switching.',
+  'Follow the Theme toggle pattern for shared light/dark switching: `$currentTheme`, `lightTheme`, `darkTheme`, `appTheme`, active/inactive button appearances, and `root = AppShell([...], appTheme)`.',
+  'Only introduce shared theme state and toggles when the user asks for app-wide theme switching; use direct `appearance` overrides for one-off colors, accents, badges, or selected buttons.',
+  'Parent AppShell/Screen/Group/Repeater appearances inherit through children; let controls inherit first and use local `appearance` only for a specific subtree/control override.',
+  'Use only `appearance.mainColor` and `appearance.contrastColor` as strict #RRGGBB values; Text supports only `appearance.contrastColor`; Button appearance maps mainColor to background and contrastColor to text; never use CSS, className, style, named colors, rgb(), hsl(), var(), url(), or layout styling.',
 ] as const;
 
 const COLLECTION_RULES = [
@@ -126,30 +111,12 @@ const FILTER_RULES = [
 ] as const;
 
 const INPUT_AND_VALIDATION_RULES = [
-  'Use `Checkbox(..., validation)` with a writable `$binding<boolean>` for agreement, consent, confirmation, or acknowledgement fields backed by local form state.',
-  'Use Checkbox action mode with a display-only boolean plus `Action([...])` when the checkbox itself should trigger a persisted row toggle.',
-  'Use RadioGroup or Select action mode with a display-only string plus `Action([...])` when the choice itself should trigger a persisted update.',
-  'Input supports these HTML types only: `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, `"password"`.',
-  'Use `Input(name, label, value, placeholder?, helper?, type?, validation?, appearance?)` with explicit input types for semantic fields instead of inventing custom components.',
-  'Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.',
-  'Use `Input` type `"number"` for quantity, count, amount, or other numeric fields.',
-  'When the user gives numeric bounds such as minimums or maximums, add matching `minNumber` and `maxNumber` validation rules.',
-  'Use `Input` type `"email"` for email fields and pair it with `email` validation when the field must contain a valid email address.',
-  'Use `Checkbox(..., validation)` with a `required` rule for agreement, consent, confirmation, or acknowledgement fields.',
-  'Input values always stay strings. Number inputs must stay strings in runtime state unless a tool explicitly converts them.',
-  'Date inputs store strict `YYYY-MM-DD` strings, and time inputs store browser-style `HH:mm` strings.',
-  'For due dates, store values as `YYYY-MM-DD` strings.',
-  'Use declarative validation rules only: `[{ type: "required", message: "..." }]`.',
-  'When skipping validation in a positional component call before `action` or `appearance`, pass `[]` for validation; use `null` only for helper text.',
-  'Supported validation rules are `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, and `email`.',
-  'Never generate JavaScript validators, regex validators, Function constructors, eval, or script-like validation code.',
-  'Only use validation rules that match the component and input type.',
-  'For text, textarea, and password fields, use only `required`, `minLength`, and `maxLength`.',
-  'For email fields, use only `required`, `minLength`, `maxLength`, and `email`.',
-  'For number inputs, use only `required`, `minNumber`, and `maxNumber`.',
-  'For date inputs, use only `required`, `dateOnOrAfter`, and `dateOnOrBefore`, and rule values must be literal `YYYY-MM-DD` strings.',
-  'For time inputs, selects, and radio groups, use only `required`.',
-  'For checkboxes, `required` means the checkbox must be checked.',
+  'INPUT / VALIDATION CONTRACT:',
+  'Follow the Validation form pattern for typed inputs, local `$binding` state, validation arrays, agreement checkboxes, and a submit button.',
+  'Supported Input types are `"text"`, `"email"`, `"number"`, `"date"`, `"time"`, and `"password"`; values stay strings; date/time values stay `YYYY-MM-DD` / `HH:mm`.',
+  'Use only declarative validation arrays and supported rules: `required`, `minLength`, `maxLength`, `minNumber`, `maxNumber`, `dateOnOrAfter`, `dateOnOrBefore`, and `email`; never generate JavaScript, regex, eval, or script-like validators.',
+  'Match validation rules to the component/type: text/password/textarea use required/minLength/maxLength; email can add email; number uses minNumber/maxNumber; date uses dateOnOrAfter/dateOnOrBefore literal `YYYY-MM-DD`; time/select/radio use required; checkbox required means checked.',
+  'For agreement/consent use writable Checkbox plus required validation; for persisted row toggles or saved choice updates use action mode; when skipping validation before action/appearance, pass `[]` and use `null` only for helper text.',
 ] as const;
 
 const SCREEN_AND_COMPONENT_BASE_RULES = [
@@ -169,13 +136,10 @@ const MULTI_SCREEN_RULES = [
 ] as const;
 
 const COMPUTE_TOOL_RULES = [
-  'Use Query("read_state", ...) with sensible defaults when reading persisted browser data.',
-  'Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access when they are enough.',
-  'Use `compute_value` only when normal OpenUI expressions are not enough for safe primitive calculations.',
-  'Use `write_computed_state` only when an action such as a button should compute and persist a primitive value for later rendering.',
-  'Use compute tools only for numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules.',
-  'Both compute tools return `{ value }`.',
-  'Date compute operations only accept strict YYYY-MM-DD strings.',
+  'COMPUTE TOOL CONTRACT:',
+  'Follow the Date comparison pattern or Random dice pattern when the request matches them; otherwise prefer normal OpenUI expressions and built-ins (`@Each`, `@Filter`, `@Count`, arithmetic, comparisons, ternaries, property access) before compute tools.',
+  'Use `compute_value` only for safe primitive calculations that expressions cannot cover; use `write_computed_state` only for button-triggered computed values that must persist for later rendering.',
+  'Both compute tools return `{ value }`; date compute inputs must be strict `YYYY-MM-DD`; never use compute tools for simple CRUD/list apps, navigation, filtering, or normal input display.',
 ] as const;
 
 const RANDOM_RULES = [
@@ -188,23 +152,28 @@ const RANDOM_RULES = [
   '`random_int` only accepts integer min/max options.',
 ] as const;
 
-function buildIntentSpecificRules(intents: PromptIntentVector) {
+function buildStableSystemRules() {
   return [
     ...SIMPLE_APP_RULES,
     ...CORE_PROGRAM_RULES,
     ...GENERAL_CONTROL_ACTION_MODE_RULES,
-    ...(intents.todo ? TODO_CONTROL_RULES : []),
     ...LAYOUT_RULES,
     ...TOOL_MINIMALITY_RULES,
-    ...(intents.theme ? APPEARANCE_AND_THEME_RULES : []),
     ...COLLECTION_RULES,
+    ...SCREEN_AND_COMPONENT_BASE_RULES,
+    ...PERSISTED_TOOL_AND_COMPLETENESS_RULES,
+  ];
+}
+
+function buildIntentSpecificRules(intents: PromptIntentVector) {
+  return [
+    ...(intents.todo ? TODO_CONTROL_RULES : []),
+    ...(intents.theme ? APPEARANCE_AND_THEME_RULES : []),
     ...(intents.filtering ? FILTER_RULES : []),
     ...(intents.validation ? INPUT_AND_VALIDATION_RULES : []),
-    ...SCREEN_AND_COMPONENT_BASE_RULES,
     ...(intents.multiScreen ? MULTI_SCREEN_RULES : []),
     ...(intents.compute ? COMPUTE_TOOL_RULES : []),
     ...(intents.random ? RANDOM_RULES : []),
-    ...PERSISTED_TOOL_AND_COMPLETENESS_RULES,
   ];
 }
 
@@ -242,7 +211,11 @@ const PERSISTED_TOOL_AND_COMPLETENESS_RULES = [
   'Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them.',
 ] as const;
 
-export function buildAdditionalRulesForPrompt(prompt: string | undefined) {
+export function buildAdditionalRulesForPrompt(_prompt: string | undefined) {
+  return buildStableSystemRules();
+}
+
+export function buildIntentSpecificRulesForPrompt(prompt: string | undefined) {
   const intents = typeof prompt === 'string' && prompt.trim().length > 0 ? detectPromptIntents(prompt) : BASE_PROMPT_INTENTS;
 
   return buildIntentSpecificRules(intents);

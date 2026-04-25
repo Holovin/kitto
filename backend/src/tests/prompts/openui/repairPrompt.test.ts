@@ -85,7 +85,6 @@ describe('repair prompt assembly', () => {
         {
           code: 'undefined-state-reference',
           context: {
-            exampleInitializer: null,
             refName: '$filter',
           },
           message: 'State reference `$filter` is missing a top-level declaration with a literal initial value.',
@@ -123,6 +122,10 @@ describe('repair prompt assembly', () => {
       },
       {
         code: 'quality-options-shape',
+        context: {
+          groupId: 'questions',
+          invalidValues: ['Never gonna give you up'],
+        },
         message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
         source: 'quality',
         statementId: 'questions',
@@ -194,6 +197,10 @@ describe('repair prompt assembly', () => {
     const issues: PromptBuildValidationIssue[] = [
       {
         code: 'quality-options-shape',
+        context: {
+          groupId: 'questions',
+          invalidValues: ['Never gonna give you up'],
+        },
         message: 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.',
         source: 'quality',
         statementId: 'questions',

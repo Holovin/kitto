@@ -61,17 +61,25 @@ interface CompactedLlmRequest {
 const stateReferenceNameSchema = z.string().trim().min(1).max(200).regex(/^\$[A-Za-z_][\w$]*$/);
 
 const undefinedStateReferenceContextSchema = z.object({
-  exampleInitializer: z.string().max(1_000).nullable(),
+  exampleInitializer: z.string().max(1_000).optional(),
   refName: stateReferenceNameSchema,
 });
 
 const stalePersistedQueryContextSchema = z.object({
-  mutationStatementId: z.string().trim().min(1).max(200),
-  path: z.string().trim().min(1).max(500),
-  queryStatementIds: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
+  statementId: z.string().trim().min(1).max(200),
+  suggestedQueryRefs: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
 });
 
-const validationIssueContextSchema = z.union([undefinedStateReferenceContextSchema, stalePersistedQueryContextSchema]);
+const optionsShapeContextSchema = z.object({
+  groupId: z.string().trim().min(1).max(200),
+  invalidValues: z.array(z.union([z.string().max(1_000), z.number().finite()])).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
+});
+
+const validationIssueContextSchema = z.union([
+  undefinedStateReferenceContextSchema,
+  stalePersistedQueryContextSchema,
+  optionsShapeContextSchema,
+]);
 
 const validationIssueSchema = z
   .object({
@@ -102,10 +110,22 @@ const validationIssueSchema = z
     }
 
     if (issue.code === 'quality-stale-persisted-query') {
-      if (!issue.context || !('queryStatementIds' in issue.context)) {
+      if (!issue.context || !('suggestedQueryRefs' in issue.context)) {
         context.addIssue({
           code: 'custom',
           message: 'quality-stale-persisted-query issues require structured context.',
+          path: ['context'],
+        });
+      }
+
+      return;
+    }
+
+    if (issue.code === 'quality-options-shape') {
+      if (!issue.context || !('invalidValues' in issue.context)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'quality-options-shape issues require structured context.',
           path: ['context'],
         });
       }
