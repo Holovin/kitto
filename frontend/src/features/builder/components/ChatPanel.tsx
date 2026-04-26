@@ -32,24 +32,28 @@ interface ChatPanelProps {
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
+const MESSAGE_BUBBLE_BASE_CLASS = 'max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6';
+const MESSAGE_STREAMING_BUBBLE_CLASS = 'chat-summary-shimmer relative overflow-hidden';
+
+const MESSAGE_ROLE_BUBBLE_CLASSES = {
+  assistant: 'border-slate-200 bg-slate-100 text-slate-700',
+  system: 'border-slate-200 bg-white text-slate-700',
+  user: 'ml-auto border-slate-900 bg-slate-950 text-white',
+} satisfies Record<BuilderChatMessage['role'], string>;
+
+const SYSTEM_MESSAGE_TONE_BUBBLE_CLASSES = {
+  default: MESSAGE_ROLE_BUBBLE_CLASSES.system,
+  error: 'border-rose-200 bg-rose-50 text-rose-700',
+  info: MESSAGE_ROLE_BUBBLE_CLASSES.system,
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+} satisfies Record<NonNullable<BuilderChatMessage['tone']>, string>;
+
 function getMessageBubbleClasses(message: BuilderChatMessage) {
-  if (message.role === 'user') {
-    return 'ml-auto border-slate-900 bg-slate-950 text-white';
+  if (message.role === 'system') {
+    return SYSTEM_MESSAGE_TONE_BUBBLE_CLASSES[message.tone ?? 'default'];
   }
 
-  if (message.role === 'assistant') {
-    return 'border-slate-200 bg-slate-100 text-slate-700';
-  }
-
-  if (message.tone === 'error') {
-    return 'border-rose-200 bg-rose-50 text-rose-700';
-  }
-
-  if (message.tone === 'success') {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-  }
-
-  return 'border-slate-200 bg-white text-slate-700';
+  return MESSAGE_ROLE_BUBBLE_CLASSES[message.role];
 }
 
 const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message: BuilderChatMessage }) {
@@ -61,8 +65,8 @@ const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message
     <article
       aria-busy={isStreamingAssistantMessage || undefined}
       className={cn(
-        'max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6',
-        isStreamingAssistantMessage && 'chat-summary-shimmer relative overflow-hidden',
+        MESSAGE_BUBBLE_BASE_CLASS,
+        isStreamingAssistantMessage && MESSAGE_STREAMING_BUBBLE_CLASS,
         getMessageBubbleClasses(message),
       )}
     >
