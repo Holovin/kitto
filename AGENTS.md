@@ -23,6 +23,7 @@ Steps:
 - Tests must live under `frontend/src/tests/**` or `backend/src/tests/**`. Mirror the source structure inside those folders and do not colocate test files next to production modules.
 - Frontend tests are type-checked by the reviewer build path via `tsc -b`. Keep test fixtures fully type-safe, and explicitly type empty arrays in fixtures when needed to avoid accidental `never[]` inference.
 - After code changes, run the relevant existing tests for the touched feature area before finishing. If the change is substantial and that area has no meaningful tests yet, add targeted tests for it. Do not add tests for every tiny refactor or trivial copy change.
+- Do not preserve legacy code paths, compatibility wrappers, transitional adapters, or dual old/new implementations unless the user explicitly asks for backward compatibility or the repository contract requires it.
 - Documentation must not contain absolute local filesystem paths, local file URLs, usernames, home-directory references, tokens, API keys, secrets, or other personal or machine-specific data. Use plain text or project-relative paths only.
 
 ## Project Context
