@@ -55,6 +55,7 @@ export function serializeJsonForHtmlScript(value: unknown): string {
 }
 
 function createStandaloneHtmlPayload(payload: KittoStandalonePayload): KittoStandalonePayload {
+  // Allowlist fields before embedding the payload in exported HTML
   return {
     version: payload.version,
     kind: payload.kind,

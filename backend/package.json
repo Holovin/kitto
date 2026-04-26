@@ -12,7 +12,7 @@
   },
   "scripts": {
     "predev": "npm --prefix .. run build --workspace @kitto-openui/shared",
-    "dev": "tsx --conditions=tsx watch src/index.ts",
+    "dev": "tsx watch --conditions=tsx src/index.ts",
     "prebuild": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "build": "tsc -p tsconfig.json",
     "prelint": "npm --prefix .. run build --workspace @kitto-openui/shared",
