@@ -34,7 +34,7 @@ Guardrails:
 - Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
-- Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
+- Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - Confirm the final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
@@ -73,7 +73,7 @@ Guardrails:
 - Blocking product-quality issues may trigger automatic repair attempts up to `repair.maxRepairAttempts` before commit (default: 2 attempts) even when the draft is syntactically valid.
 - When an automatic repair request is in flight, chat should reuse the pending assistant summary card with shimmer and show `Something went wrong and your request was sent again`; if a second repair starts, the same card should update to `Something went wrong and your request was sent again (2)`.
 - Each automatic repair request should append model-visible context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before the corrected-source instruction.
-- The backend model input for automatic repair must be role-based, with the rejected draft in an assistant message and the issue/hint correction request in the final user message.
+- The backend model input for automatic repair must be role-based, with recent filtered conversation context in a bounded `<conversation_context>` block when available, the rejected draft in an assistant message, and the issue/hint correction request in the final user message.
 - If all repair attempts fail, remove the pending assistant summary card and show one red error card with `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` plus an expandable dotted-underlined `Details` control containing the technical error text and any available code/status/message metadata.
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
@@ -102,7 +102,7 @@ Guardrails:
 - Leaving `/chat` mid-generation clears the in-progress request without appending a red chat error or committing partial source.
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Successful JSON import, demo load, and builder reset start fresh builder chat context for the new app or blank canvas; stale pre-change user requests must not be sent on the next generation.
-- Undo, redo, and builder reset also stay available during generation; each must abort the active request first, apply the requested snapshot change, and ignore any late response from the cancelled run.
+- Undo, redo, and builder reset in the chat toolbar are disabled during generation; use `Cancel` first before changing builder history or clearing the builder.
 - Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
@@ -112,9 +112,9 @@ Guardrails:
 - A pristine blank builder with no committed version history shows `—` in the chat toolbar.
 - Undo/redo keep a single rewind-status system chat message and update it in place rather than stacking multiple rewind notices.
 - The rewind-status system chat message includes the same visible version number shown in the toolbar.
-- `Reset` stays enabled whenever any committed version history exists, including the `0 / M` state after undoing back to a blank canvas.
-- `Reset` is disabled only in the pristine empty builder state immediately after a fresh open or after `Reset`.
-- `Reset` stays enabled whenever committed preview content exists, version history exists, or a rejected cached/imported definition is visible.
+- `Reset` stays enabled whenever any committed version history exists, including the `0 / M` state after undoing back to a blank canvas, unless a generation is active.
+- `Reset` is disabled in the pristine empty builder state immediately after a fresh open or after `Reset`, and while a generation is active.
+- `Reset` stays enabled whenever committed preview content exists, version history exists, or a rejected cached/imported definition is visible, unless a generation is active.
 - Internal preview clicks do not call the LLM; only chat submissions should hit the generation endpoints, and the builder may additionally send `/api/llm/commit-telemetry` after validation or commit outcomes tied to real generation responses.
 - Standalone HTML export always uses the committed source and the committed snapshot baseline runtime/domain state, not the builder’s current live clicked state.
 - Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.
@@ -498,8 +498,8 @@ Builder controls that should stay working alongside generated apps:
 - standalone HTML export
 - builder feedback and backend connection notices append as chat history messages at the end of the dialog instead of showing a top feedback banner
 - invalid import should show Definition validation issues without replacing the current preview or wiping chat, undo/redo history, runtime state, or persisted data
-- undo/redo
-- reset
+- undo/redo when generation is not active
+- reset when generation is not active
 
 ## Acceptance criteria
 

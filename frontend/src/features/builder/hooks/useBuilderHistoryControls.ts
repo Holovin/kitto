@@ -17,18 +17,18 @@ import {
   selectHasChatMessages,
   selectHasRejectedDefinition,
   selectHistory,
+  selectIsStreaming,
   selectRedoHistory,
 } from '@features/builder/store/selectors';
 import type { BuilderChatNotice } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { resetAppState } from '@store/errorRecovery';
+import { store } from '@store/store';
 
 interface UseBuilderHistoryControlsOptions {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
-
-type ExternalSnapshotChangeReason = 'import' | 'redo' | 'reset-to-empty' | 'undo';
 
 let standaloneHtmlModulePromise: Promise<typeof import('@features/builder/standalone/createStandaloneHtml')> | null = null;
 
@@ -79,6 +79,10 @@ function preloadStandaloneHtmlModule() {
     });
 }
 
+function hasActiveGeneration() {
+  return selectIsStreaming(store.getState());
+}
+
 export function useBuilderHistoryControls({
   cancelActiveRequestRef,
   onSystemNotice,
@@ -89,6 +93,7 @@ export function useBuilderHistoryControls({
   const committedSource = useAppSelector(selectCommittedSource);
   const history = useAppSelector(selectHistory);
   const hasRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
+  const isStreaming = useAppSelector(selectIsStreaming);
   const redoHistory = useAppSelector(selectRedoHistory);
   const previousSnapshot = history.at(-2);
   const redoSnapshot = redoHistory.at(-1);
@@ -127,11 +132,6 @@ export function useBuilderHistoryControls({
         tone: 'error',
       }),
     );
-  }
-
-  function abortActiveGenerationIfAny(reason: ExternalSnapshotChangeReason) {
-    void reason;
-    cancelActiveRequestRef.current?.();
   }
 
   function handleExport() {
@@ -205,7 +205,7 @@ export function useBuilderHistoryControls({
       return;
     }
 
-    abortActiveGenerationIfAny('import');
+    cancelActiveRequestRef.current?.();
 
     try {
       const rawValue = await file.text();
@@ -252,33 +252,30 @@ export function useBuilderHistoryControls({
   }
 
   function handleUndo() {
-    if (!previousSnapshot) {
+    if (hasActiveGeneration() || !previousSnapshot) {
       return;
     }
 
-    abortActiveGenerationIfAny('undo');
     dispatch(domainActions.replaceData(previousSnapshot.domainData));
     dispatch(builderSessionActions.replaceRuntimeSessionState(previousSnapshot.runtimeState));
     dispatch(builderActions.undoLatest());
   }
 
   function handleRedo() {
-    if (!redoSnapshot) {
+    if (hasActiveGeneration() || !redoSnapshot) {
       return;
     }
 
-    abortActiveGenerationIfAny('redo');
     dispatch(domainActions.replaceData(redoSnapshot.domainData));
     dispatch(builderSessionActions.replaceRuntimeSessionState(redoSnapshot.runtimeState));
     dispatch(builderActions.redoLatest());
   }
 
   function handleResetToEmpty() {
-    if (!historyVersionState.canReset) {
+    if (hasActiveGeneration() || !historyVersionState.canReset) {
       return;
     }
 
-    abortActiveGenerationIfAny('reset-to-empty');
     onSystemNotice(null);
     resetAppState();
     onSystemNotice({
@@ -291,9 +288,9 @@ export function useBuilderHistoryControls({
   return {
     canExport: !isPristineCanvas,
     canDownloadStandalone: committedSource.trim().length > 0,
-    canRedo: historyVersionState.canRedo,
-    canReset: historyVersionState.canReset,
-    canUndo: historyVersionState.canUndo,
+    canRedo: !isStreaming && historyVersionState.canRedo,
+    canReset: !isStreaming && historyVersionState.canReset,
+    canUndo: !isStreaming && historyVersionState.canUndo,
     fileInputRef,
     preloadStandaloneHtml: preloadStandaloneHtmlModule,
     handleDownloadStandalone,

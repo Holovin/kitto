@@ -62,7 +62,7 @@ describe('getBuilderHistoryVersionState', () => {
     });
   });
 
-  it('keeps undo, redo, and reset available during a request so they can abort and replace the active generation', () => {
+  it('keeps undo, redo, and reset available when history and content allow them', () => {
     expect(
       getBuilderHistoryVersionState({
         committedSource: 'root = AppShell([])',

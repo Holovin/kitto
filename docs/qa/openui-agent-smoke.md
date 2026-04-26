@@ -63,7 +63,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
-- The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
+- The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - The `<request_intent>` block inside `<intent_context>` lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - The final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - The optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
@@ -300,7 +300,7 @@ Show a warning if the name field is empty.
 - The follow-up commit may reset local runtime state instead of migrating screen/form variables across source versions.
 - Undo restores previous committed app.
 - Redo restores redone app.
-- If undo or redo starts while a generation is still running, the generation is cancelled first and a late response does not overwrite the restored version.
+- While a generation is still running, the chat toolbar previous-version, next-version, and reset buttons are disabled; use `Cancel` before changing builder history.
 - No rejected draft becomes committed after reload.
 - No stale runtime error remains visible after a valid source change.
 
@@ -350,7 +350,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - Each automatic repair request should add model context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before asking for the corrected source.
-- The repair request sent to the model must be role-based: the rejected model draft appears in an assistant message as `<model_draft_that_failed>`, and the final user message contains `<validation_issues>` plus targeted hints before asking for the corrected `source`.
+- The repair request sent to the model must be role-based: recent filtered conversation context appears in the user repair-context message as bounded `<conversation_context>` when available, the rejected model draft appears in an assistant message as `<model_draft_that_failed>`, and the final user message contains `<validation_issues>` plus targeted hints before asking for the corrected `source`.
 - For `undefined-state-reference`, the repair request must carry structured issue context for the missing ref name and optional initializer example; the backend repair hint should not rely on parsing the issue message text.
 - For `quality-stale-persisted-query`, the repair request must carry structured issue context as `context.statementId` plus `context.suggestedQueryRefs`; the backend repair hint should not rely on parsing the issue message text.
 - For `quality-options-shape`, the repair request must carry structured issue context as `context.groupId` plus `context.invalidValues`; the backend repair hint should not rely on parsing the issue message text.
@@ -402,6 +402,7 @@ Skip if standalone export is intentionally disabled.
 ### Expected
 
 - Cancel stops generation.
+- Chat toolbar previous-version, next-version, and reset buttons stay disabled until the generation is cancelled or otherwise finishes.
 - No scary red error appears for intentional cancel.
 - One neutral system chat message confirms that the user cancelled the in-flight generation.
 - Partial draft is not committed.

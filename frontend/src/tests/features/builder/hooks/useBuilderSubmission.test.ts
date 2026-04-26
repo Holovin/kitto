@@ -2424,7 +2424,7 @@ describe('useBuilderSubmission', () => {
     historyControls.unmount();
   });
 
-  it('aborts the active request when undo starts and keeps the undone source over a late response', async () => {
+  it('disables undo while a request is active and lets the generation finish', async () => {
     seedHistorySources(UNDO_SOURCE, REDO_SOURCE);
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
@@ -2437,26 +2437,31 @@ describe('useBuilderSubmission', () => {
       return streamResult.promise;
     });
 
+    const staleHistoryControls = historyControls.result();
     const requestPromise = submission.result().handleSubmit(createFormEvent());
+    const activeHistoryControls = historyControls.rerender();
 
-    historyControls.result().handleUndo();
+    expect(activeHistoryControls.canUndo).toBe(false);
 
-    expect(requestSignal?.aborted).toBe(true);
-    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
-    expect(getBuilderState().currentRequestId).toBeNull();
+    staleHistoryControls.handleUndo();
+    activeHistoryControls.handleUndo();
+
+    expect(requestSignal?.aborted).toBe(false);
+    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+    expect(getBuilderState().currentRequestId).not.toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
     });
     await requestPromise;
 
-    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+    expect(getBuilderState().committedSource).toBe(FIRST_REQUEST_LATE_SOURCE);
 
     historyControls.unmount();
     submission.unmount();
   });
 
-  it('aborts the active request when redo starts and keeps the redone source over a late response', async () => {
+  it('disables redo while a request is active and lets the generation finish', async () => {
     seedHistorySources(UNDO_SOURCE, REDO_SOURCE);
     const store = testHarness.storeRef.current;
 
@@ -2476,26 +2481,31 @@ describe('useBuilderSubmission', () => {
       return streamResult.promise;
     });
 
+    const staleHistoryControls = historyControls.result();
     const requestPromise = submission.result().handleSubmit(createFormEvent());
+    const activeHistoryControls = historyControls.rerender();
 
-    historyControls.result().handleRedo();
+    expect(activeHistoryControls.canRedo).toBe(false);
 
-    expect(requestSignal?.aborted).toBe(true);
-    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
-    expect(getBuilderState().currentRequestId).toBeNull();
+    staleHistoryControls.handleRedo();
+    activeHistoryControls.handleRedo();
+
+    expect(requestSignal?.aborted).toBe(false);
+    expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+    expect(getBuilderState().currentRequestId).not.toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
     });
     await requestPromise;
 
-    expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+    expect(getBuilderState().committedSource).toBe(FIRST_REQUEST_LATE_SOURCE);
 
     historyControls.unmount();
     submission.unmount();
   });
 
-  it('aborts the active request when reset starts and keeps the reset canvas over a late response', async () => {
+  it('disables reset while a request is active and lets the generation finish', async () => {
     seedCommittedSource(PREVIOUS_SOURCE);
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
@@ -2508,20 +2518,25 @@ describe('useBuilderSubmission', () => {
       return streamResult.promise;
     });
 
+    const staleHistoryControls = historyControls.result();
     const requestPromise = submission.result().handleSubmit(createFormEvent());
+    const activeHistoryControls = historyControls.rerender();
 
-    historyControls.result().handleResetToEmpty();
+    expect(activeHistoryControls.canReset).toBe(false);
 
-    expect(requestSignal?.aborted).toBe(true);
-    expect(getBuilderState().committedSource).toBe('');
-    expect(getBuilderState().currentRequestId).toBeNull();
+    staleHistoryControls.handleResetToEmpty();
+    activeHistoryControls.handleResetToEmpty();
+
+    expect(requestSignal?.aborted).toBe(false);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().currentRequestId).not.toBeNull();
 
     streamResult.resolve({
       source: FIRST_REQUEST_LATE_SOURCE,
     });
     await requestPromise;
 
-    expect(getBuilderState().committedSource).toBe('');
+    expect(getBuilderState().committedSource).toBe(FIRST_REQUEST_LATE_SOURCE);
 
     historyControls.unmount();
     submission.unmount();
