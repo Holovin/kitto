@@ -1,4 +1,4 @@
-import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
+import type { PromptBuildRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
 import { createPartialOpenUiEnvelopeParser, isMalformedStructuredChunk } from './partialOpenUiEnvelope';
 import { createBuilderRequestError, createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
@@ -20,7 +20,7 @@ interface StreamBuilderDefinitionOptions {
   onSummary?: (summary: string) => void;
   onTimeout?: (kind: BuilderStreamTimeoutKind) => void;
   requestId?: string;
-  request: BuilderLlmRequest;
+  request: PromptBuildRequest;
   signal?: AbortSignal;
 }
 

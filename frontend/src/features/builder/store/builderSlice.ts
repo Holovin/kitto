@@ -6,7 +6,7 @@ import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultS
 import { cloneBuilderSnapshot, createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
-import type { BuilderChatMessage, BuilderParseIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
+import type { BuilderChatMessage, PromptBuildValidationIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from './path';
 
@@ -14,7 +14,7 @@ const MAX_HISTORY_ITEMS = 25;
 // UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
 export const MAX_UI_MESSAGES = 200;
 const BUILDER_CHAT_TONES = new Set<NonNullable<BuilderChatMessage['tone']>>(['default', 'error', 'info', 'success']);
-const BUILDER_PARSE_ISSUE_SOURCES = new Set<NonNullable<BuilderParseIssue['source']>>([
+const BUILDER_PARSE_ISSUE_SOURCES = new Set<NonNullable<PromptBuildValidationIssue['source']>>([
   'mutation',
   'parser',
   'quality',
@@ -23,7 +23,7 @@ const BUILDER_PARSE_ISSUE_SOURCES = new Set<NonNullable<BuilderParseIssue['sourc
 ]);
 
 interface NormalizedRejectedSource {
-  issues: BuilderParseIssue[];
+  issues: PromptBuildValidationIssue[];
   source: string;
 }
 
@@ -152,7 +152,7 @@ function normalizeChatMessages(value: unknown) {
   return normalizedMessages.length > 0 ? trimUiMessages(normalizedMessages) : createInitialChatMessages();
 }
 
-function normalizeParseIssueSuggestion(value: unknown): BuilderParseIssue['suggestion'] | undefined {
+function normalizeParseIssueSuggestion(value: unknown): PromptBuildValidationIssue['suggestion'] | undefined {
   if (
     !isRecord(value) ||
     value.kind !== 'replace-text' ||
@@ -169,7 +169,7 @@ function normalizeParseIssueSuggestion(value: unknown): BuilderParseIssue['sugge
   };
 }
 
-function normalizeParseIssues(value: unknown): BuilderParseIssue[] {
+function normalizeParseIssues(value: unknown): PromptBuildValidationIssue[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -179,7 +179,7 @@ function normalizeParseIssues(value: unknown): BuilderParseIssue[] {
       return [];
     }
 
-    const normalizedIssue: BuilderParseIssue = {
+    const normalizedIssue: PromptBuildValidationIssue = {
       code: issue.code,
       message: issue.message,
     };
@@ -190,9 +190,9 @@ function normalizeParseIssues(value: unknown): BuilderParseIssue[] {
 
     if (
       typeof issue.source === 'string' &&
-      BUILDER_PARSE_ISSUE_SOURCES.has(issue.source as NonNullable<BuilderParseIssue['source']>)
+      BUILDER_PARSE_ISSUE_SOURCES.has(issue.source as NonNullable<PromptBuildValidationIssue['source']>)
     ) {
-      normalizedIssue.source = issue.source as BuilderParseIssue['source'];
+      normalizedIssue.source = issue.source as PromptBuildValidationIssue['source'];
     }
 
     const suggestion = normalizeParseIssueSuggestion(issue.suggestion);
@@ -209,7 +209,7 @@ function validateRestoredSource(source: string) {
   if (!source.trim()) {
     return {
       isValid: true,
-      issues: [] as BuilderParseIssue[],
+      issues: [] as PromptBuildValidationIssue[],
     };
   }
 
@@ -301,12 +301,12 @@ interface BuilderState {
   chatMessages: BuilderChatMessage[];
   committedSource: string;
   currentRequestId: BuilderRequestId | null;
-  definitionWarnings: BuilderParseIssue[];
+  definitionWarnings: PromptBuildValidationIssue[];
   draftPrompt: string;
   hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
   lastStreamChunkAt: number | null;
-  parseIssues: BuilderParseIssue[];
+  parseIssues: PromptBuildValidationIssue[];
   redoHistory: BuilderSnapshot[];
   retryPrompt: string | null;
   streamError: string | null;
@@ -448,7 +448,7 @@ export const builderSlice = createSlice({
         skipDefaultAssistantMessage?: boolean;
         snapshot: BuilderSnapshot;
         source: string;
-        warnings: BuilderParseIssue[];
+        warnings: PromptBuildValidationIssue[];
       }>,
     ) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -531,7 +531,7 @@ export const builderSlice = createSlice({
     rejectDefinition(
       state,
       action: PayloadAction<{
-        issues: BuilderParseIssue[];
+        issues: PromptBuildValidationIssue[];
         message?: string;
         source: string;
       }>,
@@ -545,7 +545,7 @@ export const builderSlice = createSlice({
       state.streamedSource = action.payload.source;
       state.parseIssues = action.payload.issues;
     },
-    setParseIssues(state, action: PayloadAction<BuilderParseIssue[]>) {
+    setParseIssues(state, action: PayloadAction<PromptBuildValidationIssue[]>) {
       state.parseIssues = action.payload;
       state.hasRejectedDefinition = isRejectedDefinitionState(state);
     },

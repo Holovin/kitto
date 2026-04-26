@@ -1,6 +1,6 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import type { BuilderParseIssue, BuilderQualityIssueSeverity } from '@features/builder/types';
+import type { PromptBuildValidationIssue, BuilderQualityIssueSeverity } from '@features/builder/types';
 import type { OpenUiProgramIndex } from '@kitto-openui/shared/openuiAst.js';
 
 export {
@@ -54,7 +54,7 @@ export const componentSchemaDefinitions = (openUiJsonSchema.$defs ?? {}) as Reco
 
 export interface OpenUiValidationResult {
   isValid: boolean;
-  issues: BuilderParseIssue[];
+  issues: PromptBuildValidationIssue[];
 }
 
 export interface OpenUiValidationContext {
@@ -72,21 +72,21 @@ export interface OpenUiFunctionCallMatch {
 export type ToolAst = ParseResult['queryStatements'][number]['toolAST'] | ParseResult['mutationStatements'][number]['toolAST'];
 export type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
 
-export interface OpenUiQualityIssue extends BuilderParseIssue {
+export interface OpenUiQualityIssue extends PromptBuildValidationIssue {
   severity: OpenUiQualityIssueSeverity;
 }
 
 export const ACTION_MODE_CHOICE_COMPONENT_NAMES = new Set(['RadioGroup', 'Select']);
 export const RESERVED_INLINE_TOOL_CALL_NAMES = new Set(['Mutation', 'Query']);
 
-export function createParserIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderParseIssue {
+export function createParserIssue(issue: Omit<PromptBuildValidationIssue, 'source'>): PromptBuildValidationIssue {
   return {
     ...issue,
     source: 'parser',
   };
 }
 
-export function createQualityIssue(issue: Omit<BuilderParseIssue, 'source'>): BuilderParseIssue {
+export function createQualityIssue(issue: Omit<PromptBuildValidationIssue, 'source'>): PromptBuildValidationIssue {
   return {
     ...issue,
     source: 'quality',
@@ -95,7 +95,7 @@ export function createQualityIssue(issue: Omit<BuilderParseIssue, 'source'>): Bu
 
 export function createOpenUiQualityIssue(
   severity: OpenUiQualityIssueSeverity,
-  issue: Omit<BuilderParseIssue, 'source'>,
+  issue: Omit<PromptBuildValidationIssue, 'source'>,
 ): OpenUiQualityIssue {
   return {
     ...issue,
@@ -104,7 +104,7 @@ export function createOpenUiQualityIssue(
   };
 }
 
-export function mapParserIssues(result: ParseResult): BuilderParseIssue[] {
+export function mapParserIssues(result: ParseResult): PromptBuildValidationIssue[] {
   return result.meta.errors.map((error) =>
     createParserIssue({
       code: error.code,

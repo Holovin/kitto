@@ -1,4 +1,4 @@
-import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
+import type { BuilderConfigResponse, PromptBuildRequest } from '@features/builder/types';
 import { compactPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { serializeBuilderLlmRequest } from '@features/builder/api/requestBody';
 
@@ -40,7 +40,7 @@ export interface BuilderGenerationConfig {
   temperature: number;
 }
 
-function compactBuilderLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
+function compactBuilderLlmRequestForTransport(request: PromptBuildRequest, limits: BuilderRequestLimits): PromptBuildRequest {
   const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
     getSizeBytes: (chatHistory) =>
       getApproximateBuilderRequestSizeBytes({
@@ -57,7 +57,7 @@ function compactBuilderLlmRequestForTransport(request: BuilderLlmRequest, limits
   };
 }
 
-export function getBuilderSanitizedLlmRequestForTransport(request: BuilderLlmRequest, limits: BuilderRequestLimits): BuilderLlmRequest {
+export function getBuilderSanitizedLlmRequestForTransport(request: PromptBuildRequest, limits: BuilderRequestLimits): PromptBuildRequest {
   return compactBuilderLlmRequestForTransport(request, limits);
 }
 
@@ -150,11 +150,11 @@ export function getBuilderRuntimeConfigStatus(queryState: {
   return 'loading';
 }
 
-export function getApproximateBuilderRequestSizeBytes(request: BuilderLlmRequest) {
+export function getApproximateBuilderRequestSizeBytes(request: PromptBuildRequest) {
   return textEncoder.encode(serializeBuilderLlmRequest(request)).byteLength;
 }
 
-export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: BuilderRequestLimits) {
+export function validateBuilderLlmRequest(request: PromptBuildRequest, limits: BuilderRequestLimits) {
   if (request.prompt.length > limits.promptMaxChars) {
     return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
   }

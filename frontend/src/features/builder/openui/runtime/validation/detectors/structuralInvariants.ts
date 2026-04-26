@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/react-lang';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 import { visitOpenUiValue } from '@features/builder/openui/runtime/validation/astWalk';
 import {
   createQualityIssue,
@@ -36,7 +36,7 @@ function getComponentChildren(value: unknown) {
 }
 
 function pushUniqueIssue(
-  issues: BuilderParseIssue[],
+  issues: PromptBuildValidationIssue[],
   seenIssueKeys: Set<string>,
   code: string,
   message: string,
@@ -58,7 +58,7 @@ function pushUniqueIssue(
   );
 }
 
-function detectTopLevelAppShellIssues(programIndex: OpenUiProgramIndex, issues: BuilderParseIssue[], seenIssueKeys: Set<string>) {
+function detectTopLevelAppShellIssues(programIndex: OpenUiProgramIndex, issues: PromptBuildValidationIssue[], seenIssueKeys: Set<string>) {
   const appShellStatements = programIndex.topLevelStatements.filter((statement) =>
     statement.rawValueSource.trimStart().startsWith('AppShell('),
   );
@@ -94,7 +94,7 @@ function detectNestedChildContainerIssues(
   nestedTypeName: 'Repeater' | 'Screen',
   code: 'repeater-inside-repeater' | 'screen-inside-screen',
   message: string,
-  issues: BuilderParseIssue[],
+  issues: PromptBuildValidationIssue[],
   seenIssueKeys: Set<string>,
 ) {
   visitOpenUiValue(root, (node, context) => {
@@ -124,7 +124,7 @@ function detectNestedChildContainerIssues(
   });
 }
 
-function detectNestedAppShellIssues(root: unknown, issues: BuilderParseIssue[], seenIssueKeys: Set<string>) {
+function detectNestedAppShellIssues(root: unknown, issues: PromptBuildValidationIssue[], seenIssueKeys: Set<string>) {
   visitOpenUiValue(root, (node, context) => {
     if (node === root || !isComponentNode(node, 'AppShell')) {
       return;
@@ -140,12 +140,12 @@ function detectNestedAppShellIssues(root: unknown, issues: BuilderParseIssue[], 
   });
 }
 
-export function detectStructuralInvariantIssues(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderParseIssue[] {
+export function detectStructuralInvariantIssues(result: ParseResult, programIndex: OpenUiProgramIndex): PromptBuildValidationIssue[] {
   if (result.meta.incomplete) {
     return [];
   }
 
-  const issues: BuilderParseIssue[] = [];
+  const issues: PromptBuildValidationIssue[] = [];
   const seenIssueKeys = new Set<string>();
 
   detectTopLevelAppShellIssues(programIndex, issues, seenIssueKeys);

@@ -22,7 +22,7 @@ import {
 import { builderActions } from '@features/builder/store/builderSlice';
 import type {
   BuilderChatNotice,
-  BuilderLlmRequest,
+  PromptBuildRequest,
 } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
@@ -93,7 +93,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
     }
 
     const currentState = store.getState();
-    const request: BuilderLlmRequest = {
+    const request: PromptBuildRequest = {
       prompt: nextPrompt,
       currentSource: currentState.builder.committedSource,
       chatHistory: currentState.builder.chatMessages.map(({ content, excludeFromLlmContext, role }) => ({

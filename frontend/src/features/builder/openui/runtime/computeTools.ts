@@ -9,28 +9,23 @@ import {
 
 const RANDOM_INT_RANGE_LIMIT = 1_000_000;
 
-export const COMPUTE_OPS = OPENUI_COMPUTE_OPS;
-export const COMPUTE_RETURN_TYPES = OPENUI_COMPUTE_RETURN_TYPES;
-
-export type ComputeOp = OpenUiComputeOp;
-export type ComputeReturnType = OpenUiComputeReturnType;
 export type ComputePrimitive = boolean | number | string;
 
 export interface ComputeValueInput {
-  op: ComputeOp;
+  op: OpenUiComputeOp;
   input?: unknown;
   left?: unknown;
   right?: unknown;
   values?: unknown[];
   options?: Record<string, unknown>;
-  returnType?: ComputeReturnType;
+  returnType?: OpenUiComputeReturnType;
 }
 
 export interface ComputeValueResult {
   value: ComputePrimitive;
 }
 
-const BOOLEAN_OPS = new Set<ComputeOp>([
+const BOOLEAN_OPS = new Set<OpenUiComputeOp>([
   'truthy',
   'falsy',
   'not',
@@ -53,15 +48,15 @@ const BOOLEAN_OPS = new Set<ComputeOp>([
   'date_on_or_after',
 ]);
 
-const NUMBER_OPS = new Set<ComputeOp>(['to_number', 'add', 'subtract', 'multiply', 'divide', 'clamp', 'random_int']);
-const STRING_OPS = new Set<ComputeOp>(['to_lower', 'to_upper', 'trim', 'today_date']);
+const NUMBER_OPS = new Set<OpenUiComputeOp>(['to_number', 'add', 'subtract', 'multiply', 'divide', 'clamp', 'random_int']);
+const STRING_OPS = new Set<OpenUiComputeOp>(['to_lower', 'to_upper', 'trim', 'today_date']);
 
 function createComputeError(message: string) {
   return new DomainStateError(message);
 }
 
-function isComputeOp(value: unknown): value is ComputeOp {
-  return typeof value === 'string' && COMPUTE_OPS.some((op) => op === value);
+function isComputeOp(value: unknown): value is OpenUiComputeOp {
+  return typeof value === 'string' && OPENUI_COMPUTE_OPS.some((op) => op === value);
 }
 
 function getComputeOp(op: unknown) {
@@ -81,7 +76,7 @@ function getReturnType(returnType: unknown) {
     return returnType;
   }
 
-  throw createComputeError(`returnType must be one of ${COMPUTE_RETURN_TYPES.map((value) => `"${value}"`).join(', ')}.`);
+  throw createComputeError(`returnType must be one of ${OPENUI_COMPUTE_RETURN_TYPES.map((value) => `"${value}"`).join(', ')}.`);
 }
 
 function getSafeValues(values: unknown) {
@@ -106,7 +101,7 @@ function getSafeOptions(options: unknown) {
   return clonePlainObject(options, 'options must be a plain object.');
 }
 
-function getExpectedReturnType(op: ComputeOp): ComputeReturnType {
+function getExpectedReturnType(op: OpenUiComputeOp): OpenUiComputeReturnType {
   if (BOOLEAN_OPS.has(op)) {
     return 'boolean';
   }
@@ -261,7 +256,7 @@ function assertPrimitiveResult(value: unknown, label = 'Computed value'): Comput
   throw createComputeError(`${label} must be a primitive string, number, or boolean.`);
 }
 
-function convertResultToReturnType(value: ComputePrimitive, returnType: ComputeReturnType): ComputePrimitive {
+function convertResultToReturnType(value: ComputePrimitive, returnType: OpenUiComputeReturnType): ComputePrimitive {
   switch (returnType) {
     case 'string':
       return String(value);
@@ -292,7 +287,7 @@ function convertResultToReturnType(value: ComputePrimitive, returnType: ComputeR
   }
 }
 
-function finalizeResult(op: ComputeOp, rawValue: unknown, returnType: ComputeReturnType | undefined): ComputeValueResult {
+function finalizeResult(op: OpenUiComputeOp, rawValue: unknown, returnType: OpenUiComputeReturnType | undefined): ComputeValueResult {
   const primitiveValue = assertPrimitiveResult(rawValue);
 
   if (!returnType) {

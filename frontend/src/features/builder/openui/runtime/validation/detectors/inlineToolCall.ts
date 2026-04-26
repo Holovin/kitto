@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/react-lang';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 import {
   RESERVED_INLINE_TOOL_CALL_NAMES,
   createQualityIssue,
@@ -7,12 +7,12 @@ import {
   isElementNode,
 } from '@features/builder/openui/runtime/validation/shared';
 
-export function detectInlineToolCallIssues(result: ParseResult): BuilderParseIssue[] {
+export function detectInlineToolCallIssues(result: ParseResult): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || !result.root) {
     return [];
   }
 
-  const issues: BuilderParseIssue[] = [];
+  const issues: PromptBuildValidationIssue[] = [];
   const seenIssueKeys = new Set<string>();
 
   function pushIssue(

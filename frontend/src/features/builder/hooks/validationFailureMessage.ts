@@ -1,10 +1,10 @@
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 
-function formatValidationIssue(issue: BuilderParseIssue) {
+function formatValidationIssue(issue: PromptBuildValidationIssue) {
   return `${issue.code}${issue.statementId ? ` in ${issue.statementId}` : ''}: ${issue.message}`;
 }
 
-export function createValidationFailureMessage(issues: BuilderParseIssue[], maxAutoRepairAttempts: number) {
+export function createValidationFailureMessage(issues: PromptBuildValidationIssue[], maxAutoRepairAttempts: number) {
   const summary = issues.slice(0, 3).map(formatValidationIssue).join(' | ');
   const repairAttemptLabel =
     maxAutoRepairAttempts <= 0

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BuilderDefinitionExport, BuilderParseIssue, BuilderSnapshot } from '@features/builder/types';
+import type { BuilderDefinitionExport, PromptBuildValidationIssue, BuilderSnapshot } from '@features/builder/types';
 import { isRecord } from '@features/builder/objectGuards';
 import { DEFAULT_DOMAIN_DATA } from '@features/builder/store/defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
@@ -156,7 +156,7 @@ export type ResolvedImportedDefinition =
   | {
       definition: ReturnType<typeof parseImportedDefinition>;
       kind: 'invalid-source';
-      issues: BuilderParseIssue[];
+      issues: PromptBuildValidationIssue[];
     }
   | {
       definition: ReturnType<typeof parseImportedDefinition>;

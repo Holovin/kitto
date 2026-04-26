@@ -13,7 +13,7 @@ import { createDomainToolProvider } from '@features/builder/openui/runtime/creat
 import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
 import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
 import type {
-  BuilderParseIssue,
+  PromptBuildValidationIssue,
   PromptInfoIntentContextVariant,
   PromptInfoSystemPromptVariant,
   PromptInfoToolSpec,
@@ -49,7 +49,7 @@ type ElementSandboxProps = {
 };
 
 type ScopedRuntimeIssues = {
-  issues: BuilderParseIssue[];
+  issues: PromptBuildValidationIssue[];
   scope: string;
 };
 
@@ -497,7 +497,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
   const [initialRuntimeStateSnapshot] = useState<Record<string, unknown>>(() => cloneRecord(initialRuntimeState));
   const [domainData, setDomainData] = useState<Record<string, unknown>>(initialDomainDataSnapshot);
   const [runtimeState, setRuntimeState] = useState<Record<string, unknown>>(initialRuntimeStateSnapshot);
-  const [parseIssues, setParseIssues] = useState<BuilderParseIssue[]>([]);
+  const [parseIssues, setParseIssues] = useState<PromptBuildValidationIssue[]>([]);
   const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
     issues: [],
     scope: '',

@@ -1,4 +1,4 @@
-import type { BuilderLlmRequest, BuilderLlmResponse } from '@features/builder/types';
+import type { PromptBuildRequest, BuilderLlmResponse } from '@features/builder/types';
 import { createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
 import { createLinkedAbortController } from './streamAbort';
@@ -8,12 +8,12 @@ interface GenerateBuilderDefinitionOptions {
   apiBaseUrl: string;
   requestId?: string;
   requestKind?: 'automatic-repair' | 'default' | 'stream-fallback';
-  request: BuilderLlmRequest;
+  request: PromptBuildRequest;
   signal?: AbortSignal;
   timeoutMs: number;
 }
 
-function getAutomaticRepairHeaders(request: BuilderLlmRequest): Record<string, string> {
+function getAutomaticRepairHeaders(request: PromptBuildRequest): Record<string, string> {
   if (!request.parentRequestId || !request.repairAttemptNumber) {
     return {
       'x-kitto-automatic-repair': '1',
@@ -28,7 +28,7 @@ function getAutomaticRepairHeaders(request: BuilderLlmRequest): Record<string, s
 }
 
 function createGenerationHeaders(
-  request: BuilderLlmRequest,
+  request: PromptBuildRequest,
   requestKind: GenerateBuilderDefinitionOptions['requestKind'],
   requestId?: string,
 ): Record<string, string> {

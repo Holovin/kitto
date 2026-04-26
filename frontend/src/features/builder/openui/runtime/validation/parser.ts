@@ -1,6 +1,6 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 import {
   ALLOWED_AST_NODE_KINDS,
   ALLOWED_BUILTIN_EXPRESSION_NAMES,
@@ -23,7 +23,7 @@ import {
 
 const allowedComponentNames = new Set(Object.keys(componentSchemaDefinitions));
 
-function validateLiteralProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
+function validateLiteralProps(value: unknown, inheritedStatementId?: string): PromptBuildValidationIssue[] {
   if (Array.isArray(value)) {
     return value.flatMap((entry) => validateLiteralProps(entry, inheritedStatementId));
   }
@@ -38,7 +38,7 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
 
   const statementId = value.statementId ?? inheritedStatementId;
   const componentSchema = componentSchemaDefinitions[value.typeName];
-  const issues: BuilderParseIssue[] = [];
+  const issues: PromptBuildValidationIssue[] = [];
   const appearanceValue = value.props.appearance;
 
   for (const [propName, propSchema] of Object.entries(componentSchema?.properties ?? {})) {
@@ -115,7 +115,7 @@ function validateLiteralProps(value: unknown, inheritedStatementId?: string): Bu
   return issues;
 }
 
-function validateQueryTools(result: ParseResult): BuilderParseIssue[] {
+function validateQueryTools(result: ParseResult): PromptBuildValidationIssue[] {
   return result.queryStatements.flatMap((query) => {
     const toolName = extractStringLiteral(query.toolAST);
 
@@ -145,7 +145,7 @@ function validateQueryTools(result: ParseResult): BuilderParseIssue[] {
   });
 }
 
-function validateMutationTools(result: ParseResult): BuilderParseIssue[] {
+function validateMutationTools(result: ParseResult): PromptBuildValidationIssue[] {
   return result.mutationStatements.flatMap((mutation) => {
     const toolName = extractStringLiteral(mutation.toolAST);
 
@@ -194,13 +194,13 @@ function isSafeMutationReferenceUse(line: string, referenceIndex: number, statem
   return false;
 }
 
-function validateMutationReferenceUsage(source: string, result: ParseResult): BuilderParseIssue[] {
+function validateMutationReferenceUsage(source: string, result: ParseResult): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || result.mutationStatements.length === 0) {
     return [];
   }
 
   const maskedSource = maskStringLiterals(source);
-  const issues: BuilderParseIssue[] = [];
+  const issues: PromptBuildValidationIssue[] = [];
 
   for (const mutation of result.mutationStatements) {
     const referencePattern = new RegExp(`(?<![\\w$])${escapeRegExp(mutation.statementId)}(?![\\w$])`, 'g');
@@ -231,8 +231,8 @@ function validateMutationReferenceUsage(source: string, result: ParseResult): Bu
   return issues;
 }
 
-function validateAstNodeSurface(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
-  const issues: BuilderParseIssue[] = [];
+function validateAstNodeSurface(value: unknown, inheritedStatementId?: string): PromptBuildValidationIssue[] {
+  const issues: PromptBuildValidationIssue[] = [];
 
   visitOpenUiValue(value, (node, context) => {
     const statementId = context.statementId ?? inheritedStatementId;
@@ -285,7 +285,7 @@ function validateAstNodeSurface(value: unknown, inheritedStatementId?: string): 
   return issues;
 }
 
-function validateAstSurface(result: ParseResult): BuilderParseIssue[] {
+function validateAstSurface(result: ParseResult): PromptBuildValidationIssue[] {
   const issues = validateAstNodeSurface(result.root);
 
   for (const query of result.queryStatements) {
@@ -303,8 +303,8 @@ function validateAstSurface(result: ParseResult): BuilderParseIssue[] {
   return issues;
 }
 
-export function collectOpenUiParserValidationIssues(source: string, result: ParseResult): BuilderParseIssue[] {
-  const issues: BuilderParseIssue[] = [];
+export function collectOpenUiParserValidationIssues(source: string, result: ParseResult): PromptBuildValidationIssue[] {
+  const issues: PromptBuildValidationIssue[] = [];
 
   if (source.length > OPENUI_SOURCE_LIMITS.maxSourceChars) {
     issues.push(

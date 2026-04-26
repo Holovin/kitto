@@ -1,13 +1,13 @@
-import type { BuilderLlmRequest } from '@features/builder/types';
+import type { PromptBuildRequest } from '@features/builder/types';
 
-type SerializedBuilderLlmRequest = Pick<BuilderLlmRequest, 'chatHistory' | 'currentSource' | 'mode' | 'prompt'> & {
-  invalidDraft?: BuilderLlmRequest['invalidDraft'];
-  parentRequestId?: BuilderLlmRequest['parentRequestId'];
-  repairAttemptNumber?: BuilderLlmRequest['repairAttemptNumber'];
-  validationIssues?: BuilderLlmRequest['validationIssues'];
+type SerializedBuilderLlmRequest = Pick<PromptBuildRequest, 'chatHistory' | 'currentSource' | 'mode' | 'prompt'> & {
+  invalidDraft?: PromptBuildRequest['invalidDraft'];
+  parentRequestId?: PromptBuildRequest['parentRequestId'];
+  repairAttemptNumber?: PromptBuildRequest['repairAttemptNumber'];
+  validationIssues?: PromptBuildRequest['validationIssues'];
 };
 
-export function createBuilderLlmRequestPayload(request: BuilderLlmRequest): SerializedBuilderLlmRequest {
+export function createBuilderLlmRequestPayload(request: PromptBuildRequest): SerializedBuilderLlmRequest {
   const payload: SerializedBuilderLlmRequest = {
     prompt: request.prompt,
     currentSource: request.currentSource,
@@ -34,6 +34,6 @@ export function createBuilderLlmRequestPayload(request: BuilderLlmRequest): Seri
   return payload;
 }
 
-export function serializeBuilderLlmRequest(request: BuilderLlmRequest) {
+export function serializeBuilderLlmRequest(request: PromptBuildRequest) {
   return JSON.stringify(createBuilderLlmRequestPayload(request));
 }

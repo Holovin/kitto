@@ -10,9 +10,9 @@ import {
 } from '@features/builder/openui/runtime/validation';
 import type {
   BuilderGeneratedDraft,
-  BuilderLlmChatMessage,
-  BuilderLlmRequest,
-  BuilderParseIssue,
+  RawPromptBuildChatHistoryMessage,
+  PromptBuildRequest,
+  PromptBuildValidationIssue,
   BuilderQualityIssue,
   BuilderRequestId,
 } from '@features/builder/types';
@@ -28,7 +28,7 @@ interface UseValidationRepairOptions {
   requestLimits: BuilderRequestLimits | null;
   runGenerateRequest: (
     requestId: BuilderRequestId,
-    request: BuilderLlmRequest,
+    request: PromptBuildRequest,
     options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
   ) => Promise<BuilderGeneratedDraft>;
   showStreamingSummaryStatus: (requestId: BuilderRequestId, status: string) => void;
@@ -50,8 +50,8 @@ function truncateRepairField(value: string, maxLength: number) {
   return value.slice(0, Math.max(1, maxLength - 1)).trimEnd() + '…';
 }
 
-function stripQualitySeverity(issue: BuilderQualityIssue): BuilderParseIssue {
-  const strippedIssue: BuilderParseIssue = {
+function stripQualitySeverity(issue: BuilderQualityIssue): PromptBuildValidationIssue {
+  const strippedIssue: PromptBuildValidationIssue = {
     code: issue.code,
     message: issue.message,
   };
@@ -99,7 +99,7 @@ export function dedupeQualityIssues(issues: BuilderQualityIssue[]) {
 
 const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
 
-type RepairValidationIssue = BuilderParseIssue | BuilderQualityIssue;
+type RepairValidationIssue = PromptBuildValidationIssue | BuilderQualityIssue;
 type RepairIssueMode = 'parser' | 'quality';
 type PendingQualityRepairTelemetry = {
   commitSource: BuilderGeneratedDraft['commitSource'];
@@ -122,7 +122,7 @@ function stripRepairQualitySeverity(issue: RepairValidationIssue) {
   return isRepairQualityIssue(issue) ? stripQualitySeverity(issue) : issue;
 }
 
-function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
   if (issue.code !== 'undefined-state-reference' || !isRecord(issue.context)) {
     return undefined;
   }
@@ -147,7 +147,7 @@ function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): B
       };
 }
 
-function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
   if (issue.code !== 'quality-stale-persisted-query' || !isRecord(issue.context)) {
     return undefined;
   }
@@ -170,7 +170,7 @@ function sanitizeStalePersistedQueryContext(issue: RepairValidationIssue): Build
   };
 }
 
-function sanitizeOptionsShapeContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+function sanitizeOptionsShapeContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
   if (issue.code !== 'quality-options-shape' || !isRecord(issue.context)) {
     return undefined;
   }
@@ -190,7 +190,7 @@ function sanitizeOptionsShapeContext(issue: RepairValidationIssue): BuilderParse
   };
 }
 
-function sanitizeRepairIssueContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {
+function sanitizeRepairIssueContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
   return (
     sanitizeUndefinedStateReferenceContext(issue) ??
     sanitizeStalePersistedQueryContext(issue) ??
@@ -299,7 +299,7 @@ function wrapRepairRequestError(error: unknown) {
 export function sanitizeRepairValidationIssues(
   issues: RepairValidationIssue[],
   maxValidationIssues = DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
-): BuilderParseIssue[] {
+): PromptBuildValidationIssue[] {
   const boundedMaxValidationIssues =
     Number.isInteger(maxValidationIssues) && maxValidationIssues > 0
       ? maxValidationIssues
@@ -310,7 +310,7 @@ export function sanitizeRepairValidationIssues(
     .map((issue) => {
       const sanitizedContext = sanitizeRepairIssueContext(issue);
       const severity = getOpenUiQualityIssueSeverity(issue);
-      const sanitizedRepairIssue: BuilderParseIssue = {
+      const sanitizedRepairIssue: PromptBuildValidationIssue = {
         code: truncateRepairField(issue.code, 200),
         message: truncateRepairField(issue.message, 2_000),
       };
@@ -336,9 +336,9 @@ export function sanitizeRepairValidationIssues(
 }
 
 export function buildRepairChatHistoryWithRejectedDraftNotice(
-  chatHistory: BuilderLlmChatMessage[],
-  issues: BuilderParseIssue[],
-): BuilderLlmChatMessage[] {
+  chatHistory: RawPromptBuildChatHistoryMessage[],
+  issues: PromptBuildValidationIssue[],
+): RawPromptBuildChatHistoryMessage[] {
   const issueCodes = [
     ...new Set(
       issues
@@ -370,7 +370,7 @@ export function useValidationRepair({
 }: UseValidationRepairOptions) {
   async function ensureValidGeneratedSource(
     initialResponse: BuilderGeneratedDraft,
-    request: BuilderLlmRequest,
+    request: PromptBuildRequest,
     requestId: BuilderRequestId,
   ) {
     let candidateResponse: BuilderGeneratedDraft = { ...initialResponse };
@@ -396,7 +396,7 @@ export function useValidationRepair({
       return undefined;
     }
 
-    function reportRejectedCandidate(issues: BuilderParseIssue[]) {
+    function reportRejectedCandidate(issues: PromptBuildValidationIssue[]) {
       if (candidateResponse.requestId.trim().length === 0) {
         return;
       }
@@ -470,7 +470,7 @@ export function useValidationRepair({
       repairAttemptCount += 1;
       reportRejectedCandidate(issues.map(stripRepairQualitySeverity));
       const validationIssues = sanitizeRepairValidationIssues(issues, maxRepairValidationIssues);
-      const repairRequest: BuilderLlmRequest = {
+      const repairRequest: PromptBuildRequest = {
         prompt: request.prompt,
         currentSource: request.currentSource,
         chatHistory: buildRepairChatHistoryWithRejectedDraftNotice(request.chatHistory, validationIssues),

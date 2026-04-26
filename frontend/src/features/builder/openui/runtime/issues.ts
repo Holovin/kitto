@@ -1,5 +1,5 @@
 import type { OpenUIError, ParseResult } from '@openuidev/react-lang';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 
 export function getRuntimeErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
@@ -9,12 +9,12 @@ export function getRuntimeErrorMessage(error: unknown) {
   return 'Unknown runtime error.';
 }
 
-export function mapParseResultToIssues(result: ParseResult | null): BuilderParseIssue[] {
+export function mapParseResultToIssues(result: ParseResult | null): PromptBuildValidationIssue[] {
   if (!result) {
     return [];
   }
 
-  const validationIssues: BuilderParseIssue[] = result.meta.errors.map((error) => ({
+  const validationIssues: PromptBuildValidationIssue[] = result.meta.errors.map((error) => ({
     code: error.code,
     message: error.message,
     statementId: error.statementId,
@@ -23,7 +23,7 @@ export function mapParseResultToIssues(result: ParseResult | null): BuilderParse
 
   const unresolvedIssues =
     !result.meta.incomplete && result.meta.unresolved.length > 0
-      ? result.meta.unresolved.map<BuilderParseIssue>((statementId) => ({
+      ? result.meta.unresolved.map<PromptBuildValidationIssue>((statementId) => ({
           code: 'unresolved-reference',
           message: 'This statement was referenced but never defined in the final source.',
           statementId,
@@ -34,7 +34,7 @@ export function mapParseResultToIssues(result: ParseResult | null): BuilderParse
   return [...validationIssues, ...unresolvedIssues];
 }
 
-export function mapOpenUiErrorsToIssues(errors: OpenUIError[]): BuilderParseIssue[] {
+export function mapOpenUiErrorsToIssues(errors: OpenUIError[]): PromptBuildValidationIssue[] {
   return errors.map((error) => ({
     code: error.code,
     message: error.message,
@@ -46,8 +46,8 @@ export function mapOpenUiErrorsToIssues(errors: OpenUIError[]): BuilderParseIssu
 export function combinePreviewIssues(args: {
   isPreviewEmptyCanvas: boolean;
   isShowingRejectedDefinition: boolean;
-  parseIssues: BuilderParseIssue[];
-  runtimeIssues: BuilderParseIssue[];
+  parseIssues: PromptBuildValidationIssue[];
+  runtimeIssues: PromptBuildValidationIssue[];
 }) {
   const { isPreviewEmptyCanvas, isShowingRejectedDefinition, parseIssues, runtimeIssues } = args;
 
@@ -73,7 +73,7 @@ export function shouldResetRuntimeIssues(args: {
   );
 }
 
-export function createRendererCrashIssue(error: unknown, code: string, summary: string): BuilderParseIssue {
+export function createRendererCrashIssue(error: unknown, code: string, summary: string): PromptBuildValidationIssue {
   return {
     code,
     message: `${summary} Details: ${getRuntimeErrorMessage(error)}`,

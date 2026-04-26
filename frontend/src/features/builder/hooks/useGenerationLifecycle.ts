@@ -6,7 +6,7 @@ import { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from '@featu
 import { useBuilderRequestControls } from '@features/builder/context/builderRequestControls';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { selectIsStreaming } from '@features/builder/store/selectors';
-import type { BuilderChatNotice, BuilderGeneratedDraft, BuilderLlmRequest, BuilderRequestId } from '@features/builder/types';
+import type { BuilderChatNotice, BuilderGeneratedDraft, PromptBuildRequest, BuilderRequestId } from '@features/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
@@ -172,7 +172,7 @@ export function useGenerationLifecycle({
 
   async function runGenerateRequest(
     requestId: BuilderRequestId,
-    request: BuilderLlmRequest,
+    request: PromptBuildRequest,
     options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
   ): Promise<BuilderGeneratedDraft> {
     throwIfInactiveRequest(requestId);

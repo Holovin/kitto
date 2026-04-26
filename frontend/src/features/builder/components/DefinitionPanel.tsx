@@ -1,10 +1,10 @@
 import { Textarea } from '@components/ui/textarea';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 
 interface DefinitionPanelProps {
-  issues: BuilderParseIssue[];
+  issues: PromptBuildValidationIssue[];
   source: string;
-  warnings: BuilderParseIssue[];
+  warnings: PromptBuildValidationIssue[];
 }
 
 export function DefinitionPanel({ issues, source, warnings }: DefinitionPanelProps) {

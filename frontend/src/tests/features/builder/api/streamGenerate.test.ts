@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuilderLlmRequest } from '@features/builder/types';
+import type { PromptBuildRequest } from '@features/builder/types';
 import {
   BuilderStreamTimeoutError,
   parseServerSentEvent,
   streamBuilderDefinition,
 } from '@features/builder/api/streamGenerate';
 
-const request: BuilderLlmRequest = {
+const request: PromptBuildRequest = {
   prompt: 'Build a todo app',
   currentSource: '',
   chatHistory: [],
@@ -338,7 +338,7 @@ describe('streamBuilderDefinition', () => {
   });
 
   it('serializes repair linkage fields into the streaming request body', async () => {
-    const repairRequest: BuilderLlmRequest = {
+    const repairRequest: PromptBuildRequest = {
       ...request,
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',

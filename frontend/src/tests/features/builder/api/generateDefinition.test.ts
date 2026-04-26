@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuilderLlmRequest, BuilderLlmResponse } from '@features/builder/types';
+import type { PromptBuildRequest, BuilderLlmResponse } from '@features/builder/types';
 import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
 
-const request: BuilderLlmRequest = {
+const request: PromptBuildRequest = {
   prompt: 'Build a todo app',
   currentSource: '',
   chatHistory: [],
@@ -315,7 +315,7 @@ describe('generateBuilderDefinition', () => {
   });
 
   it('serializes repair linkage fields into the fallback request body', async () => {
-    const repairRequest: BuilderLlmRequest = {
+    const repairRequest: PromptBuildRequest = {
       ...request,
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',

@@ -45,7 +45,6 @@ export default defineConfig({
       '@router': path.resolve(rootDir, 'src/router'),
       '@src': path.resolve(rootDir, 'src'),
       '@store': path.resolve(rootDir, 'src/store'),
-      '@types': path.resolve(rootDir, 'src/types'),
     },
   },
   build: {

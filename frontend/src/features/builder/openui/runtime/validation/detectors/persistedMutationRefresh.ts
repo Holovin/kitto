@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/react-lang';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 import {
   createQualityIssue,
   doPathsOverlapByPrefix,
@@ -18,7 +18,7 @@ const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
   'write_state',
 ]);
 
-export function detectPersistedMutationRefreshWarnings(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderParseIssue[] {
+export function detectPersistedMutationRefreshWarnings(result: ParseResult, programIndex: OpenUiProgramIndex): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || !result.root) {
     return [];
   }
@@ -34,7 +34,7 @@ export function detectPersistedMutationRefreshWarnings(result: ParseResult, prog
     return [];
   }
 
-  const warnings: BuilderParseIssue[] = [];
+  const warnings: PromptBuildValidationIssue[] = [];
   const seenWarningKeys = new Set<string>();
 
   for (const actionRunRefs of programIndex.actionRunRefGroups) {

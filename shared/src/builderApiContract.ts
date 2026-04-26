@@ -77,16 +77,7 @@ export interface PromptBuildRequest {
   validationIssues?: PromptBuildValidationIssue[];
 }
 
-export type BuilderLlmChatMessage = RawPromptBuildChatHistoryMessage;
-export type BuilderParseIssueSuggestion = PromptBuildValidationIssueSuggestion;
-export type BuilderUndefinedStateReferenceIssueContext = PromptBuildUndefinedStateReferenceIssueContext;
-export type BuilderStalePersistedQueryIssueContext = PromptBuildStalePersistedQueryIssueContext;
-export type BuilderOptionsShapeIssueContext = PromptBuildOptionsShapeIssueContext;
-export type BuilderParseIssueContext = PromptBuildValidationIssueContext;
-export type BuilderParseIssue = PromptBuildValidationIssue;
-export type BuilderLlmRequest = PromptBuildRequest;
-
-export interface BuilderQualityIssue extends BuilderParseIssue {
+export interface BuilderQualityIssue extends PromptBuildValidationIssue {
   severity: BuilderQualityIssueSeverity;
 }
 

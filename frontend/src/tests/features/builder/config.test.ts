@@ -11,7 +11,7 @@ import {
   type BuilderRequestLimits,
   validateBuilderLlmRequest,
 } from '@features/builder/config';
-import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
+import type { BuilderConfigResponse, PromptBuildRequest } from '@features/builder/types';
 
 const TEST_LIMITS: BuilderRequestLimits = {
   chatMessageMaxChars: 4_096,
@@ -36,7 +36,7 @@ const TEST_CONFIG: BuilderConfigResponse = {
   },
 };
 
-function createRequest(overrides: Partial<BuilderLlmRequest> = {}): BuilderLlmRequest {
+function createRequest(overrides: Partial<PromptBuildRequest> = {}): PromptBuildRequest {
   return {
     prompt: 'Build a small app',
     currentSource: '',

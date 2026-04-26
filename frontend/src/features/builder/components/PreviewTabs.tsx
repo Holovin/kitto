@@ -39,11 +39,11 @@ import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
-import type { BuilderChatNotice, BuilderParseIssue, BuilderTabId } from '@features/builder/types';
+import type { BuilderChatNotice, PromptBuildValidationIssue, BuilderTabId } from '@features/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 
 type ScopedRuntimeIssues = {
-  issues: BuilderParseIssue[];
+  issues: PromptBuildValidationIssue[];
   scope: string;
 };
 

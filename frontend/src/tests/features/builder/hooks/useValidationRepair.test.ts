@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BuilderLlmChatMessage, BuilderParseIssue, BuilderQualityIssue } from '@features/builder/types';
+import type { RawPromptBuildChatHistoryMessage, PromptBuildValidationIssue, BuilderQualityIssue } from '@features/builder/types';
 import {
   buildRepairChatHistoryWithRejectedDraftNotice,
   dedupeQualityIssues,
@@ -38,7 +38,7 @@ describe('dedupeQualityIssues', () => {
 
 describe('sanitizeRepairValidationIssues', () => {
   it('drops parser suggestions and trims fields to backend request limits', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'invalid-prop',
         message: 'Group.direction must be one of "vertical", "horizontal".',
@@ -80,7 +80,7 @@ describe('sanitizeRepairValidationIssues', () => {
   });
 
   it('prioritizes root-cause issues before slicing repair payloads to the backend limit', () => {
-    const issues: Array<BuilderParseIssue | BuilderQualityIssue> = [
+    const issues: Array<PromptBuildValidationIssue | BuilderQualityIssue> = [
       ...Array.from({ length: 27 }, (_, index) => ({
         code: 'unresolved-reference',
         message: `Missing ref ${index}`,
@@ -124,7 +124,7 @@ describe('sanitizeRepairValidationIssues', () => {
   });
 
   it('preserves explicit dynamic quality severity in repair payloads', () => {
-    const issues: Array<BuilderParseIssue | BuilderQualityIssue> = [
+    const issues: Array<PromptBuildValidationIssue | BuilderQualityIssue> = [
       ...Array.from({ length: 21 }, (_, index) => ({
         code: 'unresolved-reference',
         message: `Missing ref ${index}`,
@@ -151,7 +151,7 @@ describe('sanitizeRepairValidationIssues', () => {
   });
 
   it('preserves structured undefined-state context and drops unsupported issue context', () => {
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       {
         code: 'undefined-state-reference',
         context: {
@@ -240,11 +240,11 @@ describe('sanitizeRepairValidationIssues', () => {
 
 describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
   it('appends an assistant repair-memory notice with unique issue codes', () => {
-    const chatHistory: BuilderLlmChatMessage[] = [
+    const chatHistory: RawPromptBuildChatHistoryMessage[] = [
       { role: 'user', content: 'Build a todo app.' },
       { role: 'assistant', content: 'Built a todo app.' },
     ];
-    const issues: BuilderParseIssue[] = [
+    const issues: PromptBuildValidationIssue[] = [
       { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here.' },
       { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here either.' },
       { code: 'undefined-state-reference', message: 'Declare $filter first.' },

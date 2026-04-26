@@ -17,6 +17,7 @@ const componentSpecSource = fs.readFileSync(componentSpecUrl, 'utf8');
 const componentSpecHash = createHash('sha256').update(componentSpecSource).digest('hex').slice(0, 12);
 const componentSpec = JSON.parse(componentSpecSource) as PromptSpec;
 export const OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX = 'kitto:openui';
+const OPENUI_SYSTEM_PROMPT_CACHE_TOKEN = 'base';
 
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
@@ -27,10 +28,6 @@ function buildAdditionalRules() {
 
 function buildToolExamples() {
   return buildStableToolExamples();
-}
-
-function getPromptCacheToken() {
-  return 'base';
 }
 
 function jsonSchemaTypeStr(schema: unknown): string {
@@ -408,7 +405,7 @@ interface CachedSystemPrompt {
 const cachedSystemPrompts = new Map<string, CachedSystemPrompt>();
 
 function getCachedSystemPrompt() {
-  const cacheToken = getPromptCacheToken();
+  const cacheToken = OPENUI_SYSTEM_PROMPT_CACHE_TOKEN;
   const cachedPrompt = cachedSystemPrompts.get(cacheToken);
 
   if (cachedPrompt) {

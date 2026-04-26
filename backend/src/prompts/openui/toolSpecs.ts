@@ -1,18 +1,11 @@
 import type { ToolSpec } from '@openuidev/lang-core';
-import {
-  getOpenUiPromptToolSpecs,
-  openUiComputeToolSharedProperties,
-  OPENUI_COMPUTE_OPS,
-} from '@kitto-openui/shared/openuiToolRegistry.js';
+import { getOpenUiPromptToolSpecs } from '@kitto-openui/shared/openuiToolRegistry.js';
 
 export interface PromptToolSpecSummary {
   description: string;
   name: string;
   signature: string;
 }
-
-export const computeOperationEnum = OPENUI_COMPUTE_OPS;
-export const computeToolSharedProperties = openUiComputeToolSharedProperties;
 
 export const toolSpecifications: ToolSpec[] = getOpenUiPromptToolSpecs().map((toolSpecification) => {
   const toolSpec: ToolSpec = {

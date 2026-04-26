@@ -15,7 +15,7 @@ import {
   parseStandalonePayload,
   type KittoStandalonePayload,
 } from '@features/builder/standalone/types';
-import type { BuilderParseIssue } from '@features/builder/types';
+import type { PromptBuildValidationIssue } from '@features/builder/types';
 import {
   createStandaloneSnapshot,
   isStandaloneSnapshotUpdateKey,
@@ -35,7 +35,7 @@ type StandaloneSnapshotStore = {
 };
 
 type StandaloneFallbackProps = {
-  details?: BuilderParseIssue[];
+  details?: PromptBuildValidationIssue[];
   error?: unknown;
   onResetLocalData?: () => void;
   title: string;
@@ -117,7 +117,7 @@ function StandaloneFallback({ details, error, onResetLocalData, title }: Standal
   );
 }
 
-function StandaloneIssuePanel({ issues }: { issues: BuilderParseIssue[] }) {
+function StandaloneIssuePanel({ issues }: { issues: PromptBuildValidationIssue[] }) {
   if (issues.length === 0) {
     return null;
   }
@@ -157,8 +157,8 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
   const [standaloneSnapshotStore] = useState(() =>
     createStandaloneSnapshotStore(createStandaloneSnapshot(restoredState.runtimeState, restoredState.domainData)),
   );
-  const [parseIssues, setParseIssues] = useState<BuilderParseIssue[]>([]);
-  const [runtimeIssues, setRuntimeIssues] = useState<BuilderParseIssue[]>([]);
+  const [parseIssues, setParseIssues] = useState<PromptBuildValidationIssue[]>([]);
+  const [runtimeIssues, setRuntimeIssues] = useState<PromptBuildValidationIssue[]>([]);
   const [resetVersion, setResetVersion] = useState(0);
 
   function persistStandaloneState(nextSnapshot: StandaloneSnapshot) {

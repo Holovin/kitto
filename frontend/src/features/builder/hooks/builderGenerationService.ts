@@ -9,9 +9,9 @@ import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import type {
   BuilderGeneratedDraft,
-  BuilderLlmRequest,
+  PromptBuildRequest,
   BuilderLlmRequestCompaction,
-  BuilderParseIssue,
+  PromptBuildValidationIssue,
   BuilderRequestId,
 } from '@features/builder/types';
 import type { AppDispatch } from '@store/store';
@@ -71,7 +71,7 @@ interface BuilderGenerationLifecyclePort {
   isActiveRequest: (requestId: BuilderRequestId) => boolean;
   runGenerateRequest: (
     requestId: BuilderRequestId,
-    request: BuilderLlmRequest,
+    request: PromptBuildRequest,
     options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
   ) => Promise<BuilderGeneratedDraft>;
   throwIfInactiveRequest: (requestId: BuilderRequestId) => void;
@@ -90,7 +90,7 @@ interface BuilderStreamingSummaryPort {
 interface BuilderValidationRepairPort {
   ensureValidGeneratedSource: (
     initialResponse: BuilderGeneratedDraft,
-    request: BuilderLlmRequest,
+    request: PromptBuildRequest,
     requestId: BuilderRequestId,
   ) => Promise<{
     commitSource: BuilderGeneratedDraft['commitSource'];
@@ -99,7 +99,7 @@ interface BuilderValidationRepairPort {
     source: string;
     summary?: string;
     summaryExcludeFromLlmContext?: boolean;
-    warnings: BuilderParseIssue[];
+    warnings: PromptBuildValidationIssue[];
   }>;
 }
 
@@ -109,11 +109,11 @@ interface RunBuilderGenerationOptions {
   dispatch: AppDispatch;
   getDomainData: () => Record<string, unknown>;
   lifecycle: BuilderGenerationLifecyclePort;
-  request: BuilderLlmRequest;
+  request: PromptBuildRequest;
   requestId: BuilderRequestId;
   streamTimeouts: BuilderStreamTimeouts;
   streamingSummary: BuilderStreamingSummaryPort;
-  transportRequest: BuilderLlmRequest;
+  transportRequest: PromptBuildRequest;
   validationRepair: BuilderValidationRepairPort;
 }
 
@@ -156,7 +156,7 @@ async function commitGeneratedSource({
   dispatch: AppDispatch;
   getDomainData: () => Record<string, unknown>;
   lifecycle: BuilderGenerationLifecyclePort;
-  request: BuilderLlmRequest;
+  request: PromptBuildRequest;
   requestId: BuilderRequestId;
   response: BuilderGeneratedDraft;
   streamingSummary: BuilderStreamingSummaryPort;
