@@ -30,14 +30,19 @@ export function BaseLayout() {
           </div>
 
           <nav className="flex flex-wrap items-center gap-2">
-            <Button asChild className={isChatActive ? '!text-white' : undefined} size="sm" variant={isChatActive ? 'default' : 'ghost'}>
+            <Button
+              asChild
+              className={cn(isChatActive && '!text-white')}
+              size="sm"
+              variant={isChatActive ? 'default' : 'ghost'}
+            >
               <NavLink to={SiteRoutes.home.path} end>
                 Chat
               </NavLink>
             </Button>
             <Button
               asChild
-              className={activePath === SiteRoutes.elements.path ? '!text-white' : undefined}
+              className={cn(activePath === SiteRoutes.elements.path && '!text-white')}
               size="sm"
               variant={activePath === SiteRoutes.elements.path ? 'default' : 'ghost'}
             >

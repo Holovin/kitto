@@ -1,5 +1,6 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Textarea as TextareaUI } from '@components/ui/textarea';
+import { cn } from '@lib/utils';
 import { z } from 'zod';
 import {
   appearanceSchema,
@@ -54,7 +55,7 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
       <TextareaUI
         {...ariaProps}
         autoComplete="off"
-        className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
+        className={cn(hasVisibleError && 'border-rose-400 focus-visible:border-rose-500')}
         disabled={isStreaming}
         id={props.name}
         name={props.name}

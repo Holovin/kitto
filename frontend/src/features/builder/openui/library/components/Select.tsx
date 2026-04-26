@@ -8,6 +8,7 @@ import {
   type StateField,
 } from '@openuidev/react-lang';
 import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@components/ui/select';
+import { cn } from '@lib/utils';
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { z } from 'zod';
 import {
@@ -154,7 +155,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
           {...ariaProps}
           ref={triggerRef}
           aria-label={props.label}
-          className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
+          className={cn(hasVisibleError && 'border-rose-400 focus-visible:border-rose-500')}
           style={selectStyle}
           onPointerDown={syncPortalAppearanceVars}
           onBlur={isActionMode ? undefined : onBlur}

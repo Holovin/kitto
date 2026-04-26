@@ -1,5 +1,6 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
+import { cn } from '@lib/utils';
 import { z } from 'zod';
 import {
   appearanceSchema,
@@ -59,7 +60,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
     <CheckboxUI
       {...ariaProps}
       checked={checkedValue}
-      className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
+      className={cn(hasVisibleError && 'border-rose-400 focus-visible:border-rose-500')}
       disabled={isActionMode ? isStreaming || isPending : isStreaming}
       id={props.name}
       name={props.name}
@@ -94,9 +95,10 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   return (
     <div className="flex flex-col gap-2">
       <label
-        className={`flex items-start gap-3 rounded-[1.25rem] border bg-white px-4 py-3 ${
-          hasVisibleError ? 'border-rose-400' : 'border-slate-200'
-        }`}
+        className={cn(
+          'flex items-start gap-3 rounded-[1.25rem] border bg-white px-4 py-3',
+          hasVisibleError ? 'border-rose-400' : 'border-slate-200',
+        )}
         style={checkboxStyle}
       >
         {checkboxControl}

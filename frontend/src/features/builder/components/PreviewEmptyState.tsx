@@ -5,6 +5,7 @@ import { createBuilderSnapshot } from '@features/builder/openui/runtime/persiste
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
+import { cn } from '@lib/utils';
 import { useAppDispatch } from '@store/hooks';
 
 interface PreviewSuggestionDecoration {
@@ -112,15 +113,18 @@ function PreviewSuggestionCard({
   const iconColor = cardType === 'Prompt' ? 'rgb(186 230 253 / 0.55)' : 'rgb(221 214 254 / 0.55)';
 
   return (
-    <Button className={`group ${className}`} size="lg" variant="secondary" onClick={onClick}>
+    <Button className={cn('group', className)} size="lg" variant="secondary" onClick={onClick}>
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute opacity-90 ${decoration.gradientFrameClassName} ${decoration.gradientClassName}`}
+        className={cn('pointer-events-none absolute opacity-90', decoration.gradientFrameClassName, decoration.gradientClassName)}
         data-preview-card-gradient={cardType.toLowerCase()}
       />
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute z-[1] blur-[2px] transition-[filter] duration-150 ease-out group-hover:blur-none group-focus-visible:blur-none ${decoration.iconFrameClassName}`}
+        className={cn(
+          'pointer-events-none absolute z-[1] blur-[2px] transition-[filter] duration-150 ease-out group-hover:blur-none group-focus-visible:blur-none',
+          decoration.iconFrameClassName,
+        )}
         data-preview-card-icon={cardType.toLowerCase()}
         style={{
           color: iconColor,

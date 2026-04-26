@@ -80,7 +80,7 @@ function GroupRenderer({
             </CardTitle>
           </CardHeader>
         ) : null}
-        <CardContent className={cn(layoutClassNames.block[props.direction], props.title ? '' : 'pt-6')}>
+        <CardContent className={cn(layoutClassNames.block[props.direction], !props.title && 'pt-6')}>
           {renderNode(props.children)}
         </CardContent>
       </Card>

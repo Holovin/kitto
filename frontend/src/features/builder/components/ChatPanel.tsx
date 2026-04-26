@@ -16,7 +16,9 @@ import { builderActions } from '@features/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import { selectChatMessages, selectCommittedSource } from '@features/builder/store/selectors';
 import type { BuilderChatMessage, BuilderChatNotice } from '@features/builder/types';
+import { cn } from '@lib/utils';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
+import './ChatPanel.css';
 
 interface ChatToolbarProps {
   cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
@@ -62,9 +64,11 @@ const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message
   return (
     <article
       aria-busy={isStreamingAssistantMessage || undefined}
-      className={`max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6 ${
-        isStreamingAssistantMessage ? 'chat-summary-shimmer relative overflow-hidden' : ''
-      } ${getMessageBubbleClasses(message)}`}
+      className={cn(
+        'max-w-[92%] rounded-lg border px-4 py-3 text-sm leading-6',
+        isStreamingAssistantMessage && 'chat-summary-shimmer relative overflow-hidden',
+        getMessageBubbleClasses(message),
+      )}
     >
       <p className="relative z-[1] whitespace-pre-wrap break-words">{message.content}</p>
       {hasTechnicalDetails ? (
@@ -277,7 +281,7 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
         }}
       />
       <div className="mt-4 flex items-center justify-between gap-3">
-        <p aria-live="polite" className={`text-xs ${composerHintToneClassName}`}>
+        <p aria-live="polite" className={cn('text-xs', composerHintToneClassName)}>
           {composerHint}
         </p>
         <div className="flex items-center gap-2">

@@ -70,7 +70,7 @@ function AppShellRenderer({
     <KittoAppearanceProvider appearance={props.appearance}>
       <KittoValidationInteractionProvider>
         <div
-          className={cn('flex min-h-full flex-col gap-6', props.appearance?.mainColor ? 'rounded-[1.75rem] p-4' : '')}
+          className={cn('flex min-h-full flex-col gap-6', props.appearance?.mainColor && 'rounded-[1.75rem] p-4')}
           data-app-shell="true"
           style={shellStyle}
         >

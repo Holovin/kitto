@@ -8,6 +8,7 @@ import {
   type StateField,
 } from '@openuidev/react-lang';
 import { RadioGroup as RadioGroupUI, RadioGroupItem } from '@components/ui/radio-group';
+import { cn } from '@lib/utils';
 import { z } from 'zod';
 import {
   ACTION_MODE_LAST_CHOICE_STATE,
@@ -95,12 +96,17 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
         {options.map((option, index) => (
           <label
             key={`${option.value}:${index}`}
-            className={`flex items-center gap-3 rounded-[1.25rem] border bg-white px-4 py-3 text-sm text-slate-800 ${
-              hasVisibleError ? 'border-rose-300' : 'border-slate-200'
-            }`}
+            className={cn(
+              'flex items-center gap-3 rounded-[1.25rem] border bg-white px-4 py-3 text-sm text-slate-800',
+              hasVisibleError ? 'border-rose-300' : 'border-slate-200',
+            )}
             style={optionStyle}
           >
-            <RadioGroupItem className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined} style={optionStyle} value={option.value} />
+            <RadioGroupItem
+              className={cn(hasVisibleError && 'border-rose-400 focus-visible:border-rose-500')}
+              style={optionStyle}
+              value={option.value}
+            />
             <span>{option.label}</span>
           </label>
         ))}

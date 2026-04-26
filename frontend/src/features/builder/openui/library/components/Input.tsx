@@ -1,5 +1,6 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Input as InputUI } from '@components/ui/input';
+import { cn } from '@lib/utils';
 import { z } from 'zod';
 import {
   appearanceSchema,
@@ -62,7 +63,7 @@ function OpenUiInputRenderer({ props }: InputRendererProps) {
       <InputUI
         {...ariaProps}
         autoComplete={autoComplete}
-        className={hasVisibleError ? 'border-rose-400 focus-visible:border-rose-500' : undefined}
+        className={cn(hasVisibleError && 'border-rose-400 focus-visible:border-rose-500')}
         disabled={isStreaming}
         id={props.name}
         name={props.name}
