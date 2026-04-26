@@ -16,8 +16,8 @@ interface KittoPromptInput {
   tools: ToolSpec[];
 }
 
-const componentSpecPath = new URL('../../../../shared/openui-component-spec.json', import.meta.url);
-const componentSpecSource = fs.readFileSync(componentSpecPath, 'utf8');
+const componentSpecUrl = new URL(import.meta.resolve('@kitto-openui/shared/openui-component-spec.json'));
+const componentSpecSource = fs.readFileSync(componentSpecUrl, 'utf8');
 const componentSpecHash = createHash('sha256').update(componentSpecSource).digest('hex').slice(0, 12);
 const componentSpec = JSON.parse(componentSpecSource) as PromptSpec;
 export const OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX = 'kitto:openui';

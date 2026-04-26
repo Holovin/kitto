@@ -1,5 +1,5 @@
 import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
-import { compactPromptBuildChatHistory } from '@kitto-openui/shared';
+import { compactPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { serializeBuilderLlmRequest } from './api/requestBody';
 
 const textEncoder = new TextEncoder();

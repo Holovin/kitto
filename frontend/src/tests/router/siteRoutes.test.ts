@@ -1,20 +1,13 @@
-/// <reference types="node" />
-
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import frontendRoutesManifest from '@kitto-openui/shared/frontend-routes.json' with { type: 'json' };
 import { SiteRoutes } from '@router/siteRoutes';
 
 type FrontendRoutesManifest = {
   routes: string[];
 };
 
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const frontendRoutesManifestPath = path.resolve(currentDirectory, '../../../../shared/frontend-routes.json');
-
 function readFrontendRoutesManifest(): FrontendRoutesManifest {
-  return JSON.parse(fs.readFileSync(frontendRoutesManifestPath, 'utf8')) as FrontendRoutesManifest;
+  return frontendRoutesManifest as FrontendRoutesManifest;
 }
 
 describe('SiteRoutes', () => {

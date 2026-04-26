@@ -1,6 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 const frontendRoutesManifestSchema = z.object({
@@ -20,8 +18,7 @@ const frontendRoutesManifestSchema = z.object({
     }),
 });
 
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const frontendRoutesManifestPath = path.resolve(currentDirectory, '../../shared/frontend-routes.json');
+const frontendRoutesManifestUrl = new URL(import.meta.resolve('@kitto-openui/shared/frontend-routes.json'));
 
 function normalizeRoutePath(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -32,7 +29,7 @@ function normalizeRoutePath(pathname: string) {
 }
 
 function loadFrontendRoutes() {
-  const manifest = JSON.parse(fs.readFileSync(frontendRoutesManifestPath, 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(frontendRoutesManifestUrl, 'utf8'));
 
   return frontendRoutesManifestSchema.parse(manifest).routes.map(normalizeRoutePath);
 }

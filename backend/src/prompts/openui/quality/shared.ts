@@ -1,5 +1,5 @@
 import { createParser, type LibraryJSONSchema, type ParseResult } from '@openuidev/lang-core';
-import openUiLibrarySchema from '../../../../../shared/openui-library-schema.json' with { type: 'json' };
+import openUiLibrarySchema from '@kitto-openui/shared/openui-library-schema.json' with { type: 'json' };
 import type { PromptBuildValidationIssue } from '../types.js';
 
 export const parser = createParser(openUiLibrarySchema as LibraryJSONSchema);

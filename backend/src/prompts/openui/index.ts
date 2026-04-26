@@ -11,7 +11,7 @@ export {
   filterPromptBuildChatHistory,
   retainPromptBuildChatHistory,
   retainPromptBuildChatHistoryTail,
-} from './chatHistoryFilter.js';
+} from '@kitto-openui/shared/promptBuildChatHistory.js';
 export { shouldExcludeSummaryFromLlmContext } from './summaryContext.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages } from './repairPrompt.js';
 export {

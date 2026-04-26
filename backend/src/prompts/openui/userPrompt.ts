@@ -1,6 +1,6 @@
 import { DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '../../limits.js';
+import { filterPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
-import { filterPromptBuildChatHistory } from './chatHistoryFilter.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
 import { detectPromptRequestIntent, formatPromptRequestIntentBlock } from './promptIntents.js';
 import { buildIntentSpecificRulesForPrompt } from './rules.js';

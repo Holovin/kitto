@@ -1,4 +1,4 @@
-import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues } from '@kitto-openui/shared';
+import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues } from '@kitto-openui/shared/openuiQualityOptionsShape.js';
 import {
   isElementNode,
   parser,

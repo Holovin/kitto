@@ -24,8 +24,8 @@ interface ComponentSpec {
   >;
 }
 
-const componentSpecPath = new URL('../../../../shared/openui-component-spec.json', import.meta.url);
-const componentSpec = JSON.parse(fs.readFileSync(componentSpecPath, 'utf8')) as ComponentSpec;
+const componentSpecUrl = new URL(import.meta.resolve('@kitto-openui/shared/openui-component-spec.json'));
+const componentSpec = JSON.parse(fs.readFileSync(componentSpecUrl, 'utf8')) as ComponentSpec;
 const supportedToolNames = [
   'read_state',
   'compute_value',
@@ -118,7 +118,7 @@ function buildIntentContextPrompt(prompt: string) {
 
 describe('openui prompts', () => {
   it('keeps the generated component spec artifact committed in the repository', () => {
-    expect(fs.existsSync(componentSpecPath)).toBe(true);
+    expect(fs.existsSync(componentSpecUrl)).toBe(true);
   });
 
   it('keeps the system prompt focused on the single structured-output contract', () => {

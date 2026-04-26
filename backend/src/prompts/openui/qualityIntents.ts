@@ -1,4 +1,4 @@
-import intentPatterns from '../../../../shared/openui-quality-intents.json' with { type: 'json' };
+import intentPatterns from '@kitto-openui/shared/openui-quality-intents.json' with { type: 'json' };
 
 function buildPattern(fragments: string[]) {
   return new RegExp(fragments.join('|'), 'i');
