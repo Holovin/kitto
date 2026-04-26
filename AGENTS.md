@@ -28,6 +28,7 @@ Steps:
 ## Project Context
 
 - This repository is a local-first OpenUI playground that generates small browser apps from chat prompts.
+- The project does not implement user accounts, authentication, or per-user authorization. Treat hosted deployments as controlled demo playgrounds, not multi-tenant production services.
 - The workspace has two packages:
   - `frontend/`: React 19 + Vite 8 builder UI and OpenUI runtime
   - `backend/`: Hono API, OpenAI integration, prompt building, rate limiting, and static hosting for `frontend/dist`
@@ -222,7 +223,7 @@ Steps:
 - Structured model output uses two backend limits: raw envelope bytes are capped at `LLM_OUTPUT_MAX_BYTES * 2`, and the extracted `.source` stays capped at `LLM_OUTPUT_MAX_BYTES`
 - The backend rejects model output above `LLM_OUTPUT_MAX_BYTES` before returning a non-stream response or finalizing an SSE stream
 - Public backend error codes are `validation_error`, `timeout_error`, `upstream_error`, and `internal_error`
-- Rate limiting is in-memory and process-local; do not treat it as distributed-safe production infrastructure
+- Generation rate limiting uses one shared in-memory bucket per Node process. This is acceptable for the no-auth demo scope and for capping demo traffic, but it is not per-user isolation or distributed-safe production infrastructure.
 
 ## Agent Notes
 

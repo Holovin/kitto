@@ -130,6 +130,7 @@ Accepts the same request shape and streams Server-Sent Events:
 ## Notes
 
 - after `npm run build`, one Node process can serve both `frontend/dist` and `/api/*`
+- the backend does not implement user authentication or per-user authorization; exposed deployments should be treated as controlled demo environments
 - use the repo-root [ecosystem.config.cjs](../ecosystem.config.cjs) with `instances: 1` and `exec_mode: "fork"` for PM2 deployments; multiple instances change the in-memory rate-limit behavior
 - keep the PM2 `cwd` at the repo root so the compiled backend can resolve `frontend/dist`
-- rate limiting is process-local and meant for single-process deployment, not distributed deployment
+- generation rate limiting is one shared process-local bucket per Node process; that is acceptable for no-auth demo use, but it is not per-user isolation or distributed deployment infrastructure

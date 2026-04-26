@@ -83,10 +83,11 @@ Notes:
 
 ## 7. Trade-offs / scope
 
+- The project does not include user accounts, authentication, or per-user authorization; hosted deployments should be treated as controlled demo playgrounds.
 - There is no arbitrary JavaScript or general code mode; generated output is constrained to the supported OpenUI surface.
 - The project does not generate npm packages, full codebases, or general-purpose app scaffolding.
 - The supported OpenUI component and tool surface is intentionally small.
-- Rate limiting is in-memory and demo-grade rather than distributed production infrastructure.
+- Generation rate limiting uses one shared in-memory bucket per Node process. This is intentional for the no-auth demo scope and is meant to cap demo traffic rather than isolate individual users.
 - Generated apps are browser-first and do not require a generated backend.
 
 ## 8. Supported surface
