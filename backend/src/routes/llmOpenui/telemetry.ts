@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type { AppEnv } from '#backend/env.js';
-import { toPublicErrorPayload } from '#backend/errors/publicError.js';
-import { createRequestId } from '#backend/requestMetadata.js';
+import { RequestValidationError, toPublicErrorPayload } from '#backend/errors/publicError.js';
+import { createRequestId, getClientProvidedRequestIdFromContext } from '#backend/requestMetadata.js';
 import { createCommitTelemetryRegistry } from '#backend/services/commitTelemetryRegistry.js';
 import { writePromptIoCommitTelemetrySafely, writePromptIoIntakeFailureSafely } from '#backend/services/openai/logging.js';
 import { mapToPublicError } from './mapToPublicError.js';
@@ -76,22 +76,35 @@ export function createLlmOpenUiTelemetry(env: AppEnv): LlmOpenUiTelemetry {
 
 export function createCommitTelemetryHandler(telemetry: LlmOpenUiTelemetry) {
   return async function handleCommitTelemetry(context: Context) {
+    const requestId = getClientProvidedRequestIdFromContext(context);
+    const telemetryPermission = requestId
+      ? telemetry.consumeCommitTelemetry(requestId)
+      : {
+          ok: false,
+          reason: 'unknown_request' as const,
+        };
+
+    if (!telemetryPermission.ok) {
+      return context.json(
+        {
+          code: 'validation_error',
+          error:
+            telemetryPermission.reason === 'event_limit_reached'
+              ? 'Commit telemetry for this generation request was already accepted too many times.'
+              : 'Commit telemetry request does not match a completed generation request.',
+          status: 409,
+        },
+        409,
+      );
+    }
+
     try {
       const telemetryRequest = await parseCommitTelemetryRequest(context);
-      const telemetryPermission = telemetry.consumeCommitTelemetry(telemetryRequest.requestId);
 
-      if (!telemetryPermission.ok) {
-        return context.json(
-          {
-            code: 'validation_error',
-            error:
-              telemetryPermission.reason === 'event_limit_reached'
-                ? 'Commit telemetry for this generation request was already accepted too many times.'
-                : 'Commit telemetry request does not match a completed generation request.',
-            status: 409,
-          },
-          409,
-        );
+      if (telemetryRequest.requestId !== requestId) {
+        throw new RequestValidationError('Commit telemetry transport metadata did not match the request body.', 400, {
+          publicMessage: 'The request payload is invalid.',
+        });
       }
 
       await telemetry.recordCommit(telemetryRequest);

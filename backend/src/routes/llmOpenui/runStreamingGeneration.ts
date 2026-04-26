@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { APIUserAbortError } from 'openai';
+import { APIConnectionError, APIConnectionTimeoutError, APIUserAbortError } from 'openai';
 import type { AppEnv } from '#backend/env.js';
 import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
@@ -21,6 +21,14 @@ function isAbortError(error: unknown) {
     error instanceof APIUserAbortError ||
     (error instanceof Error &&
       (error.name === 'AbortError' || error.name === 'APIUserAbortError' || error.message === 'This operation was aborted'))
+  );
+}
+
+function isPreActivityFallbackEligibleError(error: unknown) {
+  return (
+    error instanceof APIConnectionError ||
+    error instanceof APIConnectionTimeoutError ||
+    (error instanceof Error && (error.name === 'APIConnectionError' || error.name === 'APIConnectionTimeoutError' || error.name === 'TimeoutError'))
   );
 }
 
@@ -141,6 +149,7 @@ function createStreamingResponse(
           if (
             !hasWrittenStreamActivity &&
             !isAbortError(error) &&
+            isPreActivityFallbackEligibleError(error) &&
             !abortController.signal.aborted &&
             !context.req.raw.signal.aborted
           ) {

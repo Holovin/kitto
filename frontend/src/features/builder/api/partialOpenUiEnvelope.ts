@@ -8,192 +8,254 @@ interface PartialOpenUiEnvelope {
   summary?: PartialJsonStringValue;
 }
 
+type PartialOpenUiEnvelopeKey = keyof PartialOpenUiEnvelope;
+type JsonStringTarget = PartialOpenUiEnvelopeKey | 'key' | 'skip';
+
+interface ActiveJsonString {
+  invalidUnicodeEscape: boolean;
+  pendingEscape: boolean;
+  target: JsonStringTarget;
+  unicodeDigits: string;
+  unicodeRemaining: number;
+  value: string;
+}
+
 function isHexDigit(value: string) {
   return /^[0-9a-fA-F]$/.test(value);
 }
 
-function readPartialJsonString(input: string, startIndex: number): PartialJsonStringValue & { nextIndex: number } {
-  let value = '';
-  let index = startIndex;
+function isJsonWhitespace(value: string) {
+  return value === ' ' || value === '\n' || value === '\r' || value === '\t';
+}
 
-  while (index < input.length) {
-    const currentCharacter = input[index];
-
-    if (currentCharacter === '"') {
-      return {
-        complete: true,
-        nextIndex: index + 1,
-        value,
-      };
-    }
-
-    if (currentCharacter !== '\\') {
-      value += currentCharacter;
-      index += 1;
-      continue;
-    }
-
-    const escapedCharacter = input[index + 1];
-
-    if (escapedCharacter === undefined) {
-      return {
-        complete: false,
-        nextIndex: input.length,
-        value,
-      };
-    }
-
-    if (escapedCharacter === 'u') {
-      const unicodeDigits = input.slice(index + 2, index + 6);
-
-      if (unicodeDigits.length < 4 || [...unicodeDigits].some((digit) => !isHexDigit(digit))) {
-        return {
-          complete: false,
-          nextIndex: input.length,
-          value,
-        };
-      }
-
-      value += String.fromCharCode(Number.parseInt(unicodeDigits, 16));
-      index += 6;
-      continue;
-    }
-
-    switch (escapedCharacter) {
-      case '"':
-      case '\\':
-      case '/':
-        value += escapedCharacter;
-        break;
-      case 'b':
-        value += '\b';
-        break;
-      case 'f':
-        value += '\f';
-        break;
-      case 'n':
-        value += '\n';
-        break;
-      case 'r':
-        value += '\r';
-        break;
-      case 't':
-        value += '\t';
-        break;
-      default:
-        value += escapedCharacter;
-        break;
-    }
-
-    index += 2;
-  }
-
+function cloneParsedEnvelope(envelope: PartialOpenUiEnvelope): PartialOpenUiEnvelope {
   return {
-    complete: false,
-    nextIndex: input.length,
-    value,
+    ...(envelope.source ? { source: { ...envelope.source } } : {}),
+    ...(envelope.summary ? { summary: { ...envelope.summary } } : {}),
   };
 }
 
-export function parsePartialOpenUiEnvelope(input: string): PartialOpenUiEnvelope {
+function getEscapedCharacterValue(escapedCharacter: string) {
+  switch (escapedCharacter) {
+    case '"':
+    case '\\':
+    case '/':
+      return escapedCharacter;
+    case 'b':
+      return '\b';
+    case 'f':
+      return '\f';
+    case 'n':
+      return '\n';
+    case 'r':
+      return '\r';
+    case 't':
+      return '\t';
+    default:
+      return escapedCharacter;
+  }
+}
+
+export function createPartialOpenUiEnvelopeParser() {
   const parsedEnvelope: PartialOpenUiEnvelope = {};
-  let index = 0;
-  let depth = 0;
+  let activeString: ActiveJsonString | null = null;
   let currentKey: string | null = null;
+  let depth = 0;
   let expectingKey = false;
   let expectingValue = false;
 
-  while (index < input.length) {
-    const currentCharacter = input[index];
-
-    if (/\s/.test(currentCharacter)) {
-      index += 1;
-      continue;
+  function updateTrackedString(complete: boolean) {
+    if (!activeString || (activeString.target !== 'source' && activeString.target !== 'summary')) {
+      return;
     }
 
-    if (currentCharacter === '{') {
-      depth += 1;
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = true;
-        expectingValue = false;
-      }
-      index += 1;
-      continue;
+    parsedEnvelope[activeString.target] = {
+      complete,
+      value: activeString.value,
+    };
+  }
+
+  function appendStringValue(value: string) {
+    if (!activeString) {
+      return;
     }
 
-    if (currentCharacter === '}') {
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = false;
-        expectingValue = false;
-      }
-
-      depth = Math.max(0, depth - 1);
-      index += 1;
-      continue;
+    if (activeString.target === 'skip') {
+      return;
     }
 
-    if (currentCharacter === '[') {
-      depth += 1;
-      index += 1;
-      continue;
+    activeString.value += value;
+    updateTrackedString(false);
+  }
+
+  function startString(target: JsonStringTarget) {
+    activeString = {
+      invalidUnicodeEscape: false,
+      pendingEscape: false,
+      target,
+      unicodeDigits: '',
+      unicodeRemaining: 0,
+      value: '',
+    };
+
+    updateTrackedString(false);
+  }
+
+  function finishString() {
+    if (!activeString) {
+      return;
     }
 
-    if (currentCharacter === ']') {
-      depth = Math.max(0, depth - 1);
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === ',') {
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = true;
-        expectingValue = false;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === ':') {
-      if (depth === 1 && currentKey !== null) {
-        expectingValue = true;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter !== '"') {
-      index += 1;
-      continue;
-    }
-
-    const parsedString = readPartialJsonString(input, index + 1);
-
-    if (depth === 1 && expectingKey) {
-      currentKey = parsedString.value;
+    if (activeString.target === 'key') {
+      currentKey = activeString.value;
       expectingKey = false;
-      index = parsedString.nextIndex;
-      continue;
+    } else if (activeString.target === 'source' || activeString.target === 'summary') {
+      updateTrackedString(true);
+      expectingValue = false;
+    }
+
+    activeString = null;
+  }
+
+  function consumeStringCharacter(currentCharacter: string) {
+    if (!activeString) {
+      return;
+    }
+
+    if (activeString.invalidUnicodeEscape) {
+      return;
+    }
+
+    if (activeString.unicodeRemaining > 0) {
+      if (!isHexDigit(currentCharacter)) {
+        activeString.invalidUnicodeEscape = true;
+        return;
+      }
+
+      activeString.unicodeDigits += currentCharacter;
+      activeString.unicodeRemaining -= 1;
+
+      if (activeString.unicodeRemaining === 0) {
+        appendStringValue(String.fromCharCode(Number.parseInt(activeString.unicodeDigits, 16)));
+        activeString.unicodeDigits = '';
+      }
+
+      return;
+    }
+
+    if (activeString.pendingEscape) {
+      activeString.pendingEscape = false;
+
+      if (currentCharacter === 'u') {
+        activeString.unicodeDigits = '';
+        activeString.unicodeRemaining = 4;
+        return;
+      }
+
+      appendStringValue(getEscapedCharacterValue(currentCharacter));
+      return;
+    }
+
+    if (currentCharacter === '\\') {
+      activeString.pendingEscape = true;
+      return;
+    }
+
+    if (currentCharacter === '"') {
+      finishString();
+      return;
+    }
+
+    appendStringValue(currentCharacter);
+  }
+
+  function getStringTarget() {
+    if (depth === 1 && expectingKey) {
+      return 'key';
     }
 
     if (depth === 1 && expectingValue && (currentKey === 'source' || currentKey === 'summary')) {
-      parsedEnvelope[currentKey] = {
-        complete: parsedString.complete,
-        value: parsedString.value,
-      };
-      if (parsedString.complete) {
-        expectingValue = false;
-      }
-      index = parsedString.nextIndex;
-      continue;
+      return currentKey;
     }
 
-    index = parsedString.nextIndex;
+    return 'skip';
   }
 
-  return parsedEnvelope;
+  function append(input: string) {
+    for (let index = 0; index < input.length; index += 1) {
+      const currentCharacter = input[index];
+
+      if (activeString) {
+        consumeStringCharacter(currentCharacter);
+        continue;
+      }
+
+      if (isJsonWhitespace(currentCharacter)) {
+        continue;
+      }
+
+      if (currentCharacter === '{') {
+        depth += 1;
+
+        if (depth === 1) {
+          currentKey = null;
+          expectingKey = true;
+          expectingValue = false;
+        }
+
+        continue;
+      }
+
+      if (currentCharacter === '}') {
+        if (depth === 1) {
+          currentKey = null;
+          expectingKey = false;
+          expectingValue = false;
+        }
+
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+
+      if (currentCharacter === '[') {
+        depth += 1;
+        continue;
+      }
+
+      if (currentCharacter === ']') {
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+
+      if (currentCharacter === ',') {
+        if (depth === 1) {
+          currentKey = null;
+          expectingKey = true;
+          expectingValue = false;
+        }
+
+        continue;
+      }
+
+      if (currentCharacter === ':') {
+        if (depth === 1 && currentKey !== null) {
+          expectingValue = true;
+        }
+
+        continue;
+      }
+
+      if (currentCharacter === '"') {
+        startString(getStringTarget());
+      }
+    }
+
+    return cloneParsedEnvelope(parsedEnvelope);
+  }
+
+  return {
+    append,
+  };
 }
 
 export function isMalformedStructuredChunk(chunk: string) {
@@ -207,6 +269,6 @@ export function isMalformedStructuredChunk(chunk: string) {
     return false;
   }
 
-  const parsedChunk = parsePartialOpenUiEnvelope(trimmedChunk);
+  const parsedChunk = createPartialOpenUiEnvelopeParser().append(trimmedChunk);
   return parsedChunk.source === undefined && parsedChunk.summary === undefined;
 }

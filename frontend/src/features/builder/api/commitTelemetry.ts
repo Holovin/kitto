@@ -24,6 +24,7 @@ export async function postCommitTelemetry({
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        'x-kitto-request-id': requestId,
       },
       body: JSON.stringify({
         commitSource,

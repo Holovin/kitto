@@ -1,5 +1,5 @@
 import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
-import { isMalformedStructuredChunk, parsePartialOpenUiEnvelope } from './partialOpenUiEnvelope';
+import { createPartialOpenUiEnvelopeParser, isMalformedStructuredChunk } from './partialOpenUiEnvelope';
 import { createBuilderRequestError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
 import { createAbortError, createLinkedAbortController } from './streamAbort';
@@ -109,7 +109,7 @@ export async function streamBuilderDefinition({
     reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let rawStructuredEnvelope = '';
+    const structuredEnvelopeParser = createPartialOpenUiEnvelopeParser();
     let lastParsedSource = '';
     let lastParsedSummary = '';
     let pendingCarriageReturn = false;
@@ -152,8 +152,7 @@ export async function streamBuilderDefinition({
               continue;
             }
 
-            rawStructuredEnvelope += parsedEvent.data;
-            const partialEnvelope = parsePartialOpenUiEnvelope(rawStructuredEnvelope);
+            const partialEnvelope = structuredEnvelopeParser.append(parsedEvent.data);
             const nextSource = partialEnvelope.source?.value ?? '';
             const nextSummary = partialEnvelope.summary?.value;
 
