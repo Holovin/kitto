@@ -41,6 +41,24 @@ function formatSseEvent(event: string, data: string) {
   return `event: ${event}\n${payload}\n\n`;
 }
 
+function createLinkedAbortController(signal?: AbortSignal) {
+  const abortController = new AbortController();
+  const handleAbort = () => abortController.abort();
+
+  if (signal?.aborted) {
+    handleAbort();
+  } else {
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  }
+
+  return {
+    abortController,
+    cleanup() {
+      signal?.removeEventListener('abort', handleAbort);
+    },
+  };
+}
+
 function handleStreamingError(
   error: unknown,
   abortController: AbortController,
@@ -63,16 +81,12 @@ function createStreamingResponse(
   invocation: Awaited<ReturnType<typeof parseLlmRequest>>,
   options: StreamingGenerationOptions = {},
 ) {
-  const abortController = new AbortController();
+  const { abortController, cleanup: cleanupLinkedAbortController } = createLinkedAbortController(context.req.raw.signal);
   const encoder = new TextEncoder();
   let isClosed = false;
   let hasWrittenStreamActivity = false;
   let closeController = () => {
     // Assigned after the stream controller is available.
-  };
-  const handleClientAbort = () => {
-    abortController.abort();
-    closeController();
   };
   const stream = new ReadableStream({
     start(controller) {
@@ -82,7 +96,7 @@ function createStreamingResponse(
         }
 
         isClosed = true;
-        context.req.raw.signal.removeEventListener('abort', handleClientAbort);
+        cleanupLinkedAbortController();
 
         try {
           controller.close();
@@ -107,8 +121,6 @@ function createStreamingResponse(
           return false;
         }
       };
-
-      context.req.raw.signal.addEventListener('abort', handleClientAbort, { once: true });
 
       void (async () => {
         try {
@@ -161,8 +173,8 @@ function createStreamingResponse(
       })();
     },
     cancel() {
-      closeController();
       abortController.abort();
+      closeController();
     },
   });
 

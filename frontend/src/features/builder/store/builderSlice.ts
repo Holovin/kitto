@@ -1,4 +1,5 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
+import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContract.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
@@ -10,7 +11,6 @@ import { DEFAULT_DOMAIN_DATA } from './defaults';
 const MAX_HISTORY_ITEMS = 25;
 // UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
 export const MAX_UI_MESSAGES = 200;
-const BUILDER_CHAT_ROLES = new Set<BuilderChatMessage['role']>(['assistant', 'system', 'user']);
 const BUILDER_CHAT_TONES = new Set<NonNullable<BuilderChatMessage['tone']>>(['default', 'error', 'info', 'success']);
 const BUILDER_PARSE_ISSUE_SOURCES = new Set<NonNullable<BuilderParseIssue['source']>>([
   'mutation',
@@ -105,6 +105,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isBuilderChatRole(value: string): value is BuilderChatMessage['role'] {
+  return BUILDER_CHAT_MESSAGE_ROLES.includes(value as BuilderChatMessage['role']);
+}
+
 function normalizeChatMessages(value: unknown) {
   if (!Array.isArray(value)) {
     return createInitialChatMessages();
@@ -115,14 +119,14 @@ function normalizeChatMessages(value: unknown) {
       return [];
     }
 
-    if (!BUILDER_CHAT_ROLES.has(message.role as BuilderChatMessage['role'])) {
+    if (!isBuilderChatRole(message.role)) {
       return [];
     }
 
     return [
       {
         id: typeof message.id === 'string' ? message.id : nanoid(),
-        role: message.role as BuilderChatMessage['role'],
+        role: message.role,
         content: message.content,
         excludeFromLlmContext: message.excludeFromLlmContext === true ? true : undefined,
         messageKey: typeof message.messageKey === 'string' ? message.messageKey : undefined,
