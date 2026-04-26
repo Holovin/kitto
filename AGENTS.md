@@ -92,7 +92,17 @@ Steps:
   - keep ephemeral filter selection in local runtime state such as `$filter`
   - do not use predicate-form filters or invent filtering-specific tools
 - Current sandbox tools exposed to generated apps:
-  - `read_state`, `write_state`, `merge_state`, `append_state`, `remove_state`
+  - `read_state(path)`
+  - `compute_value(op, input?, left?, right?, values?, options?, returnType?)`
+  - `write_state(path, value)`
+  - `merge_state(path, patch)`
+  - `append_state(path, value)`
+  - `append_item(path, value)`
+  - `toggle_item_field(path, idField, id, field)`
+  - `update_item_field(path, idField, id, field, value)`
+  - `remove_item(path, idField, id)`
+  - `write_computed_state(path, op, input?, left?, right?, values?, options?, returnType?)`
+  - `remove_state(path, index)`
 - Built-in action events exposed by the runtime:
   - `@OpenUrl(...)` uses the OpenUI action event bridge, not the persisted tool provider
   - `Link(...)` and `@OpenUrl(...)` share the same safe URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...`
@@ -102,8 +112,17 @@ Steps:
   - path segments may use only letters, numbers, `_`, or `-`
   - `__proto__`, `prototype`, and `constructor` are always invalid path or object keys
   - numeric path segments are array indexes only
+  - `write_state`, `append_state`, and `update_item_field` values must stay JSON-compatible
+  - `merge_state` patches and `append_item` rows must stay plain objects
+  - `append_item` keeps a provided unique non-empty string or finite number `id`; otherwise it generates a stable unique `id`
+  - `toggle_item_field`, `update_item_field`, and `remove_item` find one plain-object array row by `idField` and string-or-number `id`
+  - row action `idField` and `field` values must be safe object field names
   - `remove_state` requires an explicit non-negative integer `index`
-  - `write_state` and `append_state` values must stay JSON-compatible, and `merge_state` patches must stay plain objects
+  - `compute_value` and `write_computed_state` require an allowed `op` and return `{ value }`, where `value` is always a primitive string, number, or boolean
+  - allowed compute `returnType` values are `string`, `number`, and `boolean`
+  - supported compute ops are `truthy`, `falsy`, `not`, `and`, `or`, `equals`, `not_equals`, `number_gt`, `number_gte`, `number_lt`, `number_lte`, `is_empty`, `not_empty`, `contains_text`, `starts_with`, `ends_with`, `to_lower`, `to_upper`, `trim`, `to_number`, `add`, `subtract`, `multiply`, `divide`, `clamp`, `random_int`, `today_date`, `date_before`, `date_after`, `date_on_or_before`, and `date_on_or_after`
+  - compute `options` are plain objects; use `options.query` for string checks, `options.min` / `options.max` for `clamp` or `random_int`, and only strict `YYYY-MM-DD` strings for date comparisons
+  - prefer normal OpenUI expressions and built-ins before `compute_value`; use `write_computed_state` plus a following `Query("read_state", ...)` for button-triggered persisted computed values such as random rolls
 
 ## Architecture
 
