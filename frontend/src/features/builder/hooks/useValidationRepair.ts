@@ -3,6 +3,7 @@ import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { getBuilderSanitizedLlmRequestForTransport, validateBuilderLlmRequest } from '@features/builder/config';
+import { isRecord } from '@features/builder/objectGuards';
 import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSourceWithContext,
@@ -119,10 +120,6 @@ function isRepairQualityIssue(issue: RepairValidationIssue): issue is BuilderQua
 
 function stripRepairQualitySeverity(issue: RepairValidationIssue) {
   return isRepairQualityIssue(issue) ? stripQualitySeverity(issue) : issue;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function sanitizeUndefinedStateReferenceContext(issue: RepairValidationIssue): BuilderParseIssue['context'] | undefined {

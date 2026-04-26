@@ -1,16 +1,12 @@
 import type { Context } from 'hono';
-
-function normalizeRequestId(value: string | null | undefined) {
-  const normalizedValue = value?.trim();
-  return normalizedValue ? normalizedValue : null;
-}
+import { normalizeHeaderValue } from '#backend/httpHeaders.js';
 
 export function createRequestId() {
   return crypto.randomUUID();
 }
 
 export function getClientProvidedRequestIdFromContext(context: Context) {
-  return normalizeRequestId(context.req.header('x-kitto-request-id'));
+  return normalizeHeaderValue(context.req.header('x-kitto-request-id'));
 }
 
 export function getRequestIdFromContext(context: Context) {

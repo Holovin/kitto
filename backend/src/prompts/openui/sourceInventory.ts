@@ -1,3 +1,4 @@
+import { collectTopLevelStatements, type OpenUiTopLevelStatement } from '@kitto-openui/shared/openuiAst.js';
 import { visitOpenUiValue } from '#backend/prompts/openui/quality/astWalk.js';
 import {
   extractPathLiteral,
@@ -7,7 +8,6 @@ import {
   type ToolAst,
 } from '#backend/prompts/openui/quality/shared.js';
 
-const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const MAX_INVENTORY_LENGTH = 4_000;
 const MAX_VALUE_LENGTH = 120;
 const MAX_STATEMENTS = 30;
@@ -17,50 +17,7 @@ const MAX_RUNTIME_STATE = 30;
 const MAX_DOMAIN_PATHS = 30;
 const RESERVED_RUNTIME_STATE_NAMES = new Set(['$lastChoice']);
 
-type TopLevelStatement = {
-  rawValueSource: string;
-  statementId: string;
-};
-
-function collectTopLevelStatements(source: string): TopLevelStatement[] {
-  const rawLines = source.split('\n');
-  const statements: TopLevelStatement[] = [];
-  let currentStatementId: string | null = null;
-  let currentRawLines: string[] = [];
-
-  function flushCurrentStatement() {
-    if (!currentStatementId) {
-      return;
-    }
-
-    statements.push({
-      statementId: currentStatementId,
-      rawValueSource: currentRawLines.join('\n'),
-    });
-  }
-
-  for (const rawLine of rawLines) {
-    const assignmentMatch = rawLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
-
-    if (assignmentMatch) {
-      flushCurrentStatement();
-      currentStatementId = assignmentMatch[1] ?? null;
-      currentRawLines = [rawLine.replace(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN, '$2')];
-      continue;
-    }
-
-    if (!currentStatementId) {
-      continue;
-    }
-
-    currentRawLines.push(rawLine);
-  }
-
-  flushCurrentStatement();
-  return statements;
-}
-
-function isInventoryStatement(statement: TopLevelStatement) {
+function isInventoryStatement(statement: OpenUiTopLevelStatement) {
   const trimmedValueSource = statement.rawValueSource.trimStart();
 
   return (

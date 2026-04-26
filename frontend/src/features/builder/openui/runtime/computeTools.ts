@@ -1,4 +1,5 @@
 import { cloneJsonCompatibleValue, clonePlainObject, DomainStateError } from '@features/builder/store/path';
+import { getStrictIsoDateIssue } from '@features/builder/openui/date';
 import {
   OPENUI_COMPUTE_OPS,
   OPENUI_COMPUTE_RETURN_TYPES,
@@ -7,7 +8,6 @@ import {
 } from '@kitto-openui/shared/openuiToolRegistry.js';
 
 const RANDOM_INT_RANGE_LIMIT = 1_000_000;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const COMPUTE_OPS = OPENUI_COMPUTE_OPS;
 export const COMPUTE_RETURN_TYPES = OPENUI_COMPUTE_RETURN_TYPES;
@@ -231,49 +231,18 @@ function compareEquality(left: unknown, right: unknown) {
   return Object.is(normalizedLeft, normalizedRight);
 }
 
-function isLeapYear(year: number) {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
-function getDaysInMonth(year: number, month: number) {
-  switch (month) {
-    case 2:
-      return isLeapYear(year) ? 29 : 28;
-    case 4:
-    case 6:
-    case 9:
-    case 11:
-      return 30;
-    default:
-      return 31;
-  }
-}
-
 function parseIsoDate(value: unknown, label: string) {
-  if (typeof value !== 'string' || !ISO_DATE_PATTERN.test(value)) {
+  const issue = getStrictIsoDateIssue(value);
+
+  if (issue === 'format') {
     throw createComputeError(`${label} must be a YYYY-MM-DD date string.`);
   }
 
-  const [yearText, monthText, dayText] = value.split('-');
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+  if (issue === 'calendar') {
     throw createComputeError(`${label} must be a valid calendar date.`);
   }
 
-  if (month < 1 || month > 12) {
-    throw createComputeError(`${label} must be a valid calendar date.`);
-  }
-
-  const maxDay = getDaysInMonth(year, month);
-
-  if (day < 1 || day > maxDay) {
-    throw createComputeError(`${label} must be a valid calendar date.`);
-  }
-
-  return value;
+  return value as string;
 }
 
 function formatLocalDate(date: Date) {

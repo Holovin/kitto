@@ -1,6 +1,6 @@
 import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
 import { createPartialOpenUiEnvelopeParser, isMalformedStructuredChunk } from './partialOpenUiEnvelope';
-import { createBuilderRequestError } from './requestErrors';
+import { createBuilderRequestError, createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
 import { createAbortError, createLinkedAbortController } from './streamAbort';
 import { normalizeSseChunkLineEndings, parseServerSentEvent } from './streamSse';
@@ -46,22 +46,6 @@ function hasDoneSource(payload: StreamDonePayload): payload is StreamDonePayload
   return typeof payload.source === 'string' && payload.source.length > 0;
 }
 
-async function getResponseError(response: Response) {
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (contentType.includes('application/json')) {
-    return createBuilderRequestError(await response.json(), {
-      message: `Request failed with status ${response.status}.`,
-      status: response.status,
-    });
-  }
-
-  return createBuilderRequestError(await response.text(), {
-    message: `Request failed with status ${response.status}.`,
-    status: response.status,
-  });
-}
-
 export async function streamBuilderDefinition({
   apiBaseUrl,
   idleTimeoutMs,
@@ -99,7 +83,7 @@ export async function streamBuilderDefinition({
     });
 
     if (!response.ok) {
-      throw await getResponseError(response);
+      throw await createBuilderResponseError(response);
     }
 
     if (!response.body) {

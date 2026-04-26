@@ -1,7 +1,8 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { isStrictIsoDateString } from '@features/builder/openui/date';
 import { INPUT_TYPES, VALIDATION_RULE_TYPES, type InputType, type ValidationRuleType } from './schemas';
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export { isStrictIsoDateString };
 
 export type ValidationComponentType = 'Checkbox' | 'Input' | 'RadioGroup' | 'Select' | 'TextArea';
 export type ValidationTarget =
@@ -86,24 +87,6 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
-}
-
-function isLeapYear(year: number) {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
-function getDaysInMonth(year: number, month: number) {
-  switch (month) {
-    case 2:
-      return isLeapYear(year) ? 29 : 28;
-    case 4:
-    case 6:
-    case 9:
-    case 11:
-      return 30;
-    default:
-      return 31;
-  }
 }
 
 function getAllowedValidationRuleTypes(target: ValidationTarget) {
@@ -235,27 +218,6 @@ function isEmptyValidationValue(value: unknown) {
 
 function getNormalizedHelperText(helper: string | null | undefined) {
   return typeof helper === 'string' && helper.trim().length > 0 ? helper : undefined;
-}
-
-export function isStrictIsoDateString(value: unknown): value is string {
-  if (typeof value !== 'string' || !ISO_DATE_PATTERN.test(value)) {
-    return false;
-  }
-
-  const [yearText, monthText, dayText] = value.split('-');
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
-    return false;
-  }
-
-  if (month < 1 || month > 12) {
-    return false;
-  }
-
-  return day >= 1 && day <= getDaysInMonth(year, month);
 }
 
 export function inspectValidationConfig(args: {

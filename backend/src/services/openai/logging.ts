@@ -54,20 +54,16 @@ function getPromptLogRawUserRequest(request: PromptBuildRequest) {
   return buildOpenUiRawUserRequest(request);
 }
 
-function getPromptLogValidationIssues(request: PromptBuildRequest, validationIssues?: string[]) {
-  const mergedIssues = [...getPromptBuildValidationIssueCodes(request.validationIssues), ...(validationIssues ?? [])].filter(
+function sanitizeValidationIssues(...issueGroups: Array<readonly unknown[] | undefined>) {
+  const issues = issueGroups.flatMap((issueGroup) => issueGroup ?? []).filter(
     (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
   );
 
-  return mergedIssues.length > 0 ? [...new Set(mergedIssues)] : [];
+  return issues.length > 0 ? [...new Set(issues)] : [];
 }
 
-function getSanitizedValidationIssues(validationIssues?: string[]) {
-  const sanitizedIssues = (validationIssues ?? []).filter(
-    (issue): issue is string => typeof issue === 'string' && issue.trim().length > 0,
-  );
-
-  return sanitizedIssues.length > 0 ? [...new Set(sanitizedIssues)] : [];
+function getPromptLogValidationIssues(request: PromptBuildRequest, validationIssues?: string[]) {
+  return sanitizeValidationIssues(getPromptBuildValidationIssueCodes(request.validationIssues), validationIssues);
 }
 
 function getPromptLogMode(mode: unknown): PromptIoLogMode {
@@ -135,9 +131,7 @@ function getPartialPromptBuildContext(partialBody: unknown) {
             prompt: partialRequest.prompt,
           })
         : undefined,
-    validationIssues: getSanitizedValidationIssues(
-      partialValidationIssues,
-    ),
+    validationIssues: sanitizeValidationIssues(partialValidationIssues),
   };
 }
 
@@ -393,8 +387,8 @@ export async function writePromptIoCommitTelemetrySafely(
         repairAttempt: 0,
         mode: null,
         phase: 'client-commit',
-        qualityWarnings: getSanitizedValidationIssues(options.qualityWarnings),
-        validationIssues: getSanitizedValidationIssues(options.validationIssues),
+        qualityWarnings: sanitizeValidationIssues(options.qualityWarnings),
+        validationIssues: sanitizeValidationIssues(options.validationIssues),
         committed: options.committed,
         commitSource: options.commitSource,
         repairOutcome: options.repairOutcome,

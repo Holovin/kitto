@@ -1,6 +1,7 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
 import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContract.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
+import { isRecord } from '@features/builder/objectGuards';
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
 import { cloneBuilderSnapshot, createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
@@ -111,10 +112,6 @@ function createMessage(
 
 function createInitialChatMessages(): BuilderChatMessage[] {
   return [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function isBuilderChatRole(value: string): value is BuilderChatMessage['role'] {

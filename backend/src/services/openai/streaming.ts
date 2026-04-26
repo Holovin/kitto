@@ -164,7 +164,7 @@ export async function consumeOpenAiResponseStream(
 
       if (event.type === 'response.output_text.delta' && event.delta) {
         throwIfAborted(signal, { abort: abortStream });
-        streamedTextBytes += Buffer.byteLength(event.delta, 'utf8');
+        streamedTextBytes += getByteLength(event.delta);
         assertDeltaWithinLimit(env, streamedTextBytes, { abort: abortStream });
         state.streamedText += event.delta;
         await onTextDelta(event.delta);

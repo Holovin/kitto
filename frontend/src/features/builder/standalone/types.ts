@@ -1,3 +1,4 @@
+import { isRecord } from '@features/builder/objectGuards';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
 
 export const KITTO_STANDALONE_PAYLOAD_VERSION = 1 as const;
@@ -23,10 +24,6 @@ export type StandaloneStoredState = {
   domainData: Record<string, unknown>;
   updatedAt: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 export function normalizeStandaloneRuntimeState(value: unknown): Record<string, unknown> {
   try {

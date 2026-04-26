@@ -7,6 +7,7 @@ import {
 } from '@kitto-openui/shared/builderApiContract.js';
 import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError } from '#backend/errors/publicError.js';
+import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
 import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
 import {
   compactPromptBuildChatHistory,
@@ -78,22 +79,6 @@ function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {
 
 function getRequestSizeBytes(request: PromptBuildRequest) {
   return getByteLength(JSON.stringify(request));
-}
-
-function normalizeHeaderValue(value: string | null | undefined) {
-  const normalizedValue = value?.trim();
-  return normalizedValue ? normalizedValue : null;
-}
-
-function parsePositiveIntegerHeader(value: string | null | undefined) {
-  const normalizedValue = normalizeHeaderValue(value);
-
-  if (!normalizedValue || !/^[1-9]\d*$/.test(normalizedValue)) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
 }
 
 function createAutomaticRepairMetadataError() {

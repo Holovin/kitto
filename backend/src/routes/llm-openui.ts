@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import type { AppEnv } from '#backend/env.js';
 import { getByteLength } from '#backend/limits.js';
+import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
 import { createInMemoryRateLimitMiddleware } from '#backend/middleware/rateLimit.js';
 import {
   getClientProvidedRequestIdFromContext,
@@ -20,22 +21,6 @@ import {
 
 function isGenerateRoute(context: Context) {
   return context.req.path.endsWith('/llm/generate');
-}
-
-function normalizeHeaderValue(value: string | null | undefined) {
-  const normalizedValue = value?.trim();
-  return normalizedValue ? normalizedValue : null;
-}
-
-function parsePositiveIntegerHeader(value: string | null | undefined) {
-  const normalizedValue = normalizeHeaderValue(value);
-
-  if (!normalizedValue || !/^[1-9]\d*$/.test(normalizedValue)) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
 }
 
 function createGenerationContinuationRateLimitRegistry({

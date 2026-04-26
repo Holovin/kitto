@@ -1,5 +1,6 @@
 import type { SerializedError } from '@reduxjs/toolkit';
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { isRecord } from '@features/builder/objectGuards';
 
 type BuilderPublicErrorCode = 'internal_error' | 'timeout_error' | 'upstream_error' | 'validation_error';
 
@@ -19,10 +20,6 @@ class BuilderRequestError extends Error {
     this.code = options?.code;
     this.status = options?.status;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function parseBuilderPublicErrorPayload(value: unknown): NormalizedBuilderError | null {
@@ -132,6 +129,22 @@ export function createBuilderRequestError(value: unknown, fallback: { message: s
   return new BuilderRequestError(parsed?.message ?? fallback.message, {
     code: parsed?.code,
     status: parsed?.status ?? fallback.status,
+  });
+}
+
+export async function createBuilderResponseError(response: Response) {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    return createBuilderRequestError(await response.json(), {
+      message: `Request failed with status ${response.status}.`,
+      status: response.status,
+    });
+  }
+
+  return createBuilderRequestError(await response.text(), {
+    message: `Request failed with status ${response.status}.`,
+    status: response.status,
   });
 }
 

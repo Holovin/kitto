@@ -1,17 +1,10 @@
 import { Button } from '@components/ui/button';
+import { getRuntimeErrorMessage } from '@features/builder/openui/runtime/issues';
 
 type PreviewErrorFallbackProps = {
   error: unknown;
   onOpenDefinition: () => void;
 };
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message.trim();
-  }
-
-  return 'Unknown runtime error.';
-}
 
 export function PreviewErrorFallback({ error, onOpenDefinition }: PreviewErrorFallbackProps) {
   return (
@@ -24,7 +17,7 @@ export function PreviewErrorFallback({ error, onOpenDefinition }: PreviewErrorFa
       <p className="mt-2 text-sm leading-6 text-slate-600">
         Review the Definition tab for the current committed source and runtime issue details. The committed source is unchanged.
       </p>
-      <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 break-words text-slate-700">{getErrorMessage(error)}</p>
+      <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 break-words text-slate-700">{getRuntimeErrorMessage(error)}</p>
       <div className="mt-4">
         <Button type="button" variant="secondary" onClick={onOpenDefinition}>
           Open Definition

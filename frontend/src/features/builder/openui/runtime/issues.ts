@@ -1,7 +1,7 @@
 import type { OpenUIError, ParseResult } from '@openuidev/react-lang';
 import type { BuilderParseIssue } from '@features/builder/types';
 
-function getRuntimeErrorMessage(error: unknown) {
+export function getRuntimeErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
     return error.message.trim();
   }

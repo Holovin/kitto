@@ -1,6 +1,7 @@
 import type { BuilderLlmRequest, BuilderLlmResponse } from '@features/builder/types';
-import { createBuilderRequestError } from './requestErrors';
+import { createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
+import { createLinkedAbortController } from './streamAbort';
 import { unwrapAbortableRequestWithTimeout } from './requestTimeout';
 
 interface GenerateBuilderDefinitionOptions {
@@ -10,24 +11,6 @@ interface GenerateBuilderDefinitionOptions {
   request: BuilderLlmRequest;
   signal?: AbortSignal;
   timeoutMs: number;
-}
-
-function createLinkedAbortController(signal?: AbortSignal) {
-  const abortController = new AbortController();
-  const handleAbort = () => abortController.abort();
-
-  if (signal?.aborted) {
-    handleAbort();
-  } else {
-    signal?.addEventListener('abort', handleAbort, { once: true });
-  }
-
-  return {
-    abortController,
-    cleanup() {
-      signal?.removeEventListener('abort', handleAbort);
-    },
-  };
 }
 
 function getAutomaticRepairHeaders(request: BuilderLlmRequest): Record<string, string> {
@@ -69,22 +52,6 @@ function createGenerationHeaders(
   return headers;
 }
 
-async function getResponseError(response: Response) {
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (contentType.includes('application/json')) {
-    return createBuilderRequestError(await response.json(), {
-      message: `Request failed with status ${response.status}.`,
-      status: response.status,
-    });
-  }
-
-  return createBuilderRequestError(await response.text(), {
-    message: `Request failed with status ${response.status}.`,
-    status: response.status,
-  });
-}
-
 export async function generateBuilderDefinition({
   apiBaseUrl,
   requestId,
@@ -108,7 +75,7 @@ export async function generateBuilderDefinition({
           });
 
           if (!response.ok) {
-            throw await getResponseError(response);
+            throw await createBuilderResponseError(response);
           }
 
           const payload = (await response.json()) as BuilderLlmResponse;

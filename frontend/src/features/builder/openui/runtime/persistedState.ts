@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { BuilderDefinitionExport, BuilderParseIssue, BuilderSnapshot } from '@features/builder/types';
+import { isRecord } from '@features/builder/objectGuards';
 import { DEFAULT_DOMAIN_DATA } from '@features/builder/store/defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
 import { validateOpenUiSource } from './validation';
@@ -22,10 +23,6 @@ const builderDefinitionSchema = z.object({
   domainData: looseRecordSchema,
   history: z.array(builderSnapshotSchema).default([]),
 });
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 function parseBuilderDefinitionExport(rawValue: string) {
   let parsedJson: unknown;

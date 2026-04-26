@@ -1,4 +1,5 @@
 import { MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
+import { collectTopLevelStatements } from '@kitto-openui/shared/openuiAst.js';
 import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
 import {
@@ -36,7 +37,6 @@ interface UndefinedStateReferenceSummary {
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 480;
-const TOP_LEVEL_STATEMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
@@ -132,42 +132,21 @@ function formatRepairExemplarLines(exemplars: ReturnType<typeof getRelevantRepai
   );
 }
 
-function collectDraftStatements(source: string) {
-  const rawLines = source.split('\n');
+function collectDraftStatementSources(source: string) {
   const statements = new Map<string, string>();
-  let currentStatementId: string | null = null;
-  let currentRawLines: string[] = [];
 
-  function flushCurrentStatement() {
-    if (!currentStatementId || statements.has(currentStatementId)) {
-      return;
+  for (const statement of collectTopLevelStatements(source)) {
+    if (statements.has(statement.statementId)) {
+      continue;
     }
 
-    const statementSource = currentRawLines.join('\n').trimEnd();
+    const statementSource = `${statement.statementId} = ${statement.rawValueSource}`.trimEnd();
 
     if (statementSource.trim()) {
-      statements.set(currentStatementId, statementSource);
+      statements.set(statement.statementId, statementSource);
     }
   }
 
-  for (const rawLine of rawLines) {
-    const assignmentMatch = rawLine.match(TOP_LEVEL_STATEMENT_LINE_PATTERN);
-
-    if (assignmentMatch) {
-      flushCurrentStatement();
-      currentStatementId = assignmentMatch[1] ?? null;
-      currentRawLines = [rawLine];
-      continue;
-    }
-
-    if (!currentStatementId) {
-      continue;
-    }
-
-    currentRawLines.push(rawLine);
-  }
-
-  flushCurrentStatement();
   return statements;
 }
 
@@ -194,7 +173,7 @@ function getIssueStatementExcerptIds(issue: PromptBuildValidationIssue) {
 }
 
 function buildStatementExcerptLines(issues: PromptBuildValidationIssue[], invalidSource: string) {
-  const draftStatements = collectDraftStatements(invalidSource);
+  const draftStatements = collectDraftStatementSources(invalidSource);
   const statementExcerptLines: string[] = [];
   const seenStatementIds = new Set<string>();
 
