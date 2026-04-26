@@ -19,6 +19,7 @@ const textEncoder = new TextEncoder();
 interface RuntimeConfigSource {
   LLM_CHAT_HISTORY_MAX_ITEMS: number;
   LLM_MAX_REPAIR_ATTEMPTS: number;
+  LLM_MODEL_PROMPT_MAX_CHARS: number;
   LLM_USER_PROMPT_MAX_CHARS: number;
   LLM_REQUEST_MAX_BYTES: number;
   OPENAI_REQUEST_TIMEOUT_MS: number;
@@ -51,9 +52,11 @@ export function getPublicRuntimeConfig(env: RuntimeConfigSource) {
       temperature: getOpenUiTemperature('initial'),
     },
     limits: {
+      chatMessageMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
       chatHistoryMaxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
       promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
       requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
+      sourceMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
     },
     repair: {
       maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,

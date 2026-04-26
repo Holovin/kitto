@@ -10,4 +10,55 @@ export const OPENUI_VALIDATION_STATEMENT_COUNT_LIMIT = OPENUI_SOURCE_LIMITS.maxS
 
 export const ALLOWED_TOOLS: Set<string> = new Set(OPENUI_TOOL_NAMES);
 
-export const UNSAFE_SOURCE_PATTERNS = [/<script/i, /\beval\s*\(/i, /dangerouslySetInnerHTML/i, /javascript:/i];
+export const ALLOWED_AST_NODE_KINDS: Set<string> = new Set([
+  'Arr',
+  'Assign',
+  'BinOp',
+  'Bool',
+  'Comp',
+  'Index',
+  'Member',
+  'Null',
+  'Num',
+  'Obj',
+  'Ph',
+  'Ref',
+  'RuntimeRef',
+  'StateRef',
+  'Str',
+  'Ternary',
+  'UnaryOp',
+]);
+
+export const ALLOWED_BUILTIN_EXPRESSION_NAMES: Set<string> = new Set([
+  'Abs',
+  'Action',
+  'Avg',
+  'Ceil',
+  'Count',
+  'Each',
+  'Filter',
+  'First',
+  'Floor',
+  'Last',
+  'Max',
+  'Min',
+  'OpenUrl',
+  'Reset',
+  'Round',
+  'Run',
+  'Set',
+  'Sort',
+  'Sum',
+  'ToAssistant',
+]);
+
+// Defence-in-depth for executable-looking syntax outside string literals.
+// URL protocols are validated at the Link/@OpenUrl boundary in safeUrl.ts.
+export const UNSAFE_SOURCE_PATTERNS = [
+  /<\s*\/?\s*script\b/i,
+  /\bdangerouslySetInnerHTML\b/i,
+  /\beval\s*\(/i,
+  /\bFunction\s*\(/i,
+  /\bglobalThis\s*(?:\.|\[\s*['"`])\s*eval\b/i,
+];

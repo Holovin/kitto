@@ -656,8 +656,8 @@ root = AppShell([
     );
   });
 
-  it('rejects unsafe source patterns', () => {
-    const result = validateOpenUiSource(`${validSource}\nText("<script>alert(1)</script>", "body", "start")`);
+  it('rejects unsafe executable-looking source outside string literals', () => {
+    const result = validateOpenUiSource('root = AppShell([Function("alert(1)")])');
 
     expect(result.isValid).toBe(false);
     expect(result.issues).toEqual(
@@ -667,6 +667,19 @@ root = AppShell([
         }),
       ]),
     );
+  });
+
+  it('leaves URL protocol checks to Link and OpenUrl runtime validation', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Link("Blocked URL", "javascript:alert(1)")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
   });
 
   it('rejects query and mutation tool names outside the allowlist', () => {

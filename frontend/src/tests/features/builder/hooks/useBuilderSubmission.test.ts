@@ -576,9 +576,11 @@ const DEFAULT_CONFIG = {
     temperature: 0.4,
   },
   limits: {
+    chatMessageMaxChars: 4_096,
     chatHistoryMaxItems: 40,
     promptMaxChars: 4_096,
     requestMaxBytes: 300_000,
+    sourceMaxChars: 12_288,
   },
   repair: {
     maxRepairAttempts: 2,

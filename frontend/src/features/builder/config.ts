@@ -23,9 +23,11 @@ function formatLimitValue(value: number) {
 }
 
 export interface BuilderRequestLimits {
+  chatMessageMaxChars: number;
   chatHistoryMaxItems: number;
   promptMaxChars: number;
   requestMaxBytes: number;
+  sourceMaxChars: number;
 }
 
 export interface BuilderStreamTimeouts {
@@ -68,18 +70,28 @@ export function getBuilderMaxRepairValidationIssues(config?: BuilderConfigRespon
 }
 
 export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits | null {
+  const chatMessageMaxChars = parsePositiveInteger(config?.limits.chatMessageMaxChars);
   const promptMaxChars = parsePositiveInteger(config?.limits.promptMaxChars);
   const chatHistoryMaxItems = parsePositiveInteger(config?.limits.chatHistoryMaxItems);
   const requestMaxBytes = parsePositiveInteger(config?.limits.requestMaxBytes);
+  const sourceMaxChars = parsePositiveInteger(config?.limits.sourceMaxChars);
 
-  if (promptMaxChars === null || chatHistoryMaxItems === null || requestMaxBytes === null) {
+  if (
+    chatMessageMaxChars === null ||
+    promptMaxChars === null ||
+    chatHistoryMaxItems === null ||
+    requestMaxBytes === null ||
+    sourceMaxChars === null
+  ) {
     return null;
   }
 
   return {
+    chatMessageMaxChars,
     promptMaxChars,
     chatHistoryMaxItems,
     requestMaxBytes,
+    sourceMaxChars,
   };
 }
 
@@ -145,6 +157,18 @@ export function getApproximateBuilderRequestSizeBytes(request: BuilderLlmRequest
 export function validateBuilderLlmRequest(request: BuilderLlmRequest, limits: BuilderRequestLimits) {
   if (request.prompt.length > limits.promptMaxChars) {
     return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
+  }
+
+  if (request.currentSource.length > limits.sourceMaxChars) {
+    return `Current source is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
+  }
+
+  if (typeof request.invalidDraft === 'string' && request.invalidDraft.length > limits.sourceMaxChars) {
+    return `Invalid draft is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
+  }
+
+  if (request.chatHistory.some((message) => message.content.length > limits.chatMessageMaxChars)) {
+    return `Chat history message is too large. Limit: ${formatLimitValue(limits.chatMessageMaxChars)} characters.`;
   }
 
   const sanitizedRequest = getBuilderSanitizedLlmRequestForTransport(request, limits);

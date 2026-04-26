@@ -78,9 +78,11 @@ export interface BuilderConfigResponse {
     temperature: number;
   };
   limits: {
+    chatMessageMaxChars: number;
     chatHistoryMaxItems: number;
     promptMaxChars: number;
     requestMaxBytes: number;
+    sourceMaxChars: number;
   };
   repair: {
     maxRepairAttempts: number;

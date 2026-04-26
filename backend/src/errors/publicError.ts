@@ -52,12 +52,28 @@ function formatPathMaximum(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function getCustomTooBigMessage(issue: ZodError['issues'][number]) {
+  const message = issue.message.trim();
+
+  return message && !message.startsWith('Too big:') ? message : null;
+}
+
 function getValidationMessage(error: ZodError) {
   const tooBigIssues = error.issues.filter((issue) => issue.code === 'too_big');
 
   const promptIssue = tooBigIssues.find((issue) => issue.path[0] === 'prompt');
   if (promptIssue) {
-    return promptIssue.message.trim() || 'Prompt is too large.';
+    return getCustomTooBigMessage(promptIssue) ?? 'Prompt is too large.';
+  }
+
+  const currentSourceIssue = tooBigIssues.find((issue) => issue.path[0] === 'currentSource');
+  if (currentSourceIssue) {
+    return getCustomTooBigMessage(currentSourceIssue) ?? 'Current source is too large.';
+  }
+
+  const invalidDraftIssue = tooBigIssues.find((issue) => issue.path[0] === 'invalidDraft');
+  if (invalidDraftIssue) {
+    return getCustomTooBigMessage(invalidDraftIssue) ?? 'Invalid draft is too large.';
   }
 
   const validationIssuesLengthIssue = tooBigIssues.find(

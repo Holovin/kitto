@@ -243,6 +243,86 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
+  it('rejects oversized current source before calling the OpenAI service', async () => {
+    const { app } = createRouteApp({
+      LLM_MODEL_PROMPT_MAX_CHARS: 8,
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'update',
+        currentSource: 'root = AppShell([])',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Current source is too large. Limit: 8 characters.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized invalid drafts before repair generation', async () => {
+    const { app } = createRouteApp({
+      LLM_MODEL_PROMPT_MAX_CHARS: 8,
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair it',
+        currentSource: '',
+        invalidDraft: 'root = AppShell([])',
+        mode: 'repair',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Invalid draft is too large. Limit: 8 characters.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized individual chat history messages before compaction', async () => {
+    const { app } = createRouteApp({
+      LLM_USER_PROMPT_MAX_CHARS: 8,
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'update',
+        currentSource: '',
+        chatHistory: [{ role: 'user', content: 'this message is too long' }],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Chat history is too large.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized Content-Length before parsing or calling the OpenAI service', async () => {
     const { app, env } = createRouteApp({
       LLM_REQUEST_MAX_BYTES: 20,

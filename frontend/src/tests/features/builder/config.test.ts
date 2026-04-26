@@ -14,9 +14,11 @@ import {
 import type { BuilderConfigResponse, BuilderLlmRequest } from '@features/builder/types';
 
 const TEST_LIMITS: BuilderRequestLimits = {
+  chatMessageMaxChars: 4_096,
   chatHistoryMaxItems: 40,
   promptMaxChars: 4_096,
   requestMaxBytes: 300_000,
+  sourceMaxChars: 12_288,
 };
 const TEST_CONFIG: BuilderConfigResponse = {
   generation: {
@@ -114,6 +116,49 @@ describe('builder request preflight', () => {
     ).toBe(
       'The request is too large to send as-is. Limit: 128 bytes for the full request payload. Shorten the prompt or reduce recent context and try again.',
     );
+  });
+
+  it('returns a current-source validation error before checking payload bytes', () => {
+    const request = createRequest({
+      currentSource: 'x'.repeat(32),
+    });
+
+    expect(
+      validateBuilderLlmRequest(request, {
+        ...TEST_LIMITS,
+        requestMaxBytes: 64,
+        sourceMaxChars: 8,
+      }),
+    ).toBe('Current source is too large. Limit: 8 characters.');
+  });
+
+  it('returns an invalid-draft validation error before checking payload bytes', () => {
+    const request = createRequest({
+      invalidDraft: 'x'.repeat(32),
+      mode: 'repair',
+    });
+
+    expect(
+      validateBuilderLlmRequest(request, {
+        ...TEST_LIMITS,
+        requestMaxBytes: 64,
+        sourceMaxChars: 8,
+      }),
+    ).toBe('Invalid draft is too large. Limit: 8 characters.');
+  });
+
+  it('returns a chat-history message validation error before checking payload bytes', () => {
+    const request = createRequest({
+      chatHistory: [{ role: 'user', content: 'x'.repeat(32) }],
+    });
+
+    expect(
+      validateBuilderLlmRequest(request, {
+        ...TEST_LIMITS,
+        chatMessageMaxChars: 8,
+        requestMaxBytes: 64,
+      }),
+    ).toBe('Chat history message is too large. Limit: 8 characters.');
   });
 
   it('preserves the first user request while compacting recent context by item limit', () => {

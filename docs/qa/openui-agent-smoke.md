@@ -30,6 +30,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 10. After a completed generation, follow-up `/api/llm/commit-telemetry` requests should send the same completed generation id in `x-kitto-request-id` and in the JSON body; telemetry without a completed generation id should be rejected instead of parsed as an open-ended request body.
 11. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent for the current app context together with the newest surviving context instead of collapsing to a newest-only tail. After reset, valid import, or demo load, older pre-change user requests should not be sent as LLM chat history.
 12. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
+13. `/api/config` `limits` should include `promptMaxChars`, `chatMessageMaxChars`, `sourceMaxChars`, `chatHistoryMaxItems`, and `requestMaxBytes`; submit-time preflight should block any one field or full serialized payload that exceeds those limits.
 
 ## MCP automation notes
 

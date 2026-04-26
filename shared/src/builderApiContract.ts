@@ -121,8 +121,10 @@ export interface PromptInfoToolSpec {
 }
 
 export interface CreateBuilderLlmRequestSchemaOptions {
+  chatMessageMaxChars: number;
   maxValidationIssues?: number;
   promptMaxChars: number;
+  sourceMaxChars: number;
 }
 
 export interface CreateCommitTelemetrySchemaOptions {
@@ -216,16 +218,24 @@ function createValidationIssueSchema(maxValidationIssues: number) {
 }
 
 export function createBuilderLlmRequestSchema({
+  chatMessageMaxChars,
   maxValidationIssues = DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
   promptMaxChars,
+  sourceMaxChars,
 }: CreateBuilderLlmRequestSchemaOptions) {
   const validationIssueSchema = createValidationIssueSchema(maxValidationIssues);
+  const currentSourceSchema = z
+    .string()
+    .max(sourceMaxChars, `Current source is too large. Limit: ${sourceMaxChars} characters.`);
+  const invalidDraftSchema = z
+    .string()
+    .max(sourceMaxChars, `Invalid draft is too large. Limit: ${sourceMaxChars} characters.`);
   const baseLlmRequestSchema = z.object({
     prompt: z
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(promptMaxChars, `Prompt is too large. Limit: ${promptMaxChars} characters.`),
-    currentSource: z.string().default(''),
+    currentSource: currentSourceSchema.default(''),
     parentRequestId: z.string().trim().min(1).max(200).optional(),
     repairAttemptNumber: z.coerce.number().int().positive().optional(),
     validationIssues: z.array(validationIssueSchema).max(maxValidationIssues).optional(),
@@ -233,7 +243,9 @@ export function createBuilderLlmRequestSchema({
       .array(
         z.object({
           role: z.enum(BUILDER_CHAT_MESSAGE_ROLES),
-          content: z.string(),
+          content: z
+            .string()
+            .max(chatMessageMaxChars, `Chat history message is too large. Limit: ${chatMessageMaxChars} characters.`),
           excludeFromLlmContext: z.boolean().optional(),
         }),
       )
@@ -242,11 +254,11 @@ export function createBuilderLlmRequestSchema({
 
   const requestSchema = z.discriminatedUnion('mode', [
     baseLlmRequestSchema.extend({
-      invalidDraft: z.string().optional(),
+      invalidDraft: invalidDraftSchema.optional(),
       mode: z.literal('initial'),
     }),
     baseLlmRequestSchema.extend({
-      invalidDraft: z.string(),
+      invalidDraft: invalidDraftSchema,
       mode: z.literal('repair'),
     }),
   ]);

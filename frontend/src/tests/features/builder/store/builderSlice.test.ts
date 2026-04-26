@@ -419,6 +419,56 @@ describe('builderSlice', () => {
     );
   });
 
+  it('updates keyed streaming messages in place without moving later messages', () => {
+    const withPendingSummary = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content: 'Building: first chunk',
+        isStreaming: true,
+        messageKey: 'generation-summary:request-order',
+        role: 'assistant',
+      }),
+    );
+    const summaryMessageId = withPendingSummary.chatMessages.at(-1)?.id;
+    const withLaterMessage = builderReducer(
+      withPendingSummary,
+      builderActions.appendChatMessage({
+        content: 'A later tool status message.',
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+    const withUpdatedSummary = builderReducer(
+      withLaterMessage,
+      builderActions.appendChatMessage({
+        content: 'Building: updated chunk',
+        isStreaming: true,
+        messageKey: 'generation-summary:request-order',
+        role: 'assistant',
+      }),
+    );
+
+    expect(withUpdatedSummary.chatMessages.map((message) => message.content)).toEqual([
+      'Building: updated chunk',
+      'A later tool status message.',
+    ]);
+    expect(withUpdatedSummary.chatMessages[0]).toEqual(
+      expect.objectContaining({
+        id: summaryMessageId,
+        isStreaming: true,
+        messageKey: 'generation-summary:request-order',
+        role: 'assistant',
+      }),
+    );
+    expect(withUpdatedSummary.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'A later tool status message.',
+        role: 'system',
+        tone: 'info',
+      }),
+    );
+  });
+
   it('removes a chat message by message key', () => {
     const withSummary = builderReducer(
       createInitialState(),

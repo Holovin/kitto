@@ -62,8 +62,10 @@ const commitTelemetrySchema = createCommitTelemetrySchema({
 
 function createLlmRequestSchema(env: AppEnv) {
   return createBuilderLlmRequestSchema({
+    chatMessageMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
     maxValidationIssues: MAX_REPAIR_VALIDATION_ISSUES,
     promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
+    sourceMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
   });
 }
 

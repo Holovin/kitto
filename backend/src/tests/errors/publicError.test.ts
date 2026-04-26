@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE, toPublicErrorPayload } from '#backend/errors/publicError.js';
+import { toPublicErrorPayload } from '#backend/errors/publicError.js';
 
 function getZodError(result: { success: boolean; error?: z.ZodError }) {
   if (!result.success) {
@@ -107,7 +107,7 @@ describe('toPublicErrorPayload', () => {
     });
   });
 
-  it('falls back to the request body message for other too_big paths', () => {
+  it('returns the current source too_big message for currentSource paths', () => {
     const error = getZodError(
       z
         .object({
@@ -120,7 +120,7 @@ describe('toPublicErrorPayload', () => {
 
     expect(toPublicErrorPayload(error)).toEqual({
       code: 'validation_error',
-      error: REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE,
+      error: 'Current source is too large.',
       status: 400,
     });
   });

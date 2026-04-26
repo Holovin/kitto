@@ -161,8 +161,7 @@ function createStreamingResponse(
       })();
     },
     cancel() {
-      isClosed = true;
-      context.req.raw.signal.removeEventListener('abort', handleClientAbort);
+      closeController();
       abortController.abort();
     },
   });

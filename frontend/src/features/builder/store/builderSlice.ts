@@ -49,9 +49,13 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         continue;
       }
 
-      const existingMessage = messages.splice(index, 1)[0];
+      const existingMessage = messages[index];
 
-      messages.push({
+      if (!existingMessage) {
+        continue;
+      }
+
+      messages[index] = {
         ...existingMessage,
         content: message.content,
         createdAt: message.createdAt,
@@ -60,7 +64,7 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         role: message.role,
         technicalDetails: message.technicalDetails,
         tone: message.tone,
-      });
+      };
 
       trimUiMessages(messages);
       return;

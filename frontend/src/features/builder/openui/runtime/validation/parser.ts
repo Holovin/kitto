@@ -1,17 +1,27 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@features/builder/openui/library/components/shared';
 import type { BuilderParseIssue } from '@features/builder/types';
-import { ALLOWED_TOOLS, OPENUI_SOURCE_LIMITS, UNSAFE_SOURCE_PATTERNS } from '@features/builder/openui/runtime/validationLimits';
+import {
+  ALLOWED_AST_NODE_KINDS,
+  ALLOWED_BUILTIN_EXPRESSION_NAMES,
+  ALLOWED_TOOLS,
+  OPENUI_SOURCE_LIMITS,
+  UNSAFE_SOURCE_PATTERNS,
+} from '@features/builder/openui/runtime/validationLimits';
 import {
   componentSchemaDefinitions,
   createParserIssue,
   escapeRegExp,
   extractStringLiteral,
+  isAstNode,
   isElementNode,
   isLiteralObjectValue,
   mapParserIssues,
   maskStringLiterals,
+  visitOpenUiValue,
 } from './shared';
+
+const allowedComponentNames = new Set(Object.keys(componentSchemaDefinitions));
 
 function validateLiteralProps(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
   if (Array.isArray(value)) {
@@ -221,6 +231,78 @@ function validateMutationReferenceUsage(source: string, result: ParseResult): Bu
   return issues;
 }
 
+function validateAstNodeSurface(value: unknown, inheritedStatementId?: string): BuilderParseIssue[] {
+  const issues: BuilderParseIssue[] = [];
+
+  visitOpenUiValue(value, (node, context) => {
+    const statementId = context.statementId ?? inheritedStatementId;
+
+    if (isElementNode(node)) {
+      if (!allowedComponentNames.has(node.typeName)) {
+        issues.push(
+          createParserIssue({
+            code: 'unsupported-component',
+            message: `OpenUI component "${node.typeName}" is not in the supported component allowlist.`,
+            statementId,
+          }),
+        );
+      }
+
+      return;
+    }
+
+    if (!isAstNode(node)) {
+      return;
+    }
+
+    if (!ALLOWED_AST_NODE_KINDS.has(node.k)) {
+      issues.push(
+        createParserIssue({
+          code: 'unsupported-ast-node',
+          message: `OpenUI expression node "${node.k}" is not supported.`,
+          statementId,
+        }),
+      );
+      return;
+    }
+
+    if (
+      node.k === 'Comp' &&
+      typeof node.name === 'string' &&
+      !allowedComponentNames.has(node.name) &&
+      !ALLOWED_BUILTIN_EXPRESSION_NAMES.has(node.name)
+    ) {
+      issues.push(
+        createParserIssue({
+          code: 'unsupported-call',
+          message: `OpenUI call "${node.name}" is not in the supported component or built-in allowlist.`,
+          statementId,
+        }),
+      );
+    }
+  }, inheritedStatementId);
+
+  return issues;
+}
+
+function validateAstSurface(result: ParseResult): BuilderParseIssue[] {
+  const issues = validateAstNodeSurface(result.root);
+
+  for (const query of result.queryStatements) {
+    issues.push(...validateAstNodeSurface(query.toolAST, query.statementId));
+    issues.push(...validateAstNodeSurface(query.argsAST, query.statementId));
+    issues.push(...validateAstNodeSurface(query.defaultsAST, query.statementId));
+    issues.push(...validateAstNodeSurface(query.refreshAST, query.statementId));
+  }
+
+  for (const mutation of result.mutationStatements) {
+    issues.push(...validateAstNodeSurface(mutation.toolAST, mutation.statementId));
+    issues.push(...validateAstNodeSurface(mutation.argsAST, mutation.statementId));
+  }
+
+  return issues;
+}
+
 export function collectOpenUiParserValidationIssues(source: string, result: ParseResult): BuilderParseIssue[] {
   const issues: BuilderParseIssue[] = [];
 
@@ -233,8 +315,10 @@ export function collectOpenUiParserValidationIssues(source: string, result: Pars
     );
   }
 
+  const sourceWithoutStringLiterals = maskStringLiterals(source);
+
   for (const pattern of UNSAFE_SOURCE_PATTERNS) {
-    if (!pattern.test(source)) {
+    if (!pattern.test(sourceWithoutStringLiterals)) {
       continue;
     }
 
@@ -247,6 +331,7 @@ export function collectOpenUiParserValidationIssues(source: string, result: Pars
   }
 
   issues.push(...mapParserIssues(result));
+  issues.push(...validateAstSurface(result));
 
   if (result.meta.incomplete) {
     issues.push(

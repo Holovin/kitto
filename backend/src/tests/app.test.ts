@@ -26,6 +26,7 @@ describe('createApp', () => {
       FRONTEND_ORIGIN: 'https://builder.kitto.test',
       LLM_CHAT_HISTORY_MAX_ITEMS: 7,
       LLM_MAX_REPAIR_ATTEMPTS: 2,
+      LLM_MODEL_PROMPT_MAX_CHARS: 987,
       LLM_REQUEST_MAX_BYTES: 654,
       LLM_USER_PROMPT_MAX_CHARS: 321,
     });
@@ -45,9 +46,11 @@ describe('createApp', () => {
         temperature: 0.4,
       },
       limits: {
+        chatMessageMaxChars: 321,
         chatHistoryMaxItems: 7,
         promptMaxChars: 321,
         requestMaxBytes: 654,
+        sourceMaxChars: 987,
       },
       repair: {
         maxRepairAttempts: 2,
