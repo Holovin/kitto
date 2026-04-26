@@ -1,5 +1,10 @@
 import type { Context } from 'hono';
-import { ZodError, z } from 'zod';
+import { ZodError } from 'zod';
+import {
+  createBuilderLlmRequestSchema,
+  createCommitTelemetrySchema,
+  type BuilderCommitTelemetryRequest,
+} from '@kitto-openui/shared/builderApiContract.js';
 import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError } from '#backend/errors/publicError.js';
 import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
@@ -44,155 +49,22 @@ export interface PreparedLlmInvocation {
   requestId: string;
 }
 
-export interface ParsedCommitTelemetryRequest {
-  commitSource: 'fallback' | 'streaming';
-  committed: boolean;
-  qualityWarnings: string[];
-  repairOutcome?: 'failed' | 'fixed';
-  requestId: string;
-  validationIssues: string[];
-}
+export type ParsedCommitTelemetryRequest = BuilderCommitTelemetryRequest;
 
 interface CompactedLlmRequest {
   compaction?: LlmRequestCompaction;
   request: PromptBuildRequest;
 }
 
-const stateReferenceNameSchema = z.string().trim().min(1).max(200).regex(/^\$[A-Za-z_][\w$]*$/);
-
-const undefinedStateReferenceContextSchema = z.object({
-  exampleInitializer: z.string().max(1_000).optional(),
-  refName: stateReferenceNameSchema,
-});
-
-const stalePersistedQueryContextSchema = z.object({
-  statementId: z.string().trim().min(1).max(200),
-  suggestedQueryRefs: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
-});
-
-const optionsShapeContextSchema = z.object({
-  groupId: z.string().trim().min(1).max(200),
-  invalidValues: z.array(z.union([z.string().max(1_000), z.number().finite()])).min(1).max(MAX_REPAIR_VALIDATION_ISSUES),
-});
-
-const validationIssueContextSchema = z.union([
-  undefinedStateReferenceContextSchema,
-  stalePersistedQueryContextSchema,
-  optionsShapeContextSchema,
-]);
-
-const validationIssueSchema = z
-  .object({
-    code: z.string().trim().min(1).max(200),
-    context: validationIssueContextSchema.optional(),
-    message: z.string().trim().min(1).max(2_000),
-    source: z.enum(['mutation', 'parser', 'quality', 'query', 'runtime']).optional(),
-    statementId: z.string().trim().min(1).max(200).optional(),
-    suggestion: z
-      .object({
-        kind: z.literal('replace-text'),
-        from: z.string().max(1_000),
-        to: z.string().max(1_000),
-      })
-      .optional(),
-  })
-  .superRefine((issue, context) => {
-    if (issue.code === 'undefined-state-reference') {
-      if (!issue.context || !('refName' in issue.context)) {
-        context.addIssue({
-          code: 'custom',
-          message: 'undefined-state-reference issues require structured context.',
-          path: ['context'],
-        });
-      }
-
-      return;
-    }
-
-    if (issue.code === 'quality-stale-persisted-query') {
-      if (!issue.context || !('suggestedQueryRefs' in issue.context)) {
-        context.addIssue({
-          code: 'custom',
-          message: 'quality-stale-persisted-query issues require structured context.',
-          path: ['context'],
-        });
-      }
-
-      return;
-    }
-
-    if (issue.code === 'quality-options-shape') {
-      if (!issue.context || !('invalidValues' in issue.context)) {
-        context.addIssue({
-          code: 'custom',
-          message: 'quality-options-shape issues require structured context.',
-          path: ['context'],
-        });
-      }
-
-      return;
-    }
-
-    if (issue.context) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Validation issue context is not supported for this issue code.',
-        path: ['context'],
-      });
-    }
-  });
-
-const commitTelemetrySchema = z.object({
-  requestId: z.string().trim().min(1).max(200),
-  qualityWarnings: z.array(z.string().trim().min(1).max(200)).max(MAX_REPAIR_VALIDATION_ISSUES).default([]),
-  validationIssues: z.array(z.string().trim().min(1).max(200)).max(MAX_REPAIR_VALIDATION_ISSUES).default([]),
-  committed: z.boolean(),
-  commitSource: z.enum(['streaming', 'fallback']),
-  repairOutcome: z.enum(['failed', 'fixed']).optional(),
+const commitTelemetrySchema = createCommitTelemetrySchema({
+  maxValidationIssues: MAX_REPAIR_VALIDATION_ISSUES,
 });
 
 function createLlmRequestSchema(env: AppEnv) {
-  const baseLlmRequestSchema = z.object({
-    prompt: z
-      .string()
-      .min(1, 'Prompt must not be empty.')
-      .max(env.LLM_USER_PROMPT_MAX_CHARS, `Prompt is too large. Limit: ${env.LLM_USER_PROMPT_MAX_CHARS} characters.`),
-    currentSource: z.string().default(''),
-    parentRequestId: z.string().trim().min(1).max(200).optional(),
-    repairAttemptNumber: z.coerce.number().int().positive().optional(),
-    validationIssues: z.array(validationIssueSchema).max(MAX_REPAIR_VALIDATION_ISSUES).optional(),
-    chatHistory: z
-      .array(
-        z.object({
-          role: z.enum(['assistant', 'system', 'user']),
-          content: z.string(),
-          excludeFromLlmContext: z.boolean().optional(),
-        }),
-      )
-      .default([]),
+  return createBuilderLlmRequestSchema({
+    maxValidationIssues: MAX_REPAIR_VALIDATION_ISSUES,
+    promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
   });
-
-  const requestSchema = z.discriminatedUnion('mode', [
-    baseLlmRequestSchema.extend({
-      invalidDraft: z.string().optional(),
-      mode: z.literal('initial'),
-    }),
-    baseLlmRequestSchema.extend({
-      invalidDraft: z.string(),
-      mode: z.literal('repair'),
-    }),
-  ]);
-
-  return z.preprocess((value) => {
-    if (value && typeof value === 'object' && !Array.isArray(value) && !('mode' in value)) {
-      return {
-        ...value,
-        mode: 'initial',
-      };
-    }
-
-    return value;
-  }, requestSchema);
 }
 
 function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {

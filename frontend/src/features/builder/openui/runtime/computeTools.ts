@@ -1,46 +1,19 @@
 import { cloneJsonCompatibleValue, clonePlainObject, DomainStateError } from '@features/builder/store/path';
+import {
+  OPENUI_COMPUTE_OPS,
+  OPENUI_COMPUTE_RETURN_TYPES,
+  type OpenUiComputeOp,
+  type OpenUiComputeReturnType,
+} from '@kitto-openui/shared/openuiToolRegistry.js';
 
 const RANDOM_INT_RANGE_LIMIT = 1_000_000;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-export const COMPUTE_OPS = [
-  'truthy',
-  'falsy',
-  'not',
-  'and',
-  'or',
-  'equals',
-  'not_equals',
-  'number_gt',
-  'number_gte',
-  'number_lt',
-  'number_lte',
-  'is_empty',
-  'not_empty',
-  'contains_text',
-  'starts_with',
-  'ends_with',
-  'to_lower',
-  'to_upper',
-  'trim',
-  'to_number',
-  'add',
-  'subtract',
-  'multiply',
-  'divide',
-  'clamp',
-  'random_int',
-  'today_date',
-  'date_before',
-  'date_after',
-  'date_on_or_before',
-  'date_on_or_after',
-] as const;
+export const COMPUTE_OPS = OPENUI_COMPUTE_OPS;
+export const COMPUTE_RETURN_TYPES = OPENUI_COMPUTE_RETURN_TYPES;
 
-export const COMPUTE_RETURN_TYPES = ['string', 'number', 'boolean'] as const;
-
-export type ComputeOp = (typeof COMPUTE_OPS)[number];
-export type ComputeReturnType = (typeof COMPUTE_RETURN_TYPES)[number];
+export type ComputeOp = OpenUiComputeOp;
+export type ComputeReturnType = OpenUiComputeReturnType;
 export type ComputePrimitive = boolean | number | string;
 
 export interface ComputeValueInput {

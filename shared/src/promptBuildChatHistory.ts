@@ -1,16 +1,11 @@
-export type PromptBuildChatHistoryRole = 'assistant' | 'system' | 'user';
-export type PromptConversationChatHistoryRole = Exclude<PromptBuildChatHistoryRole, 'system'>;
+import type { PromptBuildChatHistoryMessage, RawPromptBuildChatHistoryMessage } from './builderApiContract.js';
 
-export interface RawPromptBuildChatHistoryMessage {
-  content: string;
-  excludeFromLlmContext?: boolean;
-  role: PromptBuildChatHistoryRole;
-}
-
-export interface PromptBuildChatHistoryMessage {
-  content: string;
-  role: PromptConversationChatHistoryRole;
-}
+export type {
+  PromptBuildChatHistoryMessage,
+  PromptBuildChatHistoryRole,
+  PromptConversationChatHistoryRole,
+  RawPromptBuildChatHistoryMessage,
+} from './builderApiContract.js';
 
 export interface PromptBuildChatHistoryCompactionResult {
   chatHistory: PromptBuildChatHistoryMessage[];

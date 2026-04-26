@@ -1,10 +1,34 @@
+import type {
+  BuilderCommitSource,
+  BuilderLlmResponse,
+  BuilderRequestId,
+  PromptBuildChatHistoryRole,
+  PromptInfoToolSpec,
+} from '@kitto-openui/shared/builderApiContract.js';
+
+export type {
+  BuilderCommitRepairOutcome,
+  BuilderCommitSource,
+  BuilderLlmChatMessage,
+  BuilderLlmRequest,
+  BuilderLlmRequestCompaction,
+  BuilderLlmRequestMode,
+  BuilderLlmResponse,
+  BuilderOptionsShapeIssueContext,
+  BuilderParseIssue,
+  BuilderParseIssueContext,
+  BuilderParseIssueSuggestion,
+  BuilderQualityIssue,
+  BuilderQualityIssueSeverity,
+  BuilderRequestId,
+  BuilderStalePersistedQueryIssueContext,
+  BuilderUndefinedStateReferenceIssueContext,
+  PromptInfoToolSpec,
+} from '@kitto-openui/shared/builderApiContract.js';
+
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
-export type BuilderRequestId = string;
-export type BuilderLlmRequestMode = 'initial' | 'repair';
 export type BuilderTabId = 'preview' | 'definition' | 'app-state';
-export type BuilderCommitSource = 'fallback' | 'streaming';
-export type BuilderCommitRepairOutcome = 'failed' | 'fixed';
-type BuilderMessageRole = 'assistant' | 'system' | 'user';
+type BuilderMessageRole = PromptBuildChatHistoryRole;
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 
 export interface BuilderChatMessage {
@@ -25,12 +49,6 @@ export interface BuilderChatNotice {
   tone?: BuilderChatMessage['tone'];
 }
 
-export interface BuilderLlmChatMessage {
-  content: string;
-  excludeFromLlmContext?: boolean;
-  role: BuilderChatMessage['role'];
-}
-
 export interface BuilderSnapshot {
   source: string;
   runtimeState: Record<string, unknown>;
@@ -46,74 +64,6 @@ export interface BuilderDefinitionExport {
   runtimeState: Record<string, unknown>;
   domainData: Record<string, unknown>;
   history: BuilderSnapshot[];
-}
-
-export interface BuilderParseIssueSuggestion {
-  kind: 'replace-text';
-  from: string;
-  to: string;
-}
-
-export interface BuilderUndefinedStateReferenceIssueContext {
-  exampleInitializer?: string;
-  refName: string;
-}
-
-export interface BuilderStalePersistedQueryIssueContext {
-  statementId: string;
-  suggestedQueryRefs: string[];
-}
-
-export interface BuilderOptionsShapeIssueContext {
-  groupId: string;
-  invalidValues: Array<number | string>;
-}
-
-export type BuilderParseIssueContext =
-  | BuilderOptionsShapeIssueContext
-  | BuilderStalePersistedQueryIssueContext
-  | BuilderUndefinedStateReferenceIssueContext;
-
-export interface BuilderParseIssue {
-  code: string;
-  context?: BuilderParseIssueContext;
-  message: string;
-  statementId?: string;
-  suggestion?: BuilderParseIssueSuggestion;
-  source?: 'mutation' | 'parser' | 'quality' | 'query' | 'runtime';
-}
-
-export type BuilderQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
-
-export interface BuilderQualityIssue extends BuilderParseIssue {
-  severity: BuilderQualityIssueSeverity;
-}
-
-export interface BuilderLlmRequest {
-  prompt: string;
-  currentSource: string;
-  chatHistory: BuilderLlmChatMessage[];
-  invalidDraft?: string;
-  mode: BuilderLlmRequestMode;
-  parentRequestId?: BuilderRequestId;
-  repairAttemptNumber?: number;
-  validationIssues?: BuilderParseIssue[];
-}
-
-export interface BuilderLlmRequestCompaction {
-  compactedByBytes: boolean;
-  compactedByItemLimit: boolean;
-  omittedChatMessages: number;
-}
-
-export interface BuilderLlmResponse {
-  compaction?: BuilderLlmRequestCompaction;
-  model: string;
-  qualityIssues?: BuilderQualityIssue[];
-  source: string;
-  summary?: string;
-  summaryExcludeFromLlmContext?: boolean;
-  temperature: number;
 }
 
 export interface BuilderGeneratedDraft
@@ -147,12 +97,6 @@ export interface HealthResponse {
   openaiConfigured: boolean;
   status: 'ok';
   timestamp: string;
-}
-
-export interface PromptInfoToolSpec {
-  description: string;
-  name: string;
-  signature: string;
 }
 
 export interface PromptInfoSystemPromptVariant {
