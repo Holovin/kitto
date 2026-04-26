@@ -33,12 +33,14 @@ describe('BuilderPage', () => {
     capturedProps.previewTabs = null;
   });
 
-  it('shares one active-generation cancel ref between chat and preview controls', () => {
+  it('does not pass active-generation cancel refs through layout children', () => {
     renderToStaticMarkup(createElement(BuilderPage));
 
     expect(capturedProps.chatPanel).not.toBeNull();
     expect(capturedProps.previewTabs).not.toBeNull();
-    expect(capturedProps.chatPanel?.cancelActiveRequestRef).toBe(capturedProps.previewTabs?.cancelActiveRequestRef);
-    expect(capturedProps.chatPanel?.cancelActiveRequestRef).toEqual(expect.objectContaining({ current: null }));
+    expect(capturedProps.chatPanel).not.toHaveProperty('cancelActiveRequestRef');
+    expect(capturedProps.previewTabs).not.toHaveProperty('cancelActiveRequestRef');
+    expect(capturedProps.chatPanel?.onSystemNotice).toEqual(expect.any(Function));
+    expect(capturedProps.previewTabs?.onSystemNotice).toEqual(expect.any(Function));
   });
 });

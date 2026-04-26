@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { BuilderRequestControlsProvider } from '@features/builder/context/BuilderRequestControlsProvider';
 import { builderActions } from '@features/builder/store/builderSlice';
 import type { BuilderChatNotice } from '@features/builder/types';
 import { useAppDispatch } from '@store/hooks';
@@ -7,7 +8,6 @@ import { PreviewTabs } from './PreviewTabs';
 
 export function BuilderPage() {
   const dispatch = useAppDispatch();
-  const cancelActiveRequestRef = useRef<(() => void) | null>(null);
   const handleSystemNotice = useCallback(
     (notice: BuilderChatNotice | null) => {
       if (!notice) {
@@ -27,9 +27,11 @@ export function BuilderPage() {
   );
 
   return (
-    <section className="grid h-full min-h-0 w-full gap-6 xl:grid-cols-[minmax(22rem,0.78fr)_minmax(0,1.42fr)]">
-      <ChatPanel cancelActiveRequestRef={cancelActiveRequestRef} onSystemNotice={handleSystemNotice} />
-      <PreviewTabs cancelActiveRequestRef={cancelActiveRequestRef} onSystemNotice={handleSystemNotice} />
-    </section>
+    <BuilderRequestControlsProvider>
+      <section className="grid h-full min-h-0 w-full gap-6 xl:grid-cols-[minmax(22rem,0.78fr)_minmax(0,1.42fr)]">
+        <ChatPanel onSystemNotice={handleSystemNotice} />
+        <PreviewTabs onSystemNotice={handleSystemNotice} />
+      </section>
+    </BuilderRequestControlsProvider>
   );
 }

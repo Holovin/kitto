@@ -1,8 +1,9 @@
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
 import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from '@features/builder/api/streamGenerate';
+import { useBuilderRequestControls } from '@features/builder/context/builderRequestControls';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { selectIsStreaming } from '@features/builder/store/selectors';
 import type { BuilderChatNotice, BuilderGeneratedDraft, BuilderLlmRequest, BuilderRequestId } from '@features/builder/types';
@@ -11,8 +12,6 @@ import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
 
 interface UseGenerationLifecycleOptions {
-  abortControllerRef: MutableRefObject<AbortController | null>;
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   clearStreamingSummaryMessage: (requestId: BuilderRequestId) => void;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
   streamMaxDurationMs: number | null;
@@ -36,13 +35,18 @@ const GENERATION_FAILED_NOTICE =
   "Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.";
 
 export function useGenerationLifecycle({
-  abortControllerRef,
-  cancelActiveRequestRef,
   clearStreamingSummaryMessage,
   onSystemNotice,
   streamMaxDurationMs,
 }: UseGenerationLifecycleOptions) {
   const dispatch = useAppDispatch();
+  const {
+    abortActiveTransport,
+    clearAbortController,
+    createAbortController,
+    getAbortSignal,
+    registerCancelActiveRequest,
+  } = useBuilderRequestControls();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
   const cancelRequestRef = useRef<CancelRequest | null>(null);
   const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
@@ -74,7 +78,7 @@ export function useGenerationLifecycle({
       return;
     }
 
-    abortControllerRef.current = null;
+    clearAbortController();
   }
 
   function consumeUserCancelledRequest(requestId: BuilderRequestId) {
@@ -91,10 +95,7 @@ export function useGenerationLifecycle({
       return;
     }
 
-    const abortController = abortControllerRef.current;
-
-    abortControllerRef.current = null;
-    abortController?.abort();
+    abortActiveTransport();
   }
 
   function throwIfInactiveRequest(requestId: BuilderRequestId) {
@@ -186,7 +187,7 @@ export function useGenerationLifecycle({
       requestId: transportRequestId,
       requestKind: options?.requestKind,
       request,
-      signal: abortControllerRef.current?.signal,
+      signal: getAbortSignal(),
       timeoutMs: streamMaxDurationMs,
     });
 
@@ -209,8 +210,7 @@ export function useGenerationLifecycle({
     activeRequestIdRef.current = requestId;
     dispatch(builderActions.beginStreaming({ prompt, requestId }));
 
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    const abortController = createAbortController();
 
     return {
       abortController,
@@ -228,9 +228,7 @@ export function useGenerationLifecycle({
       cancelRequest(requestId);
     }
 
-    if (abortControllerRef.current === abortController) {
-      abortControllerRef.current = null;
-    }
+    clearAbortController(abortController);
   }
 
   function cancelActiveRequest() {
@@ -255,7 +253,7 @@ export function useGenerationLifecycle({
   }
 
   useEffect(() => {
-    cancelActiveRequestRef.current = () => {
+    return registerCancelActiveRequest(() => {
       const requestId = activeRequestIdRef.current;
 
       if (!requestId) {
@@ -264,8 +262,8 @@ export function useGenerationLifecycle({
 
       onSystemNotice(null);
       cancelRequestRef.current?.(requestId, { abort: true });
-    };
-  }, [cancelActiveRequestRef, onSystemNotice]);
+    });
+  }, [onSystemNotice, registerCancelActiveRequest]);
 
   return {
     beginGeneration,

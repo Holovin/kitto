@@ -1,4 +1,5 @@
-import { useRef, type ChangeEvent, type MutableRefObject } from 'react';
+import { useRef, type ChangeEvent } from 'react';
+import { useBuilderRequestControls } from '@features/builder/context/builderRequestControls';
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
@@ -26,7 +27,6 @@ import { resetAppState } from '@store/errorRecovery';
 import { store } from '@store/store';
 
 interface UseBuilderHistoryControlsOptions {
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
@@ -83,11 +83,9 @@ function hasActiveGeneration() {
   return selectIsStreaming(store.getState());
 }
 
-export function useBuilderHistoryControls({
-  cancelActiveRequestRef,
-  onSystemNotice,
-}: UseBuilderHistoryControlsOptions) {
+export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryControlsOptions) {
   const dispatch = useAppDispatch();
+  const { cancelActiveRequest } = useBuilderRequestControls();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasChatMessages = useAppSelector(selectHasChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
@@ -205,7 +203,7 @@ export function useBuilderHistoryControls({
       return;
     }
 
-    cancelActiveRequestRef.current?.();
+    cancelActiveRequest();
 
     try {
       const rawValue = await file.text();

@@ -1,4 +1,4 @@
-import { memo, useEffect, useEffectEvent, useRef, useState, type MutableRefObject } from 'react';
+import { memo, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
@@ -21,18 +21,14 @@ import { useAppDispatch, useAppSelector } from '@store/hooks';
 import './ChatPanel.css';
 
 interface ChatToolbarProps {
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 interface ChatComposerProps {
-  abortControllerRef: MutableRefObject<AbortController | null>;
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
 interface ChatPanelProps {
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
@@ -102,7 +98,7 @@ function findLatestMessageByKey(messages: BuilderChatMessage[], messageKey: Buil
   return null;
 }
 
-function ChatToolbar({ cancelActiveRequestRef, onSystemNotice }: ChatToolbarProps) {
+function ChatToolbar({ onSystemNotice }: ChatToolbarProps) {
   const {
     canRedo,
     canReset,
@@ -112,7 +108,6 @@ function ChatToolbar({ cancelActiveRequestRef, onSystemNotice }: ChatToolbarProp
     handleUndo,
     historyVersionLabel,
   } = useBuilderHistoryControls({
-    cancelActiveRequestRef,
     onSystemNotice,
   });
   const toolbarButtonClassName =
@@ -213,12 +208,10 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
   );
 }
 
-function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: ChatComposerProps) {
+function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   const dispatch = useAppDispatch();
   const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } =
     useBuilderSubmission({
-      abortControllerRef,
-      cancelActiveRequestRef,
       onSystemNotice,
     });
   const chatMessages = useAppSelector(selectChatMessages);
@@ -303,35 +296,17 @@ function ChatComposer({ abortControllerRef, cancelActiveRequestRef, onSystemNoti
   );
 }
 
-export function ChatPanel({ cancelActiveRequestRef, onSystemNotice }: ChatPanelProps) {
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const abortCurrentRequest = useEffectEvent(() => {
-    cancelActiveRequestRef.current?.();
-  });
-
-  useEffect(() => {
-    return () => {
-      abortCurrentRequest();
-    };
-  }, []);
-
+export function ChatPanel({ onSystemNotice }: ChatPanelProps) {
   return (
     <Card className="flex h-full min-h-0 flex-col border-white/70 bg-white/92">
       <CardHeader className="flex-row items-center justify-between gap-4 border-b border-slate-200/70 pb-4">
         <CardTitle className="shrink-0 text-2xl">Chat</CardTitle>
-        <ChatToolbar
-          cancelActiveRequestRef={cancelActiveRequestRef}
-          onSystemNotice={onSystemNotice}
-        />
+        <ChatToolbar onSystemNotice={onSystemNotice} />
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
         <ChatHistoryFeed onSystemNotice={onSystemNotice} />
-        <ChatComposer
-          abortControllerRef={abortControllerRef}
-          cancelActiveRequestRef={cancelActiveRequestRef}
-          onSystemNotice={onSystemNotice}
-        />
+        <ChatComposer onSystemNotice={onSystemNotice} />
       </CardContent>
     </Card>
   );

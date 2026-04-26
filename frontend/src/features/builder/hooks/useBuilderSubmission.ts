@@ -1,4 +1,4 @@
-import type { FormEvent, MutableRefObject } from 'react';
+import type { FormEvent } from 'react';
 import { useConfigQuery } from '@api/apiSlice';
 import {
   getBuilderMaxRepairAttempts,
@@ -29,12 +29,10 @@ import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { store } from '@store/store';
 
 interface UseBuilderSubmissionOptions {
-  abortControllerRef: MutableRefObject<AbortController | null>;
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
-export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRef, onSystemNotice }: UseBuilderSubmissionOptions) {
+export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
@@ -51,8 +49,6 @@ export function useBuilderSubmission({ abortControllerRef, cancelActiveRequestRe
   const streamTimeouts = getBuilderStreamTimeouts(configState.data);
   const streamingSummary = useStreamingSummary();
   const generationLifecycle = useGenerationLifecycle({
-    abortControllerRef,
-    cancelActiveRequestRef,
     clearStreamingSummaryMessage: streamingSummary.clearStreamingSummaryMessage,
     onSystemNotice,
     streamMaxDurationMs: streamTimeouts?.streamMaxDurationMs ?? null,

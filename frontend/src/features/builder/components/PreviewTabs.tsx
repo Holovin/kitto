@@ -1,5 +1,4 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -48,7 +47,6 @@ type ScopedRuntimeIssues = {
 };
 
 interface PreviewTabsProps {
-  cancelActiveRequestRef: MutableRefObject<(() => void) | null>;
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
@@ -75,7 +73,7 @@ function formatByteCount(bytes: number) {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
 }
 
-export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewTabsProps) {
+export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
   const definitionWarnings = useAppSelector(selectDefinitionWarnings);
@@ -143,7 +141,6 @@ export function PreviewTabs({ cancelActiveRequestRef, onSystemNotice }: PreviewT
     handleExport,
     handleImport,
   } = useBuilderHistoryControls({
-    cancelActiveRequestRef,
     onSystemNotice,
   });
   const toolbarButtonClassName =

@@ -96,6 +96,9 @@ const testHarness = vi.hoisted(() => {
     configErrorRef: { current: false },
     configRef: { current: undefined as unknown },
     generateMock: vi.fn(),
+    requestControlsRef: {
+      current: null as unknown,
+    },
     storeRef: {
       current: null as {
         dispatch: (action: unknown) => unknown;
@@ -226,6 +229,18 @@ vi.mock('@features/builder/api/streamGenerate', () => {
 
 vi.mock('@features/builder/api/commitTelemetry', () => ({
   postCommitTelemetry: (...args: Parameters<typeof testHarness.commitTelemetryMock>) => testHarness.commitTelemetryMock(...args),
+}));
+
+vi.mock('@features/builder/context/builderRequestControls', () => ({
+  useBuilderRequestControls: () => {
+    const controls = testHarness.requestControlsRef.current;
+
+    if (!controls) {
+      throw new Error('Test request controls are not initialized.');
+    }
+
+    return controls;
+  },
 }));
 
 import { builderActions, builderReducer } from '@features/builder/store/builderSlice';
@@ -764,22 +779,81 @@ function appendChatMessages(
   }
 }
 
+function createTestRequestControls() {
+  let abortController: AbortController | null = null;
+  let cancelActiveRequestHandler: (() => void) | null = null;
+
+  const controls = {
+    abortActiveTransport: () => {
+      const controller = abortController;
+      abortController = null;
+      controller?.abort();
+    },
+    cancelActiveRequest: () => {
+      cancelActiveRequestHandler?.();
+    },
+    clearAbortController: (controller?: AbortController) => {
+      if (!controller || abortController === controller) {
+        abortController = null;
+      }
+    },
+    createAbortController: () => {
+      abortController = new AbortController();
+      return abortController;
+    },
+    getAbortSignal: () => abortController?.signal,
+    registerCancelActiveRequest: (handler: (() => void) | null) => {
+      cancelActiveRequestHandler = handler;
+
+      return () => {
+        if (cancelActiveRequestHandler === handler) {
+          cancelActiveRequestHandler = null;
+        }
+      };
+    },
+  };
+
+  return {
+    controls,
+    get abortController() {
+      return abortController;
+    },
+    get cancelActiveRequestHandler() {
+      return cancelActiveRequestHandler;
+    },
+  };
+}
+
+type TestRequestControls = ReturnType<typeof createTestRequestControls>;
+
+let currentRequestControls: TestRequestControls | null = null;
+
+function setCurrentRequestControls(requestControls: TestRequestControls) {
+  currentRequestControls = requestControls;
+  testHarness.requestControlsRef.current = requestControls.controls;
+  return requestControls;
+}
+
+function getCurrentRequestControls() {
+  if (currentRequestControls) {
+    return currentRequestControls;
+  }
+
+  return setCurrentRequestControls(createTestRequestControls());
+}
+
 function createSubmissionHarness() {
-  const abortControllerRef = { current: null as AbortController | null };
-  const cancelActiveRequestRef = { current: null as (() => void) | null };
+  const requestControls = setCurrentRequestControls(createTestRequestControls());
   const onSystemNotice = vi.fn();
   const runtime = new testHarness.HookRuntime();
   const options = {
-    abortControllerRef,
-    cancelActiveRequestRef,
     onSystemNotice,
   };
   let result = runtime.render(() => useBuilderSubmission(options));
 
   return {
-    abortControllerRef,
-    cancelActiveRequestRef,
     onSystemNotice,
+    requestControls,
     rerender() {
       result = runtime.render(() => useBuilderSubmission(options));
       return result;
@@ -793,17 +867,18 @@ function createSubmissionHarness() {
   };
 }
 
-function createHistoryControlsHarness(cancelActiveRequestRef: { current: (() => void) | null }) {
+function createHistoryControlsHarness(requestControls = getCurrentRequestControls()) {
+  setCurrentRequestControls(requestControls);
   const onSystemNotice = vi.fn();
   const runtime = new testHarness.HookRuntime();
   const options = {
-    cancelActiveRequestRef,
     onSystemNotice,
   };
   let result = runtime.render(() => useBuilderHistoryControls(options));
 
   return {
     onSystemNotice,
+    requestControls,
     rerender() {
       result = runtime.render(() => useBuilderHistoryControls(options));
       return result;
@@ -876,6 +951,8 @@ beforeEach(() => {
   testHarness.configRef.current = DEFAULT_CONFIG;
   testHarness.streamMock.mockReset();
   testHarness.generateMock.mockReset();
+  testHarness.requestControlsRef.current = null;
+  currentRequestControls = null;
 });
 
 describe('useBuilderSubmission', () => {
@@ -1161,7 +1238,7 @@ describe('useBuilderSubmission', () => {
       { content: 'Built the stale CRM app.', role: 'assistant' },
     ]);
     const submission = createSubmissionHarness();
-    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const historyControls = createHistoryControlsHarness(submission.requestControls);
 
     await historyControls.result().handleImport(
       createImportEvent({
@@ -2209,7 +2286,7 @@ describe('useBuilderSubmission', () => {
     const cancelActions = getCancelStreamingActions(dispatchSpy);
 
     expect(abortCount).toBe(1);
-    expect(submission.abortControllerRef.current).toBeNull();
+    expect(submission.requestControls.abortController).toBeNull();
     expect(cancelActions).toHaveLength(1);
     expect(cancelActions[0]?.payload.requestId).toBe(requestId);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
@@ -2313,7 +2390,7 @@ describe('useBuilderSubmission', () => {
     const cancelActions = getCancelStreamingActions(dispatchSpy);
 
     expect(abortCount).toBe(1);
-    expect(submission.abortControllerRef.current).toBeNull();
+    expect(submission.requestControls.abortController).toBeNull();
     expect(cancelActions).toHaveLength(1);
     expect(cancelActions[0]?.payload.requestId).toBe(requestId);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
@@ -2325,7 +2402,7 @@ describe('useBuilderSubmission', () => {
   it('aborts the active request when an import starts and keeps the imported source over a late response', async () => {
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
-    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const historyControls = createHistoryControlsHarness(submission.requestControls);
     const streamResult = createDeferred<{ source: string }>();
     let requestSignal: AbortSignal | undefined;
 
@@ -2336,7 +2413,7 @@ describe('useBuilderSubmission', () => {
 
     const requestPromise = submission.result().handleSubmit(createFormEvent());
 
-    expect(submission.cancelActiveRequestRef.current).toBeTypeOf('function');
+    expect(submission.requestControls.cancelActiveRequestHandler).toBeTypeOf('function');
 
     await historyControls.result().handleImport(
       createImportEvent({
@@ -2404,7 +2481,7 @@ describe('useBuilderSubmission', () => {
     };
 
     seedHistorySnapshots(undoSnapshot, redoSnapshot);
-    const historyControls = createHistoryControlsHarness({ current: null });
+    const historyControls = createHistoryControlsHarness();
 
     store.dispatch(builderSessionActions.replaceRuntimeSessionState(latestRuntimeState));
     store.dispatch(builderActions.syncLatestSnapshotState({ runtimeState: latestRuntimeState }));
@@ -2430,7 +2507,7 @@ describe('useBuilderSubmission', () => {
     seedHistorySources(UNDO_SOURCE, REDO_SOURCE);
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
-    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const historyControls = createHistoryControlsHarness(submission.requestControls);
     const streamResult = createDeferred<{ source: string }>();
     let requestSignal: AbortSignal | undefined;
 
@@ -2474,7 +2551,7 @@ describe('useBuilderSubmission', () => {
     store.dispatch(builderActions.undoLatest());
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
-    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const historyControls = createHistoryControlsHarness(submission.requestControls);
     const streamResult = createDeferred<{ source: string }>();
     let requestSignal: AbortSignal | undefined;
 
@@ -2511,7 +2588,7 @@ describe('useBuilderSubmission', () => {
     seedCommittedSource(PREVIOUS_SOURCE);
     setDraftPrompt('Build a simple app.');
     const submission = createSubmissionHarness();
-    const historyControls = createHistoryControlsHarness(submission.cancelActiveRequestRef);
+    const historyControls = createHistoryControlsHarness(submission.requestControls);
     const streamResult = createDeferred<{ source: string }>();
     let requestSignal: AbortSignal | undefined;
 
