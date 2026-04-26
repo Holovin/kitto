@@ -1,5 +1,5 @@
 import { existsSync, unwatchFile, watchFile } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,10 +9,6 @@ const standalonePlayerDirectory = path.resolve(repositoryRoot, 'frontend/dist-st
 const standalonePlayerJsPath = path.resolve(standalonePlayerDirectory, 'player.js');
 const standalonePlayerCssPath = path.resolve(standalonePlayerDirectory, 'style.css');
 const generatedModulePath = path.resolve(repositoryRoot, 'frontend/src/features/builder/standalone/playerAssets.generated.ts');
-const legacyPublicStandalonePlayerPaths = [
-  path.resolve(repositoryRoot, 'frontend/public/kitto-standalone-player.js'),
-  path.resolve(repositoryRoot, 'frontend/public/kitto-standalone-player.css'),
-] as const;
 const watchMode = process.argv.includes('--watch');
 const watchedBundlePaths = [standalonePlayerJsPath, standalonePlayerCssPath] as const;
 
@@ -73,40 +69,18 @@ export const STANDALONE_PLAYER_CSS = ${JSON.stringify(standalonePlayerCss)};
 `;
 }
 
-async function deleteLegacyPublicStandaloneAssets() {
-  const removedPaths = await Promise.all(
-    legacyPublicStandalonePlayerPaths.map(async (filePath) => {
-      if (!existsSync(filePath)) {
-        return null;
-      }
-
-      await rm(filePath, { force: true });
-      return path.relative(repositoryRoot, filePath);
-    }),
-  );
-  const deletedPaths = removedPaths.filter((filePath) => filePath !== null);
-
-  if (deletedPaths.length === 0) {
-    return false;
-  }
-
-  console.log(`[standalone] removed legacy public standalone assets -> ${deletedPaths.join(', ')}`);
-  return true;
-}
-
 async function writeGeneratedModule({ allowMissing = false } = {}) {
   const bundle = await readStandaloneBundle({ allowMissing });
-  const didDeleteLegacyPublicAssets = await deleteLegacyPublicStandaloneAssets();
 
   if (!bundle) {
-    return didDeleteLegacyPublicAssets;
+    return false;
   }
 
   await mkdir(path.dirname(generatedModulePath), { recursive: true });
 
   const didUpdateGeneratedModule = await writeOutputFile(generatedModulePath, createGeneratedModuleContent(bundle));
 
-  if (!didUpdateGeneratedModule && !didDeleteLegacyPublicAssets) {
+  if (!didUpdateGeneratedModule) {
     return false;
   }
 

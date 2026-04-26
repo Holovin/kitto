@@ -1,8 +1,16 @@
 import type { BuilderLlmRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@features/builder/types';
+import { isMalformedStructuredChunk, parsePartialOpenUiEnvelope } from './partialOpenUiEnvelope';
 import { createBuilderRequestError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
+import { createAbortError, createLinkedAbortController } from './streamAbort';
+import { normalizeSseChunkLineEndings, parseServerSentEvent } from './streamSse';
+import {
+  createBuilderStreamTimeoutManager,
+  type BuilderStreamTimeoutKind,
+} from './streamTimeouts';
 
-export type BuilderStreamTimeoutKind = 'idle' | 'max-duration';
+export { parseServerSentEvent } from './streamSse';
+export { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from './streamTimeouts';
 
 interface StreamBuilderDefinitionOptions {
   apiBaseUrl: string;
@@ -34,311 +42,8 @@ interface StreamBuilderDefinitionResult {
   summaryExcludeFromLlmContext?: boolean;
 }
 
-interface PartialJsonStringValue {
-  complete: boolean;
-  value: string;
-}
-
-interface PartialOpenUiEnvelope {
-  source?: PartialJsonStringValue;
-  summary?: PartialJsonStringValue;
-}
-
-export class BuilderStreamTimeoutError extends Error {
-  readonly kind: BuilderStreamTimeoutKind;
-
-  constructor(kind: BuilderStreamTimeoutKind) {
-    super(
-      kind === 'idle'
-        ? 'The generation stream went idle for too long. Please try again.'
-        : 'The generation stream exceeded the maximum duration. Please try again.',
-    );
-    this.name = 'BuilderStreamTimeoutError';
-    this.kind = kind;
-  }
-}
-
-function normalizeSseDataLine(line: string) {
-  const value = line.slice(5);
-  return value.startsWith(' ') ? value.slice(1) : value;
-}
-
-function normalizeSseChunkLineEndings(chunk: string, pendingCarriageReturn: boolean, isDone: boolean) {
-  let text = pendingCarriageReturn ? `\r${chunk}` : chunk;
-  let nextPendingCarriageReturn = false;
-
-  if (!isDone && text.endsWith('\r')) {
-    text = text.slice(0, -1);
-    nextPendingCarriageReturn = true;
-  }
-
-  return {
-    normalizedText: text.replace(/\r\n?/g, '\n'),
-    pendingCarriageReturn: nextPendingCarriageReturn,
-  };
-}
-
-function createAbortError() {
-  try {
-    return new DOMException('This operation was aborted', 'AbortError');
-  } catch {
-    const error = new Error('This operation was aborted');
-    error.name = 'AbortError';
-    return error;
-  }
-}
-
-function createLinkedAbortController(signal?: AbortSignal) {
-  const abortController = new AbortController();
-  const handleAbort = () => abortController.abort();
-
-  if (signal?.aborted) {
-    handleAbort();
-  } else {
-    signal?.addEventListener('abort', handleAbort, { once: true });
-  }
-
-  return {
-    abortController,
-    cleanup() {
-      signal?.removeEventListener('abort', handleAbort);
-    },
-  };
-}
-
-function isMalformedStructuredChunk(chunk: string) {
-  const trimmedChunk = chunk.trim();
-
-  if (!trimmedChunk.startsWith('{') || !trimmedChunk.endsWith('}')) {
-    return false;
-  }
-
-  if (!trimmedChunk.includes('"source"') && !trimmedChunk.includes('"summary"')) {
-    return false;
-  }
-
-  const parsedChunk = parsePartialOpenUiEnvelope(trimmedChunk);
-  return parsedChunk.source === undefined && parsedChunk.summary === undefined;
-}
-
-export function parseServerSentEvent(eventBlock: string) {
-  const lines = eventBlock.split('\n').filter(Boolean);
-  let event = 'message';
-  const data: string[] = [];
-
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event = line.slice(6).trim();
-      continue;
-    }
-
-    if (line.startsWith('data:')) {
-      data.push(normalizeSseDataLine(line));
-    }
-  }
-
-  return {
-    event,
-    data: data.join('\n'),
-  };
-}
-
 function hasDoneSource(payload: StreamDonePayload): payload is StreamDonePayload & { source: string } {
   return typeof payload.source === 'string' && payload.source.length > 0;
-}
-
-function isHexDigit(value: string) {
-  return /^[0-9a-fA-F]$/.test(value);
-}
-
-/**
- * Incrementally extracts top-level `source` / `summary` string progress from the
- * growing structured SSE envelope without attempting a full partial-JSON parse.
- * Nested values are ignored here, and the final envelope is still validated from
- * the `done` event.
- */
-function readPartialJsonString(input: string, startIndex: number): PartialJsonStringValue & { nextIndex: number } {
-  let value = '';
-  let index = startIndex;
-
-  while (index < input.length) {
-    const currentCharacter = input[index];
-
-    if (currentCharacter === '"') {
-      return {
-        complete: true,
-        nextIndex: index + 1,
-        value,
-      };
-    }
-
-    if (currentCharacter !== '\\') {
-      value += currentCharacter;
-      index += 1;
-      continue;
-    }
-
-    const escapedCharacter = input[index + 1];
-
-    if (escapedCharacter === undefined) {
-      return {
-        complete: false,
-        nextIndex: input.length,
-        value,
-      };
-    }
-
-    if (escapedCharacter === 'u') {
-      const unicodeDigits = input.slice(index + 2, index + 6);
-
-      if (unicodeDigits.length < 4 || [...unicodeDigits].some((digit) => !isHexDigit(digit))) {
-        return {
-          complete: false,
-          nextIndex: input.length,
-          value,
-        };
-      }
-
-      value += String.fromCharCode(Number.parseInt(unicodeDigits, 16));
-      index += 6;
-      continue;
-    }
-
-    switch (escapedCharacter) {
-      case '"':
-      case '\\':
-      case '/':
-        value += escapedCharacter;
-        break;
-      case 'b':
-        value += '\b';
-        break;
-      case 'f':
-        value += '\f';
-        break;
-      case 'n':
-        value += '\n';
-        break;
-      case 'r':
-        value += '\r';
-        break;
-      case 't':
-        value += '\t';
-        break;
-      default:
-        value += escapedCharacter;
-        break;
-    }
-
-    index += 2;
-  }
-
-  return {
-    complete: false,
-    nextIndex: input.length,
-    value,
-  };
-}
-
-function parsePartialOpenUiEnvelope(input: string): PartialOpenUiEnvelope {
-  const parsedEnvelope: PartialOpenUiEnvelope = {};
-  let index = 0;
-  let depth = 0;
-  let currentKey: string | null = null;
-  let expectingKey = false;
-  let expectingValue = false;
-
-  while (index < input.length) {
-    const currentCharacter = input[index];
-
-    if (/\s/.test(currentCharacter)) {
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === '{') {
-      depth += 1;
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = true;
-        expectingValue = false;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === '}') {
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = false;
-        expectingValue = false;
-      }
-
-      depth = Math.max(0, depth - 1);
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === '[') {
-      depth += 1;
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === ']') {
-      depth = Math.max(0, depth - 1);
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === ',') {
-      if (depth === 1) {
-        currentKey = null;
-        expectingKey = true;
-        expectingValue = false;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter === ':') {
-      if (depth === 1 && currentKey !== null) {
-        expectingValue = true;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (currentCharacter !== '"') {
-      index += 1;
-      continue;
-    }
-
-    const parsedString = readPartialJsonString(input, index + 1);
-
-    if (depth === 1 && expectingKey) {
-      currentKey = parsedString.value;
-      expectingKey = false;
-      index = parsedString.nextIndex;
-      continue;
-    }
-
-    if (depth === 1 && expectingValue && (currentKey === 'source' || currentKey === 'summary')) {
-      parsedEnvelope[currentKey] = {
-        complete: parsedString.complete,
-        value: parsedString.value,
-      };
-      if (parsedString.complete) {
-        expectingValue = false;
-      }
-      index = parsedString.nextIndex;
-      continue;
-    }
-
-    index = parsedString.nextIndex;
-  }
-
-  return parsedEnvelope;
 }
 
 async function getResponseError(response: Response) {
@@ -369,61 +74,17 @@ export async function streamBuilderDefinition({
   signal,
 }: StreamBuilderDefinitionOptions): Promise<StreamBuilderDefinitionResult> {
   const { abortController, cleanup } = createLinkedAbortController(signal);
-  let idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  let maxDurationTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  let timeoutError: BuilderStreamTimeoutError | null = null;
+  const timeoutManager = createBuilderStreamTimeoutManager({
+    abort: () => abortController.abort(),
+    idleTimeoutMs,
+    maxDurationMs,
+    onTimeout,
+    shouldAbort: () => abortController.signal.aborted,
+  });
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   let receivedDone = false;
 
-  const clearIdleTimeout = () => {
-    if (!idleTimeoutId) {
-      return;
-    }
-
-    clearTimeout(idleTimeoutId);
-    idleTimeoutId = null;
-  };
-
-  const clearMaxDurationTimeout = () => {
-    if (!maxDurationTimeoutId) {
-      return;
-    }
-
-    clearTimeout(maxDurationTimeoutId);
-    maxDurationTimeoutId = null;
-  };
-
-  const clearTimeouts = () => {
-    clearIdleTimeout();
-    clearMaxDurationTimeout();
-  };
-
-  const abortForTimeout = (kind: BuilderStreamTimeoutKind) => {
-    if (timeoutError || abortController.signal.aborted) {
-      return;
-    }
-
-    timeoutError = new BuilderStreamTimeoutError(kind);
-    onTimeout?.(kind);
-    abortController.abort();
-  };
-
-  const restartIdleTimeout = () => {
-    if (idleTimeoutMs <= 0) {
-      return;
-    }
-
-    clearIdleTimeout();
-    idleTimeoutId = setTimeout(() => {
-      abortForTimeout('idle');
-    }, idleTimeoutMs);
-  };
-
-  if (maxDurationMs > 0) {
-    maxDurationTimeoutId = setTimeout(() => {
-      abortForTimeout('max-duration');
-    }, maxDurationMs);
-  }
+  timeoutManager.startMaxDurationTimeout();
 
   try {
     const response = await fetch(`${apiBaseUrl}/llm/generate/stream`, {
@@ -455,7 +116,7 @@ export async function streamBuilderDefinition({
     let donePayload: StreamDonePayload | undefined;
     let streamMode: 'plain' | 'structured' | 'unknown' = 'unknown';
 
-    restartIdleTimeout();
+    timeoutManager.restartIdleTimeout();
 
     while (true) {
       const { done, value } = await reader.read();
@@ -473,7 +134,7 @@ export async function streamBuilderDefinition({
         const parsedEvent = parseServerSentEvent(eventBlock);
 
         if (parsedEvent.event === 'chunk') {
-          restartIdleTimeout();
+          timeoutManager.restartIdleTimeout();
 
           if (streamMode === 'unknown') {
             const firstMeaningfulCharacter = parsedEvent.data.trimStart().charAt(0);
@@ -527,7 +188,7 @@ export async function streamBuilderDefinition({
         }
 
         if (parsedEvent.event === 'done') {
-          restartIdleTimeout();
+          timeoutManager.restartIdleTimeout();
           try {
             donePayload = JSON.parse(parsedEvent.data) as StreamDonePayload;
           } catch {
@@ -562,6 +223,8 @@ export async function streamBuilderDefinition({
       };
     }
 
+    const timeoutError = timeoutManager.getTimeoutError();
+
     if (timeoutError) {
       throw timeoutError;
     }
@@ -572,6 +235,8 @@ export async function streamBuilderDefinition({
 
     throw new Error('Stream ended before done event');
   } catch (error) {
+    const timeoutError = timeoutManager.getTimeoutError();
+
     if (timeoutError) {
       throw timeoutError;
     }
@@ -586,7 +251,7 @@ export async function streamBuilderDefinition({
       }
     }
 
-    clearTimeouts();
+    timeoutManager.clearTimeouts();
     cleanup();
   }
 }

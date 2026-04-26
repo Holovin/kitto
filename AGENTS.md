@@ -166,12 +166,14 @@ Steps:
   - `frontend/src/router/siteRoutes.ts`
   - `backend/src/tests/frontendRoutesContract.test.ts`
   - `frontend/src/tests/router/siteRoutes.test.ts`
-- Tool changes are also duplicated in multiple places. If you add, remove, or change a tool name, args, or semantics, sync:
-  - `backend/src/prompts/openui.ts` tool specs/examples/rules
+- Tool contract metadata starts in `shared/src/openuiToolRegistry.ts`. If you add, remove, or change a tool name, args, or semantics, sync:
+  - `shared/src/openuiToolRegistry.ts`
   - `frontend/src/features/builder/openui/runtime/createDomainToolProvider.ts`
   - `frontend/src/features/builder/openui/runtime/toolProvider.ts`
-  - `frontend/src/features/builder/openui/runtime/actionCatalog.ts`
-  - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider
+  - `frontend/src/features/builder/openui/runtime/actionDocs.ts`
+  - `frontend/src/features/builder/openui/runtime/actionDemos.ts`
+  - backend prompt rules/examples when model-facing guidance changes
+  - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider when runtime behavior changes
 - Standalone export/player changes have their own sync points. If you change the standalone player runtime, HTML embedding, or standalone storage behavior, sync:
   - `frontend/src/standalone/player.tsx`
   - `frontend/src/standalone/bootstrap.tsx`
