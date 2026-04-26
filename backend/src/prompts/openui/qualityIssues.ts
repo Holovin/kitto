@@ -3,6 +3,7 @@ import { detectRandomResultVisibilityIssues } from '#backend/prompts/openui/qual
 import { detectThemeAppearanceIssues } from '#backend/prompts/openui/quality/detectors/themeAppearance.js';
 import {
   createOpenUiQualityIssue,
+  createOpenUiProgramIndex,
   maskStringLiterals,
   normalizeSourceForValidation,
   parser,
@@ -94,6 +95,7 @@ export function detectPromptAwareQualityIssues(
 
   const issues: OpenUiQualityIssue[] = [];
   const maskedSource = maskStringLiterals(trimmedSource);
+  const programIndex = createOpenUiProgramIndex(result, trimmedSource);
   const metrics = collectQualityMetrics(result.root);
   const nextFeatureFlags = {
     compute: hasComputeTools(result),
@@ -103,7 +105,7 @@ export function detectPromptAwareQualityIssues(
   };
   const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;
 
-  issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
+  issues.push(...detectChoiceOptionsShapeIssues(programIndex));
 
   if (isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(
@@ -192,7 +194,7 @@ export function detectPromptAwareQualityIssues(
 
   if (promptRequestsThemeState(trimmedPrompt)) {
     issues.push(
-      ...detectThemeAppearanceIssues(trimmedSource, result).map((issue) => ({
+      ...detectThemeAppearanceIssues(result, programIndex).map((issue) => ({
         ...issue,
         severity: 'blocking-quality' as const,
         source: 'quality' as const,

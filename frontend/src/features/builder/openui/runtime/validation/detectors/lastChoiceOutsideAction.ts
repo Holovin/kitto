@@ -2,15 +2,12 @@ import type { ParseResult } from '@openuidev/react-lang';
 import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
 import {
   ACTION_MODE_CHOICE_COMPONENT_NAMES,
-  type ActionRunRef,
   THEME_CONTAINER_TYPE_NAMES,
-  collectOwnedActionRunRefGroups,
   createOpenUiQualityIssue,
   hasStateRefNamed,
   isAstNode,
   isElementNode,
-  maskStringLiterals,
-  type OwnedActionRunRefGroup,
+  type OpenUiProgramIndex,
   type OpenUiQualityIssue,
 } from '@features/builder/openui/runtime/validation/shared';
 
@@ -21,140 +18,6 @@ function createReservedLastChoiceIssue(statementId?: string): OpenUiQualityIssue
       '`$lastChoice` is reserved for Select/RadioGroup action mode. Use it only inside those Action([...]) flows or the top-level Mutation(...) / Query(...) statements they run.',
     statementId,
   });
-}
-
-function findMatchingParen(source: string, openParenIndex: number) {
-  let depth = 0;
-
-  for (let index = openParenIndex; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (character === '(') {
-      depth += 1;
-      continue;
-    }
-
-    if (character !== ')') {
-      continue;
-    }
-
-    depth -= 1;
-
-    if (depth === 0) {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-function splitTopLevelArguments(source: string) {
-  const args: string[] = [];
-  let depthParen = 0;
-  let depthBracket = 0;
-  let depthBrace = 0;
-  let segmentStart = 0;
-
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (character === '(') {
-      depthParen += 1;
-      continue;
-    }
-
-    if (character === ')') {
-      depthParen = Math.max(0, depthParen - 1);
-      continue;
-    }
-
-    if (character === '[') {
-      depthBracket += 1;
-      continue;
-    }
-
-    if (character === ']') {
-      depthBracket = Math.max(0, depthBracket - 1);
-      continue;
-    }
-
-    if (character === '{') {
-      depthBrace += 1;
-      continue;
-    }
-
-    if (character === '}') {
-      depthBrace = Math.max(0, depthBrace - 1);
-      continue;
-    }
-
-    if (character !== ',' || depthParen > 0 || depthBracket > 0 || depthBrace > 0) {
-      continue;
-    }
-
-    args.push(source.slice(segmentStart, index));
-    segmentStart = index + 1;
-  }
-
-  args.push(source.slice(segmentStart));
-  return args;
-}
-
-function collectRunRefsFromActionSource(source: string): ActionRunRef[] {
-  const runRefs: ActionRunRef[] = [];
-  const runRefPattern = /@Run\s*\(\s*([A-Za-z_][\w$]*)\s*\)/g;
-  let match = runRefPattern.exec(source);
-
-  while (match) {
-    runRefs.push({
-      refType: 'mutation',
-      statementId: match[1],
-    });
-    match = runRefPattern.exec(source);
-  }
-
-  return runRefs;
-}
-
-function collectOwnedActionRunRefGroupsFromSourceText(source: string): OwnedActionRunRefGroup[] {
-  const actionGroups: OwnedActionRunRefGroup[] = [];
-
-  function visit(text: string) {
-    const componentPattern = /\b([A-Z][A-Za-z0-9_]*)\s*\(/g;
-    let match = componentPattern.exec(text);
-
-    while (match) {
-      const typeName = match[1];
-      const openParenIndex = text.indexOf('(', match.index + typeName.length);
-      const closeParenIndex = openParenIndex >= 0 ? findMatchingParen(text, openParenIndex) : -1;
-
-      if (openParenIndex < 0 || closeParenIndex < 0) {
-        break;
-      }
-
-      const argsSource = text.slice(openParenIndex + 1, closeParenIndex);
-      const args = splitTopLevelArguments(argsSource);
-      const actionArg = args.find((arg) => /^\s*Action\s*\(/.test(arg));
-
-      if (actionArg) {
-        const actionRunRefs = collectRunRefsFromActionSource(actionArg);
-
-        if (actionRunRefs.length > 0) {
-          actionGroups.push({
-            ownerTypeName: typeName,
-            runRefs: actionRunRefs,
-          });
-        }
-      }
-
-      args.forEach(visit);
-      componentPattern.lastIndex = closeParenIndex + 1;
-      match = componentPattern.exec(text);
-    }
-  }
-
-  visit(source);
-  return actionGroups;
 }
 
 export function detectReservedLastChoiceRootIssues(
@@ -209,14 +72,10 @@ export function detectReservedLastChoiceRootIssues(
   return [];
 }
 
-export function detectReservedLastChoiceStatementIssues(source: string, result: ParseResult): OpenUiQualityIssue[] {
+export function detectReservedLastChoiceStatementIssues(result: ParseResult, programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
   const issues: OpenUiQualityIssue[] = [];
   const seenIssueKeys = new Set<string>();
-  const maskedSource = maskStringLiterals(source);
-  const actionGroups = [
-    ...collectOwnedActionRunRefGroups(result.root),
-    ...collectOwnedActionRunRefGroupsFromSourceText(maskedSource),
-  ];
+  const actionGroups = programIndex.ownedActionRunRefGroups;
   const ownerTypesByStatementId = new Map<string, Set<string>>();
   const knownStatementIds = new Set<string>([
     'root',
@@ -270,25 +129,19 @@ export function detectReservedLastChoiceStatementIssues(source: string, result: 
     issues.push(createReservedLastChoiceIssue(statement.statementId));
   }
 
-  const topLevelAssignmentPattern = /(^|\n)(\$?[A-Za-z_][\w$]*)\s*=\s*([\s\S]*?)(?=\n(?:\$?[A-Za-z_][\w$]*\s*=|root\s*=)|$)/g;
-  let match = topLevelAssignmentPattern.exec(maskedSource);
-
-  while (match) {
-    const statementId = match[2];
-    const statementValueSource = match[3] ?? '';
+  for (const statement of programIndex.topLevelStatements) {
+    const { maskedValueSource: statementValueSource, statementId } = statement;
 
     if (
       !statementValueSource.includes(ACTION_MODE_LAST_CHOICE_STATE) ||
       knownStatementIds.has(statementId) ||
       seenIssueKeys.has(statementId)
     ) {
-      match = topLevelAssignmentPattern.exec(maskedSource);
       continue;
     }
 
     seenIssueKeys.add(statementId);
     issues.push(createReservedLastChoiceIssue(statementId));
-    match = topLevelAssignmentPattern.exec(maskedSource);
   }
 
   return issues;

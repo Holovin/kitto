@@ -2,6 +2,7 @@ import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues 
 import {
   isElementNode,
   parser,
+  type OpenUiProgramIndex,
   type OpenUiQualityIssue,
 } from '@features/builder/openui/runtime/validation/shared';
 
@@ -32,6 +33,6 @@ function parseExpressionValue(expressionSource: string) {
   return isElementNode(textNode) ? textNode.props.value : null;
 }
 
-export function detectChoiceOptionsShapeIssues(source: string): OpenUiQualityIssue[] {
-  return detectSharedChoiceOptionsShapeIssues(source, { parseExpressionValue });
+export function detectChoiceOptionsShapeIssues(programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
+  return detectSharedChoiceOptionsShapeIssues(programIndex.topLevelStatements, { parseExpressionValue });
 }

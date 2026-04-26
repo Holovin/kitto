@@ -13,6 +13,7 @@ import { detectUndefinedStateReferenceIssues } from '@features/builder/openui/ru
 import { collectOpenUiParserValidationIssues } from './parser';
 import {
   createParserIssue,
+  createOpenUiProgramIndex,
   normalizeSourceForValidation,
   parser,
   type OpenUiQualityIssue,
@@ -26,7 +27,7 @@ const INLINE_TOOL_CALL_ISSUE_CODES = new Set([
   'inline-tool-in-repeater',
 ]);
 
-type LocalRuntimeQualityIssueOptions = Partial<Pick<OpenUiValidationContext, 'normalizedSource' | 'parseResult'>> & {
+type LocalRuntimeQualityIssueOptions = Partial<Pick<OpenUiValidationContext, 'normalizedSource' | 'parseResult' | 'programIndex'>> & {
   validationIssues?: OpenUiValidationResult['issues'];
 };
 
@@ -73,21 +74,22 @@ export function detectLocalRuntimeQualityIssues(
   }
 
   const issues: OpenUiQualityIssue[] = [];
+  const programIndex = options.programIndex ?? createOpenUiProgramIndex(result, trimmedSource);
   const knownValidationQualityIssues = mapKnownValidationQualityIssues(options.validationIssues);
 
-  issues.push(...detectChoiceOptionsShapeIssues(trimmedSource));
+  issues.push(...detectChoiceOptionsShapeIssues(programIndex));
   issues.push(...detectControlActionBindingConflicts(result.root));
   issues.push(...detectItemBoundControlsWithoutAction(trimmedSource));
   issues.push(...detectReservedLastChoiceRootIssues(result.root));
-  issues.push(...detectReservedLastChoiceStatementIssues(trimmedSource, result));
-  issues.push(...detectUndefinedStateReferenceIssues(trimmedSource, result));
+  issues.push(...detectReservedLastChoiceStatementIssues(result, programIndex));
+  issues.push(...detectUndefinedStateReferenceIssues(result, programIndex));
   issues.push(...detectArrayIndexPathMutationIssues(result));
 
   if (knownValidationQualityIssues) {
     issues.push(...knownValidationQualityIssues);
   } else {
     issues.push(
-      ...detectStructuralInvariantIssues(trimmedSource, result).map((issue) => ({
+      ...detectStructuralInvariantIssues(result, programIndex).map((issue) => ({
         ...issue,
         severity: 'fatal-quality' as const,
       })),
@@ -102,7 +104,7 @@ export function detectLocalRuntimeQualityIssues(
   }
 
   issues.push(
-    ...detectPersistedMutationRefreshWarnings(result).map((issue) => ({
+    ...detectPersistedMutationRefreshWarnings(result, programIndex).map((issue) => ({
       ...issue,
       severity: 'blocking-quality' as const,
     })),
@@ -118,6 +120,7 @@ export function validateOpenUiSourceWithContext(source: string): OpenUiValidatio
     return {
       normalizedSource: trimmedSource,
       parseResult: null,
+      programIndex: null,
       validation: {
         isValid: false,
         issues: [
@@ -134,6 +137,7 @@ export function validateOpenUiSourceWithContext(source: string): OpenUiValidatio
     return {
       normalizedSource: trimmedSource,
       parseResult: null,
+      programIndex: null,
       validation: {
         isValid: false,
         issues: [
@@ -147,15 +151,17 @@ export function validateOpenUiSourceWithContext(source: string): OpenUiValidatio
   }
 
   const result = parser.parse(trimmedSource);
+  const programIndex = createOpenUiProgramIndex(result, trimmedSource);
   const issues = [
     ...collectOpenUiParserValidationIssues(trimmedSource, result),
-    ...detectStructuralInvariantIssues(trimmedSource, result),
+    ...detectStructuralInvariantIssues(result, programIndex),
     ...detectInlineToolCallIssues(result),
   ];
 
   return {
     normalizedSource: trimmedSource,
     parseResult: result,
+    programIndex,
     validation: {
       isValid: issues.length === 0,
       issues,

@@ -1,9 +1,12 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import type { BuilderParseIssue } from '@features/builder/types';
 import { visitOpenUiValue } from '@features/builder/openui/runtime/validation/astWalk';
-import { createQualityIssue, isAstNode, isElementNode } from '@features/builder/openui/runtime/validation/shared';
-
-const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
+import {
+  createQualityIssue,
+  isAstNode,
+  isElementNode,
+  type OpenUiProgramIndex,
+} from '@features/builder/openui/runtime/validation/shared';
 
 export const FATAL_STRUCTURAL_INVARIANT_CODES = new Set([
   'app-shell-not-root',
@@ -11,49 +14,6 @@ export const FATAL_STRUCTURAL_INVARIANT_CODES = new Set([
   'screen-inside-screen',
   'repeater-inside-repeater',
 ]);
-
-type TopLevelStatement = {
-  rawValueSource: string;
-  statementId: string;
-};
-
-function collectTopLevelStatements(source: string): TopLevelStatement[] {
-  const rawLines = source.split('\n');
-  const statements: TopLevelStatement[] = [];
-  let currentStatementId: string | null = null;
-  let currentRawLines: string[] = [];
-
-  function flushCurrentStatement() {
-    if (!currentStatementId) {
-      return;
-    }
-
-    statements.push({
-      statementId: currentStatementId,
-      rawValueSource: currentRawLines.join('\n'),
-    });
-  }
-
-  for (const rawLine of rawLines) {
-    const assignmentMatch = rawLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
-
-    if (assignmentMatch) {
-      flushCurrentStatement();
-      currentStatementId = assignmentMatch[1];
-      currentRawLines = [rawLine.replace(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN, '$2')];
-      continue;
-    }
-
-    if (!currentStatementId) {
-      continue;
-    }
-
-    currentRawLines.push(rawLine);
-  }
-
-  flushCurrentStatement();
-  return statements;
-}
 
 function isComponentNode(value: unknown, typeName: string) {
   return (
@@ -98,8 +58,8 @@ function pushUniqueIssue(
   );
 }
 
-function detectTopLevelAppShellIssues(source: string, issues: BuilderParseIssue[], seenIssueKeys: Set<string>) {
-  const appShellStatements = collectTopLevelStatements(source).filter((statement) =>
+function detectTopLevelAppShellIssues(programIndex: OpenUiProgramIndex, issues: BuilderParseIssue[], seenIssueKeys: Set<string>) {
+  const appShellStatements = programIndex.topLevelStatements.filter((statement) =>
     statement.rawValueSource.trimStart().startsWith('AppShell('),
   );
 
@@ -180,7 +140,7 @@ function detectNestedAppShellIssues(root: unknown, issues: BuilderParseIssue[], 
   });
 }
 
-export function detectStructuralInvariantIssues(source: string, result: ParseResult): BuilderParseIssue[] {
+export function detectStructuralInvariantIssues(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderParseIssue[] {
   if (result.meta.incomplete) {
     return [];
   }
@@ -188,7 +148,7 @@ export function detectStructuralInvariantIssues(source: string, result: ParseRes
   const issues: BuilderParseIssue[] = [];
   const seenIssueKeys = new Set<string>();
 
-  detectTopLevelAppShellIssues(source, issues, seenIssueKeys);
+  detectTopLevelAppShellIssues(programIndex, issues, seenIssueKeys);
 
   if (!result.root) {
     return issues;

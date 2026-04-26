@@ -1,11 +1,9 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import type { BuilderParseIssue } from '@features/builder/types';
 import {
-  collectActionRunRefGroups,
-  collectPersistedQueryRefs,
-  collectRefreshablePersistedMutationPaths,
   createQualityIssue,
   doPathsOverlapByPrefix,
+  type OpenUiProgramIndex,
 } from '@features/builder/openui/runtime/validation/shared';
 
 const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
@@ -20,13 +18,17 @@ const REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES = new Set([
   'write_state',
 ]);
 
-export function detectPersistedMutationRefreshWarnings(result: ParseResult): BuilderParseIssue[] {
+export function detectPersistedMutationRefreshWarnings(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderParseIssue[] {
   if (result.meta.incomplete || !result.root) {
     return [];
   }
 
-  const mutationPathByStatementId = collectRefreshablePersistedMutationPaths(result, REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES);
-  const persistedQueryRefs = collectPersistedQueryRefs(result);
+  const mutationPathByStatementId = new Map(
+    programIndex.mutationToolRefs
+      .filter((mutation) => REFRESHABLE_PERSISTED_MUTATION_TOOL_NAMES.has(mutation.toolName))
+      .map((mutation) => [mutation.statementId, mutation.path]),
+  );
+  const persistedQueryRefs = programIndex.persistedQueryRefs;
 
   if (mutationPathByStatementId.size === 0 || persistedQueryRefs.length === 0) {
     return [];
@@ -35,7 +37,7 @@ export function detectPersistedMutationRefreshWarnings(result: ParseResult): Bui
   const warnings: BuilderParseIssue[] = [];
   const seenWarningKeys = new Set<string>();
 
-  for (const actionRunRefs of collectActionRunRefGroups(result.root)) {
+  for (const actionRunRefs of programIndex.actionRunRefGroups) {
     for (const [index, runRef] of actionRunRefs.entries()) {
       if (runRef.refType !== 'mutation') {
         continue;

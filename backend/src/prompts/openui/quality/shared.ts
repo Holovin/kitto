@@ -7,6 +7,7 @@ export {
   collectActionRunRefsFromActionAst,
   collectPersistedQueryRefs,
   collectThemeAppearanceRefNames,
+  collectThemeAppearanceRefNamesFromStatements,
   containsRuntimeRef,
   createOpenUiProgramIndex,
   doPathsOverlapByPrefix,

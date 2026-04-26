@@ -1,5 +1,11 @@
 import { MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
+import {
+  CONTROL_ACTION_AND_BINDING_REPAIR_HINT,
+  getOptionsShapeIssueContext,
+  getRepairHintsForIssue,
+  getStalePersistedQueryIssueContext,
+} from './repairHintRegistry.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
@@ -25,16 +31,6 @@ interface UndefinedStateReferenceSummary {
   exampleInitializer?: string;
   refName: string;
   repeatCount: number;
-}
-
-interface StalePersistedQueryContext {
-  statementId: string;
-  suggestedQueryRefs: string[];
-}
-
-interface OptionsShapeContext {
-  groupId: string;
-  invalidValues: Array<number | string>;
 }
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
@@ -98,10 +94,6 @@ function buildRepairPromptCriticalRules() {
 
 const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules();
 
-const CONTROL_ACTION_AND_BINDING_REPAIR_HINT =
-  'Repair hint: Pick one of: (a) keep `$binding` and remove `action`, OR (b) keep `action` and replace the writable `$binding<…>` with a display-only literal/`item.field`.';
-const CONTROL_ACTION_AND_BINDING_LAST_CHOICE_REPAIR_HINT =
-  'If a RadioGroup/Select repair removes `action`, also remove or rewrite any top-level Mutation(...) / Query(...) helpers that still reference `$lastChoice`. Otherwise the repaired draft will still fail quality checks.';
 const REPAIR_BLOCKING_QUALITY_CODES = new Set([
   'control-action-and-binding',
   'inline-tool-in-each',
@@ -126,10 +118,6 @@ function addUniqueLine(lines: string[], seenLines: Set<string>, line: string) {
 
   seenLines.add(line);
   lines.push(line);
-}
-
-function formatInvalidOptionValue(value: number | string) {
-  return typeof value === 'number' ? String(value) : JSON.stringify(value);
 }
 
 function formatValidationIssue(summary: RepairIssueSummary) {
@@ -321,30 +309,6 @@ function getUndefinedStateReferenceIssueContext(issue: PromptBuildValidationIssu
     exampleInitializer,
     refName,
   };
-}
-
-function getStalePersistedQueryIssueContext(issue: PromptBuildValidationIssue): StalePersistedQueryContext | null {
-  if (issue.code !== 'quality-stale-persisted-query') {
-    return null;
-  }
-
-  if (!issue.context || !('suggestedQueryRefs' in issue.context)) {
-    return null;
-  }
-
-  return issue.context;
-}
-
-function getOptionsShapeIssueContext(issue: PromptBuildValidationIssue): OptionsShapeContext | null {
-  if (issue.code !== 'quality-options-shape') {
-    return null;
-  }
-
-  if (!issue.context || !('invalidValues' in issue.context)) {
-    return null;
-  }
-
-  return issue.context;
 }
 
 function summarizeUndefinedStateReferenceIssues(issues: PromptBuildValidationIssue[]) {
@@ -604,176 +568,8 @@ function buildRepairHints(issues: PromptBuildValidationIssue[], invalidSource: s
   const hasChoiceActionModeLastChoice = hasChoiceActionModeLastChoiceSource(invalidSource);
 
   for (const issue of issues) {
-    if (issue.code === 'app-shell-not-root' || issue.code === 'multiple-app-shells') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'screen-inside-screen') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'repeater-inside-repeater') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'inline-tool-in-each' || issue.code === 'inline-tool-in-prop' || issue.code === 'inline-tool-in-repeater') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'quality-options-shape') {
-      const optionsShapeContext = getOptionsShapeIssueContext(issue);
-
-      if (optionsShapeContext) {
-        addUniqueLine(
-          hints,
-          seenHints,
-          `In \`${optionsShapeContext.groupId}\`, convert invalid option values ${optionsShapeContext.invalidValues
-            .map(formatInvalidOptionValue)
-            .join(', ')} into objects with both label and value.`,
-        );
-      }
-
-      addUniqueLine(
-        hints,
-        seenHints,
-        'Wrap each option in `{ label: "...", value: "..." }`.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'control-action-and-binding') {
-      if (hasChoiceActionModeLastChoice) {
-        addUniqueLine(hints, seenHints, CONTROL_ACTION_AND_BINDING_LAST_CHOICE_REPAIR_HINT);
-      }
-
-      continue;
-    }
-
-    if (issue.code === 'invalid-prop') {
-      addUniqueLine(hints, seenHints, 'Check component argument order against the documented signature before returning.');
-
-      if (issue.message.includes('Group.direction')) {
-        addUniqueLine(hints, seenHints, 'For Group(...), the second argument is direction and must be "vertical" or "horizontal".');
-        addUniqueLine(hints, seenHints, 'If you need Group variant "block" or "inline", place it in the optional fourth argument.');
-        addUniqueLine(hints, seenHints, 'Never put "block" or "inline" in the second Group argument.');
-      }
-
-      if (issue.message.includes('Group.variant')) {
-        addUniqueLine(hints, seenHints, 'Group variant accepts only "block" or "inline" and belongs in the optional fourth argument.');
-      }
-
-      if (issue.message.includes('.appearance.') || issue.message.includes('.color') || issue.message.includes('.background')) {
-        addUniqueLine(
-          hints,
-          seenHints,
-          'Use appearance.mainColor and appearance.contrastColor only as six-character #RRGGBB hex strings such as "#111827" or "#F9FAFB".',
-        );
-        addUniqueLine(
-          hints,
-          seenHints,
-          'Use appearance only with mainColor and contrastColor keys. Do not use textColor, bgColor, or color/background prop names.',
-        );
-        addUniqueLine(hints, seenHints, 'Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
-        addUniqueLine(hints, seenHints, BUTTON_APPEARANCE_RULE);
-      }
-
-      if (
-        issue.message.includes('Text.appearance.mainColor') ||
-        issue.message.includes('Text.appearance.textColor') ||
-        issue.message.includes('Text.appearance.bgColor') ||
-        issue.message.includes('Text.background')
-      ) {
-        addUniqueLine(
-          hints,
-          seenHints,
-          'Text supports only appearance.contrastColor. If you need a colored surface, use Group, Screen, Repeater, or the control component appearance instead.',
-        );
-      }
-
-      if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
-        addUniqueLine(
-          hints,
-          seenHints,
-          'Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).',
-        );
-      }
-
-      continue;
-    }
-
-    if (issue.code === 'quality-stale-persisted-query') {
-      const staleQueryContext = getStalePersistedQueryIssueContext(issue);
-      const mutationRunStatementId = staleQueryContext?.statementId ?? issue.statementId;
-      const suggestedQueryRuns = staleQueryContext?.suggestedQueryRefs ?? [];
-
-      if (mutationRunStatementId && suggestedQueryRuns.length > 0) {
-        addUniqueLine(
-          hints,
-          seenHints,
-          `The mutation updates persisted state used by visible UI, but the action does not re-run the query that reads it. Add ${suggestedQueryRuns
-            .map((statementId) => `@Run(${statementId})`)
-            .join(' or ')} later in the same Action after @Run(${mutationRunStatementId}).`,
-        );
-      } else {
-        addUniqueLine(
-          hints,
-          seenHints,
-          'If a mutation updates persisted state that visible UI reads, re-run a matching Query("read_state", ...) later in the same Action.',
-        );
-      }
-
-      addUniqueLine(
-        hints,
-        seenHints,
-        'A matching persisted query can read the same path, a parent path, or a child path of the mutation path. Other steps such as @Reset(...) or @Set(...) may stay in the Action.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'quality-missing-todo-controls') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_item` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'quality-random-result-not-visible') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'For button-triggered randomness, use the canonical persisted recipe: `Mutation("write_computed_state", { op: "random_int", ... })`, `Query("read_state", { path: "..." }, defaultValue)`, and a button `Action(...)` that runs both in order.',
-      );
-      continue;
-    }
-
-    if (issue.code === 'quality-theme-state-not-applied') {
-      addUniqueLine(
-        hints,
-        seenHints,
-        'When the user asks to switch or toggle between themes, introduce a theme state such as `$currentTheme`, derive a theme object from it, and bind `appearance` on `AppShell` or another top-level container to that derived theme.',
-      );
+    for (const hint of getRepairHintsForIssue(issue, { hasChoiceActionModeLastChoice })) {
+      addUniqueLine(hints, seenHints, hint);
     }
   }
 

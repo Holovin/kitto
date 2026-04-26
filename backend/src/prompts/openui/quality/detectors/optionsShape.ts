@@ -1,5 +1,5 @@
 import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues } from '@kitto-openui/shared/openuiQualityOptionsShape.js';
-import { isElementNode, parser, type OpenUiQualityIssue } from '#backend/prompts/openui/quality/shared.js';
+import { isElementNode, parser, type OpenUiProgramIndex, type OpenUiQualityIssue } from '#backend/prompts/openui/quality/shared.js';
 
 const PROBE_SOURCE_PREFIX = 'expr = ';
 const PROBE_SOURCE_SUFFIX = `
@@ -28,6 +28,6 @@ function parseExpressionValue(expressionSource: string) {
   return isElementNode(textNode) ? textNode.props.value : null;
 }
 
-export function detectChoiceOptionsShapeIssues(source: string): OpenUiQualityIssue[] {
-  return detectSharedChoiceOptionsShapeIssues(source, { parseExpressionValue });
+export function detectChoiceOptionsShapeIssues(programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
+  return detectSharedChoiceOptionsShapeIssues(programIndex.topLevelStatements, { parseExpressionValue });
 }

@@ -1,17 +1,18 @@
 import type { ParseResult } from '@openuidev/lang-core';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.js';
 import {
-  collectThemeAppearanceRefNames,
+  collectThemeAppearanceRefNamesFromStatements,
   createQualityIssue,
   hasThemeDependentContainerAppearance,
+  type OpenUiProgramIndex,
 } from '#backend/prompts/openui/quality/shared.js';
 
-export function detectThemeAppearanceIssues(source: string, result: ParseResult): PromptBuildValidationIssue[] {
+export function detectThemeAppearanceIssues(result: ParseResult, programIndex: OpenUiProgramIndex): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || !result.root) {
     return [];
   }
 
-  const themeStateNames = collectThemeAppearanceRefNames(source);
+  const themeStateNames = collectThemeAppearanceRefNamesFromStatements(programIndex.topLevelStatements);
 
   if (themeStateNames.size > 0 && hasThemeDependentContainerAppearance(result.root, themeStateNames)) {
     return [];

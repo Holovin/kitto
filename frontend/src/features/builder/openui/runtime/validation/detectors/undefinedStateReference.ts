@@ -2,65 +2,12 @@ import type { ParseResult } from '@openuidev/react-lang';
 import {
   createOpenUiQualityIssue,
   escapeRegExp,
-  isAstNode,
-  maskStringLiterals,
+  type OpenUiProgramIndex,
   type OpenUiQualityIssue,
 } from '@features/builder/openui/runtime/validation/shared';
 
 const RESERVED_STATE_REF_NAMES = new Set(['$lastChoice']);
-const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const SIMPLE_LITERAL_PATTERN = `"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'|true|false|null|-?\\d+(?:\\.\\d+)?`;
-
-type TopLevelStatement = {
-  maskedValueSource: string;
-  rawValueSource: string;
-  statementId: string;
-};
-
-function collectTopLevelStatements(source: string): TopLevelStatement[] {
-  const rawLines = source.split('\n');
-  const maskedLines = maskStringLiterals(source).split('\n');
-  const statements: TopLevelStatement[] = [];
-  let currentStatementId: string | null = null;
-  let currentMaskedLines: string[] = [];
-  let currentRawLines: string[] = [];
-
-  function flushCurrentStatement() {
-    if (!currentStatementId) {
-      return;
-    }
-
-    statements.push({
-      statementId: currentStatementId,
-      maskedValueSource: currentMaskedLines.join('\n'),
-      rawValueSource: currentRawLines.join('\n'),
-    });
-  }
-
-  for (let index = 0; index < maskedLines.length; index += 1) {
-    const maskedLine = maskedLines[index] ?? '';
-    const rawLine = rawLines[index] ?? '';
-    const maskedAssignmentMatch = maskedLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
-
-    if (maskedAssignmentMatch) {
-      flushCurrentStatement();
-      currentStatementId = maskedAssignmentMatch[1];
-      currentMaskedLines = [maskedAssignmentMatch[2] ?? ''];
-      currentRawLines = [rawLine.replace(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN, '$2')];
-      continue;
-    }
-
-    if (!currentStatementId) {
-      continue;
-    }
-
-    currentMaskedLines.push(maskedLine);
-    currentRawLines.push(rawLine);
-  }
-
-  flushCurrentStatement();
-  return statements;
-}
 
 function inferInitializerExample(refName: string, statementValueSource: string) {
   const escapedRefName = escapeRegExp(refName);
@@ -83,20 +30,14 @@ function inferInitializerExample(refName: string, statementValueSource: string) 
   return setMatch?.[1] ?? null;
 }
 
-export function detectUndefinedStateReferenceIssues(source: string, result: ParseResult): OpenUiQualityIssue[] {
+export function detectUndefinedStateReferenceIssues(result: ParseResult, programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
   if (result.meta.incomplete) {
     return [];
   }
 
   const issues: OpenUiQualityIssue[] = [];
-  const topLevelStatements = collectTopLevelStatements(source);
-  const declaredStateRefs = new Set(
-    topLevelStatements
-      .filter((statement) => statement.statementId.startsWith('$'))
-      .filter((statement) => statement.statementId in (result.stateDeclarations ?? {}))
-      .filter((statement) => !isAstNode(result.stateDeclarations[statement.statementId]))
-      .map((statement) => statement.statementId),
-  );
+  const topLevelStatements = programIndex.topLevelStatements;
+  const declaredStateRefs = programIndex.declaredStateRefs;
   const seenStateRefs = new Set<string>();
   const stateRefPattern = /(?<![\w$])(\$[A-Za-z_][\w$]*)(?![\w$])/g;
 

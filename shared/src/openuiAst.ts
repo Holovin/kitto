@@ -27,6 +27,7 @@ export type OpenUiParseResultLike = {
   mutationStatements: OpenUiToolStatement[];
   queryStatements: OpenUiToolStatement[];
   root: unknown;
+  stateDeclarations?: Record<string, unknown>;
 };
 
 export type OpenUiVisitContext = {
@@ -63,16 +64,20 @@ export type OpenUiToolStatementRef = OpenUiPersistedPathStatementRef & {
 
 export interface OpenUiTopLevelStatement {
   expression: string;
+  maskedValueSource: string;
+  rawValueSource: string;
   lineNumber: number;
   statementId: string;
 }
 
 export interface OpenUiProgramIndex {
   actionRunRefGroups: OpenUiActionRunRef[][];
+  declaredStateRefs: Set<string>;
   mutationToolRefs: OpenUiToolStatementRef[];
   ownedActionRunRefGroups: OpenUiOwnedActionRunRefGroup[];
   persistedQueryRefs: OpenUiPersistedPathStatementRef[];
   queryToolRefs: OpenUiToolStatementRef[];
+  statementById: Map<string, OpenUiTopLevelStatement>;
   topLevelStatements: OpenUiTopLevelStatement[];
 }
 
@@ -289,32 +294,40 @@ export function hasThemeDependentContainerAppearance(value: unknown, themeStateN
   return Object.values(value.props).some((entry) => hasThemeDependentContainerAppearance(entry, themeStateNames));
 }
 
-export function collectThemeAppearanceRefNames(source: string) {
-  const themeRefNames = new Set(source.match(/\$[\w$]*theme\b/gi) ?? []);
+export function collectThemeAppearanceRefNamesFromStatements(statements: OpenUiTopLevelStatement[]) {
+  const themeRefNames = new Set<string>();
+
+  for (const statement of statements) {
+    const matches = statement.maskedValueSource.match(/\$[\w$]*theme\b/gi) ?? [];
+
+    for (const match of matches) {
+      themeRefNames.add(match);
+    }
+
+    if (/\$[\w$]*theme\b/i.test(statement.statementId)) {
+      themeRefNames.add(statement.statementId);
+    }
+  }
 
   if (themeRefNames.size === 0) {
     return themeRefNames;
   }
 
-  const topLevelAssignmentPattern = /(^|\n)([A-Za-z_][\w$]*)\s*=\s*([\s\S]*?)(?=\n(?:\$?[A-Za-z_][\w$]*\s*=|root\s*=)|$)/g;
-  let match = topLevelAssignmentPattern.exec(source);
-
-  while (match) {
-    const statementId = match[2];
-    const statementValueSource = match[3] ?? '';
-
+  for (const statement of statements) {
     if (
-      typeof statementId === 'string' &&
-      statementId !== 'root' &&
-      [...themeRefNames].some((themeRefName) => statementValueSource.includes(themeRefName))
+      statement.statementId !== 'root' &&
+      !statement.statementId.startsWith('$') &&
+      [...themeRefNames].some((themeRefName) => statement.maskedValueSource.includes(themeRefName))
     ) {
-      themeRefNames.add(statementId);
+      themeRefNames.add(statement.statementId);
     }
-
-    match = topLevelAssignmentPattern.exec(source);
   }
 
   return themeRefNames;
+}
+
+export function collectThemeAppearanceRefNames(source: string) {
+  return collectThemeAppearanceRefNamesFromStatements(collectTopLevelStatements(source));
 }
 
 export function visitOpenUiValue(
@@ -402,28 +415,55 @@ export function collectTopLevelStatements(source: string): OpenUiTopLevelStateme
   const maskedLines = maskStringLiterals(source).split('\n');
   const rawLines = source.split('\n');
   const statements: OpenUiTopLevelStatement[] = [];
+  let currentStatementId: string | null = null;
+  let currentLineNumber = 0;
+  let currentMaskedLines: string[] = [];
+  let currentRawLines: string[] = [];
 
-  maskedLines.forEach((maskedLine, index) => {
-    const trimmedLine = maskedLine.trim();
-    const match = trimmedLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
-
-    if (!match) {
+  function flushCurrentStatement() {
+    if (!currentStatementId) {
       return;
     }
 
-    const statementId = match[1];
-
-    if (!statementId) {
-      return;
-    }
+    const rawValueSource = currentRawLines.join('\n');
+    const maskedValueSource = currentMaskedLines.join('\n');
 
     statements.push({
-      expression: rawLines[index]?.trim() ?? '',
-      lineNumber: index + 1,
-      statementId,
+      expression: rawValueSource.trim(),
+      lineNumber: currentLineNumber,
+      maskedValueSource,
+      rawValueSource,
+      statementId: currentStatementId,
     });
+  }
+
+  maskedLines.forEach((maskedLine, index) => {
+    const match = maskedLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
+
+    if (match) {
+      const statementId = match[1];
+
+      if (!statementId) {
+        return;
+      }
+
+      flushCurrentStatement();
+      currentStatementId = statementId;
+      currentLineNumber = index + 1;
+      currentMaskedLines = [match[2] ?? ''];
+      currentRawLines = [rawLines[index]?.replace(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN, '$2') ?? ''];
+      return;
+    }
+
+    if (!currentStatementId) {
+      return;
+    }
+
+    currentMaskedLines.push(maskedLine);
+    currentRawLines.push(rawLines[index] ?? '');
   });
 
+  flushCurrentStatement();
   return statements;
 }
 
@@ -593,13 +633,175 @@ export function collectOwnedActionRunRefGroups(value: unknown): OpenUiOwnedActio
   return actionGroups;
 }
 
+function findMatchingParen(source: string, openParenIndex: number) {
+  let depth = 0;
+
+  for (let index = openParenIndex; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (character === '(') {
+      depth += 1;
+      continue;
+    }
+
+    if (character !== ')') {
+      continue;
+    }
+
+    depth -= 1;
+
+    if (depth === 0) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function splitTopLevelArguments(source: string) {
+  const args: string[] = [];
+  let depthParen = 0;
+  let depthBracket = 0;
+  let depthBrace = 0;
+  let segmentStart = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (character === '(') {
+      depthParen += 1;
+      continue;
+    }
+
+    if (character === ')') {
+      depthParen = Math.max(0, depthParen - 1);
+      continue;
+    }
+
+    if (character === '[') {
+      depthBracket += 1;
+      continue;
+    }
+
+    if (character === ']') {
+      depthBracket = Math.max(0, depthBracket - 1);
+      continue;
+    }
+
+    if (character === '{') {
+      depthBrace += 1;
+      continue;
+    }
+
+    if (character === '}') {
+      depthBrace = Math.max(0, depthBrace - 1);
+      continue;
+    }
+
+    if (character !== ',' || depthParen > 0 || depthBracket > 0 || depthBrace > 0) {
+      continue;
+    }
+
+    args.push(source.slice(segmentStart, index));
+    segmentStart = index + 1;
+  }
+
+  args.push(source.slice(segmentStart));
+  return args;
+}
+
+function collectRunRefsFromActionSource(source: string): OpenUiActionRunRef[] {
+  const runRefs: OpenUiActionRunRef[] = [];
+  const runRefPattern = /@Run\s*\(\s*([A-Za-z_][\w$]*)\s*\)/g;
+  let match = runRefPattern.exec(source);
+
+  while (match) {
+    const statementId = match[1];
+
+    if (!statementId) {
+      match = runRefPattern.exec(source);
+      continue;
+    }
+
+    runRefs.push({
+      refType: 'mutation',
+      statementId,
+    });
+    match = runRefPattern.exec(source);
+  }
+
+  return runRefs;
+}
+
+function collectOwnedActionRunRefGroupsFromSourceText(source: string): OpenUiOwnedActionRunRefGroup[] {
+  const actionGroups: OpenUiOwnedActionRunRefGroup[] = [];
+
+  function visit(text: string) {
+    const componentPattern = /\b([A-Z][A-Za-z0-9_]*)\s*\(/g;
+    let match = componentPattern.exec(text);
+
+    while (match) {
+      const typeName = match[1];
+
+      if (!typeName) {
+        match = componentPattern.exec(text);
+        continue;
+      }
+
+      const openParenIndex = text.indexOf('(', match.index + typeName.length);
+      const closeParenIndex = openParenIndex >= 0 ? findMatchingParen(text, openParenIndex) : -1;
+
+      if (openParenIndex < 0 || closeParenIndex < 0) {
+        break;
+      }
+
+      const argsSource = text.slice(openParenIndex + 1, closeParenIndex);
+      const args = splitTopLevelArguments(argsSource);
+      const actionArg = args.find((arg) => /^\s*Action\s*\(/.test(arg));
+
+      if (actionArg) {
+        const actionRunRefs = collectRunRefsFromActionSource(actionArg);
+
+        if (actionRunRefs.length > 0) {
+          actionGroups.push({
+            ownerTypeName: typeName,
+            runRefs: actionRunRefs,
+          });
+        }
+      }
+
+      args.forEach(visit);
+      componentPattern.lastIndex = closeParenIndex + 1;
+      match = componentPattern.exec(text);
+    }
+  }
+
+  visit(source);
+  return actionGroups;
+}
+
 export function createOpenUiProgramIndex(result: OpenUiParseResultLike, source = ''): OpenUiProgramIndex {
+  const topLevelStatements = collectTopLevelStatements(source);
+  const statementById = new Map(topLevelStatements.map((statement) => [statement.statementId, statement]));
+  const ownedActionRunRefGroups = [
+    ...collectOwnedActionRunRefGroups(result.root),
+    ...(source ? collectOwnedActionRunRefGroupsFromSourceText(maskStringLiterals(source)) : []),
+  ];
+
   return {
     actionRunRefGroups: collectActionRunRefGroups(result.root),
+    declaredStateRefs: new Set(
+      topLevelStatements
+        .filter((statement) => statement.statementId.startsWith('$'))
+        .filter((statement) => statement.statementId in (result.stateDeclarations ?? {}))
+        .filter((statement) => !isAstNode(result.stateDeclarations?.[statement.statementId]))
+        .map((statement) => statement.statementId),
+    ),
     mutationToolRefs: collectToolStatementRefs(result.mutationStatements),
-    ownedActionRunRefGroups: collectOwnedActionRunRefGroups(result.root),
+    ownedActionRunRefGroups,
     persistedQueryRefs: collectPersistedQueryRefs(result),
     queryToolRefs: collectToolStatementRefs(result.queryStatements),
-    topLevelStatements: collectTopLevelStatements(source),
+    statementById,
+    topLevelStatements,
   };
 }

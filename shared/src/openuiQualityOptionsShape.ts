@@ -1,3 +1,5 @@
+import { collectTopLevelStatements, type OpenUiTopLevelStatement } from './openuiAst.js';
+
 export type SharedOpenUiQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
 
 export interface SharedOpenUiQualityIssue {
@@ -20,18 +22,12 @@ export interface DetectChoiceOptionsShapeIssuesOptions {
   parseExpressionValue: (expressionSource: string) => unknown;
 }
 
-const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const CHOICE_CONTROL_TYPE_NAMES = ['RadioGroup', 'Select'] as const;
 const BARE_OPTIONS_MESSAGE = 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.';
 const MAX_CONTEXT_INVALID_VALUES = 20;
 
 type ComponentCallMatch = {
   args: string[];
-};
-
-type TopLevelStatement = {
-  rawValueSource: string;
-  statementId: string;
 };
 
 function createSharedOpenUiQualityIssue(
@@ -43,50 +39,6 @@ function createSharedOpenUiQualityIssue(
     severity,
     source: 'quality',
   };
-}
-
-function collectTopLevelStatements(source: string): TopLevelStatement[] {
-  const rawLines = source.split('\n');
-  const statements: TopLevelStatement[] = [];
-  let currentStatementId: string | null = null;
-  let currentRawLines: string[] = [];
-
-  function flushCurrentStatement() {
-    if (!currentStatementId) {
-      return;
-    }
-
-    statements.push({
-      statementId: currentStatementId,
-      rawValueSource: currentRawLines.join('\n'),
-    });
-  }
-
-  for (const rawLine of rawLines) {
-    const assignmentMatch = rawLine.match(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN);
-
-    if (assignmentMatch) {
-      const nextStatementId = assignmentMatch[1];
-
-      if (!nextStatementId) {
-        continue;
-      }
-
-      flushCurrentStatement();
-      currentStatementId = nextStatementId;
-      currentRawLines = [rawLine.replace(TOP_LEVEL_ASSIGNMENT_LINE_PATTERN, '$2')];
-      continue;
-    }
-
-    if (!currentStatementId) {
-      continue;
-    }
-
-    currentRawLines.push(rawLine);
-  }
-
-  flushCurrentStatement();
-  return statements;
 }
 
 function escapeRegExp(value: string) {
@@ -476,10 +428,10 @@ function detectOptionsShapeIssuesInFragment(
 }
 
 export function detectChoiceOptionsShapeIssues(
-  source: string,
+  sourceOrStatements: OpenUiTopLevelStatement[] | string,
   { parseExpressionValue }: DetectChoiceOptionsShapeIssuesOptions,
 ): SharedOpenUiQualityIssue[] {
-  const statements = collectTopLevelStatements(source);
+  const statements = typeof sourceOrStatements === 'string' ? collectTopLevelStatements(sourceOrStatements) : sourceOrStatements;
   const statementSources = new Map(statements.map((statement) => [statement.statementId, statement.rawValueSource]));
   const valueCache = new Map<string, unknown>();
   const seenIssueKeys = new Set<string>();

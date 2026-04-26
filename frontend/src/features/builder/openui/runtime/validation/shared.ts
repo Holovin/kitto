@@ -1,6 +1,7 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@features/builder/openui/library';
 import type { BuilderParseIssue, BuilderQualityIssueSeverity } from '@features/builder/types';
+import type { OpenUiProgramIndex } from '@kitto-openui/shared/openuiAst.js';
 
 export {
   collectActionRunRefGroups,
@@ -59,6 +60,7 @@ export interface OpenUiValidationResult {
 export interface OpenUiValidationContext {
   normalizedSource: string;
   parseResult: ParseResult | null;
+  programIndex: OpenUiProgramIndex | null;
   validation: OpenUiValidationResult;
 }
 
