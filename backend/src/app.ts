@@ -29,18 +29,19 @@ function isApiRoute(pathname: string) {
   return pathname === '/api' || pathname.startsWith('/api/');
 }
 
-function resolveFrontendStaticFile(frontendDistDir: string, requestPath: string) {
-  if (requestPath === '/' || isApiRoute(requestPath)) {
-    return null;
+function resolveFrontendAssetPath(frontendDistDir: string, trimmedPath: string) {
+  let decodedPath: string;
+
+  try {
+    decodedPath = decodeURIComponent(trimmedPath);
+  } catch (error) {
+    if (error instanceof URIError) {
+      return null;
+    }
+
+    throw error;
   }
 
-  const trimmedPath = requestPath.replace(/^\/+/, '');
-
-  if (!trimmedPath || !path.extname(trimmedPath)) {
-    return null;
-  }
-
-  const decodedPath = decodeURIComponent(trimmedPath);
   const resolvedPath = path.resolve(frontendDistDir, decodedPath);
   const relativeResolvedPath = path.relative(frontendDistDir, resolvedPath);
 
@@ -53,6 +54,20 @@ function resolveFrontendStaticFile(frontendDistDir: string, requestPath: string)
   }
 
   return relativeResolvedPath.split(path.sep).join('/');
+}
+
+function resolveFrontendStaticFile(frontendDistDir: string, requestPath: string) {
+  if (requestPath === '/' || isApiRoute(requestPath)) {
+    return null;
+  }
+
+  const trimmedPath = requestPath.replace(/^\/+/, '');
+
+  if (!trimmedPath || !path.extname(trimmedPath)) {
+    return null;
+  }
+
+  return resolveFrontendAssetPath(frontendDistDir, trimmedPath);
 }
 
 export function createApp(env: AppEnv) {

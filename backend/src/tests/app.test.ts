@@ -138,4 +138,28 @@ describe('createApp', () => {
       fs.rmSync(frontendDistDir, { force: true, recursive: true });
     }
   });
+
+  it('returns 404 instead of 500 for malformed encoded asset paths', async () => {
+    const frontendDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kitto-openui-dist-'));
+
+    try {
+      fs.writeFileSync(path.join(frontendDistDir, 'index.html'), '<!doctype html><html><body><div id="root">Kitto</div></body></html>');
+
+      const app = createApp(
+        createTestEnv({
+          frontendDistDir,
+        }),
+      );
+
+      const response = await app.request('/assets/%E0%A4%A');
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get('content-type')).toContain('application/json');
+      expect(await response.json()).toEqual({
+        error: 'Route not found.',
+      });
+    } finally {
+      fs.rmSync(frontendDistDir, { force: true, recursive: true });
+    }
+  });
 });
