@@ -119,16 +119,15 @@ function buildSystemPromptVariant(
   definition: (typeof SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS)[number],
 ): PromptInfoSystemPromptVariant {
   const prompt = definition.prompt ?? undefined;
-  const options = { prompt };
 
   return {
-    cacheKey: getOpenUiSystemPromptCacheKey(options),
-    hash: getOpenUiSystemPromptHash(options),
+    cacheKey: getOpenUiSystemPromptCacheKey(),
+    hash: getOpenUiSystemPromptHash(),
     id: definition.id,
     intentVector: getPromptIntentCacheVector(prompt),
     label: definition.label,
     sampleRequest: definition.prompt,
-    text: buildOpenUiSystemPrompt(options),
+    text: buildOpenUiSystemPrompt(),
   };
 }
 

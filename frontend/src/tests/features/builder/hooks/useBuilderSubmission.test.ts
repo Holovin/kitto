@@ -44,8 +44,27 @@ const testHarness = vi.hoisted(() => {
       this.cursor = 0;
     }
 
-    useCallback<Callback extends (...args: never[]) => unknown>(callback: Callback) {
+    useCallback<Callback extends (...args: never[]) => unknown>(callback: Callback, deps?: unknown[]) {
+      const index = this.cursor;
       this.cursor += 1;
+
+      const previous = this.hookValues[index] as { callback: Callback; deps?: unknown[] } | undefined;
+      const hasChanged =
+        !previous ||
+        !deps ||
+        !previous.deps ||
+        deps.length !== previous.deps.length ||
+        deps.some((value, depIndex) => !Object.is(value, previous.deps?.[depIndex]));
+
+      if (!hasChanged) {
+        return previous.callback;
+      }
+
+      this.hookValues[index] = {
+        callback,
+        deps: deps ? [...deps] : undefined,
+      };
+
       return callback;
     }
 
@@ -133,8 +152,7 @@ vi.mock('react', async () => {
   return {
     ...actual,
     useCallback: <Callback extends (...args: never[]) => unknown>(callback: Callback, deps?: unknown[]) => {
-      void deps;
-      return getRuntime().useCallback(callback);
+      return getRuntime().useCallback(callback, deps);
     },
     useEffect: (effect: () => void | (() => void), deps?: unknown[]) => getRuntime().useEffect(effect, deps),
     useRef: <Value>(initialValue: Value) => getRuntime().useRef(initialValue),

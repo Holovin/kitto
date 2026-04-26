@@ -88,9 +88,8 @@ async function writeGeneratedModule({ allowMissing = false } = {}) {
   return true;
 }
 
-function watchGeneratedModule() {
-  void mkdir(standalonePlayerDirectory, { recursive: true });
-
+async function watchGeneratedModule() {
+  await mkdir(standalonePlayerDirectory, { recursive: true });
   let debounceTimer: NodeJS.Timeout | null = null;
 
   const scheduleWrite = () => {
@@ -101,7 +100,7 @@ function watchGeneratedModule() {
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
 
-      void writeGeneratedModule({ allowMissing: true }).catch((error) => {
+      writeGeneratedModule({ allowMissing: true }).catch((error) => {
         console.error(
           `[standalone] failed to update generated standalone assets: ${error instanceof Error ? error.message : 'Unknown error.'}`,
         );
@@ -137,14 +136,14 @@ function watchGeneratedModule() {
 
 async function main() {
   if (watchMode) {
-    watchGeneratedModule();
+    await watchGeneratedModule();
     return;
   }
 
   await writeGeneratedModule();
 }
 
-void main().catch((error) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

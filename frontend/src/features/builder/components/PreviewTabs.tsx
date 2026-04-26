@@ -340,7 +340,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
                 onFocus={preloadStandaloneHtml}
                 onMouseEnter={preloadStandaloneHtml}
                 onClick={() => {
-                  void handleDownloadStandalone();
+                  handleDownloadStandalone();
                   setIsFileMenuOpen(false);
                 }}
               >

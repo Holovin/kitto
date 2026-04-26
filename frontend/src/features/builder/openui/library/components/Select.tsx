@@ -143,7 +143,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
         }}
         onValueChange={(nextValue: string) => {
           if (isActionMode) {
-            void runAction(nextValue);
+            runAction(nextValue).catch(() => undefined);
             return;
           }
 

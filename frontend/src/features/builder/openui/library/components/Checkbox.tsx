@@ -69,7 +69,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
       onCheckedChange={
         isActionMode
           ? (checked: boolean | 'indeterminate') => {
-              void runAction(Boolean(checked));
+              runAction(Boolean(checked)).catch(() => undefined);
             }
           : (checked: boolean | 'indeterminate') => {
               onBlur();

@@ -85,7 +85,7 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
         onBlur={isActionMode ? undefined : onBlur}
         onValueChange={(nextValue: string) => {
           if (isActionMode) {
-            void runAction(nextValue);
+            runAction(nextValue).catch(() => undefined);
             return;
           }
 

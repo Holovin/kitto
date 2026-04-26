@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '#backend/env.js';
@@ -19,18 +20,45 @@ import { openUiEnvelopeFormat } from './envelope.js';
 type OpenAiClient = Pick<OpenAI, 'responses'>;
 type OpenAiClientFactory = (env: AppEnv) => OpenAiClient;
 
+interface OpenAiRequestIdCapture {
+  requestId: string | null;
+}
+
+const openAiRequestIdCaptureStorage = new AsyncLocalStorage<OpenAiRequestIdCapture>();
 let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenAiClientFactory | null } | null = null;
 let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
-export function getSystemPromptHash(prompt?: string) {
-  return getOpenUiSystemPromptHash({
-    prompt,
-  });
+export function getSystemPromptHash() {
+  return getOpenUiSystemPromptHash();
+}
+
+async function captureOpenAiRequestIdFetch(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+  const response = await fetch(input, init);
+  const requestId = response.headers.get('x-request-id');
+  const capture = openAiRequestIdCaptureStorage.getStore();
+
+  if (capture && requestId) {
+    capture.requestId = requestId;
+  }
+
+  return response;
+}
+
+export function captureOpenAiRequestId<T>(run: () => T) {
+  const capture: OpenAiRequestIdCapture = {
+    requestId: null,
+  };
+
+  return {
+    capture,
+    value: openAiRequestIdCaptureStorage.run(capture, run),
+  };
 }
 
 function createDefaultOpenAiClient(env: AppEnv): OpenAiClient {
   return new OpenAI({
     apiKey: env.OPENAI_API_KEY,
+    fetch: captureOpenAiRequestIdFetch,
   });
 }
 
@@ -131,7 +159,7 @@ export function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
     model: env.OPENAI_MODEL,
     input: buildResponseInput(env, request),
     max_output_tokens: getOpenUiMaxOutputTokens(env),
-    prompt_cache_key: getOpenUiSystemPromptCacheKey({ prompt: request.prompt }),
+    prompt_cache_key: getOpenUiSystemPromptCacheKey(),
     temperature: getOpenUiTemperature(request.mode),
     text: {
       format: openUiEnvelopeFormat,

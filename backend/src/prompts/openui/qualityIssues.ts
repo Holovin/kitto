@@ -36,7 +36,7 @@ type SourceFeatureFlags = {
   validation: boolean;
 };
 
-function collectSourceFeatureFlags(source: string) {
+function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
   const parseResult = parser.parse(source);
   if (parseResult.meta.incomplete || parseResult.meta.errors.length > 0 || !parseResult.root) {
     return null;

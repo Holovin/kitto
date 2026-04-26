@@ -180,10 +180,8 @@ describe('openui prompts', () => {
 
   it('keeps the system prompt stable and moves request intent rules/examples into intent context', () => {
     const basePrompt = buildBasePrompt();
-    const systemPromptForTodo = buildOpenUiSystemPrompt({ prompt: 'Create a todo list' });
     const todoPrompt = buildTodoPrompt();
 
-    expect(systemPromptForTodo).toBe(basePrompt);
     expect(basePrompt).not.toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(basePrompt).not.toContain('APPEARANCE / THEME CONTRACT:');
     expect(basePrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
@@ -203,15 +201,10 @@ describe('openui prompts', () => {
 
   it('uses one stable system prompt cache key across different intent vectors', () => {
     const baseKey = getOpenUiSystemPromptCacheKey();
-    const todoKey = getOpenUiSystemPromptCacheKey({ prompt: 'Create a todo list' });
-    const todoAliasKey = getOpenUiSystemPromptCacheKey({ prompt: 'Build a to-do app' });
-    const themeKey = getOpenUiSystemPromptCacheKey({ prompt: 'Create a dark mode form' });
 
     expect(baseKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
-    expect(todoKey).toBe(baseKey);
-    expect(todoKey).toBe(todoAliasKey);
-    expect(themeKey).toBe(baseKey);
-    expect(themeKey.length).toBeLessThanOrEqual(64);
+    expect(getOpenUiSystemPromptCacheKey()).toBe(baseKey);
+    expect(baseKey.length).toBeLessThanOrEqual(64);
   });
 
   it('detects Russian intent keywords for scoped prompt rules and examples', () => {

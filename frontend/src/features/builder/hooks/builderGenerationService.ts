@@ -198,7 +198,7 @@ async function commitGeneratedSource({
       warnings: validatedResult.warnings,
     }),
   );
-  void postCommitTelemetry({
+  postCommitTelemetry({
     commitSource: validatedResult.commitSource,
     committed: true,
     qualityWarnings: [...new Set(validatedResult.warnings.map((warning) => warning.code))],

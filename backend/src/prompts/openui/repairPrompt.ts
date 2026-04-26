@@ -763,7 +763,7 @@ function buildOpenUiRepairPromptParts(
   const draftSectionFallback =
     outputFormat === 'roleMessages' ? '(the failed draft was empty)' : getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const ruleLines = buildRepairPromptCriticalRules().map((rule) => `- ${rule}`);
+  const ruleLines = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`);
   const rulesSection = ruleLines.join('\n');
   const hintLines = [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)];
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);

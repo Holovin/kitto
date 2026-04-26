@@ -43,7 +43,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
         if (props.variant === 'default') {
           markSubmitLikeInteraction(getRegisteredFieldNames());
         }
-        void triggerAction(props.label, undefined, props.action as never);
+        Promise.resolve(triggerAction(props.label, undefined, props.action as never)).catch(() => undefined);
       }}
     >
       <span>{props.label}</span>

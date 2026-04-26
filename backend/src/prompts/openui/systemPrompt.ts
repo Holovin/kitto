@@ -1,13 +1,9 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
-import { buildAdditionalRulesForPrompt } from './rules.js';
+import { buildStableSystemRules } from './ruleRegistry.js';
 import { buildStableToolExamples } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
-
-interface BuildOpenUiPromptOptions {
-  prompt?: string;
-}
 
 interface KittoPromptInput {
   additionalRules: string[];
@@ -25,17 +21,15 @@ export const OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX = 'kitto:openui';
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
-function buildAdditionalRules(options: BuildOpenUiPromptOptions = {}) {
-  return buildAdditionalRulesForPrompt(options.prompt);
+function buildAdditionalRules() {
+  return buildStableSystemRules();
 }
 
-function buildToolExamples(options: BuildOpenUiPromptOptions = {}) {
-  void options;
+function buildToolExamples() {
   return buildStableToolExamples();
 }
 
-function getPromptCacheToken(options: BuildOpenUiPromptOptions = {}) {
-  void options;
+function getPromptCacheToken() {
   return 'base';
 }
 
@@ -413,8 +407,8 @@ interface CachedSystemPrompt {
 
 const cachedSystemPrompts = new Map<string, CachedSystemPrompt>();
 
-function getCachedSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
-  const cacheToken = getPromptCacheToken(options);
+function getCachedSystemPrompt() {
+  const cacheToken = getPromptCacheToken();
   const cachedPrompt = cachedSystemPrompts.get(cacheToken);
 
   if (cachedPrompt) {
@@ -422,9 +416,9 @@ function getCachedSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
   }
 
   const prompt = buildKittoOpenUiPrompt({
-    additionalRules: buildAdditionalRules(options),
+    additionalRules: buildAdditionalRules(),
     componentSpec,
-    examples: buildToolExamples(options),
+    examples: buildToolExamples(),
     tools: toolSpecifications,
   });
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
@@ -439,14 +433,14 @@ function getCachedSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
   return cachedEntry;
 }
 
-export function buildOpenUiSystemPrompt(options: BuildOpenUiPromptOptions = {}) {
-  return getCachedSystemPrompt(options).prompt;
+export function buildOpenUiSystemPrompt() {
+  return getCachedSystemPrompt().prompt;
 }
 
-export function getOpenUiSystemPromptCacheKey(options: BuildOpenUiPromptOptions = {}) {
-  return getCachedSystemPrompt(options).cacheKey;
+export function getOpenUiSystemPromptCacheKey() {
+  return getCachedSystemPrompt().cacheKey;
 }
 
-export function getOpenUiSystemPromptHash(options: BuildOpenUiPromptOptions = {}) {
-  return getCachedSystemPrompt(options).hash;
+export function getOpenUiSystemPromptHash() {
+  return getCachedSystemPrompt().hash;
 }

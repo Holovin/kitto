@@ -113,6 +113,14 @@ const REQUEST_TIMEOUT_MESSAGE = 'The model took too long to respond. Try again w
 const BACKEND_UNREACHABLE_MESSAGE = 'The builder could not reach the backend. Check that the server is running and try again.';
 const UPSTREAM_FAILURE_MESSAGE = 'The model service failed while generating the draft. Please retry in a moment.';
 
+function isRepairQualityIssue(issue: RepairValidationIssue): issue is BuilderQualityIssue {
+  return typeof issue.severity === 'string';
+}
+
+function stripRepairQualitySeverity(issue: RepairValidationIssue) {
+  return isRepairQualityIssue(issue) ? stripQualitySeverity(issue) : issue;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -398,7 +406,7 @@ export function useValidationRepair({
 
       const validationIssues = [...new Set(issues.map((issue) => issue.code))];
 
-      void postCommitTelemetry({
+      postCommitTelemetry({
         commitSource: candidateResponse.commitSource,
         committed: false,
         requestId: candidateResponse.requestId,
@@ -431,7 +439,7 @@ export function useValidationRepair({
       const telemetry = pendingQualityRepairTelemetry;
       pendingQualityRepairTelemetry = null;
 
-      void postCommitTelemetry({
+      postCommitTelemetry({
         commitSource: telemetry.commitSource,
         committed: false,
         repairOutcome,
@@ -456,14 +464,14 @@ export function useValidationRepair({
       if (repairAttemptCount >= maxRepairAttempts) {
         throw new OpenUiValidationError(
           createValidationFailureMessage(
-            issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)),
+            issues.map(stripRepairQualitySeverity),
             parserRepairCount + qualityRepairCount,
           ),
         );
       }
 
       repairAttemptCount += 1;
-      reportRejectedCandidate(issues.map((issue) => ('severity' in issue ? stripQualitySeverity(issue) : issue)));
+      reportRejectedCandidate(issues.map(stripRepairQualitySeverity));
       const validationIssues = sanitizeRepairValidationIssues(issues, maxRepairValidationIssues);
       const repairRequest: BuilderLlmRequest = {
         prompt: request.prompt,

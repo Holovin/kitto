@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/lang-core';
-import { promptHasSimpleTodoIntent, promptMentionsTodoIntent, promptRequiresBlockingTodoControls } from './qualityIntents.js';
+import { promptMentionsTodoIntent, promptRequiresBlockingTodoControls } from './qualityIntents.js';
 import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from '#backend/prompts/openui/quality/shared.js';
 export { detectChoiceOptionsShapeIssues } from '#backend/prompts/openui/quality/detectors/optionsShape.js';
 

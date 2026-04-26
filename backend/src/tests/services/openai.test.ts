@@ -80,6 +80,8 @@ vi.mock('openai', () => {
 });
 
 import { generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '#backend/services/openai.js';
+import { logResponseUsage } from '#backend/services/openai/logging.js';
+import { consumeOpenAiResponseStream, type OpenAiResponseStreamState } from '#backend/services/openai/streaming.js';
 
 const request: PromptBuildRequest = {
   chatHistory: [],
@@ -192,7 +194,10 @@ const repairRequest: PromptBuildRequest = {
   ],
 };
 
-function createMockResponseStream(events: unknown[], finalResponse: unknown) {
+function createMockResponseStream(
+  events: Array<{ delta?: string; type?: string }>,
+  finalResponse: { _request_id?: unknown; output?: unknown; output_text?: unknown; usage?: unknown },
+) {
   let aborted = false;
 
   return {
@@ -1288,6 +1293,45 @@ describe('streamOpenUiSource', () => {
 
     expect(consoleLogSpy).toHaveBeenCalledWith(
       '[openai.responses.stream] request_id=req_stream_usage input_tokens=2000 cached_tokens=1600 output_tokens=25 total_tokens=2025',
+    );
+  });
+
+  it('uses the captured streaming HTTP request id when the finalized response lacks one', async () => {
+    const env = createTestEnv({
+      LOG_LEVEL: 'info',
+      OPENAI_API_KEY: 'test-key-stream-captured-request-id',
+    });
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const stream = createMockResponseStream(
+      [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' }],
+      {
+        output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        usage: {
+          input_tokens: 2000,
+          input_tokens_details: {
+            cached_tokens: 1600,
+          },
+          output_tokens: 25,
+          total_tokens: 2025,
+        },
+      },
+    );
+    const streamState: OpenAiResponseStreamState = {
+      finalResponse: null,
+      streamedText: '',
+    };
+
+    await expect(
+      consumeOpenAiResponseStream(env, stream, vi.fn(), undefined, streamState, {
+        getRequestId: () => 'req_stream_header',
+      }),
+    ).resolves.toBe('{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}');
+
+    expect((streamState.finalResponse as { _request_id?: unknown } | null)?._request_id).toBe('req_stream_header');
+    logResponseUsage(env, 'stream', streamState.finalResponse);
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[openai.responses.stream] request_id=req_stream_header input_tokens=2000 cached_tokens=1600 output_tokens=25 total_tokens=2025',
     );
   });
 

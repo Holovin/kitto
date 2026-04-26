@@ -21,7 +21,7 @@ async function main() {
   await writeFile(librarySchemaPath, `${JSON.stringify(builderOpenUiLibrary.toJSONSchema(), null, 2)}\n`, 'utf8');
 }
 
-void main().catch((error) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

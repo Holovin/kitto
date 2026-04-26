@@ -17,6 +17,10 @@ export interface OpenAiResponseStreamState {
   streamedText: string;
 }
 
+interface ConsumeOpenAiResponseStreamOptions {
+  getRequestId?: () => string | null | undefined;
+}
+
 type OpenAiResponseStreamEvent = {
   delta?: string;
   type?: string;
@@ -104,12 +108,34 @@ function logStreamFinalResponseMismatch(response: FinalizableStreamResponse, str
   );
 }
 
+function attachRequestId(response: FinalizableStreamResponse, requestId: string | null | undefined) {
+  if (!requestId || (typeof response._request_id === 'string' && response._request_id.trim())) {
+    return response;
+  }
+
+  try {
+    Object.defineProperty(response, '_request_id', {
+      configurable: true,
+      enumerable: false,
+      value: requestId,
+    });
+
+    return response;
+  } catch {
+    return {
+      ...response,
+      _request_id: requestId,
+    };
+  }
+}
+
 export async function consumeOpenAiResponseStream(
   env: AppEnv,
   stream: OpenAiResponseStream,
   onTextDelta: (delta: string) => Promise<void> | void,
   signal: AbortSignal | undefined,
   state: OpenAiResponseStreamState,
+  options: ConsumeOpenAiResponseStreamOptions = {},
 ) {
   let streamedTextBytes = 0;
   let hasAbortedStream = false;
@@ -146,7 +172,7 @@ export async function consumeOpenAiResponseStream(
     }
 
     throwIfAborted(signal, { abort: abortStream });
-    state.finalResponse = await stream.finalResponse();
+    state.finalResponse = attachRequestId(await stream.finalResponse(), options.getRequestId?.());
     throwIfAborted(signal, { abort: abortStream });
     const finalResponseText = extractResponseText(state.finalResponse);
     logStreamFinalResponseMismatch(state.finalResponse, state.streamedText, finalResponseText);

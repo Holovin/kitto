@@ -578,7 +578,7 @@ describe('streamBuilderDefinition', () => {
 
               controller.enqueue(encoder.encode('event: chunk\ndata: {"summary":"Builds a\n\n'));
 
-              void allowDone.promise.then(() => {
+              allowDone.promise.then(() => {
                 controller.enqueue(encoder.encode('event: chunk\ndata:  todo list","source":"root = AppShell([])"}\n\n'));
                 doneEventSent = true;
                 controller.enqueue(

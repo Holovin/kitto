@@ -1,6 +1,12 @@
 import type { AppEnv } from '#backend/env.js';
 import type { PromptBuildRequest } from '#backend/prompts/openui.js';
-import { buildResponseRequest, getClient, resetOpenAiClientForTesting, setOpenAiClientFactoryForTesting } from './client.js';
+import {
+  buildResponseRequest,
+  captureOpenAiRequestId,
+  getClient,
+  resetOpenAiClientForTesting,
+  setOpenAiClientFactoryForTesting,
+} from './client.js';
 import {
   assertModelOutputWithinLimit,
   OpenUiGenerationEnvelopeSchema,
@@ -125,12 +131,18 @@ export async function streamOpenUiSource(
   const responseRequest = buildResponseRequest(env, request);
   const startedAt = Date.now();
   let stream;
+  let requestIdCapture: ReturnType<typeof captureOpenAiRequestId>['capture'] | null = null;
 
   try {
-    stream = client.responses.stream(responseRequest, {
-      signal,
-      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
-    });
+    const capturedStream = captureOpenAiRequestId(() =>
+      client.responses.stream(responseRequest, {
+        signal,
+        timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      }),
+    );
+
+    requestIdCapture = capturedStream.capture;
+    stream = capturedStream.value;
   } catch (error) {
     if (!isAbortedRequestError(error, signal)) {
       await writePromptIoFailureSafely(env, request, responseRequest, '', {
@@ -155,7 +167,9 @@ export async function streamOpenUiSource(
   let finalResponseText: string | null = null;
 
   try {
-    finalResponseText = await consumeOpenAiResponseStream(env, stream, onTextDelta, signal, streamState);
+    finalResponseText = await consumeOpenAiResponseStream(env, stream, onTextDelta, signal, streamState, {
+      getRequestId: () => requestIdCapture?.requestId,
+    });
     logResponseUsage(env, 'stream', streamState.finalResponse);
   } catch (error) {
     await writePromptIoFailureSafely(env, request, responseRequest, streamState.streamedText, {

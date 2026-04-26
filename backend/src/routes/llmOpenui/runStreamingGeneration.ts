@@ -122,7 +122,7 @@ function createStreamingResponse(
         }
       };
 
-      void (async () => {
+      const streamResponse = async () => {
         try {
           const responseEnvelope: OpenUiGenerationEnvelope = await streamOpenUiSource(
             env,
@@ -170,7 +170,9 @@ function createStreamingResponse(
 
           handleStreamingError(error, abortController, closeController, writeEvent);
         }
-      })();
+      };
+
+      streamResponse();
     },
     cancel() {
       abortController.abort();

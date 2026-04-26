@@ -72,7 +72,7 @@ function loadStandaloneHtmlModule() {
 }
 
 function preloadStandaloneHtmlModule() {
-  void loadStandaloneHtmlModule()
+  loadStandaloneHtmlModule()
     .then(({ preloadStandalonePlayerAssets }) => preloadStandalonePlayerAssets())
     .catch(() => {
       // Ignore preload failures and fall back to the on-click path.
