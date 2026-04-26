@@ -40,7 +40,7 @@ function throwIfAborted(signal?: AbortSignal, stream?: AbortableStream) {
   throw new APIUserAbortError();
 }
 
-function assertDeltaWithinLimit(env: AppEnv, delta: string, streamedTextBytes: number, stream: AbortableStream) {
+function assertDeltaWithinLimit(env: AppEnv, streamedTextBytes: number, stream: AbortableStream) {
   const rawLimitBytes = getRawStructuredOutputMaxBytes(env);
 
   if (streamedTextBytes > rawLimitBytes) {
@@ -138,8 +138,8 @@ export async function consumeOpenAiResponseStream(
 
       if (event.type === 'response.output_text.delta' && event.delta) {
         throwIfAborted(signal, { abort: abortStream });
-        streamedTextBytes += getByteLength(event.delta);
-        assertDeltaWithinLimit(env, event.delta, streamedTextBytes, { abort: abortStream });
+        streamedTextBytes += Buffer.byteLength(event.delta, 'utf8');
+        assertDeltaWithinLimit(env, streamedTextBytes, { abort: abortStream });
         state.streamedText += event.delta;
         await onTextDelta(event.delta);
       }
