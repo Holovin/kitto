@@ -232,7 +232,7 @@ Repeater(children, emptyText?, appearance?)
 
 - `RadioGroup` / `Select` `options` must be arrays of `{ label, value }` objects.
 - If choice options come from collection rows such as `questions[i].options` or `item.options`, each row's `.options` field must already use `{ label, value }` objects; bare string or number arrays are a blocking product-quality issue.
-- Generated positional calls should use `[]` when skipping `validation` before `action` or `appearance`; `null` validation placeholders should behave as no validation rules rather than crashing the runtime.
+- Generated positional calls may use `null` or `[]` when skipping `validation` before `action` or `appearance`; both placeholders should behave as no validation rules rather than crashing the runtime.
 
 Typed inputs and declarative validation:
 
@@ -322,7 +322,7 @@ Todo request guardrails:
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - `RadioGroup(...)` and `Select(...)` must receive `options` as `{ label, value }` objects, not bare strings or numbers.
 - Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.
-- When an action-mode `RadioGroup(...)` or `Select(...)` has no validation rules, pass `null` for helper and `[]` for validation before `Action([...])`.
+- When an action-mode `RadioGroup(...)` or `Select(...)` has no validation rules, pass `null` for helper and either `null` or `[]` for validation before `Action([...])`.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.
 - Use `$lastChoice` only inside `RadioGroup` / `Select` action-mode flows or the top-level `Mutation(...)` / `Query(...)` statements those actions run. Do not render it directly in UI text, disabled expressions, or unrelated statements.
 - For persisted collection row actions, define top-level `Mutation(...)` statements such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item`, then relay item context through local state inside the row `Action(...)`.
@@ -403,6 +403,7 @@ Compute tool rules:
 - for button-triggered random values, use `write_computed_state` with `op: "random_int"`
 - do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior
 - for button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`
+- remember `Query("read_state", ...)` returns the raw persisted value or `null`; only `compute_value` and `write_computed_state` return `{ value }`
 - do not expect a mutation result object to automatically refresh visible text
 - do not render the raw mutation object into `Text(...)`; it can show up as `[object Object]`
 
@@ -424,8 +425,8 @@ Do use:
 - `Input(..., ..., ..., ..., ..., "email", validation)` for email fields, together with `email` validation when the field must contain a valid address
 - `Checkbox(..., validation)` with a writable `$binding<boolean>` and `required` for agreement, confirmation, consent, and acknowledgement fields
 - `Checkbox(..., item.completed, ..., Action([...]))` for persisted row toggles when the checkbox itself should trigger the mutation flow
-- `RadioGroup(..., item.plan, ..., [], Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row choices that must write through `$lastChoice`
-- `Select(..., item.filter, ..., [], Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row filters that must write through `$lastChoice`
+- `RadioGroup(..., item.plan, ..., null, null, Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row choices that must write through `$lastChoice`
+- `Select(..., item.filter, ..., null, null, Action([@Set($targetId, item.id), @Run(updateItem), @Run(items)]))` for persisted collection-row filters that must write through `$lastChoice`
 - declarative validation arrays only, using supported rule names and type-appropriate rules
 - `Text(...)` only with `appearance.contrastColor`; never `Text(..., { mainColor: ... })`
 - for any `Button(..., variant, ..., appearance)` use `appearance.mainColor` as the button background and `appearance.contrastColor` as the button text

@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import {
-  cloneJsonCompatibleValue,
+  clonePersistedRuntimeState,
   isPlainObject,
   validatePersistedStateObjectKeys,
   validatePersistedRuntimeStateTree,
@@ -21,7 +21,7 @@ const initialState: BuilderSessionState = {
 
 function createBuilderSessionState(runtimeSessionState: Record<string, unknown>): BuilderSessionState {
   return {
-    runtimeSessionState: cloneJsonCompatibleValue(runtimeSessionState) as Record<string, unknown>,
+    runtimeSessionState: clonePersistedRuntimeState(runtimeSessionState),
   };
 }
 
@@ -82,7 +82,7 @@ export const builderSessionSlice = createSlice({
   initialState,
   reducers: {
     replaceRuntimeSessionState(state, action: PayloadAction<Record<string, unknown>>) {
-      state.runtimeSessionState = structuredClone(action.payload);
+      state.runtimeSessionState = clonePersistedRuntimeState(action.payload);
     },
     resetRuntimeSessionState(state) {
       state.runtimeSessionState = {};

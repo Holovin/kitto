@@ -2,8 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 import {
   appendPathValue,
-  cloneJsonCompatibleValue,
-  clonePlainObject,
+  clonePersistedDomainData,
   isPlainObject,
   mergePathValue,
   removePathValue,
@@ -22,12 +21,12 @@ export interface RestoredDomainValidationResult {
 }
 
 const initialState: DomainState = {
-  data: clonePlainObject(DEFAULT_DOMAIN_DATA, 'Domain data must be a plain object.'),
+  data: clonePersistedDomainData(DEFAULT_DOMAIN_DATA),
 };
 
 function createDomainState(data: Record<string, unknown>): DomainState {
   return {
-    data: cloneJsonCompatibleValue(data) as Record<string, unknown>,
+    data: clonePersistedDomainData(data),
   };
 }
 
@@ -81,7 +80,7 @@ export function normalizeDomainState(
   value: unknown,
   fallbackData: Record<string, unknown> = DEFAULT_DOMAIN_DATA,
 ): DomainState {
-  const safeFallbackData = clonePlainObject(fallbackData, 'Domain data must be a plain object.');
+  const safeFallbackData = clonePersistedDomainData(fallbackData);
   return validateRestoredDomain(value) ?? createDomainState(safeFallbackData);
 }
 
@@ -90,7 +89,7 @@ export const domainSlice = createSlice({
   initialState,
   reducers: {
     replaceData(state, action: PayloadAction<Record<string, unknown>>) {
-      state.data = clonePlainObject(action.payload, 'Domain data must be a plain object.');
+      state.data = clonePersistedDomainData(action.payload);
     },
     writeState(state, action: PayloadAction<{ path: string; value: unknown }>) {
       state.data = writePathValue(state.data, action.payload.path, action.payload.value);
@@ -105,7 +104,7 @@ export const domainSlice = createSlice({
       state.data = removePathValue(state.data, action.payload.path, action.payload.index);
     },
     resetDomainState(state) {
-      state.data = clonePlainObject(DEFAULT_DOMAIN_DATA, 'Domain data must be a plain object.');
+      state.data = clonePersistedDomainData(DEFAULT_DOMAIN_DATA);
     },
   },
 });

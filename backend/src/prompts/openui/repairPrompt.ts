@@ -65,7 +65,7 @@ const REPAIR_LAYOUT_CRITICAL_RULES = [
 const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
   'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
-  'Validation props must be literal arrays. When skipping validation before `action` or `appearance`, use [] instead of null.',
+  'Validation rules must be literal arrays. To skip validation before `action` or `appearance`, use `null` or `[]`.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
 ] as const;
 

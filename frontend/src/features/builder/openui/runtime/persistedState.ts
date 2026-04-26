@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { BuilderDefinitionExport, BuilderParseIssue, BuilderSnapshot } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from '@features/builder/store/defaults';
+import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
 import { validateOpenUiSource } from './validation';
 
 const looseRecordSchema = z.record(z.string(), z.unknown());
@@ -72,6 +73,17 @@ function normalizeSnapshot(snapshot: BuilderSnapshot) {
   });
 }
 
+export function cloneBuilderSnapshot(snapshot: BuilderSnapshot): BuilderSnapshot {
+  return {
+    source: snapshot.source,
+    runtimeState: clonePersistedRuntimeState(snapshot.runtimeState),
+    domainData: clonePersistedDomainData(snapshot.domainData),
+    initialRuntimeState: clonePersistedRuntimeState(snapshot.initialRuntimeState),
+    initialDomainData: clonePersistedDomainData(snapshot.initialDomainData),
+    committedAt: snapshot.committedAt,
+  };
+}
+
 export function createBuilderSnapshot(
   source: string,
   runtimeState: Record<string, unknown>,
@@ -83,10 +95,10 @@ export function createBuilderSnapshot(
 ): BuilderSnapshot {
   return {
     source,
-    runtimeState: structuredClone(runtimeState),
-    domainData: structuredClone(domainData),
-    initialRuntimeState: structuredClone(baseline?.initialRuntimeState ?? runtimeState),
-    initialDomainData: structuredClone(baseline?.initialDomainData ?? domainData),
+    runtimeState: clonePersistedRuntimeState(runtimeState),
+    domainData: clonePersistedDomainData(domainData),
+    initialRuntimeState: clonePersistedRuntimeState(baseline?.initialRuntimeState ?? runtimeState),
+    initialDomainData: clonePersistedDomainData(baseline?.initialDomainData ?? domainData),
     committedAt: new Date().toISOString(),
   };
 }
@@ -102,10 +114,10 @@ function createDefinitionExport(
   return {
     version: 1,
     source,
-    runtimeState: structuredClone(runtimeState),
-    domainData: structuredClone(domainData),
-    history: structuredClone(
-      sanitizedHistory.length > 0 ? sanitizedHistory : [createBuilderSnapshot(source, runtimeState, domainData)],
+    runtimeState: clonePersistedRuntimeState(runtimeState),
+    domainData: clonePersistedDomainData(domainData),
+    history: (sanitizedHistory.length > 0 ? sanitizedHistory : [createBuilderSnapshot(source, runtimeState, domainData)]).map(
+      (snapshot) => cloneBuilderSnapshot(snapshot),
     ),
   };
 }

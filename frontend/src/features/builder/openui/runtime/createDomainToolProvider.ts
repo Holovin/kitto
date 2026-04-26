@@ -1,5 +1,15 @@
 import { nanoid } from '@reduxjs/toolkit';
-import { appendPathValue, clonePlainObject, DomainStateError, isPlainObject, mergePathValue, readPath, removePathValue, writePathValue } from '@features/builder/store/path';
+import {
+  appendPathValue,
+  cloneJsonCompatibleValue,
+  clonePersistedDomainData,
+  DomainStateError,
+  isPlainObject,
+  mergePathValue,
+  readPath,
+  removePathValue,
+  writePathValue,
+} from '@features/builder/store/path';
 import { computeValue } from './computeTools';
 import {
   getRequiredToolFieldName,
@@ -28,7 +38,11 @@ async function runTool<T>(toolName: string, callback: () => T | Promise<T>) {
 }
 
 function readDomainSnapshot(adapter: DomainToolAdapter) {
-  return clonePlainObject(adapter.readDomainData(), 'Domain data must be a plain object.');
+  return clonePersistedDomainData(adapter.readDomainData());
+}
+
+function cloneToolResult(value: unknown) {
+  return cloneJsonCompatibleValue(value ?? null);
 }
 
 function generateStableId() {
@@ -119,7 +133,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
     read_state: async (args: Record<string, unknown>) => {
       return runTool('read_state', () => {
         const path = getRequiredToolPath('read_state', args.path);
-        return structuredClone(readPath(readDomainSnapshot(adapter), path) ?? null);
+        return cloneToolResult(readPath(readDomainSnapshot(adapter), path));
       });
     },
     write_state: async (args: Record<string, unknown>) => {
@@ -129,7 +143,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const nextData = writePathValue(readDomainSnapshot(adapter), path, value);
 
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     merge_state: async (args: Record<string, unknown>) => {
@@ -139,7 +153,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const nextData = mergePathValue(readDomainSnapshot(adapter), path, patch);
 
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     append_state: async (args: Record<string, unknown>) => {
@@ -149,7 +163,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const nextData = appendPathValue(readDomainSnapshot(adapter), path, value);
 
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     append_item: async (args: Record<string, unknown>) => {
@@ -163,7 +177,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
 
         writePathValue(nextData, path, nextItems);
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     toggle_item_field: async (args: Record<string, unknown>) => {
@@ -182,7 +196,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
 
         writePathValue(nextData, path, nextItems);
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     update_item_field: async (args: Record<string, unknown>) => {
@@ -202,7 +216,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
 
         writePathValue(nextData, path, nextItems);
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     remove_item: async (args: Record<string, unknown>) => {
@@ -217,7 +231,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
 
         writePathValue(nextData, path, nextItems);
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     remove_state: async (args: Record<string, unknown>) => {
@@ -227,7 +241,7 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
         const nextData = removePathValue(readDomainSnapshot(adapter), path, index);
 
         adapter.replaceDomainData(nextData);
-        return structuredClone(readPath(nextData, path) ?? null);
+        return cloneToolResult(readPath(nextData, path));
       });
     },
     compute_value: async (args: Record<string, unknown>) => {

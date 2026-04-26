@@ -67,6 +67,15 @@ describe('persistedState', () => {
     });
   });
 
+  it('rejects non-JSON-compatible snapshot state', () => {
+    expect(() => createBuilderSnapshot(validSource, { currentScreen: undefined }, {})).toThrow(
+      'Runtime state.currentScreen must be JSON-compatible plain data.',
+    );
+    expect(() => createBuilderSnapshot(validSource, {}, { app: { createdAt: new Date('2026-04-19T08:30:00.000Z') } })).toThrow(
+      'Domain data.app.createdAt must be JSON-compatible plain data.',
+    );
+  });
+
   it('creates a reset export from the latest snapshot baseline', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-19T08:30:00.000Z'));

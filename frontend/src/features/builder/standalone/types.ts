@@ -1,4 +1,4 @@
-import { cloneJsonCompatibleValue, clonePlainObject } from '@features/builder/store/path';
+import { clonePersistedDomainData, clonePersistedRuntimeState } from '@features/builder/store/path';
 
 export const KITTO_STANDALONE_PAYLOAD_VERSION = 1 as const;
 export const KITTO_STANDALONE_PAYLOAD_KIND = 'kitto-standalone-openui-app' as const;
@@ -30,8 +30,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeStandaloneRuntimeState(value: unknown): Record<string, unknown> {
   try {
-    const clonedValue = cloneJsonCompatibleValue(value);
-    return isRecord(clonedValue) ? clonedValue : {};
+    return clonePersistedRuntimeState(value);
   } catch {
     return {};
   }
@@ -39,7 +38,7 @@ export function normalizeStandaloneRuntimeState(value: unknown): Record<string, 
 
 export function normalizeStandaloneDomainData(value: unknown): Record<string, unknown> {
   try {
-    return clonePlainObject(value, 'Standalone domain data must be a plain object.');
+    return clonePersistedDomainData(value, 'Standalone domain data');
   } catch {
     return {};
   }
@@ -72,8 +71,8 @@ export function parseStandalonePayload(value: unknown): KittoStandalonePayload |
       title: value.title,
       createdAt: value.createdAt,
       source: value.source,
-      initialRuntimeState: cloneJsonCompatibleValue(value.initialRuntimeState),
-      initialDomainData: clonePlainObject(value.initialDomainData, 'Standalone domain data must be a plain object.'),
+      initialRuntimeState: clonePersistedRuntimeState(value.initialRuntimeState, 'Standalone runtime state'),
+      initialDomainData: clonePersistedDomainData(value.initialDomainData, 'Standalone domain data'),
       storageKey: value.storageKey,
     };
   } catch {

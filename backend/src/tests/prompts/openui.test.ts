@@ -280,7 +280,7 @@ describe('openui prompts', () => {
       'BAD/GOOD Repeater data flow: BAD `Repeater(Query("read_state", { path: "app.items" }, []), "No items")`; GOOD `items = Query(...)`, `rows = @Each(items, "item", Group(null, "horizontal", [Text(item.title, "body", "start")], "inline"))`, `Repeater(rows, "No items")`.',
     );
     expect(basePrompt).toContain(
-      'BAD/GOOD Checkbox modes: BAD `Checkbox("done", "Done", $done, null, [], Action([@Run(saveDone)]))`; GOOD binding `Checkbox("done", "Done", $done)`; GOOD action `Checkbox("done-" + item.id, "Done", item.done, null, [], Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`.',
+      'BAD/GOOD Checkbox modes: BAD `Checkbox("done", "Done", $done, null, null, Action([@Run(saveDone)]))`; GOOD binding `Checkbox("done", "Done", $done)`; GOOD action `Checkbox("done-" + item.id, "Done", item.done, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`.',
     );
     expect(filteringPrompt).toContain(
       'BAD/GOOD @Filter syntax: BAD `@Filter(items, item => item.title.contains($query))`; GOOD `@Filter(items, "title", "contains", $query)`.',
@@ -518,7 +518,7 @@ describe('openui prompts', () => {
       'Match validation rules to the component/type: text/password/textarea use required/minLength/maxLength; email can add email; number uses minNumber/maxNumber; date uses dateOnOrAfter/dateOnOrBefore literal `YYYY-MM-DD`; time/select/radio use required; checkbox required means checked.',
     );
     expect(prompt).toContain(
-      'For agreement/consent use writable Checkbox plus required validation; for persisted row toggles or saved choice updates use action mode; when skipping validation before action/appearance, pass `[]` and use `null` only for helper text.',
+      'For agreement/consent use writable Checkbox plus required validation; for persisted row toggles or saved choice updates use action mode; when skipping validation before action/appearance, pass `null` or `[]` as the validation placeholder.',
     );
     expect(prompt).not.toContain('Input supports these HTML types only:');
     expect(prompt).not.toContain('Use `Input` type `"date"` for due dates, deadlines, birthdays, and scheduled dates.');
@@ -618,11 +618,14 @@ describe('openui prompts', () => {
     expect(computePrompt).toContain(
       'Both compute tools return `{ value }`; date compute inputs must be strict `YYYY-MM-DD`; never use compute tools for simple CRUD/list apps, navigation, filtering, or normal input display.',
     );
+    expect(computePrompt).toContain(
+      '`Query("read_state", ...)` returns the raw persisted value or `null`, not a `{ value }` object. Only `compute_value` and `write_computed_state` return `{ value }`.',
+    );
     expect(computePrompt).not.toContain('Use compute tools only for numeric calculations, date comparison, string transformations/checks that normal expressions do not handle');
     expect(computePrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
     expect(randomPrompt).toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
     expect(randomPrompt).toContain('1. `roll = Mutation("write_computed_state", { path: "app.roll", op: "random_int", ... })`');
-    expect(randomPrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`');
+    expect(randomPrompt).toContain('2. `rollValue = Query("read_state", { path: "app.roll" }, null)`; this reads the raw persisted primitive or `null`.');
     expect(randomPrompt).toContain('3. Button action: `Action([@Run(roll), @Run(rollValue)])`.');
     expect(randomPrompt).toContain(
       '4. BAD `Text(mutationRef.data.value, "body", "start")`; GOOD `Text(rollValue, "body", "start")` after the button action re-runs `rollValue`.',

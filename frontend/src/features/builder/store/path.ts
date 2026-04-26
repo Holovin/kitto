@@ -5,7 +5,7 @@ const INDEX_SEGMENT_PATTERN = /^\d+$/;
 
 export const MAX_DOMAIN_PATH_DEPTH = 10;
 
-interface PersistedStateTreeValidationOptions {
+export interface PersistedStateTreeValidationOptions {
   allowRootArray?: boolean;
   allowRuntimeVariableKeys?: boolean;
   label?: string;
@@ -287,6 +287,27 @@ export function clonePlainObject(
   }
 
   return cloneJsonCompatibleValue(value) as Record<string, unknown>;
+}
+
+export function clonePersistedStateTree(
+  value: unknown,
+  options: PersistedStateTreeValidationOptions = {},
+): unknown {
+  const failure = validatePersistedStateTree(value, options);
+
+  if (failure) {
+    throw new DomainStateError(failure);
+  }
+
+  return cloneJsonCompatibleValue(value);
+}
+
+export function clonePersistedDomainData(value: unknown, label = 'Domain data'): Record<string, unknown> {
+  return clonePersistedStateTree(value, { label }) as Record<string, unknown>;
+}
+
+export function clonePersistedRuntimeState(value: unknown, label = 'Runtime state'): Record<string, unknown> {
+  return clonePersistedStateTree(value, { allowRuntimeVariableKeys: true, label }) as Record<string, unknown>;
 }
 
 function readValidatedPath(source: unknown, segments: string[], path: string) {

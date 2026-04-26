@@ -93,8 +93,8 @@ Current critical syntax rules:
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
 - RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
-- Validation props must be literal arrays. When skipping validation before \`action\` or \`appearance\`, use [] instead of null.
+- Validation rules must be literal arrays. To skip validation before \`action\` or \`appearance\`, use \`null\` or \`[]\`.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$last…"
+- Do not read \`$lastChoice\` di…"
 `;

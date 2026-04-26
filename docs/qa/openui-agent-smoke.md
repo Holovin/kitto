@@ -265,6 +265,7 @@ Add a button that rolls a random number from 1 to 100 and shows the result.
 - Definition uses the persisted compute recipe: `Mutation("write_computed_state", ...)`, `Query("read_state", ...)`, and a button `Action(...)` that runs both.
 - The action re-runs the visible `Query("read_state", ...)` after the persisted mutation, even if other steps such as `@Reset(...)` or `@Set(...)` also exist in the action.
 - Visible result text reads the re-queried persisted value instead of a raw mutation object.
+- The re-queried `read_state` result is treated as the raw persisted primitive or `null`, not as a `{ value }` object.
 - Result displays as a primitive value, not `[object Object]`.
 - Button click does not trigger fresh `/api/llm/generate*` requests.
 - No arbitrary JS appears.

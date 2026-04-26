@@ -241,7 +241,7 @@ OK: Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Re
     title: 'Use $lastChoice only inside action-mode flows',
     text: `WRONG: Text("Selected filter: " + $lastChoice, "body", "start")
 OK: savePlan = Mutation("write_state", { path: "ui.plan", value: $lastChoice })
-OK: Select("plan", "Plan", savedPlan, planOptions, null, [], Action([@Run(savePlan), @Run(savedPlan)]))`,
+OK: Select("plan", "Plan", savedPlan, planOptions, null, null, Action([@Run(savePlan), @Run(savedPlan)]))`,
   },
   'undefined-state-reference': {
     key: 'undefined-state-reference',

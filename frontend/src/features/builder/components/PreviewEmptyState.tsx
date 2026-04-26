@@ -5,6 +5,7 @@ import { createBuilderSnapshot } from '@features/builder/openui/runtime/persiste
 import { builderActions } from '@features/builder/store/builderSlice';
 import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
 import { domainActions } from '@features/builder/store/domainSlice';
+import { clonePersistedDomainData } from '@features/builder/store/path';
 import { cn } from '@lib/utils';
 import { useAppDispatch } from '@store/hooks';
 
@@ -166,7 +167,7 @@ export function PreviewEmptyState() {
       return;
     }
 
-    const nextDomainData = structuredClone(demoPreset.domainData);
+    const nextDomainData = clonePersistedDomainData(demoPreset.domainData);
     const snapshot = createBuilderSnapshot(demoPreset.source, {}, nextDomainData);
     dispatch(domainActions.replaceData(nextDomainData));
     dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));

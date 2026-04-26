@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendPathValue,
+  clonePersistedDomainData,
+  clonePersistedRuntimeState,
   mergePathValue,
   readPath,
   removePathValue,
@@ -103,6 +105,45 @@ describe('path utilities', () => {
       ).toContain(forbiddenKey);
     },
   );
+
+  it('clones persisted domain data while enforcing JSON-compatible values', () => {
+    const source = {
+      app: {
+        tasks: ['Draft tests'],
+      },
+    };
+
+    const cloned = clonePersistedDomainData(source);
+    source.app.tasks.push('Ship fix');
+
+    expect(cloned).toEqual({
+      app: {
+        tasks: ['Draft tests'],
+      },
+    });
+    expect(() => clonePersistedDomainData({ app: { createdAt: new Date('2026-04-19T08:30:00.000Z') } })).toThrow(
+      'Domain data.app.createdAt must be JSON-compatible plain data.',
+    );
+  });
+
+  it('clones persisted runtime state while allowing OpenUI runtime variable keys', () => {
+    const cloned = clonePersistedRuntimeState({
+      $currentScreen: 'details',
+      form: {
+        title: 'Ada',
+      },
+    });
+
+    expect(cloned).toEqual({
+      $currentScreen: 'details',
+      form: {
+        title: 'Ada',
+      },
+    });
+    expect(() => clonePersistedDomainData({ $currentScreen: 'details' })).toThrow(
+      'Domain data contains the invalid key "$currentScreen".',
+    );
+  });
 
   it('appends to a valid array path', () => {
     const state = {

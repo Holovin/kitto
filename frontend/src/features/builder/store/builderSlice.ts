@@ -2,11 +2,12 @@ import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@redu
 import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContract.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@features/builder/historyVersionState';
 import { DEFAULT_OPENUI_SOURCE } from '@features/builder/openui/runtime/defaultSource';
-import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
+import { cloneBuilderSnapshot, createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@features/builder/store/chatMessageKeys';
 import type { BuilderChatMessage, BuilderParseIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@features/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
+import { clonePersistedDomainData, clonePersistedRuntimeState } from './path';
 
 const MAX_HISTORY_ITEMS = 25;
 // UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
@@ -37,9 +38,20 @@ function trimUiMessages(messages: BuilderChatMessage[]) {
   return messages;
 }
 
-function cloneForState<T>(value: T): T {
-  const source = isDraft(value) ? current(value) : value;
-  return structuredClone(source);
+function readStateValue<T>(value: T): T {
+  return isDraft(value) ? current(value) : value;
+}
+
+function cloneSnapshotForState(snapshot: BuilderSnapshot) {
+  return cloneBuilderSnapshot(readStateValue(snapshot));
+}
+
+function cloneDomainDataForState(domainData: Record<string, unknown>) {
+  return clonePersistedDomainData(readStateValue(domainData));
+}
+
+function cloneRuntimeStateForState(runtimeState: Record<string, unknown>) {
+  return clonePersistedRuntimeState(readStateValue(runtimeState));
 }
 
 function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
@@ -342,9 +354,20 @@ const initialState: BuilderState = {
   streamedSource: DEFAULT_OPENUI_SOURCE,
 };
 
+function createInitialState(): BuilderState {
+  return {
+    ...initialState,
+    chatMessages: createInitialChatMessages(),
+    definitionWarnings: [],
+    history: [cloneBuilderSnapshot(initialSnapshot)],
+    parseIssues: [],
+    redoHistory: [],
+  };
+}
+
 export function normalizeBuilderState(value: unknown): BuilderState {
   if (!isRecord(value)) {
-    return structuredClone(initialState);
+    return createInitialState();
   }
 
   const normalizedHistory = normalizeSnapshots(value.history, [initialSnapshot]);
@@ -443,7 +466,7 @@ export const builderSlice = createSlice({
       state.committedSource = action.payload.source;
       state.definitionWarnings = action.payload.warnings;
       state.streamedSource = action.payload.source;
-      state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
+      state.history = trimHistory([...state.history, cloneSnapshotForState(action.payload.snapshot)]);
       state.redoHistory = [];
 
       if (action.payload.note) {
@@ -568,11 +591,11 @@ export const builderSlice = createSlice({
       }
 
       if (action.payload.domainData !== undefined) {
-        latestSnapshot.domainData = cloneForState(action.payload.domainData);
+        latestSnapshot.domainData = cloneDomainDataForState(action.payload.domainData);
       }
 
       if (action.payload.runtimeState !== undefined) {
-        latestSnapshot.runtimeState = cloneForState(action.payload.runtimeState);
+        latestSnapshot.runtimeState = cloneRuntimeStateForState(action.payload.runtimeState);
       }
     },
     removeChatMessageByKey(
@@ -613,7 +636,7 @@ export const builderSlice = createSlice({
         return;
       }
 
-      state.redoHistory = trimHistory([...state.redoHistory, cloneForState(currentSnapshot)]);
+      state.redoHistory = trimHistory([...state.redoHistory, cloneSnapshotForState(currentSnapshot)]);
       state.committedSource = previousSnapshot.source;
       state.currentRequestId = null;
       state.definitionWarnings = [];
@@ -636,7 +659,7 @@ export const builderSlice = createSlice({
       }
 
       state.redoHistory = state.redoHistory.slice(0, -1);
-      state.history = trimHistory([...state.history, cloneForState(redoSnapshot)]);
+      state.history = trimHistory([...state.history, cloneSnapshotForState(redoSnapshot)]);
       state.committedSource = redoSnapshot.source;
       state.currentRequestId = null;
       state.definitionWarnings = [];
@@ -668,7 +691,7 @@ export const builderSlice = createSlice({
       state.draftPrompt = '';
       state.definitionWarnings = [];
       state.hasRejectedDefinition = false;
-      state.history = trimHistory(action.payload.history);
+      state.history = trimHistory(action.payload.history.map((snapshot) => cloneSnapshotForState(snapshot)));
       state.parseIssues = [];
       state.redoHistory = [];
       state.retryPrompt = null;
@@ -694,7 +717,7 @@ export const builderSlice = createSlice({
       state.hasRejectedDefinition = false;
       state.streamedSource = action.payload.snapshot.source;
       state.draftPrompt = '';
-      state.history = trimHistory([...state.history, cloneForState(action.payload.snapshot)]);
+      state.history = trimHistory([...state.history, cloneSnapshotForState(action.payload.snapshot)]);
       state.parseIssues = [];
       state.redoHistory = [];
       state.retryPrompt = null;
