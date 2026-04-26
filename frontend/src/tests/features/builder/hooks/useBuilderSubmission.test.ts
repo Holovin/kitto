@@ -838,6 +838,14 @@ function findChatMessage(content: string) {
   return getBuilderState().chatMessages.find((message) => message.content === content);
 }
 
+function findChatMessages(content: string) {
+  return getBuilderState().chatMessages.filter((message) => message.content === content);
+}
+
+function getCancelStreamingActions(dispatchSpy: { mock: { calls: Array<[unknown, ...unknown[]]> } }) {
+  return dispatchSpy.mock.calls.map(([action]) => action).filter(builderActions.cancelStreaming.match);
+}
+
 function findRepairStatusMessages() {
   return getBuilderState().chatMessages.filter(
     (message) =>
@@ -2094,21 +2102,37 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('ignores a late response from the first request after a second request supersedes it', async () => {
+  it('cancels the first request once when a second prompt supersedes it and ignores the late response', async () => {
     setDraftPrompt('Build a simple app.');
+    const store = testHarness.storeRef.current;
+
+    if (!store) {
+      throw new Error('Test store is not initialized.');
+    }
+
+    const dispatchSpy = vi.spyOn(store, 'dispatch');
     const submission = createSubmissionHarness();
     const firstRequest = createDeferred<{ source: string }>();
     const secondRequest = createDeferred<{ source: string }>();
     let firstSignal: AbortSignal | undefined;
+    let firstAbortCount = 0;
 
     testHarness.streamMock
       .mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
         firstSignal = signal;
+        signal?.addEventListener(
+          'abort',
+          () => {
+            firstAbortCount += 1;
+          },
+          { once: true },
+        );
         return firstRequest.promise;
       })
       .mockImplementationOnce(() => secondRequest.promise);
 
     const firstPromise = submission.result().handleSubmit(createFormEvent());
+    const firstRequestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
     const secondPromise = submission.result().handleSubmit(createFormEvent());
 
     secondRequest.resolve({
@@ -2117,6 +2141,7 @@ describe('useBuilderSubmission', () => {
     await secondPromise;
 
     expect(firstSignal?.aborted).toBe(true);
+    expect(firstAbortCount).toBe(1);
     expect(getBuilderState().committedSource).toBe(SECOND_REQUEST_SOURCE);
 
     firstRequest.resolve({
@@ -2124,6 +2149,11 @@ describe('useBuilderSubmission', () => {
     });
     await firstPromise;
 
+    const cancelActions = getCancelStreamingActions(dispatchSpy);
+
+    expect(cancelActions).toHaveLength(1);
+    expect(cancelActions[0]?.payload.requestId).toBe(firstRequestId);
+    expect(findChatMessage(USER_CANCELLED_NOTICE)).toBeUndefined();
     expect(getBuilderState().committedSource).toBe(SECOND_REQUEST_SOURCE);
 
     submission.unmount();
@@ -2132,8 +2162,16 @@ describe('useBuilderSubmission', () => {
   it('aborts mid-stream without committing, preserves the last valid preview, and removes the pending summary', async () => {
     seedCommittedSource();
     setDraftPrompt('Build a simple app.');
+    const store = testHarness.storeRef.current;
+
+    if (!store) {
+      throw new Error('Test store is not initialized.');
+    }
+
+    const dispatchSpy = vi.spyOn(store, 'dispatch');
     const submission = createSubmissionHarness();
     const previousHistoryLength = getBuilderState().history.length;
+    let abortCount = 0;
 
     testHarness.streamMock.mockImplementationOnce(
       ({ onChunk, onSummary, signal }: { onChunk: (chunk: string) => void; onSummary?: (summary: string) => void; signal?: AbortSignal }) =>
@@ -2144,6 +2182,7 @@ describe('useBuilderSubmission', () => {
           signal?.addEventListener(
             'abort',
             () => {
+              abortCount += 1;
               reject(createAbortError());
             },
             { once: true },
@@ -2153,6 +2192,7 @@ describe('useBuilderSubmission', () => {
 
     const requestPromise = submission.result().handleSubmit(createFormEvent());
     await flushMicrotasks();
+    const requestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
 
     expect(findChatMessage('Builds a cancellable draft')).toEqual(
       expect.objectContaining({
@@ -2164,7 +2204,12 @@ describe('useBuilderSubmission', () => {
 
     submission.result().handleCancel();
     await requestPromise;
+    const cancelActions = getCancelStreamingActions(dispatchSpy);
 
+    expect(abortCount).toBe(1);
+    expect(submission.abortControllerRef.current).toBeNull();
+    expect(cancelActions).toHaveLength(1);
+    expect(cancelActions[0]?.payload.requestId).toBe(requestId);
     expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().streamError).toBeNull();
@@ -2172,7 +2217,8 @@ describe('useBuilderSubmission', () => {
     expect(getBuilderState().currentRequestId).toBeNull();
     expect(getBuilderState().history).toHaveLength(previousHistoryLength);
     expect(findChatMessage('Builds a cancellable draft')).toBeUndefined();
-    expect(findChatMessage(USER_CANCELLED_NOTICE)).toEqual(
+    expect(findChatMessages(USER_CANCELLED_NOTICE)).toHaveLength(1);
+    expect(findChatMessages(USER_CANCELLED_NOTICE)[0]).toEqual(
       expect.objectContaining({
         content: USER_CANCELLED_NOTICE,
         role: 'system',
@@ -2226,6 +2272,52 @@ describe('useBuilderSubmission', () => {
     );
 
     submission.unmount();
+  });
+
+  it('cancels the active request once on unmount without adding a user cancel confirmation', async () => {
+    seedCommittedSource();
+    setDraftPrompt('Build a simple app.');
+    const store = testHarness.storeRef.current;
+
+    if (!store) {
+      throw new Error('Test store is not initialized.');
+    }
+
+    const dispatchSpy = vi.spyOn(store, 'dispatch');
+    const submission = createSubmissionHarness();
+    let abortCount = 0;
+
+    testHarness.streamMock.mockImplementationOnce(
+      ({ signal }: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              abortCount += 1;
+              reject(createAbortError());
+            },
+            { once: true },
+          );
+        }),
+    );
+
+    const requestPromise = submission.result().handleSubmit(createFormEvent());
+    await flushMicrotasks();
+    const requestId = (testHarness.streamMock.mock.calls[0]?.[0] as { requestId?: string }).requestId;
+
+    submission.unmount();
+    await requestPromise;
+
+    const cancelActions = getCancelStreamingActions(dispatchSpy);
+
+    expect(abortCount).toBe(1);
+    expect(submission.abortControllerRef.current).toBeNull();
+    expect(cancelActions).toHaveLength(1);
+    expect(cancelActions[0]?.payload.requestId).toBe(requestId);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().currentRequestId).toBeNull();
+    expect(findChatMessage(USER_CANCELLED_NOTICE)).toBeUndefined();
+    expect(getBuilderState().chatMessages.some((message) => message.tone === 'error')).toBe(false);
   });
 
   it('aborts the active request when an import starts and keeps the imported source over a late response', async () => {

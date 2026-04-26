@@ -18,6 +18,8 @@ interface UseGenerationLifecycleOptions {
   streamMaxDurationMs: number | null;
 }
 
+type CancelRequest = (requestId: BuilderRequestId, options?: { abort?: boolean }) => void;
+
 export class BuilderRequestAbortedError extends Error {
   constructor() {
     super('The builder request was intentionally aborted.');
@@ -42,13 +44,18 @@ export function useGenerationLifecycle({
 }: UseGenerationLifecycleOptions) {
   const dispatch = useAppDispatch();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
+  const cancelRequestRef = useRef<CancelRequest | null>(null);
   const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
   const isStreaming = useAppSelector(selectIsStreaming);
   const isSubmitting = isStreaming;
 
   useEffect(() => {
     return () => {
-      activeRequestIdRef.current = null;
+      const requestId = activeRequestIdRef.current;
+
+      if (requestId) {
+        cancelRequestRef.current?.(requestId, { abort: true });
+      }
     };
   }, []);
 
@@ -97,7 +104,15 @@ export function useGenerationLifecycle({
   }
 
   function cancelRequest(requestId: BuilderRequestId, options?: { abort?: boolean }) {
-    const shouldAppendUserCancelNotice = consumeUserCancelledRequest(requestId);
+    const isTrackedActiveRequest = activeRequestIdRef.current === requestId;
+    const isCurrentStreamingRequest = store.getState().builder.currentRequestId === requestId;
+
+    if (!isTrackedActiveRequest && !isCurrentStreamingRequest) {
+      return;
+    }
+
+    const didUserCancelRequest = consumeUserCancelledRequest(requestId);
+    const shouldAppendUserCancelNotice = isCurrentStreamingRequest && didUserCancelRequest;
     clearStreamingSummaryMessage(requestId);
 
     if (options?.abort) {
@@ -107,7 +122,9 @@ export function useGenerationLifecycle({
     }
 
     clearActiveRequest(requestId);
-    dispatch(builderActions.cancelStreaming({ requestId }));
+    if (isCurrentStreamingRequest) {
+      dispatch(builderActions.cancelStreaming({ requestId }));
+    }
 
     if (shouldAppendUserCancelNotice) {
       dispatch(
@@ -118,6 +135,10 @@ export function useGenerationLifecycle({
       );
     }
   }
+
+  useEffect(() => {
+    cancelRequestRef.current = cancelRequest;
+  });
 
   function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
     const technicalDetails = getBuilderRequestErrorMessage(error);
@@ -182,7 +203,7 @@ export function useGenerationLifecycle({
     onSystemNotice(null);
 
     if (previousRequestId) {
-      abortRequestHandles(previousRequestId);
+      cancelRequest(previousRequestId, { abort: true });
     }
 
     activeRequestIdRef.current = requestId;
@@ -242,31 +263,9 @@ export function useGenerationLifecycle({
       }
 
       onSystemNotice(null);
-      const shouldAppendUserCancelNotice = userCancelledRequestIdRef.current === requestId;
-
-      clearStreamingSummaryMessage(requestId);
-
-      const abortController = abortControllerRef.current;
-      abortControllerRef.current = null;
-      abortController?.abort();
-
-      if (activeRequestIdRef.current === requestId) {
-        activeRequestIdRef.current = null;
-      }
-
-      dispatch(builderActions.cancelStreaming({ requestId }));
-
-      if (shouldAppendUserCancelNotice) {
-        userCancelledRequestIdRef.current = null;
-        dispatch(
-          builderActions.appendChatMessage({
-            content: USER_CANCELLED_NOTICE,
-            role: 'system',
-          }),
-        );
-      }
+      cancelRequestRef.current?.(requestId, { abort: true });
     };
-  }, [abortControllerRef, cancelActiveRequestRef, clearStreamingSummaryMessage, dispatch, onSystemNotice]);
+  }, [cancelActiveRequestRef, onSystemNotice]);
 
   return {
     beginGeneration,
