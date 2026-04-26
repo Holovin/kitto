@@ -117,9 +117,37 @@ describe('sanitizeRepairValidationIssues', () => {
       'control-action-and-binding',
       'inline-tool-in-prop',
     ]);
+    expect(sanitizedIssues[1]?.severity).toBe('blocking-quality');
+    expect(sanitizedIssues[2]?.severity).toBe('blocking-quality');
     expect(sanitizedIssues.slice(3).every((issue) => issue.code === 'unresolved-reference')).toBe(true);
     expect(sanitizedIssues.at(-1)?.statementId).toBe('row-16');
-    expect(sanitizedIssues.some((issue) => 'severity' in issue)).toBe(false);
+  });
+
+  it('preserves explicit dynamic quality severity in repair payloads', () => {
+    const issues: Array<BuilderParseIssue | BuilderQualityIssue> = [
+      ...Array.from({ length: 21 }, (_, index) => ({
+        code: 'unresolved-reference',
+        message: `Missing ref ${index}`,
+        source: 'parser' as const,
+        statementId: `row-${index}`,
+      })),
+      {
+        code: 'quality-missing-todo-controls',
+        message: 'Todo request did not generate required todo controls.',
+        severity: 'blocking-quality',
+        source: 'quality',
+      },
+    ];
+
+    const sanitizedIssues = sanitizeRepairValidationIssues(issues, 20);
+
+    expect(sanitizedIssues[0]).toEqual({
+      code: 'quality-missing-todo-controls',
+      message: 'Todo request did not generate required todo controls.',
+      severity: 'blocking-quality',
+      source: 'quality',
+    });
+    expect(sanitizedIssues).toHaveLength(20);
   });
 
   it('preserves structured undefined-state context and drops unsupported issue context', () => {
@@ -180,6 +208,7 @@ describe('sanitizeRepairValidationIssues', () => {
           refName: '$currentScreen',
         },
         message: 'State reference `$currentScreen` is missing a top-level declaration with a literal initial value.',
+        severity: 'blocking-quality',
         source: 'quality',
         statementId: 'root',
       },
@@ -190,6 +219,7 @@ describe('sanitizeRepairValidationIssues', () => {
           suggestedQueryRefs: ['items'],
         },
         message: 'Persisted mutation may not refresh visible query.',
+        severity: 'blocking-quality',
         source: 'quality',
         statementId: 'addItem',
       },
@@ -200,6 +230,7 @@ describe('sanitizeRepairValidationIssues', () => {
           invalidValues: [' Never gonna give you up ', 7],
         },
         message: 'RadioGroup/Select options must be `{label, value}` objects.',
+        severity: 'blocking-quality',
         source: 'quality',
         statementId: 'questions',
       },

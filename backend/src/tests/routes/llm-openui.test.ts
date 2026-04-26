@@ -44,6 +44,12 @@ const undefinedStateReferenceIssue = {
   source: 'quality' as const,
   statementId: 'root',
 };
+const dynamicBlockingQualityIssue = {
+  code: 'quality-missing-todo-controls',
+  message: 'Todo request did not generate required todo controls.',
+  severity: 'blocking-quality' as const,
+  source: 'quality' as const,
+};
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
@@ -855,7 +861,7 @@ describe('createLlmOpenUiRoutes', () => {
         invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'repair',
         parentRequestId: 'builder-request-parent',
-        validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue],
+        validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue, dynamicBlockingQualityIssue],
         chatHistory: [],
       }),
     });
@@ -868,7 +874,7 @@ describe('createLlmOpenUiRoutes', () => {
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
-      validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue],
+      validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue, dynamicBlockingQualityIssue],
       chatHistory: [],
     });
   });

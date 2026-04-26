@@ -1,5 +1,6 @@
 import { createParser, type LibraryJSONSchema, type ParseResult } from '@openuidev/lang-core';
 import openUiLibrarySchema from '@kitto-openui/shared/openui-library-schema.json' with { type: 'json' };
+import type { BuilderQualityIssueSeverity } from '@kitto-openui/shared/builderApiContract.js';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.js';
 
 export {
@@ -34,7 +35,7 @@ export type {
 export const parser = createParser(openUiLibrarySchema as LibraryJSONSchema);
 
 export type ToolAst = ParseResult['queryStatements'][number]['toolAST'] | ParseResult['mutationStatements'][number]['toolAST'];
-export type OpenUiQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
+export type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
 
 export interface OpenUiQualityIssue extends PromptBuildValidationIssue {
   severity: OpenUiQualityIssueSeverity;

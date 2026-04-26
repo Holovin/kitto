@@ -8,8 +8,9 @@ import {
 import { detectArrayIndexPathMutationIssues } from '@features/builder/openui/runtime/validation/detectors/mutationIndexPath';
 import { detectChoiceOptionsShapeIssues } from '@features/builder/openui/runtime/validation/detectors/optionsShape';
 import { detectPersistedMutationRefreshWarnings } from '@features/builder/openui/runtime/validation/detectors/persistedMutationRefresh';
-import { FATAL_STRUCTURAL_INVARIANT_CODES, detectStructuralInvariantIssues } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
+import { detectStructuralInvariantIssues } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { detectUndefinedStateReferenceIssues } from '@features/builder/openui/runtime/validation/detectors/undefinedStateReference';
+import { getOpenUiQualityIssueSeverity } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { collectOpenUiParserValidationIssues } from './parser';
 import {
   createParserIssue,
@@ -20,12 +21,6 @@ import {
   type OpenUiValidationContext,
   type OpenUiValidationResult,
 } from './shared';
-
-const INLINE_TOOL_CALL_ISSUE_CODES = new Set([
-  'inline-tool-in-each',
-  'inline-tool-in-prop',
-  'inline-tool-in-repeater',
-]);
 
 type LocalRuntimeQualityIssueOptions = Partial<Pick<OpenUiValidationContext, 'normalizedSource' | 'parseResult' | 'programIndex'>> & {
   validationIssues?: OpenUiValidationResult['issues'];
@@ -39,13 +34,10 @@ function mapKnownValidationQualityIssues(validationIssues?: OpenUiValidationResu
   const qualityIssues: OpenUiQualityIssue[] = [];
 
   for (const issue of validationIssues) {
-    if (FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code)) {
-      qualityIssues.push({ ...issue, severity: 'fatal-quality' });
-      continue;
-    }
+    const severity = getOpenUiQualityIssueSeverity(issue);
 
-    if (INLINE_TOOL_CALL_ISSUE_CODES.has(issue.code)) {
-      qualityIssues.push({ ...issue, severity: 'blocking-quality' });
+    if (severity) {
+      qualityIssues.push({ ...issue, severity });
     }
   }
 

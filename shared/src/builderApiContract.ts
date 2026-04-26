@@ -60,6 +60,7 @@ export interface PromptBuildValidationIssue {
   code: string;
   context?: PromptBuildValidationIssueContext;
   message: string;
+  severity?: BuilderQualityIssueSeverity;
   source?: PromptBuildValidationIssueSource;
   statementId?: string;
   suggestion?: PromptBuildValidationIssueSuggestion;
@@ -160,6 +161,7 @@ function createValidationIssueSchema(maxValidationIssues: number) {
       code: z.string().trim().min(1).max(200),
       context: validationIssueContextSchema.optional(),
       message: z.string().trim().min(1).max(2_000),
+      severity: z.enum(BUILDER_QUALITY_ISSUE_SEVERITIES).optional(),
       source: z.enum(OPENUI_VALIDATION_ISSUE_SOURCES).optional(),
       statementId: z.string().trim().min(1).max(200).optional(),
       suggestion: z

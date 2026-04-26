@@ -1,4 +1,5 @@
 import { MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
+import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
 import {
   CONTROL_ACTION_AND_BINDING_REPAIR_HINT,
@@ -93,23 +94,6 @@ function buildRepairPromptCriticalRules() {
 }
 
 const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules();
-
-const REPAIR_BLOCKING_QUALITY_CODES = new Set([
-  'control-action-and-binding',
-  'inline-tool-in-each',
-  'inline-tool-in-prop',
-  'inline-tool-in-repeater',
-  'item-bound-control-without-action',
-  'mutation-uses-array-index-path',
-  'quality-options-shape',
-  'quality-stale-persisted-query',
-  'reserved-last-choice-outside-action-mode',
-  'undefined-state-reference',
-]);
-
-type RepairPromptIssue = PromptBuildValidationIssue & {
-  severity?: 'blocking-quality' | 'fatal-quality' | 'soft-warning';
-};
 
 function addUniqueLine(lines: string[], seenLines: Set<string>, line: string) {
   if (seenLines.has(line)) {
@@ -383,12 +367,12 @@ function summarizeRepairIssues(issues: PromptBuildValidationIssue[]) {
   return summaries;
 }
 
-function getRepairIssuePriority(issue: RepairPromptIssue) {
+function getRepairIssuePriority(issue: PromptBuildValidationIssue) {
   if (issue.source === 'parser' && issue.code !== 'unresolved-reference') {
     return 0;
   }
 
-  if (issue.severity === 'blocking-quality' || REPAIR_BLOCKING_QUALITY_CODES.has(issue.code)) {
+  if (isOpenUiBlockingQualityIssue(issue)) {
     return 1;
   }
 
@@ -400,7 +384,7 @@ function sanitizeRepairPromptIssues(issues: PromptBuildValidationIssue[]) {
     .map((issue, index) => ({
       index,
       issue,
-      priority: getRepairIssuePriority(issue as RepairPromptIssue),
+      priority: getRepairIssuePriority(issue),
     }))
     .sort((left, right) => left.priority - right.priority || left.index - right.index)
     .slice(0, MAX_REPAIR_VALIDATION_ISSUES)

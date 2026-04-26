@@ -200,6 +200,42 @@ describe('repair prompt assembly', () => {
     expect(prompt).not.toContain('unresolved-reference in row-18');
   });
 
+  it('prioritizes explicit blocking severity for dynamic quality codes', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      ...Array.from({ length: 22 }, (_, index) => ({
+        code: 'unresolved-reference',
+        message: `This statement was referenced but never defined in the final source (${index}).`,
+        source: 'parser' as const,
+        statementId: `row-${index}`,
+      })),
+      {
+        code: 'quality-missing-todo-controls',
+        message: 'Todo request did not generate required todo controls.',
+        severity: 'blocking-quality',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([])',
+      issues,
+      maxRepairAttempts: 1,
+      promptMaxChars: 8_000,
+      userPrompt: 'Create a todo list.',
+    });
+    const issueLines = extractSection(prompt, 'Validation and quality issues', ['Targeted repair hints'])
+      .split('\n')
+      .filter((line) => line.startsWith('- '));
+
+    expect(issueLines).toHaveLength(20);
+    expect(issueLines[0]).toContain('quality-missing-todo-controls in root');
+    expect(issueLines[19]).toContain('unresolved-reference in row-18');
+    expect(prompt).not.toContain('unresolved-reference in row-19');
+  });
+
   it('dedupes repeated targeted hints by text', () => {
     const issues: PromptBuildValidationIssue[] = [
       {

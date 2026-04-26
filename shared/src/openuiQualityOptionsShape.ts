@@ -1,6 +1,7 @@
 import { collectTopLevelStatements, type OpenUiTopLevelStatement } from './openuiAst.js';
+import type { BuilderQualityIssueSeverity } from './builderApiContract.js';
 
-export type SharedOpenUiQualityIssueSeverity = 'blocking-quality' | 'fatal-quality' | 'soft-warning';
+export type SharedOpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
 
 export interface SharedOpenUiQualityIssue {
   code: string;

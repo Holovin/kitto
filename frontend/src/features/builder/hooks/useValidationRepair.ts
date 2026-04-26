@@ -3,7 +3,6 @@ import { postCommitTelemetry } from '@features/builder/api/commitTelemetry';
 import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
 import { getBuilderSanitizedLlmRequestForTransport, validateBuilderLlmRequest } from '@features/builder/config';
-import { FATAL_STRUCTURAL_INVARIANT_CODES } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
 import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSourceWithContext,
@@ -16,6 +15,10 @@ import type {
   BuilderQualityIssue,
   BuilderRequestId,
 } from '@features/builder/types';
+import {
+  getOpenUiQualityIssueSeverity,
+  isOpenUiBlockingQualityIssue,
+} from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
 interface UseValidationRepairOptions {
@@ -195,7 +198,7 @@ function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
     return 0;
   }
 
-  if ('severity' in issue && issue.severity === 'blocking-quality') {
+  if (isOpenUiBlockingQualityIssue(issue)) {
     return 1;
   }
 
@@ -301,10 +304,15 @@ export function sanitizeRepairValidationIssues(
     .slice(0, boundedMaxValidationIssues)
     .map((issue) => {
       const sanitizedContext = sanitizeRepairIssueContext(issue);
+      const severity = getOpenUiQualityIssueSeverity(issue);
       const sanitizedRepairIssue: BuilderParseIssue = {
         code: truncateRepairField(issue.code, 200),
         message: truncateRepairField(issue.message, 2_000),
       };
+
+      if (severity) {
+        sanitizedRepairIssue.severity = severity;
+      }
 
       if (issue.source) {
         sanitizedRepairIssue.source = issue.source;
@@ -499,7 +507,9 @@ export function useValidationRepair({
       const validation = validationContext.validation;
 
       if (!validation.isValid) {
-        const fatalValidationIssues = validation.issues.filter((issue) => FATAL_STRUCTURAL_INVARIANT_CODES.has(issue.code));
+        const fatalValidationIssues = validation.issues.filter(
+          (issue) => getOpenUiQualityIssueSeverity(issue) === 'fatal-quality',
+        );
 
         if (fatalValidationIssues.length > 0) {
           reportRejectedCandidate(fatalValidationIssues);
