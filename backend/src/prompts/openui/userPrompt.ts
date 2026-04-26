@@ -192,7 +192,7 @@ export function buildOpenUiUserPromptTemplate() {
     '',
     'Repair generation input shape:',
     '1. Stable system prompt plus a repair-mode instruction and current critical syntax rules.',
-    '2. User turn containing `<original_user_request>` and `<current_source_inventory>`.',
+    '2. User turn containing `<original_user_request>`, optional `<conversation_context>`, and `<current_source_inventory>`.',
     '3. Assistant turn containing `<model_draft_that_failed>` with the rejected draft source.',
     '4. Final user turn containing `<validation_issues>`, optional `<hints>` / `<relevant_draft_statement_excerpts>`, and the corrected-source instruction.',
   ].join('\n\n');

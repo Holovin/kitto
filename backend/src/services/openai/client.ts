@@ -7,6 +7,7 @@ import {
   buildOpenUiRawUserRequest,
   buildOpenUiRepairRoleMessages,
   buildOpenUiSystemPrompt,
+  filterPromptBuildChatHistory,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
@@ -92,6 +93,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
         typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
           ? Math.floor(request.repairAttemptNumber)
           : 1,
+      chatHistory: filterPromptBuildChatHistory(request.chatHistory),
       committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
       invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
       issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],

@@ -69,6 +69,7 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source_inventory>');
+    expect(payload.requestPromptTemplate).toContain('optional `<conversation_context>`');
     expect(payload.requestPromptTemplate).toContain('queries: [queryName -&gt; tool(path), or none]');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');

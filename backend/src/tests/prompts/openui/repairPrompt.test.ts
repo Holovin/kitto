@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
-import { buildOpenUiRepairPrompt, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
+import { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
 
 function extractSection(prompt: string, title: string, nextTitles: string[]) {
   const startMarker = `${title}:\n`;
@@ -17,6 +17,12 @@ function extractSection(prompt: string, title: string, nextTitles: string[]) {
     .sort((left, right) => left - right)[0];
 
   return prompt.slice(contentStart, endIndex === undefined ? prompt.length : endIndex).trim();
+}
+
+function extractDataBlock(prompt: string, tagName: string) {
+  const match = prompt.match(new RegExp(`<${tagName}>\\n([\\s\\S]*?)\\n</${tagName}>`));
+
+  return match?.[1] ?? '';
 }
 
 function buildHugeDraft() {
@@ -104,6 +110,41 @@ describe('repair prompt assembly', () => {
     expect(contextSection).toContain('- User: Earlier user request.');
     expect(contextSection).not.toContain('Internal UI notice.');
     expect(contextSection).not.toContain('Excluded assistant summary.');
+  });
+
+  it('bounds role-based repair conversation context', () => {
+    const messages = buildOpenUiRepairRoleMessages({
+      attemptNumber: 1,
+      chatHistory: [
+        {
+          role: 'user',
+          content: `Earlier context ${'x '.repeat(2_000)}tail-marker`,
+        },
+        {
+          role: 'assistant',
+          content: 'Previous assistant summary.',
+        },
+      ],
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([missing])',
+      issues: [
+        {
+          code: 'unresolved-reference',
+          message: 'This statement was referenced but never defined in the final source.',
+          source: 'parser',
+          statementId: 'missing',
+        },
+      ],
+      maxRepairAttempts: 2,
+      promptMaxChars: 3_000,
+      userPrompt: 'Fix the invalid draft.',
+    });
+    const contextBlock = extractDataBlock(messages.requestContext, 'conversation_context');
+
+    expect(contextBlock).toContain('- Assistant: Previous assistant summary.');
+    expect(contextBlock).toContain('- User: Earlier context');
+    expect(contextBlock).toContain('…');
+    expect(contextBlock).not.toContain('tail-marker');
   });
 
   it('caps repair issues to the backend limit while preserving parser and blocking-quality priority', () => {
