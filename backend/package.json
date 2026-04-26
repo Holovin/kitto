@@ -3,9 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "imports": {
+    "#backend/*.js": {
+      "types": "./src/*.ts",
+      "tsx": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
   "scripts": {
     "predev": "npm --prefix .. run build --workspace @kitto-openui/shared",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx --conditions=tsx watch src/index.ts",
     "prebuild": "npm --prefix .. run build --workspace @kitto-openui/shared",
     "build": "tsc -p tsconfig.json",
     "prelint": "npm --prefix .. run build --workspace @kitto-openui/shared",

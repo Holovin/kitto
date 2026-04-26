@@ -1,5 +1,5 @@
-import type { AppEnv } from '../../env.js';
-import { openUiEnvelopeFormat } from '../../services/openai/envelope.js';
+import type { AppEnv } from '#backend/env.js';
+import { openUiEnvelopeFormat } from '#backend/services/openai/envelope.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
 import {
   OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,

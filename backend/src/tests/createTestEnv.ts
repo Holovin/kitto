@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AppEnv } from '../env.js';
+import type { AppEnv } from '#backend/env.js';
 import {
   DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS,
   DEFAULT_LLM_MAX_REPAIR_ATTEMPTS,
@@ -12,7 +12,7 @@ import {
   DEFAULT_LLM_REQUEST_MAX_BYTES,
   DEFAULT_LLM_USER_PROMPT_MAX_CHARS,
   DEFAULT_OPENAI_REQUEST_TIMEOUT_MS,
-} from '../limits.js';
+} from '#backend/limits.js';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(currentDirectory, '../../..');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PromptBuildValidationIssue } from '../../../prompts/openui.js';
-import { buildOpenUiRepairPrompt, buildOpenUiUserPrompt } from '../../../prompts/openui.js';
+import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
+import { buildOpenUiRepairPrompt, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
 
 function extractSection(prompt: string, title: string, nextTitles: string[]) {
   const startMarker = `${title}:\n`;

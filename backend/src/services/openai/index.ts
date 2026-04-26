@@ -1,5 +1,5 @@
-import type { AppEnv } from '../../env.js';
-import type { PromptBuildRequest } from '../../prompts/openui.js';
+import type { AppEnv } from '#backend/env.js';
+import type { PromptBuildRequest } from '#backend/prompts/openui.js';
 import { buildResponseRequest, getClient, resetOpenAiClientForTesting, setOpenAiClientFactoryForTesting } from './client.js';
 import {
   assertModelOutputWithinLimit,

@@ -2,4 +2,4 @@ export {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSource,
   validateOpenUiSourceWithContext,
-} from './validation/index';
+} from '@features/builder/openui/runtime/validation/index';

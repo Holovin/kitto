@@ -1,6 +1,6 @@
 import { APIUserAbortError } from 'openai';
-import type { AppEnv } from '../../env.js';
-import { getByteLength, getRawStructuredOutputMaxBytes } from '../../limits.js';
+import type { AppEnv } from '#backend/env.js';
+import { getByteLength, getRawStructuredOutputMaxBytes } from '#backend/limits.js';
 import { createRawStructuredOutputLimitError } from './envelope.js';
 
 interface AbortableStream {

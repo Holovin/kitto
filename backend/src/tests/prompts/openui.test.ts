@@ -7,12 +7,12 @@ import {
   buildOpenUiSystemPrompt,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
-} from '../../prompts/openui.js';
+} from '#backend/prompts/openui.js';
 import {
   detectPromptRequestIntent,
   formatPromptRequestIntentBlock,
   getPromptIntentCacheVector,
-} from '../../prompts/openui/promptIntents.js';
+} from '#backend/prompts/openui/promptIntents.js';
 
 interface ComponentSpec {
   components: Record<

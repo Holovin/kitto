@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   detectPromptAwareQualityIssues,
   detectPromptAwareQualityWarnings,
-} from '../../prompts/openui.js';
+} from '#backend/prompts/openui.js';
 
 describe('detectPromptAwareQualityWarnings', () => {
   it('warns when a simple todo request generates multiple screens', () => {

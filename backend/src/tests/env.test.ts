@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { resolveBackendEnvPath, resolveFrontendDistDir } from '../env.js';
+import { resolveBackendEnvPath, resolveFrontendDistDir } from '#backend/env.js';
 
 describe('env path resolution', () => {
   const workspaceRoot = path.join(path.sep, 'workspace');

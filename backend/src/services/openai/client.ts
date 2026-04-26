@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
-import type { AppEnv } from '../../env.js';
+import type { AppEnv } from '#backend/env.js';
 import {
   buildOpenUiAssistantSummaryMessage,
   buildOpenUiIntentContextPrompt,
@@ -11,8 +11,8 @@ import {
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
   type PromptBuildRequest,
-} from '../../prompts/openui.js';
-import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '../../prompts/openui/requestConfig.js';
+} from '#backend/prompts/openui.js';
+import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 import { openUiEnvelopeFormat } from './envelope.js';
 
 type OpenAiClient = Pick<OpenAI, 'responses'>;

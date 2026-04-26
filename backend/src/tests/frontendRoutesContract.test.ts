@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createApp } from '../app.js';
-import { frontendRoutes } from '../frontendRoutes.js';
+import { createApp } from '#backend/app.js';
+import { frontendRoutes } from '#backend/frontendRoutes.js';
 import { createTestEnv } from './createTestEnv.js';
 
 const frontendIndexHtml = '<!doctype html><html><body><div id="root">Kitto</div></body></html>';

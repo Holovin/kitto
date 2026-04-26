@@ -1,9 +1,9 @@
 import type { Context } from 'hono';
-import type { AppEnv } from '../../env.js';
-import { toPublicErrorPayload } from '../../errors/publicError.js';
-import { createRequestId } from '../../requestMetadata.js';
-import { createCommitTelemetryRegistry } from '../../services/commitTelemetryRegistry.js';
-import { writePromptIoCommitTelemetrySafely, writePromptIoIntakeFailureSafely } from '../../services/openai/logging.js';
+import type { AppEnv } from '#backend/env.js';
+import { toPublicErrorPayload } from '#backend/errors/publicError.js';
+import { createRequestId } from '#backend/requestMetadata.js';
+import { createCommitTelemetryRegistry } from '#backend/services/commitTelemetryRegistry.js';
+import { writePromptIoCommitTelemetrySafely, writePromptIoIntakeFailureSafely } from '#backend/services/openai/logging.js';
 import { mapToPublicError } from './mapToPublicError.js';
 import { parseCommitTelemetryRequest, type ParsedCommitTelemetryRequest } from './requestSchema.js';
 

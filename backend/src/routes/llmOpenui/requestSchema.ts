@@ -1,16 +1,16 @@
 import type { Context } from 'hono';
 import { ZodError, z } from 'zod';
-import type { AppEnv } from '../../env.js';
-import { RequestValidationError } from '../../errors/publicError.js';
-import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
+import type { AppEnv } from '#backend/env.js';
+import { RequestValidationError } from '#backend/errors/publicError.js';
+import { getByteLength, MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
 import {
   compactPromptBuildChatHistory,
   filterPromptBuildChatHistory,
   type PromptBuildRequest,
   type PromptBuildValidationIssue,
   type RawPromptBuildChatHistoryMessage,
-} from '../../prompts/openui.js';
-import { getRequestIdFromContext } from '../../requestMetadata.js';
+} from '#backend/prompts/openui.js';
+import { getRequestIdFromContext } from '#backend/requestMetadata.js';
 import type { IntakeFailureRecorder } from './telemetry.js';
 import {
   AUTOMATIC_REPAIR_ATTEMPT_HEADER,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PromptBuildValidationIssue } from '../../prompts/openui.js';
-import { buildOpenUiRepairPrompt } from '../../prompts/openui.js';
+import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
+import { buildOpenUiRepairPrompt } from '#backend/prompts/openui.js';
 
 function buildUndefinedStateReferenceIssues(count: number) {
   return Array.from({ length: count }, (_, index) => {

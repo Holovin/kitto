@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PromptBuildRequest } from '../../prompts/openui.js';
-import { UpstreamFailureError } from '../../errors/publicError.js';
-import { createTestEnv } from '../createTestEnv.js';
+import type { PromptBuildRequest } from '#backend/prompts/openui.js';
+import { UpstreamFailureError } from '#backend/errors/publicError.js';
+import { createTestEnv } from '#backend/tests/createTestEnv.js';
 
 const {
   MockApiConnectionError,
@@ -53,7 +53,7 @@ const {
   };
 });
 
-vi.mock(import('../../services/promptLog.js'), () => ({
+vi.mock(import('#backend/services/promptLog.js'), () => ({
   promptLog: {
     write: promptLogWriteMock,
     writeFailure: promptLogWriteFailureMock,
@@ -79,7 +79,7 @@ vi.mock('openai', () => {
   };
 });
 
-import { generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '../../services/openai.js';
+import { generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '#backend/services/openai.js';
 
 const request: PromptBuildRequest = {
   chatHistory: [],

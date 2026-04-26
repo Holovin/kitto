@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/lang-core';
-import type { PromptBuildValidationIssue } from '../../types.js';
+import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.js';
 import {
   collectActionRunRefGroups,
   collectPersistedQueryRefs,
@@ -9,7 +9,7 @@ import {
   extractPathLiteral,
   extractStringLiteral,
   type PersistedPathStatementRef,
-} from '../shared.js';
+} from '#backend/prompts/openui/quality/shared.js';
 
 export function detectRandomResultVisibilityIssues(result: ParseResult): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || !result.root) {

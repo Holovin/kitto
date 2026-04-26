@@ -1,10 +1,10 @@
 import type { ParseResult } from '@openuidev/lang-core';
-import type { PromptBuildValidationIssue } from '../../types.js';
+import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.js';
 import {
   collectThemeAppearanceRefNames,
   createQualityIssue,
   hasThemeDependentContainerAppearance,
-} from '../shared.js';
+} from '#backend/prompts/openui/quality/shared.js';
 
 export function detectThemeAppearanceIssues(source: string, result: ParseResult): PromptBuildValidationIssue[] {
   if (result.meta.incomplete || !result.root) {

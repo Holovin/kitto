@@ -1,15 +1,15 @@
-import { detectControlActionBindingConflicts } from './detectors/controlActionBinding';
-import { detectInlineToolCallIssues } from './detectors/inlineToolCall';
-import { detectItemBoundControlsWithoutAction } from './detectors/itemBoundControl';
+import { detectControlActionBindingConflicts } from '@features/builder/openui/runtime/validation/detectors/controlActionBinding';
+import { detectInlineToolCallIssues } from '@features/builder/openui/runtime/validation/detectors/inlineToolCall';
+import { detectItemBoundControlsWithoutAction } from '@features/builder/openui/runtime/validation/detectors/itemBoundControl';
 import {
   detectReservedLastChoiceRootIssues,
   detectReservedLastChoiceStatementIssues,
-} from './detectors/lastChoiceOutsideAction';
-import { detectArrayIndexPathMutationIssues } from './detectors/mutationIndexPath';
-import { detectChoiceOptionsShapeIssues } from './detectors/optionsShape';
-import { detectPersistedMutationRefreshWarnings } from './detectors/persistedMutationRefresh';
-import { FATAL_STRUCTURAL_INVARIANT_CODES, detectStructuralInvariantIssues } from './detectors/structuralInvariants';
-import { detectUndefinedStateReferenceIssues } from './detectors/undefinedStateReference';
+} from '@features/builder/openui/runtime/validation/detectors/lastChoiceOutsideAction';
+import { detectArrayIndexPathMutationIssues } from '@features/builder/openui/runtime/validation/detectors/mutationIndexPath';
+import { detectChoiceOptionsShapeIssues } from '@features/builder/openui/runtime/validation/detectors/optionsShape';
+import { detectPersistedMutationRefreshWarnings } from '@features/builder/openui/runtime/validation/detectors/persistedMutationRefresh';
+import { FATAL_STRUCTURAL_INVARIANT_CODES, detectStructuralInvariantIssues } from '@features/builder/openui/runtime/validation/detectors/structuralInvariants';
+import { detectUndefinedStateReferenceIssues } from '@features/builder/openui/runtime/validation/detectors/undefinedStateReference';
 import { collectOpenUiParserValidationIssues } from './parser';
 import {
   createParserIssue,

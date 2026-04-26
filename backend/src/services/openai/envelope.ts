@@ -1,8 +1,8 @@
 import type { ResponseFormatTextJSONSchemaConfig } from 'openai/resources/responses/responses';
 import { z } from 'zod';
-import type { AppEnv } from '../../env.js';
-import { UpstreamFailureError } from '../../errors/publicError.js';
-import { getByteLength, getRawStructuredOutputMaxBytes } from '../../limits.js';
+import type { AppEnv } from '#backend/env.js';
+import { UpstreamFailureError } from '#backend/errors/publicError.js';
+import { getByteLength, getRawStructuredOutputMaxBytes } from '#backend/limits.js';
 
 export const OpenUiGenerationEnvelopeSchema = z
   .object({

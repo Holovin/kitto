@@ -1,6 +1,6 @@
-import { collectQualityMetrics } from './quality/astWalk.js';
-import { detectRandomResultVisibilityIssues } from './quality/detectors/randomResultVisibility.js';
-import { detectThemeAppearanceIssues } from './quality/detectors/themeAppearance.js';
+import { collectQualityMetrics } from '#backend/prompts/openui/quality/astWalk.js';
+import { detectRandomResultVisibilityIssues } from '#backend/prompts/openui/quality/detectors/randomResultVisibility.js';
+import { detectThemeAppearanceIssues } from '#backend/prompts/openui/quality/detectors/themeAppearance.js';
 import {
   createOpenUiQualityIssue,
   maskStringLiterals,
@@ -8,7 +8,7 @@ import {
   parser,
   stripQualityIssueSeverity,
   type OpenUiQualityIssue,
-} from './quality/shared.js';
+} from '#backend/prompts/openui/quality/shared.js';
 import {
   detectChoiceOptionsShapeIssues,
   getTodoIssueSeverity,

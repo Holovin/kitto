@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    conditions: ['tsx'],
+  },
   test: {
     environment: 'node',
     exclude: ['dist/**', 'node_modules/**'],

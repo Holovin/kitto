@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { APIUserAbortError } from 'openai';
-import type { AppEnv } from '../../env.js';
-import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '../../services/openai.js';
+import type { AppEnv } from '#backend/env.js';
+import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
 import { parseLlmRequest } from './requestSchema.js';
 import { createLlmResponsePayload } from './runGeneration.js';

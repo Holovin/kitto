@@ -6,10 +6,13 @@
     "frontend",
     "backend"
   ],
+  "imports": {
+    "#backend/*.ts": "./backend/src/*.ts"
+  },
   "scripts": {
     "generate:openui-spec": "tsx scripts/generate-openui-spec.ts",
     "build:standalone-player": "npm run build:standalone-player --workspace frontend && tsx scripts/embed-standalone-player-assets.ts",
-    "test:write-failure": "tsx scripts/provoke-write-failure.ts",
+    "test:write-failure": "tsx --conditions=tsx scripts/provoke-write-failure.ts",
     "dev:standalone-player": "concurrently -k -n standalone-build,standalone-embed -c blue,blue \"npm run build:standalone-player:watch --workspace frontend\" \"tsx scripts/embed-standalone-player-assets.ts --watch\"",
     "dev": "npm run generate:openui-spec && concurrently -n frontend,backend,standalone -c cyan,magenta,blue \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\" \"npm run dev:standalone-player\"",
     "build": "npm run generate:openui-spec && npm run build:standalone-player && npm run build --workspaces",

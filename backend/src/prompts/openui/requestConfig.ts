@@ -1,4 +1,4 @@
-import type { AppEnv } from '../../env.js';
+import type { AppEnv } from '#backend/env.js';
 import type { PromptBuildRequest } from './types.js';
 
 // Structured OpenUI DSL output should stay conservative; repair passes stay tighter.

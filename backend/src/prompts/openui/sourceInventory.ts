@@ -1,11 +1,11 @@
-import { visitOpenUiValue } from './quality/astWalk.js';
+import { visitOpenUiValue } from '#backend/prompts/openui/quality/astWalk.js';
 import {
   extractPathLiteral,
   extractStringLiteral,
   isElementNode,
   parser,
   type ToolAst,
-} from './quality/shared.js';
+} from '#backend/prompts/openui/quality/shared.js';
 
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 const MAX_INVENTORY_LENGTH = 4_000;

@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createInMemoryRateLimitMiddleware } from '../../middleware/rateLimit.js';
+import { createInMemoryRateLimitMiddleware } from '#backend/middleware/rateLimit.js';
 
 function createRateLimitedApp(options: {
   maxRequests: number;

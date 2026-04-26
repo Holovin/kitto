@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
-import { createApp } from '../backend/src/app.ts';
-import { loadEnv } from '../backend/src/env.ts';
-import { UpstreamFailureError } from '../backend/src/errors/publicError.ts';
-import { resetOpenAiClientForTesting, setOpenAiClientFactoryForTesting } from '../backend/src/services/openai.ts';
-import { resolvePromptIoLogPath } from '../backend/src/services/promptLog.ts';
+import { createApp } from '#backend/app.ts';
+import { loadEnv } from '#backend/env.ts';
+import { UpstreamFailureError } from '#backend/errors/publicError.ts';
+import { resetOpenAiClientForTesting, setOpenAiClientFactoryForTesting } from '#backend/services/openai.ts';
+import { resolvePromptIoLogPath } from '#backend/services/promptLog.ts';
 
 type PromptIoFailureEntry = {
   durationMs?: number;

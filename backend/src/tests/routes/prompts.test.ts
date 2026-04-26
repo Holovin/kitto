@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createApp } from '../../app.js';
-import { getPromptInfoSnapshot, getPromptToolSpecSummaries } from '../../prompts/openui.js';
-import { createTestEnv } from '../createTestEnv.js';
+import { createApp } from '#backend/app.js';
+import { getPromptInfoSnapshot, getPromptToolSpecSummaries } from '#backend/prompts/openui.js';
+import { createTestEnv } from '#backend/tests/createTestEnv.js';
 
 describe('GET /api/prompts/info', () => {
   it('returns the prompt info snapshot with public CORS headers', async () => {

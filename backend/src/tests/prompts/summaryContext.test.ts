@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldExcludeSummaryFromLlmContext } from '../../prompts/openui.js';
+import { shouldExcludeSummaryFromLlmContext } from '#backend/prompts/openui.js';
 
 describe('shouldExcludeSummaryFromLlmContext', () => {
   it('excludes low-signal assistant summaries', () => {

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createApp } from '../app.js';
+import { createApp } from '#backend/app.js';
 import { createTestEnv } from './createTestEnv.js';
 
 describe('createApp', () => {

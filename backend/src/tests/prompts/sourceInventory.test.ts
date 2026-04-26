@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCurrentSourceInventory } from '../../prompts/openui.js';
+import { buildCurrentSourceInventory } from '#backend/prompts/openui.js';
 
 describe('buildCurrentSourceInventory', () => {
   it('summarizes screens, tool statements, runtime state, and persisted paths', () => {

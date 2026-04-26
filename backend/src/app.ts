@@ -6,15 +6,15 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
-import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from './errors/publicError.js';
+import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from '#backend/errors/publicError.js';
 import { getRawRequestMaxBytes } from './limits.js';
 import { getRequestBytesFromContext, getRequestIdFromContext } from './requestMetadata.js';
 import { isFrontendRoute } from './frontendRoutes.js';
-import { createConfigRoutes } from './routes/config.js';
-import { createHealthRoutes } from './routes/health.js';
-import { createLlmOpenUiRoutes } from './routes/llm-openui.js';
-import { createPromptRoutes } from './routes/prompts.js';
-import { writePromptIoIntakeFailureSafely } from './services/openai/logging.js';
+import { createConfigRoutes } from '#backend/routes/config.js';
+import { createHealthRoutes } from '#backend/routes/health.js';
+import { createLlmOpenUiRoutes } from '#backend/routes/llm-openui.js';
+import { createPromptRoutes } from '#backend/routes/prompts.js';
+import { writePromptIoIntakeFailureSafely } from '#backend/services/openai/logging.js';
 
 function jsonRouteNotFound(context: Context) {
   return context.json(

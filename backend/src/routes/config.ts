@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import type { AppEnv } from '../env.js';
-import { getPublicRuntimeConfig } from '../limits.js';
+import type { AppEnv } from '#backend/env.js';
+import { getPublicRuntimeConfig } from '#backend/limits.js';
 
 export function createConfigRoutes(env: AppEnv) {
   const configRoutes = new Hono();

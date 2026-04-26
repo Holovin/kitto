@@ -5,7 +5,7 @@ import {
   retainPromptBuildChatHistory,
   retainPromptBuildChatHistoryTail,
   type RawPromptBuildChatHistoryMessage,
-} from '../../prompts/openui.js';
+} from '#backend/prompts/openui.js';
 
 function createMessage(
   role: RawPromptBuildChatHistoryMessage['role'],

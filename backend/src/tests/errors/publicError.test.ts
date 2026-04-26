@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE, toPublicErrorPayload } from '../../errors/publicError.js';
+import { REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE, toPublicErrorPayload } from '#backend/errors/publicError.js';
 
 function getZodError(result: { success: boolean; error?: z.ZodError }) {
   if (!result.success) {

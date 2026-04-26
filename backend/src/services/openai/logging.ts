@@ -1,8 +1,8 @@
 import type { ResponseInput } from 'openai/resources/responses/responses';
-import type { AppEnv } from '../../env.js';
-import { toPublicErrorPayload } from '../../errors/publicError.js';
-import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '../../prompts/openui.js';
-import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '../promptLog.js';
+import type { AppEnv } from '#backend/env.js';
+import { toPublicErrorPayload } from '#backend/errors/publicError.js';
+import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '#backend/prompts/openui.js';
+import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '#backend/services/promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
 import { getSystemPromptHash } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';

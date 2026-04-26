@@ -1,5 +1,5 @@
 import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues } from '@kitto-openui/shared/openuiQualityOptionsShape.js';
-import { isElementNode, parser, type OpenUiQualityIssue } from '../shared.js';
+import { isElementNode, parser, type OpenUiQualityIssue } from '#backend/prompts/openui/quality/shared.js';
 
 const PROBE_SOURCE_PREFIX = 'expr = ';
 const PROBE_SOURCE_SUFFIX = `

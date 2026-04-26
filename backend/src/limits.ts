@@ -1,4 +1,4 @@
-import { getOpenUiTemperature } from './prompts/openui/requestConfig.js';
+import { getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 
 export const DEFAULT_LLM_USER_PROMPT_MAX_CHARS = 4_096;
 export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = 12_288;

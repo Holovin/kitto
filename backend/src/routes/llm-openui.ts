@@ -1,22 +1,22 @@
 import { Hono, type Context } from 'hono';
-import type { AppEnv } from '../env.js';
-import { getByteLength } from '../limits.js';
-import { createInMemoryRateLimitMiddleware } from '../middleware/rateLimit.js';
+import type { AppEnv } from '#backend/env.js';
+import { getByteLength } from '#backend/limits.js';
+import { createInMemoryRateLimitMiddleware } from '#backend/middleware/rateLimit.js';
 import {
   getClientProvidedRequestIdFromContext,
   getRequestBytesFromContext,
   getRequestIdFromContext,
-} from '../requestMetadata.js';
-import type { PreparedLlmInvocation } from './llmOpenui/requestSchema.js';
-import { createCommitTelemetryHandler, createLlmOpenUiTelemetry } from './llmOpenui/telemetry.js';
-import { runGeneration } from './llmOpenui/runGeneration.js';
-import { runStreamingGeneration } from './llmOpenui/runStreamingGeneration.js';
+} from '#backend/requestMetadata.js';
+import type { PreparedLlmInvocation } from '#backend/routes/llmOpenui/requestSchema.js';
+import { createCommitTelemetryHandler, createLlmOpenUiTelemetry } from '#backend/routes/llmOpenui/telemetry.js';
+import { runGeneration } from '#backend/routes/llmOpenui/runGeneration.js';
+import { runStreamingGeneration } from '#backend/routes/llmOpenui/runStreamingGeneration.js';
 import {
   AUTOMATIC_REPAIR_ATTEMPT_HEADER,
   AUTOMATIC_REPAIR_FOR_HEADER,
   AUTOMATIC_REPAIR_HEADER,
   STREAM_FALLBACK_HEADER,
-} from './llmOpenui/transportHeaders.js';
+} from '#backend/routes/llmOpenui/transportHeaders.js';
 
 function isGenerateRoute(context: Context) {
   return context.req.path.endsWith('/llm/generate');

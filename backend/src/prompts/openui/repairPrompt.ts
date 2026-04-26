@@ -1,4 +1,4 @@
-import { MAX_REPAIR_VALIDATION_ISSUES } from '../../limits.js';
+import { MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';

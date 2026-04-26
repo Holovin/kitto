@@ -1,1 +1,1 @@
-export * from './openui/index.js';
+export * from '#backend/prompts/openui/index.js';

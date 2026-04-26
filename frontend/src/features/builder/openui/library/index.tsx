@@ -1,16 +1,16 @@
 import { createLibrary } from '@openuidev/react-lang';
-import { AppShellComponent } from './components/AppShell';
-import { ButtonComponent } from './components/Button';
-import { CheckboxComponent } from './components/Checkbox';
-import { GroupComponent } from './components/Group';
-import { InputComponent } from './components/Input';
-import { LinkComponent } from './components/Link';
-import { RadioGroupComponent } from './components/RadioGroup';
-import { RepeaterComponent } from './components/Repeater';
-import { ScreenComponent } from './components/Screen';
-import { SelectComponent } from './components/Select';
-import { TextComponent } from './components/Text';
-import { TextAreaComponent } from './components/TextArea';
+import { AppShellComponent } from '@features/builder/openui/library/components/AppShell';
+import { ButtonComponent } from '@features/builder/openui/library/components/Button';
+import { CheckboxComponent } from '@features/builder/openui/library/components/Checkbox';
+import { GroupComponent } from '@features/builder/openui/library/components/Group';
+import { InputComponent } from '@features/builder/openui/library/components/Input';
+import { LinkComponent } from '@features/builder/openui/library/components/Link';
+import { RadioGroupComponent } from '@features/builder/openui/library/components/RadioGroup';
+import { RepeaterComponent } from '@features/builder/openui/library/components/Repeater';
+import { ScreenComponent } from '@features/builder/openui/library/components/Screen';
+import { SelectComponent } from '@features/builder/openui/library/components/Select';
+import { TextComponent } from '@features/builder/openui/library/components/Text';
+import { TextAreaComponent } from '@features/builder/openui/library/components/TextArea';
 
 export const builderOpenUiLibrary = createLibrary({
   root: 'AppShell',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOpenUiUserPrompt } from '../../prompts/openui.js';
+import { buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
 
 describe('buildOpenUiUserPrompt snapshots', () => {
   it('keeps the initial prompt snapshot stable', () => {

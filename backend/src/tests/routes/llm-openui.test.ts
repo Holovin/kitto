@@ -1,8 +1,8 @@
 import { APIError, APIUserAbortError } from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../../app.js';
-import { UpstreamFailureError } from '../../errors/publicError.js';
-import { createTestEnv } from '../createTestEnv.js';
+import { createApp } from '#backend/app.js';
+import { UpstreamFailureError } from '#backend/errors/publicError.js';
+import { createTestEnv } from '#backend/tests/createTestEnv.js';
 
 const {
   writePromptIoCommitTelemetrySafelyMock,
@@ -12,18 +12,18 @@ const {
   writePromptIoIntakeFailureSafelyMock: vi.fn(),
 }));
 
-vi.mock(import('../../services/openai.js'), () => ({
+vi.mock(import('#backend/services/openai.js'), () => ({
   generateOpenUiSource: vi.fn(),
   streamOpenUiSource: vi.fn(),
 }));
 
-vi.mock(import('../../services/openai/logging.js'), () => ({
+vi.mock(import('#backend/services/openai/logging.js'), () => ({
   writePromptIoCommitTelemetrySafely: writePromptIoCommitTelemetrySafelyMock,
   writePromptIoIntakeFailureSafely: writePromptIoIntakeFailureSafelyMock,
 }));
 
-import { generateOpenUiSource, streamOpenUiSource } from '../../services/openai.js';
-import { getRawRequestMaxBytes } from '../../limits.js';
+import { generateOpenUiSource, streamOpenUiSource } from '#backend/services/openai.js';
+import { getRawRequestMaxBytes } from '#backend/limits.js';
 
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
 const streamOpenUiSourceMock = vi.mocked(streamOpenUiSource);

@@ -2,8 +2,8 @@ import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildOpenUiRawUserRequest, buildOpenUiUserPrompt } from '../../prompts/openui.js';
-import { promptLog } from '../../services/promptLog.js';
+import { buildOpenUiRawUserRequest, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
+import { promptLog } from '#backend/services/promptLog.js';
 
 async function createTempLogFilePath() {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'kitto-prompt-log-'));

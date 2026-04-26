@@ -1,12 +1,12 @@
 import type { Context } from 'hono';
-import type { AppEnv } from '../../env.js';
+import type { AppEnv } from '#backend/env.js';
 import {
   detectPromptAwareQualityIssues,
   getOpenUiTemperature,
   shouldExcludeSummaryFromLlmContext,
-} from '../../prompts/openui.js';
-import { assertModelOutputWithinLimit } from '../../services/openai/envelope.js';
-import { generateOpenUiSource, type OpenUiGenerationEnvelope } from '../../services/openai.js';
+} from '#backend/prompts/openui.js';
+import { assertModelOutputWithinLimit } from '#backend/services/openai/envelope.js';
+import { generateOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
 import { parseLlmRequest, type PreparedLlmInvocation } from './requestSchema.js';
 import type { LlmOpenUiTelemetry } from './telemetry.js';
