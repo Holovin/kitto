@@ -4,7 +4,10 @@ import { BaseLayout } from '@layouts/BaseLayout';
 import ChatPage from '@pages/Chat/Chat';
 import { SiteRoutes } from './siteRoutes';
 
-const hydrateFallbackElement = <div />;
+// React Router renders this during initial lazy route discovery, for example
+// when opening `/elements` directly. Keep it non-null to avoid a dev warning
+// without adding another visible app-level loading state.
+const hydrateFallbackElement = <div aria-hidden="true" />;
 
 export const router = createBrowserRouter([
   {

@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { parseStandalonePayload, type KittoStandalonePayload } from '@features/builder/standalone/types';
@@ -10,17 +9,6 @@ type StandaloneDocument = Pick<
   'activeElement' | 'addEventListener' | 'body' | 'createElement' | 'getElementById' | 'removeEventListener'
 >;
 type StandaloneLocation = Pick<Location, 'protocol'> | undefined;
-
-function StandaloneBootstrapFallback({ message }: { message: string }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f7f5ef] p-5 text-slate-900 sm:p-6">
-      <div className="w-full max-w-lg rounded-[1.5rem] border border-rose-200 bg-white/95 px-5 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-rose-700">Standalone app error</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">{message}</p>
-      </div>
-    </div>
-  );
-}
 
 export function parseEmbeddedStandalonePayload(rawValue: string | null | undefined): KittoStandalonePayload | null {
   if (!rawValue) {
@@ -149,7 +137,12 @@ function renderStandaloneBootstrapError(message: string, rootElement: HTMLElemen
 
   createRoot(mountElement).render(
     <StrictMode>
-      <StandaloneBootstrapFallback message={message} />
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f5ef] p-5 text-slate-900 sm:p-6">
+        <div className="w-full max-w-lg rounded-[1.5rem] border border-rose-200 bg-white/95 px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-rose-700">Standalone app error</p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{message}</p>
+        </div>
+      </div>
     </StrictMode>,
   );
 }

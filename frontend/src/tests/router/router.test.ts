@@ -16,7 +16,7 @@ describe('router source', () => {
   it('defines a hydrate fallback element for the root route', () => {
     const source = readRouterSource();
 
-    expect(source).toContain('const hydrateFallbackElement = <div />;');
+    expect(source).toContain('const hydrateFallbackElement = <div aria-hidden="true" />;');
     expect(source).toMatch(/errorElement:\s*<RouteErrorBoundary\s*\/>,\s*[\s\S]*?hydrateFallbackElement,/);
   });
 });

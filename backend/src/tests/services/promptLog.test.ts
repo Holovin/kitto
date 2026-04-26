@@ -95,7 +95,7 @@ describe('promptLog.write', () => {
     expect(entry.validationIssues[0]).toBe('vvvvvvvvvvvvvvvv… [truncated 24 chars]');
   });
 
-  it('stores only rawUserRequest and keeps representative JSONL entries under 70% of the legacy size', async () => {
+  it('stores only rawUserRequest and keeps representative JSONL entries under 70% of the full-prompt size', async () => {
     const { cleanup, filePath } = await createTempLogFilePath();
     cleanupTasks.push(cleanup);
 
@@ -149,7 +149,7 @@ describe('promptLog.write', () => {
       validationIssues: [],
       durationMs: 321,
     };
-    const legacyEntryLine = JSON.stringify({
+    const fullPromptEntryLine = JSON.stringify({
       ...sharedEntryFields,
       userPrompt,
     });
@@ -170,7 +170,7 @@ describe('promptLog.write', () => {
     const [optimizedLine] = serializedLog.trim().split('\n');
 
     expect(optimizedLine).toBeTruthy();
-    expect(Buffer.byteLength(optimizedLine ?? '', 'utf8')).toBeLessThanOrEqual(Buffer.byteLength(legacyEntryLine, 'utf8') * 0.7);
+    expect(Buffer.byteLength(optimizedLine ?? '', 'utf8')).toBeLessThanOrEqual(Buffer.byteLength(fullPromptEntryLine, 'utf8') * 0.7);
 
     const entry = JSON.parse(optimizedLine ?? '{}') as {
       rawUserRequest: string;

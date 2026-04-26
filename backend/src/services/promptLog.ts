@@ -25,10 +25,6 @@ interface PromptIoLogEntryFields {
   chatHistoryLen?: number;
   requestBytes?: number | null;
   compactedRequestBytes?: number | null;
-  /**
-   * Migration note: older prompt I/O log rows used `compactionTrimmedItems`.
-   * Readers should accept both keys while new writers emit `omittedChatMessages` only.
-   */
   omittedChatMessages?: number | null;
   inputShape?: PromptIoInputShape;
   systemPromptHash?: string;
