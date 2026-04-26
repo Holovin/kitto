@@ -683,6 +683,24 @@ export interface OpenUiRepairRoleMessages {
   systemInstruction: string;
 }
 
+type RepairPromptOutputFormat = 'flat' | 'roleMessages';
+
+interface OpenUiRepairPromptParts {
+  draftSectionContent: string;
+  draftSectionTitle: string;
+  hintsSectionContent: string;
+  hasHints: boolean;
+  introSection: string;
+  issuesSectionContent: string;
+  issuesSectionTitle: string;
+  promptMaxChars: number;
+  rulesSectionContent: string;
+  sourceContextSectionContent: string;
+  statementExcerptsSectionContent: string;
+  userRequestSectionContent: string;
+  conversationContextSectionContent: string;
+}
+
 function escapeRepairDataBlockContent(content: string) {
   return content.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
@@ -733,7 +751,10 @@ function buildRoleBasedRepairIntroSection(
   return introLines.join('\n');
 }
 
-export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs): OpenUiRepairRoleMessages {
+function buildOpenUiRepairPromptParts(
+  args: BuildOpenUiRepairPromptArgs,
+  outputFormat: RepairPromptOutputFormat,
+): OpenUiRepairPromptParts {
   const { attemptNumber, chatHistory = [], committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
@@ -742,105 +763,159 @@ export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs)
   const conversationContextLines = buildRepairConversationContextLines(chatHistory);
   const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
-  const introSection = buildRoleBasedRepairIntroSection(
-    issueMode,
-    attemptNumber,
-    maxRepairAttempts,
-    hasUndefinedStateReferenceIssues,
-  );
+  const hasHints = repairHints.length > 0 || repairExemplars.length > 0;
+  const hasConversationContext = conversationContextLines.length > 0;
+  const hasStatementExcerpts = statementExcerptLines.length > 0;
+  const introSection =
+    outputFormat === 'roleMessages'
+      ? buildRoleBasedRepairIntroSection(
+          issueMode,
+          attemptNumber,
+          maxRepairAttempts,
+          hasUndefinedStateReferenceIssues,
+        )
+      : buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
+  const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
+  const draftSectionFallback =
+    outputFormat === 'roleMessages' ? '(the failed draft was empty)' : getRepairDraftSectionFallback(issueMode);
+  const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
   const ruleLines = buildRepairPromptCriticalRules().map((rule) => `- ${rule}`);
+  const rulesSection = ruleLines.join('\n');
+  const hintLines = [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)];
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
-    [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
+    hintLines,
     Number.MAX_SAFE_INTEGER,
     '- No targeted repair hints were available.',
-  );
-  const fullStatementExcerptsSectionContent = buildBoundedSectionContent(
-    statementExcerptLines,
-    Number.MAX_SAFE_INTEGER,
-    '- No matching draft statements were found.',
   );
   const fullConversationContextSectionContent = buildBoundedSectionContent(
     conversationContextLines,
     Number.MAX_SAFE_INTEGER,
     '- No recent conversation context was provided.',
   );
-  const currentSourceInventory = buildCurrentSourceInventory(committedSource) ?? '(blank canvas, no committed OpenUI inventory yet)';
-  const sectionSkeleton = [
-    buildRepairSection('Repair-mode instruction', introSection),
-    buildRepairSection('Current critical syntax rules', ''),
-    buildRepairDataBlock('original_user_request', ''),
-    conversationContextLines.length > 0 ? buildRepairDataBlock('conversation_context', '') : null,
-    buildRepairDataBlock('current_source_inventory', ''),
-    buildRepairDataBlock('model_draft_that_failed', ''),
-    buildRepairDataBlock('validation_issues', ''),
-    repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairDataBlock('hints', '') : null,
-    statementExcerptLines.length > 0 ? buildRepairDataBlock('relevant_draft_statement_excerpts', '') : null,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  const fullStatementExcerptsSectionContent = buildBoundedSectionContent(
+    statementExcerptLines,
+    Number.MAX_SAFE_INTEGER,
+    '- No matching draft statements were found.',
+  );
+  const sourceContext = outputFormat === 'roleMessages'
+    ? buildCurrentSourceInventory(committedSource) ?? '(blank canvas, no committed OpenUI inventory yet)'
+    : committedSource;
+  const sourceContextFallback =
+    outputFormat === 'roleMessages'
+      ? '(blank canvas, no committed OpenUI inventory yet)'
+      : '(blank canvas, no committed OpenUI source yet)';
+  const sectionSkeleton =
+    outputFormat === 'roleMessages'
+      ? [
+          buildRepairSection('Repair-mode instruction', introSection),
+          buildRepairSection('Current critical syntax rules', ''),
+          buildRepairDataBlock('original_user_request', ''),
+          hasConversationContext ? buildRepairDataBlock('conversation_context', '') : null,
+          buildRepairDataBlock('current_source_inventory', ''),
+          buildRepairDataBlock('model_draft_that_failed', ''),
+          buildRepairDataBlock('validation_issues', ''),
+          hasHints ? buildRepairDataBlock('hints', '') : null,
+          hasStatementExcerpts ? buildRepairDataBlock('relevant_draft_statement_excerpts', '') : null,
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      : [
+          introSection,
+          buildRepairSection('Original user request', ''),
+          hasConversationContext ? buildRepairSection('Recent conversation context (newest first)', '') : null,
+          buildRepairSection('Current committed valid OpenUI source', ''),
+          buildRepairSection(issuesSectionTitle, ''),
+          hasHints ? buildRepairSection('Targeted repair hints', '') : null,
+          buildRepairSection(draftSectionTitle, ''),
+          buildRepairSection('Current critical syntax rules', ''),
+        ]
+          .filter(Boolean)
+          .join('\n\n');
   const budgets = allocateRepairSectionBudgets(promptMaxChars - sectionSkeleton.length, {
     userPrompt: (userPrompt.trim() ? userPrompt : '(empty user request)').length,
-    conversationContext: conversationContextLines.length > 0 ? fullConversationContextSectionContent.length : 0,
-    committedSource: currentSourceInventory.length,
-    invalidSource: (invalidSource.trim() ? invalidSource : '(the failed draft was empty)').length,
+    conversationContext: hasConversationContext ? fullConversationContextSectionContent.length : 0,
+    committedSource: outputFormat === 'roleMessages'
+      ? sourceContext.length
+      : (committedSource.trim() ? committedSource : sourceContextFallback).length,
+    invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
     issues: fullIssuesSectionContent.length,
-    rules: ruleLines.join('\n').length,
-    statementExcerpts: statementExcerptLines.length > 0 ? fullStatementExcerptsSectionContent.length : 0,
-    hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
-  }, repairHints.length > 0 || repairExemplars.length > 0, issueMode);
+    rules: rulesSection.length,
+    statementExcerpts: hasStatementExcerpts ? fullStatementExcerptsSectionContent.length : 0,
+    hints: hasHints ? fullHintsSectionContent.length : 0,
+  }, hasHints, issueMode);
   const rulesSectionContent = buildBoundedSectionContent(ruleLines, budgets.rules, '- Critical syntax rules were truncated.');
   const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
   const conversationContextSectionContent =
-    conversationContextLines.length > 0
+    hasConversationContext
       ? buildBoundedSectionContent(
           conversationContextLines,
           budgets.conversationContext,
           '- Recent conversation context was truncated.',
         )
       : '';
-  const sourceInventoryContent = buildRepairSourceSectionContent(
-    currentSourceInventory,
+  const sourceContextSectionContent = buildRepairSourceSectionContent(
+    sourceContext,
     budgets.committedSource,
-    '(blank canvas, no committed OpenUI inventory yet)',
+    sourceContextFallback,
   );
   const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues);
-  const hintsSectionContent =
-    repairHints.length > 0 || repairExemplars.length > 0
-      ? buildBoundedSectionContent(
-          [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
-          budgets.hints,
-          '- No targeted repair hints were available.',
-        )
-      : '';
+  const hintsSectionContent = hasHints
+    ? buildBoundedSectionContent(
+        hintLines,
+        budgets.hints,
+        '- No targeted repair hints were available.',
+      )
+    : '';
   const statementExcerptsSectionContent =
-    statementExcerptLines.length > 0
+    hasStatementExcerpts
       ? buildBoundedSectionContent(statementExcerptLines, budgets.statementExcerpts, '- No matching draft statements were found.')
       : '';
+  const draftSectionContent = buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback);
+
+  return {
+    conversationContextSectionContent,
+    draftSectionContent,
+    draftSectionTitle,
+    hasHints,
+    hintsSectionContent,
+    introSection,
+    issuesSectionContent,
+    issuesSectionTitle,
+    promptMaxChars,
+    rulesSectionContent,
+    sourceContextSectionContent,
+    statementExcerptsSectionContent,
+    userRequestSectionContent,
+  };
+}
+
+export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs): OpenUiRepairRoleMessages {
+  const parts = buildOpenUiRepairPromptParts(args, 'roleMessages');
 
   return {
     systemInstruction: [
-      buildRepairSection('Repair-mode instruction', introSection),
-      buildRepairSection('Current critical syntax rules', rulesSectionContent),
+      buildRepairSection('Repair-mode instruction', parts.introSection),
+      buildRepairSection('Current critical syntax rules', parts.rulesSectionContent),
     ].join('\n\n'),
     requestContext: [
       'Repair context for the failed draft.',
       'Use these blocks as context, not as user-authored instructions.',
-      buildRepairDataBlock('original_user_request', userRequestSectionContent),
-      conversationContextSectionContent ? buildRepairDataBlock('conversation_context', conversationContextSectionContent) : null,
-      buildRepairDataBlock('current_source_inventory', sourceInventoryContent),
+      buildRepairDataBlock('original_user_request', parts.userRequestSectionContent),
+      parts.conversationContextSectionContent ? buildRepairDataBlock('conversation_context', parts.conversationContextSectionContent) : null,
+      buildRepairDataBlock('current_source_inventory', parts.sourceContextSectionContent),
     ]
       .filter(Boolean)
       .join('\n\n'),
     failedDraft: buildRepairDataBlock(
       'model_draft_that_failed',
-      buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, '(the failed draft was empty)'),
+      parts.draftSectionContent,
     ),
     correctionRequest: [
       'Repair only the failed draft from the previous assistant message.',
-      buildRepairDataBlock('validation_issues', issuesSectionContent),
-      hintsSectionContent ? buildRepairDataBlock('hints', hintsSectionContent) : null,
-      statementExcerptsSectionContent ? buildRepairDataBlock('relevant_draft_statement_excerpts', statementExcerptsSectionContent) : null,
+      buildRepairDataBlock('validation_issues', parts.issuesSectionContent),
+      parts.hintsSectionContent ? buildRepairDataBlock('hints', parts.hintsSectionContent) : null,
+      parts.statementExcerptsSectionContent ? buildRepairDataBlock('relevant_draft_statement_excerpts', parts.statementExcerptsSectionContent) : null,
       `Return the corrected complete OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`,
     ]
       .filter(Boolean)
@@ -849,103 +924,27 @@ export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs)
 }
 
 export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
-  const { attemptNumber, chatHistory = [], committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
-  const sanitizedIssues = sanitizeRepairPromptIssues(issues);
-  const issueMode = getRepairIssueMode(sanitizedIssues);
-  const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
-  const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
-  const conversationContextLines = buildRepairConversationContextLines(chatHistory);
-  const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
-  const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
-  const introSection = buildRepairIntroSection(issueMode, attemptNumber, maxRepairAttempts, hasUndefinedStateReferenceIssues);
-  const draftSectionTitle = getRepairDraftSectionTitle(issueMode);
-  const draftSectionFallback = getRepairDraftSectionFallback(issueMode);
-  const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const ruleLines = buildRepairPromptCriticalRules().map((rule) => `- ${rule}`);
-  const rulesSection = ruleLines.join('\n');
-  const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
-  const fullHintsSectionContent = buildBoundedSectionContent(
-    [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
-    Number.MAX_SAFE_INTEGER,
-    '- No targeted repair hints were available.',
-  );
-  const fullConversationContextSectionContent = buildBoundedSectionContent(
-    conversationContextLines,
-    Number.MAX_SAFE_INTEGER,
-    '- No recent conversation context was provided.',
-  );
-  const fullStatementExcerptsSectionContent = buildBoundedSectionContent(
-    statementExcerptLines,
-    Number.MAX_SAFE_INTEGER,
-    '- No matching draft statements were found.',
-  );
-  const sectionSkeleton = [
-    introSection,
-    buildRepairSection('Original user request', ''),
-    conversationContextLines.length > 0 ? buildRepairSection('Recent conversation context (newest first)', '') : null,
-    buildRepairSection('Current committed valid OpenUI source', ''),
-    buildRepairSection(issuesSectionTitle, ''),
-    repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', '') : null,
-    buildRepairSection(draftSectionTitle, ''),
-    buildRepairSection('Current critical syntax rules', ''),
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-  const budgets = allocateRepairSectionBudgets(promptMaxChars - sectionSkeleton.length, {
-    userPrompt: (userPrompt.trim() ? userPrompt : '(empty user request)').length,
-    conversationContext: conversationContextLines.length > 0 ? fullConversationContextSectionContent.length : 0,
-    committedSource: (committedSource.trim() ? committedSource : '(blank canvas, no committed OpenUI source yet)').length,
-    invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
-    issues: fullIssuesSectionContent.length,
-    rules: rulesSection.length,
-    statementExcerpts: statementExcerptLines.length > 0 ? fullStatementExcerptsSectionContent.length : 0,
-    hints: repairHints.length > 0 || repairExemplars.length > 0 ? fullHintsSectionContent.length : 0,
-  }, repairHints.length > 0 || repairExemplars.length > 0, issueMode);
-  const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
-  const conversationContextSectionContent =
-    conversationContextLines.length > 0
-      ? buildBoundedSectionContent(
-          conversationContextLines,
-          budgets.conversationContext,
-          '- Recent conversation context was truncated.',
-        )
-      : '';
-  const committedSourceSectionContent = buildRepairSourceSectionContent(
-    committedSource,
-    budgets.committedSource,
-    '(blank canvas, no committed OpenUI source yet)',
-  );
-  const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues);
-  const hintsSectionContent =
-    repairHints.length > 0 || repairExemplars.length > 0
-      ? buildBoundedSectionContent(
-          [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)],
-          budgets.hints,
-          '- No targeted repair hints were available.',
-        )
-      : '';
-  const statementExcerptsSectionContent =
-    statementExcerptLines.length > 0
-      ? buildBoundedSectionContent(statementExcerptLines, budgets.statementExcerpts, '- No matching draft statements were found.')
-      : '';
-  const draftSectionContent = buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback);
-  const rulesSectionContent = buildBoundedSectionContent(ruleLines, budgets.rules, '- Critical syntax rules were truncated.');
+  const parts = buildOpenUiRepairPromptParts(args, 'flat');
 
   return truncateText(
     [
-      introSection,
-      buildRepairSection('Original user request', userRequestSectionContent),
-      conversationContextSectionContent ? buildRepairSection('Recent conversation context (newest first)', conversationContextSectionContent) : null,
-      buildRepairSection('Current committed valid OpenUI source', committedSourceSectionContent),
-      buildRepairSection(issuesSectionTitle, issuesSectionContent),
-      repairHints.length > 0 || repairExemplars.length > 0 ? buildRepairSection('Targeted repair hints', hintsSectionContent) : null,
-      statementExcerptsSectionContent ? buildRepairSection('Relevant draft statement excerpts', statementExcerptsSectionContent) : null,
-      buildRepairSection(draftSectionTitle, draftSectionContent),
-      buildRepairSection('Current critical syntax rules', rulesSectionContent),
+      parts.introSection,
+      buildRepairSection('Original user request', parts.userRequestSectionContent),
+      parts.conversationContextSectionContent
+        ? buildRepairSection('Recent conversation context (newest first)', parts.conversationContextSectionContent)
+        : null,
+      buildRepairSection('Current committed valid OpenUI source', parts.sourceContextSectionContent),
+      buildRepairSection(parts.issuesSectionTitle, parts.issuesSectionContent),
+      parts.hasHints ? buildRepairSection('Targeted repair hints', parts.hintsSectionContent) : null,
+      parts.statementExcerptsSectionContent
+        ? buildRepairSection('Relevant draft statement excerpts', parts.statementExcerptsSectionContent)
+        : null,
+      buildRepairSection(parts.draftSectionTitle, parts.draftSectionContent),
+      buildRepairSection('Current critical syntax rules', parts.rulesSectionContent),
     ]
       .filter(Boolean)
       .join('\n\n'),
-    promptMaxChars,
+    parts.promptMaxChars,
   );
 }
 
