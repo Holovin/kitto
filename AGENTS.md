@@ -160,6 +160,7 @@ Steps:
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
 - The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected streamed or imported source stays in Definition while Preview keeps the last committed source
 - If the generated source is invalid or fails blocking quality checks, the frontend performs up to the configured automatic repair limit by sending repair prompts back to the backend (default: 2 attempts)
+- Automatic repair requests are continuation requests only: the backend records one-use repair rate-limit credits after a completed generation or repair, and the next repair request consumes the matching `x-kitto-automatic-repair` / `x-kitto-repair-for` / `x-kitto-repair-attempt` credit
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
 - Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context
@@ -170,6 +171,7 @@ Steps:
 - A streaming generation is successful only after a valid `done` SSE event; truncated streams, chunk-only streams, and aborted streams must never be treated as completed model output
 - Every generation must terminate in exactly one state: committed, failed, or cancelled; the frontend must not stay stuck in a streaming state forever
 - When a generation fails, the composer keeps the last failed prompt as a retry candidate; an empty composer shows `Repeat`, and typing any new prompt switches the primary action back to `Send`
+- `Repeat` is a manual resubmission of the last failed prompt as a fresh `mode: initial` generation with a new request id. It must not send automatic-repair headers, inherit the failed run's repair attempt count, or consume an automatic repair rate-limit credit; if the repeated generation completes and then needs repair, it starts its own repair-credit chain
 - The frontend applies both a max stream duration and an idle timeout before failing the request and preserving the last committed preview
 - Each frontend generation request carries a `requestId`; stale stream chunks, stale fallback responses, and intentional aborts must be ignored and must never commit over a newer request
 - The backend compacts chat history by item limit and by byte size before calling the OpenAI Responses API

@@ -66,7 +66,7 @@ Notes:
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers up to the configured repair limit before commit (default: 2 attempts).
 - During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done` payload plus its extracted `source`, `qualityIssues`, and optional `summaryExcludeFromLlmContext`.
-- If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt; typing a new prompt switches that action back to `Send`.
+- If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt as a fresh generation; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 - Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.
 
