@@ -224,6 +224,25 @@ OK: addItem = Mutation("append_item", { path: "app.items", value: { title: $draf
 OK: rows = @Each(items, "item", ...)
 OK: Repeater(rows, "No tasks yet.")`,
   },
+  'quality-missing-control-showcase-components': {
+    key: 'quality-missing-control-showcase-components',
+    title: 'Control showcase coverage',
+    text: `OK: Input("name", "Name", $name)
+OK: TextArea("notes", "Notes", $notes)
+OK: Checkbox("agree", "Agree", $agree)
+OK: RadioGroup("choice", "Choice", $choice, options)
+OK: Select("status", "Status", $status, options)
+OK: Button("submit", "Submit", "default", Action([]), false)
+OK: Link("Docs", "https://example.com")`,
+  },
+  'quality-missing-screen-flow': {
+    key: 'quality-missing-screen-flow',
+    title: 'Current-screen navigation',
+    text: `OK: $currentScreen = "browse"
+OK: Screen("browse", "Browse", [...], $currentScreen == "browse")
+OK: Button("go-form", "Open form", "default", Action([@Set($currentScreen, "form")]), false)
+OK: Screen("form", "Form", [...], $currentScreen == "form")`,
+  },
   'quality-options-shape': {
     key: 'quality-options-shape',
     title: 'Option object shape',

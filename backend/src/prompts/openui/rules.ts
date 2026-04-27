@@ -5,6 +5,7 @@ export { BUTTON_APPEARANCE_RULE };
 
 const BASE_PROMPT_INTENTS: PromptIntentVector = {
   compute: false,
+  controlShowcase: false,
   filtering: false,
   multiScreen: false,
   random: false,

@@ -45,7 +45,12 @@ export interface PromptBuildOptionsShapeIssueContext {
   invalidValues: Array<number | string>;
 }
 
+export interface PromptBuildMissingControlShowcaseComponentsIssueContext {
+  missingComponents: string[];
+}
+
 export type PromptBuildValidationIssueContext =
+  | PromptBuildMissingControlShowcaseComponentsIssueContext
   | PromptBuildOptionsShapeIssueContext
   | PromptBuildStalePersistedQueryIssueContext
   | PromptBuildUndefinedStateReferenceIssueContext;
@@ -147,10 +152,15 @@ function createValidationIssueSchema(maxValidationIssues: number) {
     invalidValues: z.array(z.union([z.string().max(1_000), z.number().finite()])).min(1).max(maxValidationIssues),
   });
 
+  const missingControlShowcaseComponentsContextSchema = z.object({
+    missingComponents: z.array(z.string().trim().min(1).max(200)).min(1).max(maxValidationIssues),
+  });
+
   const validationIssueContextSchema = z.union([
     undefinedStateReferenceContextSchema,
     stalePersistedQueryContextSchema,
     optionsShapeContextSchema,
+    missingControlShowcaseComponentsContextSchema,
   ]);
 
   return z
@@ -199,6 +209,18 @@ function createValidationIssueSchema(maxValidationIssues: number) {
           context.addIssue({
             code: 'custom',
             message: 'quality-options-shape issues require structured context.',
+            path: ['context'],
+          });
+        }
+
+        return;
+      }
+
+      if (issue.code === 'quality-missing-control-showcase-components') {
+        if (!issue.context || !('missingComponents' in issue.context)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'quality-missing-control-showcase-components issues require structured context.',
             path: ['context'],
           });
         }

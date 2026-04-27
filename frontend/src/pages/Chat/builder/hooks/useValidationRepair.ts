@@ -189,11 +189,27 @@ function sanitizeOptionsShapeContext(issue: RepairValidationIssue): PromptBuildV
   };
 }
 
+function sanitizeMissingControlShowcaseComponentsContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
+  if (issue.code !== 'quality-missing-control-showcase-components' || !isRecord(issue.context)) {
+    return undefined;
+  }
+
+  const missingComponents = Array.isArray(issue.context.missingComponents)
+    ? issue.context.missingComponents.flatMap((componentName) => {
+        const normalizedComponentName = typeof componentName === 'string' ? componentName.trim() : '';
+        return normalizedComponentName ? [normalizedComponentName] : [];
+      })
+    : [];
+
+  return missingComponents.length > 0 ? { missingComponents } : undefined;
+}
+
 function sanitizeRepairIssueContext(issue: RepairValidationIssue): PromptBuildValidationIssue['context'] | undefined {
   return (
     sanitizeUndefinedStateReferenceContext(issue) ??
     sanitizeStalePersistedQueryContext(issue) ??
-    sanitizeOptionsShapeContext(issue)
+    sanitizeOptionsShapeContext(issue) ??
+    sanitizeMissingControlShowcaseComponentsContext(issue)
   );
 }
 

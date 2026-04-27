@@ -87,6 +87,7 @@ const INITIAL_USER_PROMPT_INTRO_LINES = [
   'Use the prior `<intent_context>` user message as backend-derived hints for the latest request.',
   'If `<intent_context>` conflicts with `<latest_user_request>`, prefer `<latest_user_request>`.',
   'Only `<latest_user_request>` contains the user-authored task text.',
+  'If `<request_intent>` says `operation: create`, replace unrelated current app content with the requested new app instead of preserving it.',
   'Treat `<current_source>` as authoritative app state.',
   'Use `<current_source_inventory>` as a compact index of existing statements, screens, tools, and state paths.',
   'If `<current_source_inventory>` conflicts with `<current_source>`, prefer `<current_source>`.',
@@ -106,6 +107,7 @@ const FOLLOW_UP_OUTPUT_REQUIREMENT_LINES = [
 ] as const;
 const REQUEST_INTENT_TEMPLATE_BLOCK = [
   'todo: true|false',
+  'controlShowcase: true|false',
   'filtering: true|false',
   'validation: true|false',
   'compute: true|false',
@@ -233,11 +235,15 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';
   const currentSourceInventory = buildCurrentSourceInventory(currentSourceValue);
+  const requestIntent = detectPromptRequestIntent(request.prompt, {
+    currentSource: currentSourceValue,
+    mode: request.mode,
+  });
 
   return buildOpenUiLatestUserTurn(
     currentSource,
     rawUserRequest,
     currentSourceInventory,
-    currentSourceValue.trim().length > 0,
+    currentSourceValue.trim().length > 0 && requestIntent.operation !== 'create',
   );
 }

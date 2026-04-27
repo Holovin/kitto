@@ -337,6 +337,82 @@ root = AppShell([
     );
   });
 
+  it('marks ungated multi-screen output as blocking when the prompt asks for screens', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `root = AppShell([
+  Screen("browse", "Browse", [
+    Text("Browse items", "title", "start")
+  ]),
+  Screen("form", "Form", [
+    Text("Create an item", "title", "start")
+  ])
+])`,
+      'Create a complex app with two screens.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-missing-screen-flow',
+          message: 'Multi-screen request generated multiple always-visible screens or omitted $currentScreen navigation.',
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('does not mark current-screen navigation as blocking for multi-screen requests', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `$currentScreen = "browse"
+root = AppShell([
+  Screen("browse", "Browse", [
+    Button("go-form", "Form", "default", Action([@Set($currentScreen, "form")]), false)
+  ], $currentScreen == "browse"),
+  Screen("form", "Form", [
+    Button("go-browse", "Back", "secondary", Action([@Set($currentScreen, "browse")]), false)
+  ], $currentScreen == "form")
+])`,
+      'Create a complex app with two screens.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-missing-screen-flow')).toBeUndefined();
+  });
+
+  it('marks incomplete control showcases as blocking', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `$name = ""
+$notes = ""
+$agree = false
+$choice = ""
+$status = ""
+options = [{ label: "One", value: "one" }]
+
+root = AppShell([
+  Screen("main", "Controls", [
+    Input("name", "Name", $name),
+    TextArea("notes", "Notes", $notes),
+    Checkbox("agree", "Agree", $agree),
+    RadioGroup("choice", "Choice", $choice, options),
+    Select("status", "Status", $status, options),
+    Button("submit", "Submit", "default", Action([]), false)
+  ])
+])`,
+      'Build an app with every control you know.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-missing-control-showcase-components',
+          context: { missingComponents: ['Link'] },
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('does not mark a valid random refresh recipe as blocking', () => {
     const issues = detectPromptAwareQualityIssues(
       `rollDice = Mutation("write_computed_state", {

@@ -69,6 +69,11 @@ const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
     prompt: 'Create a dark mode profile form.',
   },
   {
+    id: 'control-showcase',
+    label: 'Control showcase',
+    prompt: 'Build an app with every control you know.',
+  },
+  {
     id: 'filtering',
     label: 'Filter',
     prompt: 'Create a searchable catalog.',

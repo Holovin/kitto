@@ -8,6 +8,7 @@ type OpenUiRuleGroupId =
   | 'appearance-and-theme'
   | 'collection'
   | 'compute-tool'
+  | 'control-showcase'
   | 'core-program'
   | 'filter'
   | 'general-control-action-mode'
@@ -36,6 +37,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       'Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.',
       'For simple apps, use one Screen and one or two Groups.',
       'If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.',
+      'For simple counters, use local state such as `$count = 0` and buttons with `@Set($count, $count + 1)`. Use persisted tools for counters only when the user explicitly asks for reload/export persistence.',
     ],
   },
   {
@@ -79,6 +81,16 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
     rules: [
       'Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.',
       'For canonical todo rows with interactive completion, use an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)` label.',
+    ],
+  },
+  {
+    id: 'control-showcase',
+    intent: 'controlShowcase',
+    rules: [
+      'CONTROL SHOWCASE RULE:',
+      'When the user asks for every control, all controls, or a component showcase, include at least one Input, TextArea, Checkbox, RadioGroup, Select, Button, and Link in the visible app.',
+      'Use normal binding-mode controls for the showcase unless the user asks for persistence.',
+      'For Link, provide a safe app-relative or https URL and a visible label.',
     ],
   },
   {

@@ -222,6 +222,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   const committedSource = useAppSelector(selectCommittedSource);
   const runtimeConfigStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus);
   const runtimeConfigStatusContent = runtimeConfigStatusMessage?.content ?? null;
+  const hasReachedPromptLimit = typeof promptMaxChars === 'number' && draftPrompt.length >= promptMaxChars;
   const submitButtonState = getBuilderComposerSubmitState({
     configStatus,
     draftPrompt,
@@ -234,8 +235,15 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       ? 'Runtime config is still loading. Chat send will unlock after /api/config is ready.'
       : configStatus === 'failed'
         ? RUNTIME_CONFIG_UNAVAILABLE_NOTICE
+        : hasReachedPromptLimit
+          ? `Prompt is at the ${new Intl.NumberFormat().format(promptMaxChars)} character limit.`
         : 'Press Cmd/Ctrl+Enter to send.';
-  const composerHintToneClassName = configStatus === 'failed' ? 'text-rose-600' : configStatus === 'loading' ? 'text-amber-700' : 'text-slate-500';
+  const composerHintToneClassName =
+    configStatus === 'failed'
+      ? 'text-rose-600'
+      : configStatus === 'loading' || hasReachedPromptLimit
+        ? 'text-amber-700'
+        : 'text-slate-500';
 
   useEffect(() => {
     const runtimeConfigNotice = resolveRuntimeConfigNotice({

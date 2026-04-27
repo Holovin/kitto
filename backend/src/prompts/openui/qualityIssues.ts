@@ -1,9 +1,10 @@
-import { collectQualityMetrics } from '#backend/prompts/openui/quality/astWalk.js';
+import { collectQualityMetrics, visitOpenUiValue } from '#backend/prompts/openui/quality/astWalk.js';
 import { detectRandomResultVisibilityIssues } from '#backend/prompts/openui/quality/detectors/randomResultVisibility.js';
 import { detectThemeAppearanceIssues } from '#backend/prompts/openui/quality/detectors/themeAppearance.js';
 import {
   createOpenUiQualityIssue,
   createOpenUiProgramIndex,
+  isElementNode,
   maskStringLiterals,
   parser,
   stripQualityIssueSeverity,
@@ -11,12 +12,15 @@ import {
 } from '#backend/prompts/openui/quality/shared.js';
 import {
   detectChoiceOptionsShapeIssues,
+  getMissingControlShowcaseComponents,
   getTodoIssueSeverity,
   hasComputeTools,
   hasRequiredTodoControls,
   isSimplePromptRequest,
   promptRequestsCompute,
+  promptRequestsControlShowcase,
   promptRequestsFiltering,
+  promptRequestsMultiScreen,
   promptRequestsRandom,
   promptRequestsThemeState,
   promptRequestsTodo,
@@ -25,6 +29,7 @@ import {
 } from './qualitySignals.js';
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
+const CURRENT_SCREEN_NAVIGATION_PATTERN = /@Set\s*\(\s*\$currentScreen\s*,/;
 
 type PromptAwareGenerationMode = 'initial' | 'repair';
 
@@ -57,6 +62,22 @@ function collectParsedSourceQualityProfile(parseResult: OpenUiParseResult) {
 
 function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
   return collectParsedSourceQualityProfile(parser.parse(source))?.featureFlags ?? null;
+}
+
+function hasEveryScreenConditionallyGated(root: unknown, screenCount: number) {
+  let gatedScreenCount = 0;
+
+  visitOpenUiValue(root, (node) => {
+    if (!isElementNode(node) || node.typeName !== 'Screen') {
+      return;
+    }
+
+    if (node.props.isActive != null) {
+      gatedScreenCount += 1;
+    }
+  });
+
+  return gatedScreenCount === screenCount;
 }
 
 function hasRequestUnrequestedNewFeature(
@@ -182,6 +203,33 @@ export function detectPromptAwareQualityIssues(
         message: 'Todo request did not generate required todo controls.',
       }),
     );
+  }
+
+  if (
+    promptRequestsMultiScreen(trimmedPrompt) &&
+    metrics.screenCount > 1 &&
+    (!hasEveryScreenConditionallyGated(result.root, metrics.screenCount) || !CURRENT_SCREEN_NAVIGATION_PATTERN.test(maskedSource))
+  ) {
+    issues.push(
+      createOpenUiQualityIssue('blocking-quality', {
+        code: 'quality-missing-screen-flow',
+        message: 'Multi-screen request generated multiple always-visible screens or omitted $currentScreen navigation.',
+      }),
+    );
+  }
+
+  if (promptRequestsControlShowcase(trimmedPrompt)) {
+    const missingComponents = getMissingControlShowcaseComponents(result);
+
+    if (missingComponents.length > 0) {
+      issues.push(
+        createOpenUiQualityIssue('blocking-quality', {
+          code: 'quality-missing-control-showcase-components',
+          context: { missingComponents },
+          message: `Control showcase is missing required controls: ${missingComponents.join(', ')}.`,
+        }),
+      );
+    }
   }
 
   if (promptRequestsRandom(trimmedPrompt)) {

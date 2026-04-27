@@ -1,5 +1,6 @@
 import {
   promptRequestsCompute,
+  promptRequestsControlShowcase,
   promptRequestsFiltering,
   promptRequestsMultiScreen,
   promptRequestsRandom,
@@ -13,6 +14,7 @@ import {
 
 export interface PromptIntentVector {
   compute: boolean;
+  controlShowcase: boolean;
   filtering: boolean;
   multiScreen: boolean;
   random: boolean;
@@ -36,6 +38,7 @@ interface DetectPromptRequestIntentOptions {
 
 const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
   ['todo', 't'],
+  ['controlShowcase', 'ctrl'],
   ['theme', 'th'],
   ['filtering', 'f'],
   ['validation', 'v'],
@@ -46,6 +49,7 @@ const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
 
 const COMPLEX_MINIMALITY_INTENT_KEYS: Array<keyof PromptIntentVector> = [
   'compute',
+  'controlShowcase',
   'filtering',
   'multiScreen',
   'random',
@@ -59,6 +63,7 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
 
   return {
     compute: promptRequestsCompute(trimmedPrompt) || random,
+    controlShowcase: promptRequestsControlShowcase(trimmedPrompt),
     filtering: promptRequestsFiltering(trimmedPrompt),
     multiScreen: promptRequestsMultiScreen(trimmedPrompt),
     random,
@@ -71,6 +76,11 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
   };
 }
 
+const CREATE_OR_REPLACE_REQUEST_PATTERN =
+  /\b(?:new|fresh)\s+(?:app|application|tool|experience)\b|\bfrom\s+scratch\b|\b(?:replace|rebuild)\s+(?:the\s+)?(?:current\s+)?(?:app|application|tool|experience)\b|^\s*(?:create|build|make|generate)\s+(?:a|an|the)?\s*.*\b(?:app|application|tool|showcase|quiz|form|list|dashboard|planner|tracker|counter|calculator|catalog|wizard)\b|(?:создай|сделай|построй|сгенерируй)\s+(?:нов[а-яё]*\s+)?(?:приложен[а-яё]*|форм[а-яё]*|спис[а-яё]*|квиз[а-яё]*|дашборд[а-яё]*|планировщик[а-яё]*)/i;
+const LEADING_MODIFY_REQUEST_PATTERN =
+  /^\s*(?:add|append|change|edit|extend|fix|keep|modify|preserve|remove|rename|switch|turn\s+(?:it|this)|update)\b|^\s*(?:добавь|дополни|измени|исправь|обнови|оставь|переименуй|сохрани|удали)\b/i;
+
 function detectPromptRequestOperation(prompt: string, options: DetectPromptRequestIntentOptions): PromptRequestOperation {
   if (options.mode === 'repair') {
     return 'repair';
@@ -78,6 +88,10 @@ function detectPromptRequestOperation(prompt: string, options: DetectPromptReque
 
   if (!prompt.trim()) {
     return 'unknown';
+  }
+
+  if (options.currentSource?.trim() && CREATE_OR_REPLACE_REQUEST_PATTERN.test(prompt) && !LEADING_MODIFY_REQUEST_PATTERN.test(prompt)) {
+    return 'create';
   }
 
   return options.currentSource?.trim() ? 'modify' : 'create';
@@ -104,6 +118,7 @@ export function detectPromptRequestIntent(prompt: string, options: DetectPromptR
 export function formatPromptRequestIntentBlock(intent: PromptRequestIntent) {
   return [
     `todo: ${intent.todo}`,
+    `controlShowcase: ${intent.controlShowcase}`,
     `filtering: ${intent.filtering}`,
     `validation: ${intent.validation}`,
     `compute: ${intent.compute}`,

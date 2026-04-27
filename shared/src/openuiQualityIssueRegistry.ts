@@ -14,6 +14,8 @@ export const OPENUI_QUALITY_ISSUE_SEVERITY_BY_CODE = {
   'inline-tool-in-repeater': 'blocking-quality',
   'item-bound-control-without-action': 'blocking-quality',
   'mutation-uses-array-index-path': 'blocking-quality',
+  'quality-missing-control-showcase-components': 'blocking-quality',
+  'quality-missing-screen-flow': 'blocking-quality',
   'quality-options-shape': 'blocking-quality',
   'quality-random-result-not-visible': 'blocking-quality',
   'quality-stale-persisted-query': 'blocking-quality',

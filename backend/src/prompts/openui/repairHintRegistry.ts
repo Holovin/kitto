@@ -113,6 +113,12 @@ const REPAIR_HINT_HANDLERS: Record<string, RepairHintHandler> = {
   'quality-missing-todo-controls': () => [
     'For a todo request, include an input for the draft value, a persisted `Query("read_state", ...)`, an `append_item` mutation for plain-object todo rows, a button action that runs the mutation and then the query, and a repeated list rendered through `@Each(...)` + `Repeater(...)`.',
   ],
+  'quality-missing-control-showcase-components': () => [
+    'For a control showcase, keep the app visible and include at least one Input, TextArea, Checkbox, RadioGroup, Select, Button, and Link.',
+  ],
+  'quality-missing-screen-flow': () => [
+    'For a multi-screen flow, declare `$currentScreen`, pass `$currentScreen == "screen-id"` as each Screen isActive value, and navigate with button actions that call `@Set($currentScreen, "...")`.',
+  ],
   'quality-options-shape': (issue) => {
     const optionsShapeContext = getOptionsShapeIssueContext(issue);
     const hints = [];

@@ -179,6 +179,7 @@ describe('builderSlice', () => {
       expect.arrayContaining([
         expect.objectContaining({
           content: 'Start streaming',
+          excludeFromLlmContext: true,
           role: 'user',
         }),
       ]),
@@ -932,5 +933,14 @@ describe('builderSlice', () => {
     expect(staleCompletion.committedSource).toBe(initialState.committedSource);
     expect(staleCompletion.streamedSource).toBe(initialState.committedSource);
     expect(staleCompletion.history).toHaveLength(1);
+    expect(staleCompletion.chatMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Cancel me',
+          excludeFromLlmContext: true,
+          role: 'user',
+        }),
+      ]),
+    );
   });
 });

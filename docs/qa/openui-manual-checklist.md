@@ -31,15 +31,15 @@ Guardrails:
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
 - Confirm the system-prompt block is stable: it shows `Base`, `intentVector: base`, and one stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
-- Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
+- Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Control showcase`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
-- Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/controlShowcase/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - Confirm the final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
-- Confirm the user prompt template says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
-- Confirm the user prompt template includes a follow-up output requirement that the summary must describe the specific change made to the existing app.
+- Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 160 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
+- Confirm the user prompt template includes a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the system prompt does not contain legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
@@ -47,9 +47,9 @@ Guardrails:
 
 ## Prompt baseline
 
-- Stable structured system prompt baseline: `systemPromptHash = ebb69b47f13a54d7`, `systemPromptCharCount = 30194`.
-- This replaces the older documented hash `884ba0033452bf56`.
-- Verified on 2026-04-25 from the current prompt builder in the repo.
+- Stable structured system prompt baseline: `systemPromptHash = f37da00067bcb7be`, `systemPromptCharCount = 30461`.
+- This replaces the older documented hash `ebb69b47f13a54d7`.
+- Verified on 2026-04-27 from the current prompt builder in the repo.
 
 ## Runtime invariants
 
@@ -78,6 +78,8 @@ Guardrails:
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
+- `quality-missing-screen-flow` is also a blocking product-quality issue for multi-screen requests: multiple screens need `$currentScreen`-based `isActive` gates and `@Set($currentScreen, ...)` navigation before commit.
+- `quality-missing-control-showcase-components` is also a blocking product-quality issue for every-control/component-showcase requests: the visible app must include `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`.
 - Parser-invalid drafts should repair through the backend repair request path or fail cleanly; the builder should not apply browser-only source rewrites before commit.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
 - Invalid source is never committed to Preview or builder history.
@@ -100,6 +102,7 @@ Guardrails:
 - Invalid or unsupported validation config must fail safely through parser/runtime issues and must not crash the app.
 - Stale streamed chunks and stale non-streaming fallback responses are ignored and must never overwrite a newer generation request.
 - Clicking `Cancel` mid-generation clears the in-progress request without appending a red chat error or committing partial source, and adds one neutral system confirmation message.
+- The cancelled user prompt remains visible in chat but is excluded from the next initial-generation `chatHistory` payload sent to the backend.
 - Leaving `/chat` mid-generation clears the in-progress request without appending a red chat error or committing partial source.
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Successful JSON import, demo load, and builder reset start fresh builder chat context for the new app or blank canvas; stale pre-change user requests must not be sent on the next generation.
@@ -198,6 +201,7 @@ Prefer the smallest working app that satisfies the latest user request.
 Do not add extra screens, filters, themes, validation, due dates, compute tools, or persisted fields unless the user asks for them.
 For simple apps, use one Screen and one or two Groups.
 If the user asks to create an app, do not return explanatory placeholder screens. Build the actual interactive UI.
+For simple counters, use local state such as `$count = 0` and buttons with `@Set($count, $count + 1)`. Use persisted tools for counters only when the user explicitly asks for reload/export persistence.
 ```
 
 Layout simplicity:
@@ -320,6 +324,11 @@ Todo request guardrails:
 - Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.
 - Inside `@Each(...)`, do not bind `Input`, `TextArea`, `Checkbox`, `RadioGroup`, or `Select` directly to `item.<field>` without an explicit `Action([...])`; those edits do not persist automatically.
 - For canonical interactive todo rows, prefer an action-mode `Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))` instead of a read-only status `Text(...)`.
+
+Control-showcase guardrails:
+
+- For `every control`, `all controls`, or component-showcase requests, include at least one visible `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`.
+- A missing required showcase control is a blocking quality issue and should repair before commit.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - `RadioGroup(...)` and `Select(...)` must receive `options` as `{ label, value }` objects, not bare strings or numbers.
 - Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.

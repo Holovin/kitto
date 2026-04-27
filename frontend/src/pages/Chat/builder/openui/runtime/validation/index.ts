@@ -80,6 +80,7 @@ export function detectLocalRuntimeQualityIssues(
       ...detectStructuralInvariantIssues(result, programIndex).map((issue) => ({
         ...issue,
         severity: 'fatal-quality' as const,
+        source: 'quality' as const,
       })),
     );
 
@@ -87,6 +88,7 @@ export function detectLocalRuntimeQualityIssues(
       ...detectInlineToolCallIssues(result).map((issue) => ({
         ...issue,
         severity: 'blocking-quality' as const,
+        source: 'quality' as const,
       })),
     );
   }
@@ -95,6 +97,7 @@ export function detectLocalRuntimeQualityIssues(
     ...detectPersistedMutationRefreshWarnings(result, programIndex).map((issue) => ({
       ...issue,
       severity: 'blocking-quality' as const,
+      source: 'quality' as const,
     })),
   );
 

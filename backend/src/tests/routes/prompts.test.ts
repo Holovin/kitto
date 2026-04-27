@@ -46,6 +46,7 @@ describe('GET /api/prompts/info', () => {
       'base',
       'todo',
       'theme',
+      'control-showcase',
       'filtering',
       'validation',
       'compute',
@@ -65,6 +66,7 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
     expect(payload.requestPromptTemplate).toContain('<intent_context>');
     expect(payload.requestPromptTemplate).toContain('<request_intent>');
+    expect(payload.requestPromptTemplate).toContain('controlShowcase: true|false');
     expect(payload.requestPromptTemplate).toContain('operation: create|modify|repair|unknown');
     expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
@@ -73,7 +75,9 @@ describe('GET /api/prompts/info', () => {
     expect(payload.requestPromptTemplate).toContain('queries: [queryName -&gt; tool(path), or none]');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
-    expect(payload.requestPromptTemplate).toContain('The `summary` MUST describe the visible app/change in 1-2 short user-facing sentences.');
+    expect(payload.requestPromptTemplate).toContain(
+      'The `summary` MUST describe the visible app/change in one complete user-facing sentence under 160 characters.',
+    );
     expect(payload.requestPromptTemplate).toContain(
       'Bad: "Updated the app." Good: "Added a required email field with inline validation to the signup form."',
     );

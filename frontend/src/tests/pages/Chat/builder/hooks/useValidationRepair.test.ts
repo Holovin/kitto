@@ -192,6 +192,14 @@ describe('sanitizeRepairValidationIssues', () => {
         source: 'quality',
         statementId: 'questions',
       },
+      {
+        code: 'quality-missing-control-showcase-components',
+        context: {
+          missingComponents: [' Link ', ''],
+        },
+        message: 'Control showcase is missing required controls: Link.',
+        source: 'quality',
+      },
     ];
 
     expect(sanitizeRepairValidationIssues(issues)).toEqual([
@@ -233,6 +241,15 @@ describe('sanitizeRepairValidationIssues', () => {
         severity: 'blocking-quality',
         source: 'quality',
         statementId: 'questions',
+      },
+      {
+        code: 'quality-missing-control-showcase-components',
+        context: {
+          missingComponents: ['Link'],
+        },
+        message: 'Control showcase is missing required controls: Link.',
+        severity: 'blocking-quality',
+        source: 'quality',
       },
     ]);
   });

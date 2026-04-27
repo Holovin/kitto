@@ -11,6 +11,8 @@ If \`<intent_context>\` conflicts with \`<latest_user_request>\`, prefer \`<late
 
 Only \`<latest_user_request>\` contains the user-authored task text.
 
+If \`<request_intent>\` says \`operation: create\`, replace unrelated current app content with the requested new app instead of preserving it.
+
 Treat \`<current_source>\` as authoritative app state.
 
 Use \`<current_source_inventory>\` as a compact index of existing statements, screens, tools, and state paths.
@@ -38,10 +40,7 @@ Build a compact todo app
 root = AppShell([])
 </current_source>
 
-Follow-up output requirement:
-- Summary must describe the specific change made to the existing app.
-
-Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in 1-2 short user-facing sentences. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition". Bad: "Updated the app." Good: "Added a required email field with inline validation to the signup form." Bad summary: "Made the requested changes." Good summary: "Adds a search filter above the product list and keeps existing item cards.""
+Place the full updated OpenUI Lang program in \`source\`. Always include a concise human-readable \`summary\`. The \`summary\` MUST describe the visible app/change in one complete user-facing sentence under 160 characters. Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition". End the summary with normal sentence punctuation and do not trail off. Bad: "Updated the app." Good: "Added a required email field with inline validation to the signup form." Bad summary: "Made the requested changes." Good summary: "Adds a search filter above the product list and keeps existing item cards.""
 `;
 
 exports[`buildOpenUiUserPrompt snapshots > keeps the repair prompt snapshot stable 1`] = `
@@ -77,7 +76,7 @@ Model draft to repair:
 root = AppShell([Group("Todo", "block", [])])
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 160 characters with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -96,5 +95,5 @@ Current critical syntax rules:
 - Validation rules must be literal arrays. To skip validation before \`action\` or \`appearance\`, use \`null\` or \`[]\`.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
 - Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$las…"
+- Do not read \`$lastCh…"
 `;

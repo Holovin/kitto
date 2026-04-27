@@ -17,9 +17,12 @@ const FILTER_REQUEST_PATTERN = /\b(filter(?:s|ed|ing)?|search)\b|(?:фильтр
 const VALIDATION_REQUEST_PATTERN =
   /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b|(?:валидац[а-яё]*|обязател[а-яё]*|ошибк[а-яё]*)/i;
 const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b|(?:случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
+const CONTROL_SHOWCASE_REQUEST_PATTERN =
+  /\b(?:every|all|each)\s+(?:control|component|field|input)s?\b|\b(?:control|component)\s+showcase\b|(?:все\s+(?:контрол[а-яё]*|компонент[а-яё]*|пол[яеи])|кажд[а-яё]*\s+(?:контрол[а-яё]*|компонент[а-яё]*))/i;
 const MULTI_SCREEN_REQUEST_PATTERN =
-  /\b(wizard|quiz|onboarding|multi[\s-]?(?:step|screen|page)|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow)\b|(?:многошаг\w*|нескольк\w*\s+экран\w*|втор\w*\s+экран\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
+  /\b(wizard|quiz|onboarding|multi[\s-]?(?:step|screen|page)|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow)\b|\b(?:two|three|four|five|several|multiple)\s+(?:screens?|pages?)\b|\b\d+\s+(?:screens?|pages?)\b|(?:многошаг\w*|нескольк\w*\s+экран\w*|втор\w*\s+экран\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
+const REQUIRED_CONTROL_SHOWCASE_COMPONENTS = ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select', 'Button', 'Link'] as const;
 
 function isSimplePrompt(prompt: string) {
   return SIMPLE_PROMPT_INCLUDE_PATTERN.test(prompt) && !SIMPLE_PROMPT_EXCLUDE_PATTERN.test(prompt);
@@ -55,6 +58,10 @@ export function promptRequestsValidation(prompt: string) {
 
 export function promptRequestsRandom(prompt: string) {
   return RANDOM_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsControlShowcase(prompt: string) {
+  return CONTROL_SHOWCASE_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsMultiScreen(prompt: string) {
@@ -110,4 +117,12 @@ export function hasRequiredTodoControls(result: ParseResult, source: string) {
     result.queryStatements.some((statement) => extractStringLiteral(statement.toolAST) === 'read_state') &&
     (hasMutationTool(result, 'append_state') || hasMutationTool(result, 'append_item'))
   );
+}
+
+export function getMissingControlShowcaseComponents(result: ParseResult) {
+  if (!result.root) {
+    return [...REQUIRED_CONTROL_SHOWCASE_COMPONENTS];
+  }
+
+  return REQUIRED_CONTROL_SHOWCASE_COMPONENTS.filter((componentName) => !hasElementType(result.root, componentName));
 }

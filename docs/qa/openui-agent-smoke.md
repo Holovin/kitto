@@ -60,18 +60,18 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
   - `Output envelope schema`.
 - The system-prompt block shows a visible `systemPromptHash`.
 - The system-prompt block is stable: it shows the `Base` system prompt, `intentVector: base`, and a single stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
-- The `Intent context` block includes intent tabs for `Base`, `Todo`, `Theme`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, sample request, and `<intent_context>` text without issuing another prompt-info request.
+- The `Intent context` block includes intent tabs for `Base`, `Todo`, `Theme`, `Control showcase`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; switching tabs changes the shown `intentVector`, sample request, and `<intent_context>` text without issuing another prompt-info request.
 - `/api/config` exposes runtime generation temperatures for builder startup: initial `0.4` and repair `0.2`.
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
 - The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
-- The `<request_intent>` block inside `<intent_context>` lists todo/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- The `<request_intent>` block inside `<intent_context>` lists todo/controlShowcase/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - The final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
 - The optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
-- The user prompt template explicitly says the structured `summary` must describe the visible app/change in 1-2 user-facing sentences, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
-- The user prompt template adds a follow-up output requirement that the summary must describe the specific change made to the existing app.
+- The user prompt template explicitly says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 160 characters, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
+- The user prompt template adds a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - The `Repair prompt` section carries the same structured-summary quality guidance and always instructs the model to return the corrected program in `source`.
 - `Output envelope schema` documents the model envelope only: `summary` and `source`.
 - The prompts page is read-only and does not show edit or copy controls.
@@ -350,7 +350,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 ### Expected
 
 - If the first draft is invalid, or valid but fails a blocking product-quality check, repair attempts may run up to `repair.maxRepairAttempts` (default: 2 attempts).
-- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
+- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, missing multi-screen flow gating, missing control-showcase controls, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - Each automatic repair request should add model context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before asking for the corrected source.
@@ -410,6 +410,7 @@ Skip if standalone export is intentionally disabled.
 - Chat toolbar previous-version, next-version, and reset buttons stay disabled until the generation is cancelled or otherwise finishes.
 - No scary red error appears for intentional cancel.
 - One neutral system chat message confirms that the user cancelled the in-flight generation.
+- The cancelled user prompt remains visible in chat but is excluded from the next `/api/llm/generate*` `chatHistory` payload.
 - Partial draft is not committed.
 - Late response does not overwrite the current app.
 - New prompt works.

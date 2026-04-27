@@ -109,6 +109,21 @@ function createInitialChatMessages(): BuilderChatMessage[] {
   return [];
 }
 
+function getGenerationUserMessageKey(requestId: BuilderRequestId): BuilderChatMessage['messageKey'] {
+  return `generation-user:${requestId}`;
+}
+
+function excludeGenerationUserMessageFromLlmContext(messages: BuilderChatMessage[], requestId: BuilderRequestId) {
+  const messageKey = getGenerationUserMessageKey(requestId);
+  const message = messages.find((entry) => entry.messageKey === messageKey);
+
+  if (message?.role !== 'user') {
+    return;
+  }
+
+  message.excludeFromLlmContext = true;
+}
+
 function isBuilderChatRole(value: string): value is BuilderChatMessage['role'] {
   return BUILDER_CHAT_MESSAGE_ROLES.includes(value as BuilderChatMessage['role']);
 }
@@ -425,7 +440,10 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.streamedSource = '';
       state.parseIssues = [];
-      state.chatMessages = pushMessage(state.chatMessages, createMessage('user', action.payload.prompt));
+      state.chatMessages = pushMessage(
+        state.chatMessages,
+        createMessage('user', action.payload.prompt, 'default', getGenerationUserMessageKey(action.payload.requestId)),
+      );
     },
     appendStreamChunk(state, action: PayloadAction<{ chunk: string; requestId: BuilderRequestId }>) {
       if (action.payload.requestId !== state.currentRequestId) {
@@ -522,6 +540,7 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.streamedSource = state.committedSource;
       state.parseIssues = [];
+      excludeGenerationUserMessageFromLlmContext(state.chatMessages, action.payload.requestId);
     },
     rejectDefinition(
       state,
