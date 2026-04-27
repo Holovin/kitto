@@ -635,9 +635,34 @@ export function collectOwnedActionRunRefGroups(value: unknown): OpenUiOwnedActio
 
 function findMatchingParen(source: string, openParenIndex: number) {
   let depth = 0;
+  let activeQuote: '"' | "'" | null = null;
+  let isEscaped = false;
 
   for (let index = openParenIndex; index < source.length; index += 1) {
     const character = source[index];
+
+    if (activeQuote) {
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (character === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (character === activeQuote) {
+        activeQuote = null;
+      }
+
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      activeQuote = character;
+      continue;
+    }
 
     if (character === '(') {
       depth += 1;
@@ -663,10 +688,35 @@ function splitTopLevelArguments(source: string) {
   let depthParen = 0;
   let depthBracket = 0;
   let depthBrace = 0;
+  let activeQuote: '"' | "'" | null = null;
+  let isEscaped = false;
   let segmentStart = 0;
 
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
+
+    if (activeQuote) {
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (character === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (character === activeQuote) {
+        activeQuote = null;
+      }
+
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      activeQuote = character;
+      continue;
+    }
 
     if (character === '(') {
       depthParen += 1;
@@ -710,7 +760,10 @@ function splitTopLevelArguments(source: string) {
   return args;
 }
 
-function collectRunRefsFromActionSource(source: string): OpenUiActionRunRef[] {
+function collectRunRefsFromActionSource(
+  source: string,
+  resolveRunRefType: (statementId: string) => OpenUiActionRunRef['refType'] | null,
+): OpenUiActionRunRef[] {
   const runRefs: OpenUiActionRunRef[] = [];
   const runRefPattern = /@Run\s*\(\s*([A-Za-z_][\w$]*)\s*\)/g;
   let match = runRefPattern.exec(source);
@@ -723,8 +776,15 @@ function collectRunRefsFromActionSource(source: string): OpenUiActionRunRef[] {
       continue;
     }
 
+    const refType = resolveRunRefType(statementId);
+
+    if (!refType) {
+      match = runRefPattern.exec(source);
+      continue;
+    }
+
     runRefs.push({
-      refType: 'mutation',
+      refType,
       statementId,
     });
     match = runRefPattern.exec(source);
@@ -733,7 +793,10 @@ function collectRunRefsFromActionSource(source: string): OpenUiActionRunRef[] {
   return runRefs;
 }
 
-function collectOwnedActionRunRefGroupsFromSourceText(source: string): OpenUiOwnedActionRunRefGroup[] {
+function collectOwnedActionRunRefGroupsFromSourceText(
+  source: string,
+  resolveRunRefType: (statementId: string) => OpenUiActionRunRef['refType'] | null,
+): OpenUiOwnedActionRunRefGroup[] {
   const actionGroups: OpenUiOwnedActionRunRefGroup[] = [];
 
   function visit(text: string) {
@@ -760,7 +823,7 @@ function collectOwnedActionRunRefGroupsFromSourceText(source: string): OpenUiOwn
       const actionArg = args.find((arg) => /^\s*Action\s*\(/.test(arg));
 
       if (actionArg) {
-        const actionRunRefs = collectRunRefsFromActionSource(actionArg);
+        const actionRunRefs = collectRunRefsFromActionSource(actionArg, resolveRunRefType);
 
         if (actionRunRefs.length > 0) {
           actionGroups.push({
@@ -783,9 +846,32 @@ function collectOwnedActionRunRefGroupsFromSourceText(source: string): OpenUiOwn
 export function createOpenUiProgramIndex(result: OpenUiParseResultLike, source = ''): OpenUiProgramIndex {
   const topLevelStatements = collectTopLevelStatements(source);
   const statementById = new Map(topLevelStatements.map((statement) => [statement.statementId, statement]));
+  const runRefTypeByStatementId = new Map<string, OpenUiActionRunRef['refType']>();
+
+  result.queryStatements.forEach((statement) => runRefTypeByStatementId.set(statement.statementId, 'query'));
+  result.mutationStatements.forEach((statement) => runRefTypeByStatementId.set(statement.statementId, 'mutation'));
+
+  topLevelStatements.forEach((statement) => {
+    if (runRefTypeByStatementId.has(statement.statementId)) {
+      return;
+    }
+
+    const valueSource = statement.rawValueSource.trimStart();
+
+    if (/^Query\s*\(/.test(valueSource)) {
+      runRefTypeByStatementId.set(statement.statementId, 'query');
+      return;
+    }
+
+    if (/^Mutation\s*\(/.test(valueSource)) {
+      runRefTypeByStatementId.set(statement.statementId, 'mutation');
+    }
+  });
+
+  const resolveRunRefType = (statementId: string) => runRefTypeByStatementId.get(statementId) ?? null;
   const ownedActionRunRefGroups = [
     ...collectOwnedActionRunRefGroups(result.root),
-    ...(source ? collectOwnedActionRunRefGroupsFromSourceText(maskStringLiterals(source)) : []),
+    ...(source ? collectOwnedActionRunRefGroupsFromSourceText(maskStringLiterals(source), resolveRunRefType) : []),
   ];
 
   return {

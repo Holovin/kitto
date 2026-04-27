@@ -1249,6 +1249,50 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not read streaming request bodies while recording rate-limit rejections', async () => {
+    const { app } = createRouteApp({
+      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
+      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      LLM_REQUEST_MAX_BYTES: 2,
+    });
+
+    const firstResponse = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: '{',
+    });
+    const rateLimitedRequestInit: RequestInit & { duplex: 'half' } = {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: createStreamingBody(
+        JSON.stringify({
+          prompt: 'generate a tiny app',
+          currentSource: '',
+          chatHistory: [],
+        }),
+      ),
+      duplex: 'half',
+    };
+    const rateLimitedResponse = await app.request('/api/llm/generate', rateLimitedRequestInit);
+
+    expect(firstResponse.status).toBe(400);
+    expect(rateLimitedResponse.status).toBe(429);
+    expect(await rateLimitedResponse.json()).toEqual({
+      error: 'Too many LLM requests. Please wait a moment and try again.',
+    });
+    expect(writePromptIoIntakeFailureSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        errorCode: 'rate_limited',
+        requestBytes: null,
+      }),
+    );
+  });
+
   it('does not grant a fallback rate-limit exemption after a pre-activity upstream API error', async () => {
     const { app } = createRouteApp({
       LLM_RATE_LIMIT_MAX_REQUESTS: 1,

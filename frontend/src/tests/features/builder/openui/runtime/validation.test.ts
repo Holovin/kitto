@@ -4,6 +4,7 @@ import {
   validateOpenUiSource,
   validateOpenUiSourceWithContext,
 } from '@features/builder/openui/runtime/validation';
+import { createOpenUiProgramIndex, parser } from '@features/builder/openui/runtime/validation/shared';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -1459,5 +1460,46 @@ root = AppShell([
 ])`);
 
     expect(issues.find((issue) => issue.code === 'quality-stale-persisted-query')).toBeUndefined();
+  });
+});
+
+describe('createOpenUiProgramIndex', () => {
+  it('classifies source-fallback @Run refs as queries or mutations', () => {
+    const source = `items = Query("read_state", { path: "app.items" }, [])
+saveItems = Mutation("write_state", {
+  path: "app.items",
+  value: []
+})
+
+root = AppShell([
+  Screen("main", "Main", [
+    Group("Hello, World", "vertical", [
+      Button("sync", "Sync", "default", Action([@Run(saveItems), @Run(items)]), false)
+    ])
+  ])
+])`;
+    const parseResult = parser.parse(source);
+    const programIndex = createOpenUiProgramIndex(parseResult, source);
+    const sourceFallbackActionGroups = programIndex.ownedActionRunRefGroups.filter(
+      (actionGroup) => actionGroup.ownerStatementId === undefined,
+    );
+
+    expect(sourceFallbackActionGroups).toEqual(
+      expect.arrayContaining([
+        {
+          ownerTypeName: 'Button',
+          runRefs: [
+            {
+              refType: 'mutation',
+              statementId: 'saveItems',
+            },
+            {
+              refType: 'query',
+              statementId: 'items',
+            },
+          ],
+        },
+      ]),
+    );
   });
 });

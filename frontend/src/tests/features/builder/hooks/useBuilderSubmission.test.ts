@@ -68,6 +68,27 @@ const testHarness = vi.hoisted(() => {
       return callback;
     }
 
+    useEffectEvent<Callback extends (...args: never[]) => unknown>(callback: Callback) {
+      const index = this.cursor;
+      this.cursor += 1;
+
+      const previous = this.hookValues[index] as { callback: Callback; event: Callback } | undefined;
+
+      if (previous) {
+        previous.callback = callback;
+        return previous.event;
+      }
+
+      const state: { callback: Callback; event: Callback } = {
+        callback,
+        event: undefined as unknown as Callback,
+      };
+      state.event = ((...args: Parameters<Callback>) => state.callback(...args)) as Callback;
+      this.hookValues[index] = state;
+
+      return state.event;
+    }
+
     useEffect(effect: () => Cleanup, deps?: unknown[]) {
       const index = this.cursor;
       this.cursor += 1;
@@ -155,6 +176,9 @@ vi.mock('react', async () => {
       return getRuntime().useCallback(callback, deps);
     },
     useEffect: (effect: () => void | (() => void), deps?: unknown[]) => getRuntime().useEffect(effect, deps),
+    useEffectEvent: <Callback extends (...args: never[]) => unknown>(callback: Callback) => {
+      return getRuntime().useEffectEvent(callback);
+    },
     useRef: <Value>(initialValue: Value) => getRuntime().useRef(initialValue),
   };
 });

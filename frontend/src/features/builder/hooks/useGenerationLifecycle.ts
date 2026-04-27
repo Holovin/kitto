@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { generateBuilderDefinition } from '@features/builder/api/generateDefinition';
 import { createRequestId } from '@features/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@features/builder/api/requestErrors';
@@ -48,20 +48,9 @@ export function useGenerationLifecycle({
     registerCancelActiveRequest,
   } = useBuilderRequestControls();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
-  const cancelRequestRef = useRef<CancelRequest | null>(null);
   const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
   const isStreaming = useAppSelector(selectIsStreaming);
   const isSubmitting = isStreaming;
-
-  useEffect(() => {
-    return () => {
-      const requestId = activeRequestIdRef.current;
-
-      if (requestId) {
-        cancelRequestRef.current?.(requestId, { abort: true });
-      }
-    };
-  }, []);
 
   function isActiveRequest(requestId: BuilderRequestId) {
     return activeRequestIdRef.current === requestId && store.getState().builder.currentRequestId === requestId;
@@ -137,9 +126,19 @@ export function useGenerationLifecycle({
     }
   }
 
-  useEffect(() => {
-    cancelRequestRef.current = cancelRequest;
+  const cancelRequestEvent = useEffectEvent<CancelRequest>((requestId, options) => {
+    cancelRequest(requestId, options);
   });
+
+  useEffect(() => {
+    return () => {
+      const requestId = activeRequestIdRef.current;
+
+      if (requestId) {
+        cancelRequestEvent(requestId, { abort: true });
+      }
+    };
+  }, []);
 
   function failRequest(requestId: BuilderRequestId, error: unknown, options?: { abort?: boolean; retryPrompt?: string | null }) {
     const technicalDetails = getBuilderRequestErrorMessage(error);
@@ -261,7 +260,7 @@ export function useGenerationLifecycle({
       }
 
       onSystemNotice(null);
-      cancelRequestRef.current?.(requestId, { abort: true });
+      cancelRequestEvent(requestId, { abort: true });
     });
   }, [onSystemNotice, registerCancelActiveRequest]);
 

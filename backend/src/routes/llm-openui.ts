@@ -1,6 +1,5 @@
 import { Hono, type Context } from 'hono';
 import type { AppEnv } from '#backend/env.js';
-import { getByteLength } from '#backend/limits.js';
 import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
 import { createInMemoryRateLimitMiddleware } from '#backend/middleware/rateLimit.js';
 import {
@@ -173,7 +172,7 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
     await telemetry.recordIntake({
       errorCode: 'rate_limited',
       errorMessage: 'Too many LLM requests. Please wait a moment and try again.',
-      requestBytes: getRequestBytesFromContext(context) ?? getByteLength(await context.req.text()),
+      requestBytes: getRequestBytesFromContext(context),
       requestId: getRequestIdFromContext(context),
     });
   };
