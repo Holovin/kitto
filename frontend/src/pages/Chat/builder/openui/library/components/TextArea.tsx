@@ -64,7 +64,6 @@ function OpenUiTextAreaRenderer({ props }: TextAreaRendererProps) {
         value={field.value ?? ''}
         onBlur={onBlur}
         onChange={(event) => {
-          onBlur();
           field.setValue(event.target.value);
         }}
       />
