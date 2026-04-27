@@ -1,4 +1,5 @@
 import { useConfigQuery, useHealthQuery } from '@api/apiSlice';
+import { useOptionalBackendConnectionState } from '@pages/Chat/builder/context/backendConnectionState';
 import { getBuilderRuntimeConfigStatus } from '@pages/Chat/builder/config';
 import type { BuilderConnectionStatus } from '@pages/Chat/builder/types';
 
@@ -9,12 +10,17 @@ const HEALTH_POLLING_OPTIONS = {
 } as const;
 
 export function useBackendConnectionState() {
-  return useHealthQuery(undefined, {
+  const sharedConnectionState = useOptionalBackendConnectionState();
+
+  const fallbackConnectionState = useHealthQuery(undefined, {
     ...HEALTH_POLLING_OPTIONS,
+    skip: sharedConnectionState !== null,
     selectFromResult: ({ isError }) => ({
       isError,
     }),
   });
+
+  return sharedConnectionState ?? fallbackConnectionState;
 }
 
 export function useBuilderBootstrap() {

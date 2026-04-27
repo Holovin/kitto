@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@components/ui/button';
+import { BackendConnectionStateProvider } from '@pages/Chat/builder/context/backendConnectionState';
 import { BootLoader } from '@pages/Chat/builder/components/BootLoader';
 import { useBuilderBootstrap } from '@pages/Chat/builder/hooks/useBuilderBootstrap';
 import { StatusBadge } from '@pages/Chat/builder/components/StatusBadge';
@@ -53,7 +54,9 @@ export function BaseLayout() {
         </header>
 
         <main className="flex flex-1 min-h-0">
-          <Outlet />
+          <BackendConnectionStateProvider isError={connectionStatus === 'disconnected'}>
+            <Outlet />
+          </BackendConnectionStateProvider>
         </main>
       </div>
     </div>

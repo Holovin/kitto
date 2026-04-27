@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createPartialOpenUiEnvelopeParser } from '@pages/Chat/builder/api/partialOpenUiEnvelope';
+import {
+  createPartialOpenUiEnvelopeParser,
+  isMalformedStructuredChunk,
+} from '@pages/Chat/builder/api/partialOpenUiEnvelope';
 
 describe('partialOpenUiEnvelope', () => {
   it('incrementally extracts top-level summary and source string values', () => {
@@ -74,5 +77,18 @@ describe('partialOpenUiEnvelope', () => {
         value: 'top',
       },
     });
+  });
+
+  it('detects complete structured chunks that cannot expose a top-level source or summary string', () => {
+    expect(isMalformedStructuredChunk('{"source": }')).toBe(true);
+    expect(isMalformedStructuredChunk('{"metadata":{"source":"nested"}}')).toBe(true);
+    expect(isMalformedStructuredChunk('{"source":"root = AppShell([])"}')).toBe(false);
+    expect(isMalformedStructuredChunk('{"summary":"Builds a blank app."}')).toBe(false);
+  });
+
+  it('does not treat partial or unrelated chunks as malformed structured chunks', () => {
+    expect(isMalformedStructuredChunk('{"source":"root = App')).toBe(false);
+    expect(isMalformedStructuredChunk('root = AppShell([])')).toBe(false);
+    expect(isMalformedStructuredChunk('{"metadata":"source code"}')).toBe(false);
   });
 });

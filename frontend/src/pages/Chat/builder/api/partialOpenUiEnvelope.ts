@@ -11,6 +11,8 @@ interface PartialOpenUiEnvelope {
 type PartialOpenUiEnvelopeKey = keyof PartialOpenUiEnvelope;
 type JsonStringTarget = PartialOpenUiEnvelopeKey | 'key' | 'skip';
 
+const trackedStructuredChunkKeyLiterals = new Set(['"source"', '"summary"']);
+
 interface ActiveJsonString {
   invalidUnicodeEscape: boolean;
   pendingEscape: boolean;
@@ -26,6 +28,84 @@ function isHexDigit(value: string) {
 
 function isJsonWhitespace(value: string) {
   return value === ' ' || value === '\n' || value === '\r' || value === '\t';
+}
+
+function skipJsonWhitespace(input: string, startIndex: number) {
+  let index = startIndex;
+
+  while (index < input.length && isJsonWhitespace(input[index])) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function findJsonStringEnd(input: string, startIndex: number) {
+  let pendingEscape = false;
+
+  for (let index = startIndex + 1; index < input.length; index += 1) {
+    const currentCharacter = input[index];
+
+    if (pendingEscape) {
+      pendingEscape = false;
+      continue;
+    }
+
+    if (currentCharacter === '\\') {
+      pendingEscape = true;
+      continue;
+    }
+
+    if (currentCharacter === '"') {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function hasTopLevelTrackedStringValue(input: string) {
+  let depth = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const currentCharacter = input[index];
+
+    if (currentCharacter === '"') {
+      const stringEnd = findJsonStringEnd(input, index);
+
+      if (stringEnd === -1) {
+        return false;
+      }
+
+      const stringLiteral = input.slice(index, stringEnd + 1);
+
+      if (depth === 1 && trackedStructuredChunkKeyLiterals.has(stringLiteral)) {
+        const colonIndex = skipJsonWhitespace(input, stringEnd + 1);
+
+        if (input[colonIndex] === ':') {
+          const valueIndex = skipJsonWhitespace(input, colonIndex + 1);
+
+          if (input[valueIndex] === '"') {
+            return true;
+          }
+        }
+      }
+
+      index = stringEnd;
+      continue;
+    }
+
+    if (currentCharacter === '{' || currentCharacter === '[') {
+      depth += 1;
+      continue;
+    }
+
+    if (currentCharacter === '}' || currentCharacter === ']') {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+
+  return false;
 }
 
 function cloneParsedEnvelope(envelope: PartialOpenUiEnvelope): PartialOpenUiEnvelope {
@@ -269,6 +349,5 @@ export function isMalformedStructuredChunk(chunk: string) {
     return false;
   }
 
-  const parsedChunk = createPartialOpenUiEnvelopeParser().append(trimmedChunk);
-  return parsedChunk.source === undefined && parsedChunk.summary === undefined;
+  return !hasTopLevelTrackedStringValue(trimmedChunk);
 }
