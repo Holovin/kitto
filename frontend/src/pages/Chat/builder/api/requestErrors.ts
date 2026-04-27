@@ -63,6 +63,14 @@ function isSerializedError(error: unknown): error is SerializedError {
   return isRecord(error) && ('message' in error || 'name' in error || 'stack' in error);
 }
 
+function getFetchBaseQueryErrorMessage(error: FetchBaseQueryError) {
+  const rawMessage = 'error' in error ? error.error : undefined;
+
+  return typeof rawMessage === 'string' && rawMessage.trim()
+    ? rawMessage
+    : 'The request failed before the builder received a valid response.';
+}
+
 function normalizeBuilderError(error: unknown): NormalizedBuilderError {
   if (error instanceof BuilderRequestError) {
     return {
@@ -102,7 +110,7 @@ function normalizeBuilderError(error: unknown): NormalizedBuilderError {
     }
 
     return {
-      message: error.error || 'The request failed before the builder received a valid response.',
+      message: getFetchBaseQueryErrorMessage(error),
     };
   }
 
