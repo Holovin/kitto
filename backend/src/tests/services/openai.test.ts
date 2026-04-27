@@ -767,11 +767,12 @@ describe('generateOpenUiSource', () => {
     const themeCall = responsesCreateMock.mock.calls[2]?.[0];
 
     expect(firstTodoCall?.prompt_cache_key).toBe(secondTodoCall?.prompt_cache_key);
-    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
-    expect(themeCall?.prompt_cache_key).toBe(firstTodoCall?.prompt_cache_key);
+    expect(firstTodoCall?.prompt_cache_key).toMatch(/^kitto:openui:t:[a-f0-9]{12}$/);
+    expect(themeCall?.prompt_cache_key).toMatch(/^kitto:openui:th:[a-f0-9]{12}$/);
+    expect(themeCall?.prompt_cache_key).not.toBe(firstTodoCall?.prompt_cache_key);
     expect(firstTodoCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
-    expect(themeCall?.input?.[0]?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
-    expect(themeCall?.input?.at(-2)?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
+    expect(themeCall?.input?.[0]?.content?.[0]?.text).toContain('APPEARANCE / THEME CONTRACT:');
+    expect(themeCall?.input?.at(-2)?.content?.[0]?.text).not.toContain('APPEARANCE / THEME CONTRACT:');
   });
 
   it('logs cached token usage from non-stream Responses API usage details', async () => {

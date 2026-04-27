@@ -60,8 +60,8 @@ describe('GET /api/prompts/info', () => {
       label: 'Todo',
       sampleRequest: 'Create a todo list.',
     });
-    expect(todoIntentContextVariant?.text).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(todoIntentContextVariant?.text).toContain('Todo/task list pattern:');
+    expect(todoIntentContextVariant?.text).toContain('Checkbox("toggle-" + item.id');
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn request/source block sent after the intent-context separator:');
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');

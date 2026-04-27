@@ -5,6 +5,7 @@ import {
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
   buildOpenUiSystemPrompt,
+  buildOpenUiSystemPromptForIntents,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
 } from '#backend/prompts/openui.js';
@@ -46,75 +47,49 @@ function buildBasePrompt() {
 }
 
 function buildTodoPrompt() {
-  return buildOpenUiIntentContextPrompt({
+  return buildLayeredPromptForRequest('Create a todo list');
+}
+
+function buildLayeredPromptForRequest(prompt: string) {
+  const request = {
     prompt: 'Create a todo list',
     currentSource: '',
     mode: 'initial',
     chatHistory: [],
-  });
+  } as const;
+  const actualRequest = { ...request, prompt };
+  return [
+    buildOpenUiSystemPromptForIntents(detectPromptRequestIntent(prompt, actualRequest)),
+    buildOpenUiIntentContextPrompt(actualRequest),
+  ].join('\n\n');
 }
 
 function buildThemePrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Create a dark mode profile form',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Create a dark mode profile form');
 }
 
 function buildValidationPrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Create a signup form with email validation and a required agreement checkbox',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Create a signup form with email validation and a required agreement checkbox');
 }
 
 function buildFilteringPrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Create a filtered items app',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Create a filtered items app');
 }
 
 function buildMultiScreenPrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Build a two-step quiz',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Build a two-step quiz');
 }
 
 function buildRandomPrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Roll a dice',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Roll a dice');
 }
 
 function buildComputePrompt() {
-  return buildOpenUiIntentContextPrompt({
-    prompt: 'Compare dates in a deadline checker',
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest('Compare dates in a deadline checker');
 }
 
 function buildIntentContextPrompt(prompt: string) {
-  return buildOpenUiIntentContextPrompt({
-    prompt,
-    currentSource: '',
-    mode: 'initial',
-    chatHistory: [],
-  });
+  return buildLayeredPromptForRequest(prompt);
 }
 
 describe('openui prompts', () => {
@@ -187,7 +162,6 @@ describe('openui prompts', () => {
     expect(basePrompt).not.toContain('APPEARANCE / THEME CONTRACT:');
     expect(basePrompt).not.toContain('CANONICAL BUTTON-TRIGGERED RANDOM / COMPUTE RECIPE:');
     expect(todoPrompt).toContain('<intent_context>');
-    expect(todoPrompt).toContain('Intent-specific rules:');
     expect(todoPrompt).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(todoPrompt).toContain(
       'Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")',
@@ -200,10 +174,12 @@ describe('openui prompts', () => {
     expect(todoPrompt).not.toContain('$currentScreen = "question"');
   });
 
-  it('uses one stable system prompt cache key across different intent vectors', () => {
+  it('uses stable system prompt cache keys per intent vector', () => {
     const baseKey = getOpenUiSystemPromptCacheKey();
+    const todoKey = getOpenUiSystemPromptCacheKey(detectPromptRequestIntent('Create a todo list.'));
 
     expect(baseKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
+    expect(todoKey).toMatch(/^kitto:openui:t:[a-f0-9]{12}$/);
     expect(getOpenUiSystemPromptCacheKey()).toBe(baseKey);
     expect(baseKey.length).toBeLessThanOrEqual(64);
   });
@@ -669,9 +645,10 @@ describe('openui prompts', () => {
 
   it('keeps the generated system prompt aligned with the supported tool list', () => {
     const prompt = buildOpenUiSystemPrompt();
+    const computePrompt = buildOpenUiSystemPromptForIntents(detectPromptRequestIntent('Roll a dice.'));
 
     for (const toolName of supportedToolNames) {
-      expect(prompt).toContain(`- ${toolName}(`);
+      expect(`${prompt}\n${computePrompt}`).toContain(`- ${toolName}(`);
     }
 
     expect(prompt).toContain('Use ONLY the tools listed above');

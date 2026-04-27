@@ -3,7 +3,6 @@ import { filterPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildCh
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
 import { detectPromptRequestIntent, formatPromptRequestIntentBlock } from './promptIntents.js';
-import { buildIntentSpecificRulesForPrompt } from './rules.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';
 import { STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION } from './summaryRules.js';
 import { buildIntentToolExamplesForPrompt, buildStableToolExamples } from './toolExamples.js';
@@ -48,7 +47,7 @@ function buildPromptExemplarSection(title: string, exemplars: ReturnType<typeof 
 
 function buildPromptRuleSection(rules: string[]) {
   if (rules.length === 0) {
-    return 'Intent-specific rules:\nnone';
+    return null;
   }
 
   return ['Intent-specific rules:', ...rules.map((rule) => `- ${rule}`)].join('\n');
@@ -210,11 +209,11 @@ export function buildOpenUiUserPromptTemplate() {
         'If this context conflicts with the later `<latest_user_request>`, prefer `<latest_user_request>`.',
         'Only `<latest_user_request>` contains the user-authored task text.',
         buildPromptDataBlock('request_intent', REQUEST_INTENT_TEMPLATE_BLOCK),
-        'Intent-specific rules:',
-        '[intent-specific bullets only when they help the latest request]',
-        '',
         'Relevant patterns:',
         '[intent-specific examples only when they help the latest request]',
+        '',
+        'Additional OpenUI examples:',
+        '[stable examples and intent-specific examples when they help the latest request]',
       ].join('\n\n'),
     ),
     '',
@@ -250,7 +249,7 @@ export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
 
   return buildIntentContextTurn(
     requestIntentBlock,
-    buildIntentSpecificRulesForPrompt(intentPrompt),
+    [],
     getRelevantRequestExemplars(rawUserRequest),
     [...new Set([...buildStableToolExamples(), ...buildIntentToolExamplesForPrompt(intentPrompt)])],
   );

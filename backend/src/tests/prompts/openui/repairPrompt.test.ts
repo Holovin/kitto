@@ -478,12 +478,11 @@ root = AppShell([problemGroup])`,
       ...baseArgs,
       promptMaxChars: fullPrompt.length - 120,
     });
-    const committedSection = extractSection(prompt, 'Current committed valid OpenUI source', ['Quality issues']);
     const draftSection = extractSection(prompt, 'Model draft to repair', ['Current critical syntax rules']);
 
     expect(draftSection).toContain('DRAFT-TAIL');
-    expect(committedSection).toContain('…');
-    expect(committedSection).not.toContain('COMMITTED-TAIL');
+    expect(prompt).not.toContain('Current committed valid OpenUI source');
+    expect(prompt).not.toContain('COMMITTED-TAIL');
   });
 
   it('keeps parser repairs biased toward the committed source baseline when tightly budgeted', () => {

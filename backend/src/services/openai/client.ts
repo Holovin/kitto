@@ -8,7 +8,8 @@ import {
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
   buildOpenUiRepairRoleMessages,
-  buildOpenUiSystemPrompt,
+  buildOpenUiSystemPromptForIntents,
+  detectPromptRequestIntent,
   filterPromptBuildChatHistory,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
@@ -165,6 +166,12 @@ function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: str
 }
 
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
+  const requestIntent = detectPromptRequestIntent(request.prompt, {
+    currentSource: request.currentSource,
+    mode: request.mode,
+  });
+  const systemPrompt = buildOpenUiSystemPromptForIntents(requestIntent);
+
   if (request.mode === 'repair') {
     const repairMessages = buildOpenUiRepairRoleMessages({
       attemptNumber: request.repairAttemptNumber ?? 1,
@@ -178,14 +185,14 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
     });
 
     return [
-      createTextInputMessage('system', [buildOpenUiSystemPrompt(), repairMessages.systemInstruction].join('\n\n')),
+      createTextInputMessage('system', [systemPrompt, repairMessages.systemInstruction].join('\n\n')),
       createTextInputMessage('user', repairMessages.requestContext),
       createTextInputMessage('assistant', repairMessages.failedDraft),
       createTextInputMessage('user', repairMessages.correctionRequest),
     ];
   }
 
-  const systemMessage = createTextInputMessage('system', buildOpenUiSystemPrompt());
+  const systemMessage = createTextInputMessage('system', systemPrompt);
   const intentContextMessage = createTextInputMessage('user', buildOpenUiIntentContextPrompt(request));
   const recentHistory = request.chatHistory;
 
@@ -202,11 +209,16 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
 }
 
 export function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
+  const requestIntent = detectPromptRequestIntent(request.prompt, {
+    currentSource: request.currentSource,
+    mode: request.mode,
+  });
+
   return {
     model: env.OPENAI_MODEL,
     input: buildResponseInput(env, request),
     max_output_tokens: getOpenUiMaxOutputTokens(env),
-    prompt_cache_key: getOpenUiSystemPromptCacheKey(),
+    prompt_cache_key: getOpenUiSystemPromptCacheKey(requestIntent),
     temperature: getOpenUiTemperature(request.mode),
     text: {
       format: openUiEnvelopeFormat,

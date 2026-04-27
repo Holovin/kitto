@@ -168,50 +168,6 @@ rows = @Each(visibleItems, "item", Group(null, "horizontal", [Text(item.title, "
 root = AppShell([Screen("main", "Items", [Repeater(rows, "No items")])])
 \`\`\`
 
-## Available Tools
-
-Use these with Query() for read operations or Mutation() for write operations. The tool list is closed; do not invent tool names.
-
-- read_state(path: string) -> any
-  Read a value from the persisted browser data tree at a non-empty dot-path.
-- compute_value(op: string, input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: string) -> any
-  Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Do not use it for button-triggered roll-on-click randomness; use \`write_computed_state\` plus \`Query("read_state", ...)\` instead. Returns an object shaped like \`{ value }\`.
-- write_computed_state(path: string, op: string, input?: any, left?: any, right?: any, values?: any[], options?: object, returnType?: string) -> any
-  Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like \`{ value }\`. Use it for button-triggered computed values such as random rolls that should persist for later rendering. After the action, re-read the visible value with \`Query("read_state", ...)\` instead of rendering the Mutation ref directly.
-- write_state(path: string, value: any) -> any
-  Replace the persisted value at a non-empty dot-path.
-- merge_state(path: string, patch: object) -> any
-  Shallow-merge a plain-object patch into the persisted value at a non-empty dot-path.
-- append_state(path: string, value: any) -> any
-  Append a JSON-compatible value to an array stored at a non-empty dot-path. Prefer \`append_item\` when the array stores plain-object rows that need stable ids for later row actions.
-- append_item(path: string, value: object) -> any
-  Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided unique non-empty string or finite number \`id\`; otherwise generates a stable unique \`id\`.
-- toggle_item_field(path: string, idField: string, id: string | number, field: string) -> any
-  Find one plain-object row inside an array by id and toggle one safe field. Use it for booleans such as completed, done, selected, or archived.
-- update_item_field(path: string, idField: string, id: string | number, field: string, value: any) -> any
-  Find one plain-object row inside an array by id and replace one safe field with a JSON-compatible value.
-- remove_item(path: string, idField: string, id: string | number) -> any
-  Remove one plain-object row from an array by matching an item id field. Prefer it over index-based deletion when the collection stores object rows.
-- remove_state(path: string, index: number) -> any
-  Remove an array item by non-negative index from the persisted value at a non-empty dot-path.
-
-### Default values for Query results
-
-Use these shapes as minimal Query defaults:
-- read_state: \`null\`
-- compute_value: \`null\`
-- write_computed_state: \`null\`
-- write_state: \`null\`
-- merge_state: \`null\`
-- append_state: \`null\`
-- append_item: \`null\`
-- toggle_item_field: \`null\`
-- update_item_field: \`null\`
-- remove_item: \`null\`
-- remove_state: \`null\`
-
-CRITICAL: Use ONLY the tools listed above in Query() and Mutation() calls. Do NOT invent or guess tool names. If the user asks for functionality that does not match any available tool, use local state or realistic static data instead of fabricating a tool call.
-
 ## Hoisting & Statement Order
 
 OpenUI Lang supports hoisting: a reference can be used before it is defined, and the parser resolves references after the full input is parsed.
@@ -333,5 +289,43 @@ Before finishing, walk your output and verify:
 - Every referenced identifier must be defined in the final source exactly once. Never leave unresolved references such as @Run(deleteTodo) without a matching statement.
 - Before returning, mentally verify every Repeater(...), @Run(...), component reference, and statement identifier so the program has zero unresolved references.
 - Generated apps must stay browser-safe and must not depend on server-side execution after generation.
-- Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them."
+- Support flows involving text fields, collections, buttons, local state, and filtering or conditional rendering when the user asks for them.
+
+## Available Tools
+
+Use these with Query() for read operations or Mutation() for write operations. The tool list is closed; do not invent tool names.
+
+- read_state(path: string) -> any
+  Read a value from the persisted browser data tree at a non-empty dot-path.
+- write_state(path: string, value: any) -> any
+  Replace the persisted value at a non-empty dot-path.
+- merge_state(path: string, patch: object) -> any
+  Shallow-merge a plain-object patch into the persisted value at a non-empty dot-path.
+- append_state(path: string, value: any) -> any
+  Append a JSON-compatible value to an array stored at a non-empty dot-path. Prefer \`append_item\` when the array stores plain-object rows that need stable ids for later row actions.
+- append_item(path: string, value: object) -> any
+  Append one plain-object row to an array stored at a non-empty dot-path. Keeps a provided unique non-empty string or finite number \`id\`; otherwise generates a stable unique \`id\`.
+- toggle_item_field(path: string, idField: string, id: string | number, field: string) -> any
+  Find one plain-object row inside an array by id and toggle one safe field. Use it for booleans such as completed, done, selected, or archived.
+- update_item_field(path: string, idField: string, id: string | number, field: string, value: any) -> any
+  Find one plain-object row inside an array by id and replace one safe field with a JSON-compatible value.
+- remove_item(path: string, idField: string, id: string | number) -> any
+  Remove one plain-object row from an array by matching an item id field. Prefer it over index-based deletion when the collection stores object rows.
+- remove_state(path: string, index: number) -> any
+  Remove an array item by non-negative index from the persisted value at a non-empty dot-path.
+
+### Default values for Query results
+
+Use these shapes as minimal Query defaults:
+- read_state: \`null\`
+- write_state: \`null\`
+- merge_state: \`null\`
+- append_state: \`null\`
+- append_item: \`null\`
+- toggle_item_field: \`null\`
+- update_item_field: \`null\`
+- remove_item: \`null\`
+- remove_state: \`null\`
+
+CRITICAL: Use ONLY the tools listed above in Query() and Mutation() calls. Do NOT invent or guess tool names. If the user asks for functionality that does not match any available tool, use local state or realistic static data instead of fabricating a tool call."
 `;

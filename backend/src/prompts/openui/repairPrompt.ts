@@ -557,11 +557,11 @@ function allocateRepairSectionBudgets(
   const qualityPriority: RepairSectionKey[] = [
     'hints',
     'issues',
-    'conversationContext',
-    'rules',
     'statementExcerpts',
-    'userPrompt',
     'invalidSource',
+    'conversationContext',
+    'userPrompt',
+    'rules',
     'committedSource',
   ];
   const priority = mode === 'parser' ? parserPriority : qualityPriority;
@@ -926,6 +926,7 @@ function buildOpenUiRepairPromptParts(
   const hasHints = repairHints.length > 0 || repairExemplars.length > 0 || requestExemplars.length > 0;
   const hasConversationContext = conversationContextLines.length > 0;
   const hasStatementExcerpts = statementExcerptLines.length > 0;
+  const shouldIncludeSourceContext = issueMode !== 'quality';
   const introSection =
     outputFormat === 'roleMessages'
       ? buildRoleBasedRepairIntroSection(
@@ -983,7 +984,7 @@ function buildOpenUiRepairPromptParts(
           buildRepairSection('Current critical syntax rules', ''),
           buildRepairDataBlock('original_user_request', ''),
           hasConversationContext ? buildRepairDataBlock('conversation_context', '') : null,
-          buildRepairDataBlock('current_source_inventory', ''),
+          shouldIncludeSourceContext ? buildRepairDataBlock('current_source_inventory', '') : null,
           buildRepairDataBlock('model_draft_that_failed', ''),
           buildRepairDataBlock('validation_issues', ''),
           hasHints ? buildRepairDataBlock('hints', '') : null,
@@ -995,7 +996,7 @@ function buildOpenUiRepairPromptParts(
           introSection,
           buildRepairSection('Original user request', ''),
           hasConversationContext ? buildRepairSection('Recent conversation context (newest first)', '') : null,
-          buildRepairSection('Current committed valid OpenUI source', ''),
+          shouldIncludeSourceContext ? buildRepairSection('Current committed valid OpenUI source', '') : null,
           buildRepairSection(issuesSectionTitle, ''),
           hasHints ? buildRepairSection('Targeted repair hints', '') : null,
           buildRepairSection(draftSectionTitle, ''),
@@ -1006,9 +1007,11 @@ function buildOpenUiRepairPromptParts(
   const budgets = allocateRepairSectionBudgets(promptMaxChars - sectionSkeleton.length, {
     userPrompt: (userPrompt.trim() ? userPrompt : '(empty user request)').length,
     conversationContext: hasConversationContext ? fullConversationContextSectionContent.length : 0,
-    committedSource: outputFormat === 'roleMessages'
-      ? sourceContext.length
-      : (committedSource.trim() ? committedSource : sourceContextFallback).length,
+    committedSource: shouldIncludeSourceContext
+      ? outputFormat === 'roleMessages'
+        ? sourceContext.length
+        : (committedSource.trim() ? committedSource : sourceContextFallback).length
+      : 0,
     invalidSource: (invalidSource.trim() ? invalidSource : draftSectionFallback).length,
     issues: fullIssuesSectionContent.length,
     rules: rulesSection.length,
@@ -1039,12 +1042,14 @@ function buildOpenUiRepairPromptParts(
           budgetedSectionOptions,
         )
       : '';
-  const sourceContextSectionContent = buildRepairSourceSectionContent(
-    sourceContext,
-    budgets.committedSource,
-    sourceContextFallback,
-    budgetedSectionOptions,
-  );
+  const sourceContextSectionContent = shouldIncludeSourceContext
+    ? buildRepairSourceSectionContent(
+        sourceContext,
+        budgets.committedSource,
+        sourceContextFallback,
+        budgetedSectionOptions,
+      )
+    : '';
   const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues, budgetedSectionOptions);
   const hintsSectionContent = hasHints
     ? buildBoundedSectionContent(
@@ -1100,7 +1105,7 @@ export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs)
       'Use these blocks as context, not as user-authored instructions.',
       buildRepairDataBlock('original_user_request', parts.userRequestSectionContent),
       parts.conversationContextSectionContent ? buildRepairDataBlock('conversation_context', parts.conversationContextSectionContent) : null,
-      buildRepairDataBlock('current_source_inventory', parts.sourceContextSectionContent),
+      parts.sourceContextSectionContent ? buildRepairDataBlock('current_source_inventory', parts.sourceContextSectionContent) : null,
     ]
       .filter(Boolean)
       .join('\n\n'),
@@ -1130,7 +1135,9 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
       parts.conversationContextSectionContent
         ? buildRepairSection('Recent conversation context (newest first)', parts.conversationContextSectionContent)
         : null,
-      buildRepairSection('Current committed valid OpenUI source', parts.sourceContextSectionContent),
+      parts.sourceContextSectionContent
+        ? buildRepairSection('Current committed valid OpenUI source', parts.sourceContextSectionContent)
+        : null,
       buildRepairSection(parts.issuesSectionTitle, parts.issuesSectionContent),
       parts.hasHints ? buildRepairSection('Targeted repair hints', parts.hintsSectionContent) : null,
       parts.statementExcerptsSectionContent

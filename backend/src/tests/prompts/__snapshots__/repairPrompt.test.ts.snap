@@ -12,9 +12,6 @@ Return a complete corrected program.
 Original user request:
 Build a 20-question quiz.
 
-Current committed valid OpenUI source:
-root = AppShell([])
-
 Quality issues:
 - undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
 - undefined-state-reference in root: State reference \`$q2\` is missing a top-level declaration with a literal initial value. For example, add \`$q2 = ""\`.
@@ -166,7 +163,11 @@ Group("Question 8", "vertical", [
 Group("Question 9", "vertical", [
   Text("Question 9", "body", "start"),
   RadioGroup("question-9", "Question 9", $q9, [
-    { label: "Yes", value: "yes" },…
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 1…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
@@ -195,9 +196,6 @@ Return a complete corrected program.
 
 Original user request:
 Build a 20-question quiz.
-
-Current committed valid OpenUI source:
-root = AppShell([])
 
 Quality issues:
 - undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
@@ -273,7 +271,10 @@ Relevant draft statement excerpts:
     RadioGroup("question-3", "Question 3", $q3, [
       { label: "Yes", value: "yes" },
       { label: "No", value: "no" }
-    ])…
+    ])
+  ]),
+  Group("Question 4", "vertical", [
+    Text("Question…
 
 Model draft to repair:
 root = AppShell([
@@ -295,7 +296,7 @@ Intent-specific rules from original user request:
 - Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
 - For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
 - Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
-- Do not use persisted tools for internal screen navigation. Use tools only fo…"
+- Do not use persisted tools for internal screen navigation. Use tools only f…"
 `;
 
 exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
@@ -308,9 +309,6 @@ Return a complete corrected program.
 
 Original user request:
 Create a todo list.
-
-Current committed valid OpenUI source:
-root = AppShell([])
 
 Quality issues:
 - quality-missing-todo-controls in root: Todo request did not generate required todo controls.
@@ -341,7 +339,7 @@ Targeted repair hints:
   })
   rows = @Each(items, "item", Group(null, "horizontal", [
     Text(item.title, "body", "start"),
-    Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([…
+    Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]…
 
 Model draft to repair:
 root = AppShell([])

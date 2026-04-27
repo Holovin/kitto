@@ -1,5 +1,10 @@
 export {
+  buildOpenUiCoreSystemPrompt,
+  buildOpenUiIntentSystemPrompt,
+  buildOpenUiLayeredSystemPrompt,
   buildOpenUiSystemPrompt,
+  buildOpenUiSystemPromptForIntents,
+  buildOpenUiToolSystemPrompt,
   getOpenUiSystemPromptCacheKey,
   getOpenUiSystemPromptHash,
 } from './systemPrompt.js';
@@ -22,6 +27,7 @@ export {
   buildOpenUiUserPrompt,
 } from './userPrompt.js';
 export { buildCurrentSourceInventory } from './sourceInventory.js';
+export { detectPromptRequestIntent } from './promptIntents.js';
 export { detectPromptAwareQualityIssues, detectPromptAwareQualityWarnings } from './qualityIssues.js';
 export type {
   PromptBuildRequest,

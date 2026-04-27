@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 import { openUiComponentSpec, openUiComponentSpecHash } from './componentSpec.js';
-import { buildStableSystemRules } from './ruleRegistry.js';
+import { formatPromptIntentVector, type PromptIntentVector } from './promptIntents.js';
+import { buildIntentSpecificRules, buildStableSystemRules } from './ruleRegistry.js';
 import { toolSpecifications } from './toolSpecs.js';
 
 interface KittoPromptInput {
@@ -16,6 +17,29 @@ const OPENUI_SYSTEM_PROMPT_CACHE_TOKEN = 'base';
 
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
+const BASE_PROMPT_INTENTS: PromptIntentVector = {
+  compute: false,
+  controlShowcase: false,
+  delete: false,
+  filtering: false,
+  multiScreen: false,
+  random: false,
+  theme: false,
+  todo: false,
+  validation: false,
+};
+const BASE_TOOL_NAMES = new Set([
+  'read_state',
+  'write_state',
+  'merge_state',
+  'append_state',
+  'append_item',
+  'toggle_item_field',
+  'update_item_field',
+  'remove_item',
+  'remove_state',
+]);
+const COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
 
 function jsonSchemaTypeStr(schema: unknown): string {
   if (!schema || typeof schema !== 'object') {
@@ -328,6 +352,20 @@ function renderAvailableToolsSection(tools: NonNullable<PromptSpec['tools']>) {
   return lines.join('\n');
 }
 
+function collectToolsByIntents(intents: PromptIntentVector) {
+  return toolSpecifications.filter((tool) => {
+    if (BASE_TOOL_NAMES.has(tool.name)) {
+      return true;
+    }
+
+    if ((intents.compute || intents.random) && COMPUTE_TOOL_NAMES.has(tool.name)) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
 function renderStatementOrderSection(rootName: string) {
   return `## Hoisting & Statement Order
 
@@ -364,7 +402,7 @@ Before finishing, walk your output and verify:
 4. Every $binding appears in at least one component or expression.`;
 }
 
-function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples, tools }: KittoPromptInput) {
+function buildKittoOpenUiCorePrompt({ additionalRules, componentSpec: spec, examples }: Omit<KittoPromptInput, 'tools'>) {
   const rootName = spec.root ?? 'Root';
   const parts = [
     preamble,
@@ -383,8 +421,6 @@ function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples
     '',
     renderKittoWorkflowSection(),
     '',
-    renderAvailableToolsSection(tools),
-    '',
     renderStatementOrderSection(rootName),
     '',
     renderSummaryExamplesSection(),
@@ -399,6 +435,38 @@ function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples
   return parts.join('\n');
 }
 
+export function buildOpenUiCoreSystemPrompt() {
+  return buildKittoOpenUiCorePrompt({
+    additionalRules: buildStableSystemRules(),
+    componentSpec: openUiComponentSpec,
+    examples: [],
+  });
+}
+
+export function buildOpenUiIntentSystemPrompt(intents: PromptIntentVector = BASE_PROMPT_INTENTS) {
+  const rules = buildIntentSpecificRules(intents);
+
+  if (rules.length === 0) {
+    return '';
+  }
+
+  return ['## Intent-Specific Rules', ...rules.map((rule) => `- ${rule}`)].join('\n');
+}
+
+export function buildOpenUiToolSystemPrompt(intents: PromptIntentVector = BASE_PROMPT_INTENTS) {
+  return renderAvailableToolsSection(collectToolsByIntents(intents));
+}
+
+export function buildOpenUiLayeredSystemPrompt(intents: PromptIntentVector = BASE_PROMPT_INTENTS) {
+  return [
+    buildOpenUiCoreSystemPrompt(),
+    buildOpenUiIntentSystemPrompt(intents),
+    buildOpenUiToolSystemPrompt(intents),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 interface CachedSystemPrompt {
   cacheKey: string;
   hash: string;
@@ -407,20 +475,16 @@ interface CachedSystemPrompt {
 
 const cachedSystemPrompts = new Map<string, CachedSystemPrompt>();
 
-function getCachedSystemPrompt() {
-  const cacheToken = OPENUI_SYSTEM_PROMPT_CACHE_TOKEN;
+function getCachedSystemPrompt(intents: PromptIntentVector = BASE_PROMPT_INTENTS) {
+  const intentVector = formatPromptIntentVector(intents);
+  const cacheToken = intentVector === 'base' ? OPENUI_SYSTEM_PROMPT_CACHE_TOKEN : intentVector;
   const cachedPrompt = cachedSystemPrompts.get(cacheToken);
 
   if (cachedPrompt) {
     return cachedPrompt;
   }
 
-  const prompt = buildKittoOpenUiPrompt({
-    additionalRules: buildStableSystemRules(),
-    componentSpec: openUiComponentSpec,
-    examples: [],
-    tools: toolSpecifications,
-  });
+  const prompt = buildOpenUiLayeredSystemPrompt(intents);
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
   const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${cacheToken}:${openUiComponentSpecHash}`;
   const cachedEntry = {
@@ -437,10 +501,14 @@ export function buildOpenUiSystemPrompt() {
   return getCachedSystemPrompt().prompt;
 }
 
-export function getOpenUiSystemPromptCacheKey() {
-  return getCachedSystemPrompt().cacheKey;
+export function buildOpenUiSystemPromptForIntents(intents: PromptIntentVector) {
+  return getCachedSystemPrompt(intents).prompt;
 }
 
-export function getOpenUiSystemPromptHash() {
-  return getCachedSystemPrompt().hash;
+export function getOpenUiSystemPromptCacheKey(intents?: PromptIntentVector) {
+  return getCachedSystemPrompt(intents).cacheKey;
+}
+
+export function getOpenUiSystemPromptHash(intents?: PromptIntentVector) {
+  return getCachedSystemPrompt(intents).hash;
 }
