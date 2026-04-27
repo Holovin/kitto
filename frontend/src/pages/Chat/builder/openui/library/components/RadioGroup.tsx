@@ -1,6 +1,5 @@
 import {
   defineComponent,
-  reactive,
   useIsStreaming,
   useSetFieldValue,
   useStateField,
@@ -10,6 +9,7 @@ import {
 import { RadioGroup as RadioGroupUI, RadioGroupItem } from '@components/ui/radioGroup';
 import { cn } from '@helpers/utils';
 import { z } from 'zod';
+import { actionModeReactive } from '../promptSignatures';
 import {
   ACTION_MODE_LAST_CHOICE_STATE,
   appearanceSchema,
@@ -127,7 +127,7 @@ export const RadioGroupComponent = defineComponent({
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label for the option set.'),
-    value: reactive(
+    value: actionModeReactive(
       z
         .string()
         .optional()

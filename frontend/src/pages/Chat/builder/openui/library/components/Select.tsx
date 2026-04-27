@@ -1,6 +1,5 @@
 import {
   defineComponent,
-  reactive,
   useIsStreaming,
   useSetFieldValue,
   useStateField,
@@ -11,6 +10,7 @@ import { Select as SelectUI, SelectContent, SelectItem, SelectTrigger, SelectVal
 import { cn } from '@helpers/utils';
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { z } from 'zod';
+import { actionModeReactive } from '../promptSignatures';
 import {
   ACTION_MODE_LAST_CHOICE_STATE,
   KITTO_CONTRAST_COLOR_VAR,
@@ -186,7 +186,7 @@ export const SelectComponent = defineComponent({
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label for the select field.'),
-    value: reactive(
+    value: actionModeReactive(
       z
         .string()
         .optional()

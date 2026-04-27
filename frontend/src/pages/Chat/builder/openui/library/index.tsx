@@ -11,6 +11,7 @@ import { ScreenComponent } from '@pages/Chat/builder/openui/library/components/S
 import { SelectComponent } from '@pages/Chat/builder/openui/library/components/Select';
 import { TextComponent } from '@pages/Chat/builder/openui/library/components/Text';
 import { TextAreaComponent } from '@pages/Chat/builder/openui/library/components/TextArea';
+import { includeActionModeLiteralValues } from './promptSignatures';
 
 export const builderOpenUiLibrary = createLibrary({
   root: 'AppShell',
@@ -58,29 +59,6 @@ export const builderOpenUiLibrary = createLibrary({
   ],
 });
 
-const actionModePromptSignatureOverrides = {
-  Checkbox:
-    'Checkbox(name: string, label: string, checked?: $binding<boolean> | boolean, helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})',
-  RadioGroup:
-    'RadioGroup(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})',
-  Select:
-    'Select(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | any, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: any, appearance?: {mainColor?: string, contrastColor?: string})',
-} as const;
-
 export function getBuilderOpenUiSpec() {
-  const spec = builderOpenUiLibrary.toSpec();
-
-  return {
-    ...spec,
-    components: {
-      ...spec.components,
-      ...Object.fromEntries(
-        Object.entries(actionModePromptSignatureOverrides).flatMap(([componentName, signature]) => {
-          const componentSpec = spec.components[componentName];
-
-          return componentSpec ? [[componentName, { ...componentSpec, signature }]] : [];
-        }),
-      ),
-    },
-  };
+  return includeActionModeLiteralValues(builderOpenUiLibrary.toSpec(), builderOpenUiLibrary);
 }

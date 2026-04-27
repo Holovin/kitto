@@ -1,7 +1,8 @@
-import { defineComponent, reactive, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
+import { defineComponent, useIsStreaming, useStateField, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Checkbox as CheckboxUI } from '@components/ui/checkbox';
 import { cn } from '@helpers/utils';
 import { z } from 'zod';
+import { actionModeReactive } from '../promptSignatures';
 import {
   appearanceSchema,
   getAppearanceStyle,
@@ -124,7 +125,7 @@ export const CheckboxComponent = defineComponent({
   props: z.object({
     name: z.string().describe('Stable field name used for persistence and bindings.'),
     label: z.string().describe('Visible label shown next to the checkbox.'),
-    checked: reactive(
+    checked: actionModeReactive(
       z
         .boolean()
         .optional()
