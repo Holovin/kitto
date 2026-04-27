@@ -83,9 +83,10 @@ vi.mock('@openuidev/react-lang', () => ({
 }));
 
 import { useActionModeControl } from '@pages/Chat/builder/openui/library/components/useActionModeControl';
+import type { OpenUiAction } from '@pages/Chat/builder/openui/library/components/shared';
 
 function renderActionModeControl<Value>(options: {
-  action?: unknown;
+  action?: OpenUiAction;
   beforeRun?: (nextValue: Value) => void;
   name: string;
   queue: 'checkbox' | 'choice';

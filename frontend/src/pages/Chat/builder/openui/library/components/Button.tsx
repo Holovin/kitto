@@ -1,7 +1,7 @@
 import { defineComponent, reactive, useIsStreaming, useStateField, useTriggerAction, type ComponentRenderProps, type StateField } from '@openuidev/react-lang';
 import { Button as ButtonUI } from '@components/ui/button';
 import { z } from 'zod';
-import { appearanceSchema, getAppearanceStyle, useKittoAppearanceScope, useKittoValidationInteraction } from './shared';
+import { appearanceSchema, getAppearanceStyle, resolveOpenUiAction, useKittoAppearanceScope, useKittoValidationInteraction } from './shared';
 
 const variantSchema = z.enum(['default', 'secondary', 'destructive']).default('default');
 
@@ -43,7 +43,7 @@ function OpenUiButtonRenderer({ props }: ButtonRendererProps) {
         if (props.variant === 'default') {
           markSubmitLikeInteraction(getRegisteredFieldNames());
         }
-        Promise.resolve(triggerAction(props.label, undefined, props.action as never)).catch(() => undefined);
+        Promise.resolve(triggerAction(props.label, undefined, resolveOpenUiAction(props.action))).catch(() => undefined);
       }}
     >
       <span>{props.label}</span>

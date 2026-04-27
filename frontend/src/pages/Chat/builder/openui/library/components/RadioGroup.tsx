@@ -17,6 +17,7 @@ import {
   getAppearanceStyle,
   nullableTextSchema,
   normalizeChoiceOptions,
+  resolveOpenUiAction,
   useKittoAppearanceScope,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -40,7 +41,7 @@ function OpenUiRadioGroupRenderer({ props }: RadioGroupRendererProps) {
   const setFieldValue = useSetFieldValue();
   const field = useStateField(props.name, props.value);
   const { isActionMode, isPending, runAction } = useActionModeControl({
-    action: props.action,
+    action: resolveOpenUiAction(props.action),
     beforeRun: (nextValue: string) => {
       setFieldValue(undefined, undefined, ACTION_MODE_LAST_CHOICE_STATE, nextValue, false);
     },

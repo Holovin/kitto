@@ -29,4 +29,15 @@ describe('builder OpenUI prompt spec', () => {
     expect(promptSpec.components.Button.signature).toContain('disabled?: $binding<boolean>');
     expect(promptSpec.components.Button.signature).not.toContain('disabled?: $binding<boolean> | boolean');
   });
+
+  it('keeps generated prompt signatures free of any types', () => {
+    const promptSpec = getBuilderOpenUiSpec();
+    const signatures = Object.values(promptSpec.components).map((component) => component.signature);
+
+    expect(signatures).not.toEqual(expect.arrayContaining([expect.stringMatching(/\bany\b/)]));
+    expect(promptSpec.components.AppShell.signature).toContain('children?: OpenUiNode[]');
+    expect(promptSpec.components.Text.signature).toContain('value?: string | number | boolean | null');
+    expect(promptSpec.components.Button.signature).toContain('action?: Action');
+    expect(promptSpec.components.Input.signature).toContain('helper?: string | null');
+  });
 });

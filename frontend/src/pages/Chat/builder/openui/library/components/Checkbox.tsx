@@ -7,6 +7,7 @@ import {
   appearanceSchema,
   getAppearanceStyle,
   nullableTextSchema,
+  resolveOpenUiAction,
   useKittoAppearanceScope,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -28,7 +29,7 @@ function OpenUiCheckboxRenderer({ props }: CheckboxRendererProps) {
   const isStreaming = useIsStreaming();
   const field = useStateField(props.name, props.checked);
   const { isActionMode, isPending, runAction } = useActionModeControl({
-    action: props.action,
+    action: resolveOpenUiAction(props.action),
     name: props.name || 'checkbox',
     queue: 'checkbox',
   });

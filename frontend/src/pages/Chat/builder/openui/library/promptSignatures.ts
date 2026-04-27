@@ -25,6 +25,14 @@ function includeLiteralValueInBindingSignature(signature: string, propName: stri
   );
 }
 
+function replaceGeneratedAnyTypes(signature: string) {
+  return signature
+    .replaceAll('any[]', 'OpenUiNode[]')
+    .replaceAll('string | number | boolean | any', 'string | number | boolean | null')
+    .replaceAll('string | any', 'string | null')
+    .replaceAll('action?: any', 'action?: Action');
+}
+
 export function includeActionModeLiteralValues(spec: PromptSpec, library: Library): PromptSpec {
   return {
     ...spec,
@@ -40,7 +48,7 @@ export function includeActionModeLiteralValues(spec: PromptSpec, library: Librar
           return hasLiteralValueBinding(propSchema)
             ? includeLiteralValueInBindingSignature(currentSignature, propName)
             : currentSignature;
-        }, componentSpec.signature);
+        }, replaceGeneratedAnyTypes(componentSpec.signature));
 
         return [componentName, { ...componentSpec, signature }];
       }),

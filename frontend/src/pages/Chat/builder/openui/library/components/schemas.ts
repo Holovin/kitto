@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { useTriggerAction } from '@openuidev/react-lang';
 
 export const nullableTextSchema = z.union([z.string(), z.null()]).optional();
 export const textValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]).optional();
@@ -21,6 +22,7 @@ export const VALIDATION_RULE_TYPES = [
 
 export type InputType = (typeof INPUT_TYPES)[number];
 export type ValidationRuleType = (typeof VALIDATION_RULE_TYPES)[number];
+export type OpenUiAction = NonNullable<Parameters<ReturnType<typeof useTriggerAction>>[2]>;
 
 const inputTypeEnum = z.enum(INPUT_TYPES);
 const validationRuleTypeSchema = z.enum(VALIDATION_RULE_TYPES);
@@ -68,6 +70,29 @@ export const choiceOptionSchema = z.object({
 });
 
 export type ChoiceOption = z.infer<typeof choiceOptionSchema>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isOpenUiAction(action: unknown): action is OpenUiAction {
+  if (!isRecord(action)) {
+    return false;
+  }
+
+  if (Array.isArray(action.steps)) {
+    return true;
+  }
+
+  const hasValidType = action.type === undefined || typeof action.type === 'string';
+  const hasValidParams = action.params === undefined || isRecord(action.params);
+
+  return hasValidType && hasValidParams;
+}
+
+export function resolveOpenUiAction(action: unknown): OpenUiAction | undefined {
+  return isOpenUiAction(action) ? action : undefined;
+}
 
 export function normalizeChoiceOptions(options: unknown): ChoiceOption[] {
   if (!Array.isArray(options)) {

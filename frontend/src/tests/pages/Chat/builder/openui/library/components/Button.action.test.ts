@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isValidElement } from 'react';
 import type { StateField } from '@openuidev/react-lang';
+import type { OpenUiAction } from '@pages/Chat/builder/openui/library/components/shared';
 
 const testHarness = vi.hoisted(() => ({
   markSubmitLikeInteraction: vi.fn(),
@@ -47,7 +48,7 @@ describe('ButtonComponent action events', () => {
   });
 
   it('passes the visible label to useTriggerAction as the human-friendly action message', () => {
-    const action = { steps: [] };
+    const action = { steps: [] } satisfies OpenUiAction;
     const disabledField = {
       isReactive: false,
       name: '__button_disabled__:archive-primary',

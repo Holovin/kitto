@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { useIsStreaming, useTriggerAction } from '@openuidev/react-lang';
 import { enqueueAction, type ActionModeQueueName } from './actionQueues';
+import type { OpenUiAction } from './shared';
 
 type UseActionModeControlOptions<Value> = {
-  action?: unknown;
+  action?: OpenUiAction | undefined;
   beforeRun?: (nextValue: Value) => void;
   name: string;
   queue: ActionModeQueueName;
@@ -38,7 +39,7 @@ export function useActionModeControl<Value>({
     try {
       await enqueueAction(queue, async () => {
         beforeRun?.(nextValue);
-        await triggerAction(name, undefined, action as never);
+        await triggerAction(name, undefined, action);
       });
     } finally {
       pendingActionRef.current = false;

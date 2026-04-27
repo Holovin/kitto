@@ -21,6 +21,7 @@ import {
   isStrictHexColor,
   nullableTextSchema,
   normalizeChoiceOptions,
+  resolveOpenUiAction,
   useKittoAppearanceScope,
   validationRulesSchema,
   type ValidationRuleConfig,
@@ -49,7 +50,7 @@ function OpenUiSelectRenderer({ props }: SelectRendererProps) {
     mainColor?: string;
   }>({});
   const { isActionMode, isPending, runAction } = useActionModeControl({
-    action: props.action,
+    action: resolveOpenUiAction(props.action),
     beforeRun: (nextValue: string) => {
       setFieldValue(undefined, undefined, ACTION_MODE_LAST_CHOICE_STATE, nextValue, false);
     },

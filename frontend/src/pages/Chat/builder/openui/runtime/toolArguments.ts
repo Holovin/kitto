@@ -1,4 +1,10 @@
 import { cloneJsonCompatibleValue, clonePlainObject, DomainStateError, validateDomainFieldName, validateDomainPath } from '@pages/Chat/builder/store/path';
+import {
+  OPENUI_COMPUTE_OPS,
+  OPENUI_COMPUTE_RETURN_TYPES,
+  type OpenUiComputeOp,
+  type OpenUiComputeReturnType,
+} from '@kitto-openui/shared/openuiToolRegistry.js';
 
 function createToolError(toolName: string, message: string) {
   return new DomainStateError(`${toolName}: ${message}`);
@@ -94,10 +100,70 @@ export function isValidToolItemId(id: unknown): id is ToolItemId {
   return typeof id === 'number' && Number.isFinite(id);
 }
 
+function isOpenUiComputeOp(op: unknown): op is OpenUiComputeOp {
+  return typeof op === 'string' && (OPENUI_COMPUTE_OPS as readonly string[]).includes(op);
+}
+
+function isOpenUiComputeReturnType(returnType: unknown): returnType is OpenUiComputeReturnType {
+  return typeof returnType === 'string' && (OPENUI_COMPUTE_RETURN_TYPES as readonly string[]).includes(returnType);
+}
+
 export function getRequiredToolItemId(toolName: string, id: unknown) {
   if (!isValidToolItemId(id)) {
     throw createToolError(toolName, 'id must be a non-empty string or finite number.');
   }
 
   return id;
+}
+
+export function getRequiredToolComputeOp(toolName: string, op: unknown): OpenUiComputeOp {
+  if (isOpenUiComputeOp(op)) {
+    return op;
+  }
+
+  throw createToolError(toolName, `Unknown compute op "${String(op)}".`);
+}
+
+export function getOptionalToolValues(toolName: string, values: unknown): unknown[] | undefined {
+  if (values === undefined) {
+    return undefined;
+  }
+
+  let clonedValues: unknown;
+
+  try {
+    clonedValues = cloneJsonCompatibleValue(values);
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
+
+  if (!Array.isArray(clonedValues)) {
+    throw createToolError(toolName, 'values must be an array.');
+  }
+
+  return clonedValues;
+}
+
+export function getOptionalToolOptions(toolName: string, options: unknown): Record<string, unknown> | undefined {
+  if (options === undefined) {
+    return undefined;
+  }
+
+  try {
+    return clonePlainObject(options, 'options must be a plain object.');
+  } catch (error) {
+    throw wrapToolError(toolName, error);
+  }
+}
+
+export function getOptionalToolComputeReturnType(toolName: string, returnType: unknown): OpenUiComputeReturnType | undefined {
+  if (returnType === undefined) {
+    return undefined;
+  }
+
+  if (isOpenUiComputeReturnType(returnType)) {
+    return returnType;
+  }
+
+  throw createToolError(toolName, `returnType must be one of ${OPENUI_COMPUTE_RETURN_TYPES.map((value) => `"${value}"`).join(', ')}.`);
 }

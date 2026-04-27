@@ -765,6 +765,28 @@ describe('builderToolProvider', () => {
     ).resolves.toEqual({ value: true });
   });
 
+  it('rejects compute_value when compute arguments are invalid', async () => {
+    await expect(
+      builderToolProvider.compute_value({
+        op: 'run_js',
+      }),
+    ).rejects.toThrow('compute_value: Unknown compute op "run_js".');
+
+    await expect(
+      builderToolProvider.compute_value({
+        op: 'and',
+        values: 'not-an-array',
+      }),
+    ).rejects.toThrow('compute_value: values must be an array.');
+
+    await expect(
+      builderToolProvider.compute_value({
+        op: 'truthy',
+        returnType: 'object',
+      }),
+    ).rejects.toThrow('compute_value: returnType must be one of "string", "number", "boolean".');
+  });
+
   it('writes computed primitive values to valid state paths', async () => {
     await expect(
       builderToolProvider.write_computed_state({
@@ -778,6 +800,28 @@ describe('builderToolProvider', () => {
     expect(mockState.domain.data).toEqual({
       app: {
         roll: 4,
+      },
+    });
+  });
+
+  it('rejects write_computed_state when compute arguments are invalid without mutating state', async () => {
+    seedDomainData({
+      app: {
+        roll: 2,
+      },
+    });
+
+    await expect(
+      builderToolProvider.write_computed_state({
+        path: 'app.roll',
+        op: 'random_int',
+        options: ['bad-options'],
+      }),
+    ).rejects.toThrow('write_computed_state: options must be a plain object.');
+
+    expect(mockState.domain.data).toEqual({
+      app: {
+        roll: 2,
       },
     });
   });

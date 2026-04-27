@@ -10,8 +10,12 @@ import {
   removePathValue,
   writePathValue,
 } from '@pages/Chat/builder/store/path';
-import { computeValue } from './computeTools';
+import { computeValue, type ComputeValueInput } from './computeTools';
 import {
+  getOptionalToolComputeReturnType,
+  getOptionalToolOptions,
+  getOptionalToolValues,
+  getRequiredToolComputeOp,
   getRequiredToolFieldName,
   getRequiredToolIndex,
   getRequiredToolItemId,
@@ -126,6 +130,18 @@ function findMatchingItemIndex(items: unknown[], path: string, idField: string, 
   }
 
   return matchingIndex;
+}
+
+function getComputeToolInput(toolName: string, args: Record<string, unknown>): ComputeValueInput {
+  return {
+    op: getRequiredToolComputeOp(toolName, args.op),
+    input: args.input,
+    left: args.left,
+    right: args.right,
+    values: getOptionalToolValues(toolName, args.values),
+    options: getOptionalToolOptions(toolName, args.options),
+    returnType: getOptionalToolComputeReturnType(toolName, args.returnType),
+  };
 }
 
 export function createDomainToolProvider(adapter: DomainToolAdapter) {
@@ -245,30 +261,12 @@ export function createDomainToolProvider(adapter: DomainToolAdapter) {
       });
     },
     compute_value: async (args: Record<string, unknown>) => {
-      return runTool('compute_value', () =>
-        computeValue({
-          op: args.op as never,
-          input: args.input,
-          left: args.left,
-          right: args.right,
-          values: args.values as never,
-          options: args.options as never,
-          returnType: args.returnType as never,
-        }),
-      );
+      return runTool('compute_value', () => computeValue(getComputeToolInput('compute_value', args)));
     },
     write_computed_state: async (args: Record<string, unknown>) => {
       return runTool('write_computed_state', () => {
         const path = getRequiredToolPath('write_computed_state', args.path);
-        const computedValue = computeValue({
-          op: args.op as never,
-          input: args.input,
-          left: args.left,
-          right: args.right,
-          values: args.values as never,
-          options: args.options as never,
-          returnType: args.returnType as never,
-        });
+        const computedValue = computeValue(getComputeToolInput('write_computed_state', args));
         const nextData = writePathValue(readDomainSnapshot(adapter), path, computedValue.value);
 
         adapter.replaceDomainData(nextData);
