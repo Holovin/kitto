@@ -24,7 +24,6 @@ cp backend/.env.example backend/.env
 # for local dev, set PORT=8787, FRONTEND_ORIGIN=http://localhost:5555, and PROMPT_IO_LOG=true if you want prompt I/O JSONL logs
 npm run dev
 npm run test
-npm run build
 npm run start
 ```
 
@@ -33,7 +32,7 @@ Notes:
 - `npm run dev` starts the frontend and backend together and also watches/rebuilds the standalone player asset bundle used by `Download standalone HTML`.
 - In development, the builder is available at [http://localhost:5555](http://localhost:5555) and the backend runs at `http://localhost:8787`.
 - In development, the frontend talks to `/api/*` and Vite proxies those requests to the backend.
-- `npm run start` launches the compiled backend after `npm run build` and serves the built frontend when `frontend/dist` exists.
+- `npm run start` runs the production build first, then launches the compiled backend and serves the built frontend.
 - `npm run build` also rebuilds the standalone player assets embedded into exported `.html` files.
 - `backend/.env.example` is production-oriented for PM2 deployment. For local development, set `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555` in `backend/.env` after copying it.
 - Set `PROMPT_IO_LOG=true` in `backend/.env` (or prefix `npm run dev` with it) when you want append-only prompt/model logs in `backend/logs/prompt-io.jsonl` for prompt tuning. The default is `false`.

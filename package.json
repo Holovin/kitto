@@ -20,7 +20,8 @@
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "npm run test --workspace frontend",
     "test:backend": "npm run test --workspace backend",
-    "start": "npm run start --workspace backend"
+    "prestart": "npm run build",
+    "start": "node backend/dist/index.js"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.5",

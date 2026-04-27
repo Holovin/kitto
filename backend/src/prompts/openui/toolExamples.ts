@@ -244,18 +244,6 @@ export function buildIntentToolExamplesForPrompt(prompt?: string) {
   return dedupeToolExamples(selectedExamples);
 }
 
-export function buildToolExamplesForPrompt(prompt?: string) {
-  const selectedExamples = buildIntentToolExamplesForPrompt(prompt);
-
-  if (selectedExamples.length === 0) {
-    selectedExamples.push(expenseEditExample);
-  }
-
-  selectedExamples.push(stateMutationExamples);
-
-  return dedupeToolExamples(selectedExamples);
-}
-
 export function buildStableToolExamples() {
   return dedupeToolExamples([expenseEditExample, stateMutationExamples]);
 }

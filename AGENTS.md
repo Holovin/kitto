@@ -40,7 +40,7 @@ Steps:
   - `npm run dev`: starts frontend and backend together and also runs the standalone player watcher so exported HTML assets stay fresh during development
   - `npm run lint`: frontend ESLint + backend TypeScript checks
   - `npm run build`: regenerates the OpenUI component spec, rebuilds the standalone player assets, then builds frontend and backend
-  - `npm run start`: starts the compiled backend
+  - `npm run start`: runs the production build, then starts the compiled backend
 
 ## OpenUI Source Of Truth
 
