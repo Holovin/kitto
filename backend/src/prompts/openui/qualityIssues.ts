@@ -5,7 +5,6 @@ import {
   createOpenUiQualityIssue,
   createOpenUiProgramIndex,
   maskStringLiterals,
-  normalizeSourceForValidation,
   parser,
   stripQualityIssueSeverity,
   type OpenUiQualityIssue,
@@ -78,9 +77,9 @@ export function detectPromptAwareQualityIssues(
   currentSource?: string,
   mode: PromptAwareGenerationMode = 'initial',
 ): OpenUiQualityIssue[] {
-  const trimmedSource = normalizeSourceForValidation(source);
+  const trimmedSource = source.trim();
   const trimmedPrompt = userPrompt.trim();
-  const trimmedCurrentSource = currentSource ? normalizeSourceForValidation(currentSource) : '';
+  const trimmedCurrentSource = currentSource ? currentSource.trim() : '';
   const compareAgainstBaseline = mode === 'repair' ? true : trimmedCurrentSource.length > 0;
 
   if (!trimmedSource) {

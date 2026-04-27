@@ -4,10 +4,14 @@ export type OpenUiExpressionAst = ASTNode;
 
 export type OpenUiElementNode = Omit<ElementNode, 'partial'> & Partial<Pick<ElementNode, 'partial'>>;
 
-export type OpenUiToolAst = ASTNode | null;
+export type OpenUiStringLiteralAst = Extract<OpenUiExpressionAst, { k: 'Str' }>;
+
+export type OpenUiObjectLiteralAst = Extract<OpenUiExpressionAst, { k: 'Obj' }>;
+
+export type OpenUiToolAst = OpenUiExpressionAst | null;
 
 export type OpenUiToolStatement = {
-  argsAST: ASTNode | null;
+  argsAST: OpenUiExpressionAst | null;
   statementId: string;
   toolAST: OpenUiToolAst;
 };
@@ -73,10 +77,6 @@ export interface OpenUiProgramIndex {
 const TOP_LEVEL_ASSIGNMENT_LINE_PATTERN = /^(\$?[A-Za-z_][\w$]*)\s*=\s*(.*)$/;
 
 export const THEME_CONTAINER_TYPE_NAMES = new Set(['AppShell', 'Group', 'Repeater', 'Screen']);
-
-export function normalizeSourceForValidation(source: string) {
-  return source.trim();
-}
 
 export function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -201,6 +201,14 @@ export function isWritableBindingValue(value: unknown) {
   return isAstNode(value) && value.k === 'StateRef';
 }
 
+function isStringLiteralAst(value: unknown): value is OpenUiStringLiteralAst {
+  return isAstNode(value) && value.k === 'Str';
+}
+
+function isObjectLiteralAst(value: unknown): value is OpenUiObjectLiteralAst {
+  return isAstNode(value) && value.k === 'Obj';
+}
+
 export function hasStateRefNamed(value: unknown, stateName: string): boolean {
   if (Array.isArray(value)) {
     return value.some((entry) => hasStateRefNamed(entry, stateName));
@@ -226,22 +234,22 @@ export function hasStateRefNamed(value: unknown, stateName: string): boolean {
 }
 
 export function extractStringLiteral(toolAst: OpenUiToolAst) {
-  if (!isAstNode(toolAst) || toolAst.k !== 'Str') {
+  if (!isStringLiteralAst(toolAst)) {
     return null;
   }
 
-  return typeof toolAst.v === 'string' ? toolAst.v : null;
+  return toolAst.v;
 }
 
 export function extractObjectStringLiteral(argsAst: unknown, key: string) {
-  if (!isAstNode(argsAst) || argsAst.k !== 'Obj' || !Array.isArray(argsAst.entries)) {
+  if (!isObjectLiteralAst(argsAst)) {
     return null;
   }
 
   const entry = argsAst.entries.find(([entryKey]) => entryKey === key);
   const value = entry?.[1];
 
-  return isAstNode(value) && value.k === 'Str' && typeof value.v === 'string' ? value.v : null;
+  return isStringLiteralAst(value) ? value.v : null;
 }
 
 export function extractPathLiteral(argsAst: unknown) {

@@ -1,14 +1,10 @@
 import { BuiltinActionType, type ActionEvent } from '@openuidev/react-lang';
-import { openSafeUrl, type SafeUrlOpener } from './safeUrl';
+import { openSafeUrl } from './safeUrl';
 
-function createOpenUiActionEventHandler(openUrl?: SafeUrlOpener) {
-  return function handleOpenUiActionEvent(event: ActionEvent) {
-    if (event.type !== BuiltinActionType.OpenUrl) {
-      return false;
-    }
+export function handleOpenUiActionEvent(event: ActionEvent) {
+  if (event.type !== BuiltinActionType.OpenUrl) {
+    return false;
+  }
 
-    return openSafeUrl(event.params.url, openUrl);
-  };
+  return openSafeUrl(event.params.url);
 }
-
-export const handleOpenUiActionEvent = createOpenUiActionEventHandler();

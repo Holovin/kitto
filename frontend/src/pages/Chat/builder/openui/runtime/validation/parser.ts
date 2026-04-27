@@ -4,7 +4,7 @@ import type { PromptBuildValidationIssue } from '@pages/Chat/builder/types';
 import {
   ALLOWED_AST_NODE_KINDS,
   ALLOWED_BUILTIN_EXPRESSION_NAMES,
-  ALLOWED_TOOLS,
+  isAllowedToolName,
   OPENUI_SOURCE_LIMITS,
   UNSAFE_SOURCE_PATTERNS,
 } from '@pages/Chat/builder/openui/runtime/validationLimits';
@@ -131,7 +131,7 @@ function validateQueryTools(result: ParseResult): PromptBuildValidationIssue[] {
           ];
     }
 
-    if (ALLOWED_TOOLS.has(toolName)) {
+    if (isAllowedToolName(toolName)) {
       return [];
     }
 
@@ -161,7 +161,7 @@ function validateMutationTools(result: ParseResult): PromptBuildValidationIssue[
           ];
     }
 
-    if (ALLOWED_TOOLS.has(toolName)) {
+    if (isAllowedToolName(toolName)) {
       return [];
     }
 

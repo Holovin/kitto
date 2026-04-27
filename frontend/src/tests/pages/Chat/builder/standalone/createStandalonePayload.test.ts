@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { createStandalonePayload } from '@pages/Chat/builder/standalone/createStandalonePayload';
 
 const validSource = 'root = AppShell([])';
 
 describe('createStandalonePayload', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('uses the committed source and the matching snapshot baseline state instead of current live state', () => {
     const snapshot = createBuilderSnapshot(
       validSource,
@@ -64,6 +68,21 @@ describe('createStandalonePayload', () => {
     expect(payload.initialDomainData).toEqual({});
     expect(payload.exportId).toMatch(/^v1-/);
     expect(payload.storageKey).toBe(`kitto:standalone:${payload.exportId}`);
+  });
+
+  it('uses crypto.randomUUID for the export id', () => {
+    const randomUUID = vi.fn(() => 'standalone-uuid');
+
+    vi.stubGlobal('crypto', { randomUUID });
+
+    const payload = createStandalonePayload({
+      committedSource: validSource,
+      history: [],
+    });
+
+    expect(payload.exportId).toBe('v1-standalone-uuid');
+    expect(payload.storageKey).toBe('kitto:standalone:v1-standalone-uuid');
+    expect(randomUUID).toHaveBeenCalledTimes(1);
   });
 
   it('creates a unique storage identity for each export of the same committed source', () => {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { useTriggerAction } from '@openuidev/react-lang';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 
 export const nullableTextSchema = z.union([z.string(), z.null()]).optional();
 export const textValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]).optional();
@@ -70,10 +71,6 @@ export const choiceOptionSchema = z.object({
 });
 
 export type ChoiceOption = z.infer<typeof choiceOptionSchema>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isOpenUiAction(action: unknown): action is OpenUiAction {
   if (!isRecord(action)) {

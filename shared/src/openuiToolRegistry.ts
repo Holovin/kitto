@@ -438,9 +438,15 @@ export const OPENUI_TOOL_REGISTRY = [
   },
 ] as const satisfies readonly OpenUiToolRegistryEntry[];
 
-type OpenUiToolName = (typeof OPENUI_TOOL_REGISTRY)[number]['name'];
+export type OpenUiToolName = (typeof OPENUI_TOOL_REGISTRY)[number]['name'];
 
 export const OPENUI_TOOL_NAMES = OPENUI_TOOL_REGISTRY.map((tool) => tool.name) as OpenUiToolName[];
+
+export const OPENUI_TOOL_NAME_SET: ReadonlySet<OpenUiToolName> = new Set<OpenUiToolName>(OPENUI_TOOL_NAMES);
+
+export function isOpenUiToolName(value: string): value is OpenUiToolName {
+  return OPENUI_TOOL_NAME_SET.has(value as OpenUiToolName);
+}
 
 const OPENUI_PROMPT_TOOL_ORDER = [
   'read_state',
@@ -456,8 +462,8 @@ const OPENUI_PROMPT_TOOL_ORDER = [
   'remove_state',
 ] as const satisfies readonly OpenUiToolName[];
 
-const OPENUI_TOOL_BY_NAME = new Map<string, OpenUiToolRegistryEntry>(
-  OPENUI_TOOL_REGISTRY.map((tool) => [tool.name, tool]),
+const OPENUI_TOOL_BY_NAME = new Map<OpenUiToolName, OpenUiToolRegistryEntry>(
+  OPENUI_TOOL_REGISTRY.map((tool) => [tool.name, tool] as const),
 );
 
 export function getOpenUiPromptToolSpecs(): OpenUiPromptToolSpec[] {

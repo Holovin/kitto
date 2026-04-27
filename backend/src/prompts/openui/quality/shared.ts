@@ -15,7 +15,6 @@ export {
   hasThemeDependentContainerAppearance,
   isElementNode,
   maskStringLiterals,
-  normalizeSourceForValidation,
 } from '@kitto-openui/shared/openuiAst.js';
 export type {
   OpenUiPersistedPathStatementRef as PersistedPathStatementRef,

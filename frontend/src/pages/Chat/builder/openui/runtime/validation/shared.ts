@@ -16,7 +16,6 @@ export {
   isLiteralObjectValue,
   isWritableBindingValue,
   maskStringLiterals,
-  normalizeSourceForValidation,
   pathUsesArrayIndexSegment,
   THEME_CONTAINER_TYPE_NAMES,
   visitOpenUiValue,

@@ -265,7 +265,7 @@ export function createBuilderLlmRequestSchema({
     }),
   ]);
 
-  return z.preprocess((value) => {
+  const addLegacyInitialRequestMode = z.transform((value) => {
     if (value && typeof value === 'object' && !Array.isArray(value) && !('mode' in value)) {
       if (repairOnlyRequestKeys.some((key) => key in value)) {
         return value;
@@ -278,7 +278,9 @@ export function createBuilderLlmRequestSchema({
     }
 
     return value;
-  }, requestSchema);
+  });
+
+  return addLegacyInitialRequestMode.pipe(requestSchema);
 }
 
 export function createCommitTelemetrySchema({

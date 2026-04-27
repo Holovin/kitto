@@ -18,14 +18,6 @@ const OPENUI_SYSTEM_PROMPT_CACHE_TOKEN = 'base';
 const preamble =
   'You generate OpenUI Lang for Kitto, a chat-driven browser app builder. Build small frontend-only apps that run entirely in the browser.';
 
-function buildAdditionalRules() {
-  return buildStableSystemRules();
-}
-
-function buildToolExamples() {
-  return buildStableToolExamples();
-}
-
 function jsonSchemaTypeStr(schema: unknown): string {
   if (!schema || typeof schema !== 'object') {
     return 'any';
@@ -409,9 +401,9 @@ function getCachedSystemPrompt() {
   }
 
   const prompt = buildKittoOpenUiPrompt({
-    additionalRules: buildAdditionalRules(),
+    additionalRules: buildStableSystemRules(),
     componentSpec: openUiComponentSpec,
-    examples: buildToolExamples(),
+    examples: buildStableToolExamples(),
     tools: toolSpecifications,
   });
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);

@@ -17,7 +17,6 @@ import {
   createOpenUiProgramIndex,
   escapeStringLiteralBackticksForParser,
   maskStringLiterals,
-  normalizeSourceForValidation,
   parser,
   type OpenUiQualityIssue,
   type OpenUiValidationContext,
@@ -50,7 +49,7 @@ export function detectLocalRuntimeQualityIssues(
   source: string,
   options: LocalRuntimeQualityIssueOptions = {},
 ): OpenUiQualityIssue[] {
-  const trimmedSource = options.normalizedSource ?? normalizeSourceForValidation(source);
+  const trimmedSource = options.normalizedSource ?? source.trim();
 
   if (!trimmedSource) {
     return [];
@@ -103,7 +102,7 @@ export function detectLocalRuntimeQualityIssues(
 }
 
 export function validateOpenUiSourceWithContext(source: string): OpenUiValidationContext {
-  const trimmedSource = normalizeSourceForValidation(source);
+  const trimmedSource = source.trim();
 
   if (!trimmedSource) {
     return {

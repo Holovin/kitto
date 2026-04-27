@@ -1,11 +1,19 @@
-import { OPENUI_TOOL_NAMES } from '@kitto-openui/shared/openuiToolRegistry.js';
+import {
+  isOpenUiToolName,
+  OPENUI_TOOL_NAME_SET,
+  type OpenUiToolName,
+} from '@kitto-openui/shared/openuiToolRegistry.js';
 
 export const OPENUI_SOURCE_LIMITS = {
   maxSourceChars: 50_000,
   maxStatements: 300,
 } as const;
 
-export const ALLOWED_TOOLS: Set<string> = new Set(OPENUI_TOOL_NAMES);
+export const ALLOWED_TOOLS: ReadonlySet<OpenUiToolName> = OPENUI_TOOL_NAME_SET;
+
+export function isAllowedToolName(value: string): value is OpenUiToolName {
+  return isOpenUiToolName(value);
+}
 
 export const ALLOWED_AST_NODE_KINDS: Set<string> = new Set([
   'Arr',

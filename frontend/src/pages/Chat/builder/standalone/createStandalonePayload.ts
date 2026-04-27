@@ -21,18 +21,7 @@ function resolveStandaloneTitle(title?: string) {
 }
 
 function createStandaloneExportId() {
-  const randomUuid = globalThis.crypto?.randomUUID?.();
-
-  if (typeof randomUuid === 'string' && randomUuid.length > 0) {
-    return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${randomUuid}`;
-  }
-
-  const timestampPart = Date.now().toString(36);
-  const randomPart = Math.floor(Math.random() * 0x1_0000_0000)
-    .toString(16)
-    .padStart(8, '0');
-
-  return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${timestampPart}-${randomPart}`;
+  return `v${KITTO_STANDALONE_PAYLOAD_VERSION}-${crypto.randomUUID()}`;
 }
 
 function getLatestCommittedSnapshotForSource(source: string, history: BuilderSnapshot[]) {
