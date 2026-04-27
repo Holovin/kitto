@@ -285,7 +285,10 @@ import { domainActions, domainReducer } from '@pages/Chat/builder/store/domainSl
 import { BuilderStreamTimeoutError } from '@pages/Chat/builder/api/streamGenerate';
 import { getBuilderComposerSubmitState } from '@pages/Chat/builder/hooks/submissionPrompt';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
-import { RUNTIME_CONFIG_UNAVAILABLE_NOTICE } from '@pages/Chat/builder/components/chatNotices';
+import {
+  RUNTIME_CONFIG_LOADING_NOTICE,
+  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+} from '@pages/Chat/builder/components/chatNotices';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
 import { useBuilderHistoryControls } from '@pages/Chat/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@pages/Chat/builder/hooks/useBuilderSubmission';
@@ -1408,7 +1411,11 @@ describe('useBuilderSubmission', () => {
 
     expect(testHarness.streamMock).not.toHaveBeenCalled();
     expect(testHarness.generateMock).not.toHaveBeenCalled();
-    expect(submission.onSystemNotice).not.toHaveBeenCalled();
+    expect(submission.onSystemNotice).toHaveBeenCalledWith({
+      content: RUNTIME_CONFIG_LOADING_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      tone: 'info',
+    });
 
     submission.unmount();
   });

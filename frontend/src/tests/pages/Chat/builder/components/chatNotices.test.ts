@@ -3,6 +3,7 @@ import {
   BACKEND_DISCONNECTED_NOTICE,
   BACKEND_RECONNECTED_NOTICE,
   RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+  RUNTIME_CONFIG_LOADING_NOTICE,
   resolveBackendConnectionNotice,
   resolveRuntimeConfigNotice,
 } from '@pages/Chat/builder/components/chatNotices';
@@ -74,11 +75,24 @@ describe('resolveBackendConnectionNotice', () => {
     });
   });
 
-  it('does not emit runtime config chat notices for non-error states', () => {
+  it('emits runtime config loading notice while config is loading', () => {
     expect(
       resolveRuntimeConfigNotice({
         configStatus: 'loading',
         runtimeConfigStatusContent: null,
+      }),
+    ).toEqual({
+      content: RUNTIME_CONFIG_LOADING_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      tone: 'info',
+    });
+  });
+
+  it('does not emit runtime config chat notices for non-error non-loading states', () => {
+    expect(
+      resolveRuntimeConfigNotice({
+        configStatus: 'loading',
+        runtimeConfigStatusContent: RUNTIME_CONFIG_LOADING_NOTICE,
       }),
     ).toBeNull();
     expect(

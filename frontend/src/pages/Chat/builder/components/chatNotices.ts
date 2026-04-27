@@ -7,6 +7,8 @@ export const BACKEND_DISCONNECTED_NOTICE =
 export const BACKEND_RECONNECTED_NOTICE = 'Backend connection recovered. New prompts are available again.';
 export const RUNTIME_CONFIG_UNAVAILABLE_NOTICE =
   'Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.';
+export const RUNTIME_CONFIG_LOADING_NOTICE =
+  'Runtime config is still loading. Chat send will unlock after /api/config is ready.';
 
 interface ResolveBackendConnectionNoticeOptions {
   backendStatusContent: string | null;
@@ -58,6 +60,18 @@ export function resolveRuntimeConfigNotice({
   configStatus,
   runtimeConfigStatusContent,
 }: ResolveRuntimeConfigNoticeOptions): BuilderChatNotice | null {
+  if (configStatus === 'loading') {
+    if (runtimeConfigStatusContent === RUNTIME_CONFIG_LOADING_NOTICE) {
+      return null;
+    }
+
+    return {
+      content: RUNTIME_CONFIG_LOADING_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      tone: 'info',
+    };
+  }
+
   if (configStatus !== 'failed') {
     return null;
   }

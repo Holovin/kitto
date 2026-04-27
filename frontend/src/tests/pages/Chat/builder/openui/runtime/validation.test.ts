@@ -1165,6 +1165,9 @@ statusOptions = [
 ]
 rows = @Each(items, "item", Group(null, "vertical", [
   Input("title-" + item.id, "Title", item.title, "Task title"),
+  TextArea("notes-" + item.id, "Notes", item.notes, "Notes", null),
+  Checkbox("toggle-" + item.id, "", item.completed),
+  RadioGroup("status-" + item.id, "Status", item.status, statusOptions, null, []),
   Select("status-" + item.id, "Status", item.status, statusOptions, null, [])
 ], "inline"))
 
@@ -1176,7 +1179,7 @@ root = AppShell([
 
     const itemBoundIssues = issues.filter((issue) => issue.code === 'item-bound-control-without-action');
 
-    expect(itemBoundIssues).toHaveLength(2);
+    expect(itemBoundIssues).toHaveLength(5);
     expect(itemBoundIssues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1190,9 +1193,15 @@ root = AppShell([
   it('does not mark item-bound controls inside @Each when action mode is used', () => {
     const issues = detectLocalRuntimeQualityIssues(
       `items = Query("read_state", { path: "app.items" }, [])
+statusOptions = [
+  { label: "Todo", value: "todo" },
+  { label: "Done", value: "done" }
+]
 rows = @Each(items, "item", Group(null, "horizontal", [
   Text(item.title, "body", "start"),
-  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([]))
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([])),
+  RadioGroup("status-" + item.id, "Status", item.status, statusOptions, null, [], Action([])),
+  Select("status-" + item.id, "Status", item.status, statusOptions, null, [], Action([]))
 ], "inline"))
 
 root = AppShell([

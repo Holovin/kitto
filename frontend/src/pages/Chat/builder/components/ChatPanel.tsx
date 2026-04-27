@@ -8,6 +8,7 @@ import { useBackendConnectionState } from '@pages/Chat/builder/hooks/useBuilderB
 import { useBuilderHistoryControls } from '@pages/Chat/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@pages/Chat/builder/hooks/useBuilderSubmission';
 import {
+  RUNTIME_CONFIG_LOADING_NOTICE,
   RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
   resolveBackendConnectionNotice,
   resolveRuntimeConfigNotice,
@@ -232,7 +233,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   });
   const composerHint =
     configStatus === 'loading'
-      ? 'Runtime config is still loading. Chat send will unlock after /api/config is ready.'
+      ? RUNTIME_CONFIG_LOADING_NOTICE
       : configStatus === 'failed'
         ? RUNTIME_CONFIG_UNAVAILABLE_NOTICE
         : hasReachedPromptLimit
@@ -256,7 +257,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       return;
     }
 
-    if (configStatus === 'failed' || runtimeConfigStatusContent === null) {
+    if (configStatus !== 'loaded' || runtimeConfigStatusContent === null) {
       return;
     }
 
