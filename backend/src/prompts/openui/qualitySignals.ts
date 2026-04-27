@@ -1,4 +1,5 @@
 import type { ParseResult } from '@openuidev/lang-core';
+import { findFunctionCalls } from '@kitto-openui/shared/openuiSourceParsing.js';
 import { promptMentionsTodoIntent, promptRequiresBlockingTodoControls } from './qualityIntents.js';
 import { extractStringLiteral, isElementNode, type BuilderQualityIssueSeverity } from '#backend/prompts/openui/quality/shared.js';
 export { detectChoiceOptionsShapeIssues } from '#backend/prompts/openui/quality/detectors/optionsShape.js';
@@ -28,6 +29,7 @@ const CONTROL_SHOWCASE_REQUEST_PATTERN =
 const MULTI_SCREEN_REQUEST_PATTERN =
   /\b(wizard|quiz|onboarding|multi[\s-]?(?:step|screen|page)|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow)\b|\b(?:two|three|four|five|several|multiple)\s+(?:screens?|pages?)\b|\b\d+\s+(?:screens?|pages?)\b|(?:многошаг\w*|нескольк\w*\s+экран\w*|втор\w*\s+экран\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
+const TODO_TOGGLE_MUTATION_TOOL_NAMES = new Set(['toggle_item_field', 'update_item_field']);
 const REQUIRED_CONTROL_SHOWCASE_COMPONENTS = ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select', 'Button', 'Link'] as const;
 
 function isSimplePrompt(prompt: string) {
@@ -114,6 +116,77 @@ function hasMutationTool(result: ParseResult, toolName: string) {
   return result.mutationStatements.some((statement) => extractStringLiteral(statement.toolAST) === toolName);
 }
 
+function getMutationStatementIdsForTools(result: ParseResult, toolNames: ReadonlySet<string>) {
+  return new Set(
+    result.mutationStatements.flatMap((statement) =>
+      toolNames.has(extractStringLiteral(statement.toolAST) ?? '') ? [statement.statementId] : [],
+    ),
+  );
+}
+
+function getReadStateQueryStatementIds(result: ParseResult) {
+  return new Set(
+    result.queryStatements.flatMap((statement) =>
+      extractStringLiteral(statement.toolAST) === 'read_state' ? [statement.statementId] : [],
+    ),
+  );
+}
+
+function normalizeRunRefArg(value: string | undefined) {
+  const trimmedValue = value?.trim() ?? '';
+
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmedValue) ? trimmedValue : null;
+}
+
+function getActionRunRefs(actionSource: string) {
+  return findFunctionCalls(actionSource, 'Run').flatMap((runCall) => {
+    const runRef = normalizeRunRefArg(runCall.args[0]);
+
+    return runRef ? [runRef] : [];
+  });
+}
+
+function hasPersistedTodoToggleAndRefreshAction(
+  actionSource: string,
+  toggleMutationIds: ReadonlySet<string>,
+  readStateQueryIds: ReadonlySet<string>,
+) {
+  if (!/\bAction\s*\(/.test(actionSource)) {
+    return false;
+  }
+
+  const runRefs = getActionRunRefs(actionSource);
+
+  for (const [index, runRef] of runRefs.entries()) {
+    if (!toggleMutationIds.has(runRef)) {
+      continue;
+    }
+
+    if (runRefs.slice(index + 1).some((laterRunRef) => readStateQueryIds.has(laterRunRef))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasInteractiveTodoToggleInRows(result: ParseResult, source: string) {
+  const toggleMutationIds = getMutationStatementIdsForTools(result, TODO_TOGGLE_MUTATION_TOOL_NAMES);
+  const readStateQueryIds = getReadStateQueryStatementIds(result);
+
+  if (toggleMutationIds.size === 0 || readStateQueryIds.size === 0) {
+    return false;
+  }
+
+  return findFunctionCalls(source, 'Each').some((eachCall) => {
+    const rowSource = eachCall.args[2] ?? '';
+
+    return findFunctionCalls(rowSource, 'Checkbox').some((checkboxCall) =>
+      hasPersistedTodoToggleAndRefreshAction(checkboxCall.args[5] ?? '', toggleMutationIds, readStateQueryIds),
+    );
+  });
+}
+
 export function hasRequiredTodoControls(result: ParseResult, source: string) {
   if (!result.root) {
     return false;
@@ -125,7 +198,8 @@ export function hasRequiredTodoControls(result: ParseResult, source: string) {
     hasElementType(result.root, 'Repeater') &&
     /@Each\s*\(/.test(source) &&
     result.queryStatements.some((statement) => extractStringLiteral(statement.toolAST) === 'read_state') &&
-    (hasMutationTool(result, 'append_state') || hasMutationTool(result, 'append_item'))
+    (hasMutationTool(result, 'append_state') || hasMutationTool(result, 'append_item')) &&
+    hasInteractiveTodoToggleInRows(result, source)
   );
 }
 

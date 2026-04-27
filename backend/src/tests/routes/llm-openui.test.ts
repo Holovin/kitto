@@ -643,6 +643,7 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
       summaryExcludeFromLlmContext: true,
+      summaryWarning: 'The model returned a generic summary; it was kept visible but excluded from future model context.',
       temperature: 0.4,
     });
   });
@@ -1099,6 +1100,7 @@ describe('createLlmOpenUiRoutes', () => {
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
       summaryExcludeFromLlmContext: true,
+      summaryWarning: 'The model returned a generic summary; it was kept visible but excluded from future model context.',
       temperature: 0.4,
     });
   });

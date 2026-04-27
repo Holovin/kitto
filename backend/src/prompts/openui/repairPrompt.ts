@@ -461,7 +461,7 @@ function allocateRepairSectionBudgets(
     committedSource: 180,
     invalidSource: 160,
     issues: 300,
-    rules: 2_400,
+    rules: 2_000,
     statementExcerpts: 0,
     hints: hasHints ? 520 : 0,
   };
@@ -491,21 +491,24 @@ function allocateRepairSectionBudgets(
     hints: Math.min(desiredLengths.hints, minimumBudgets.hints),
   };
   const minimumTotal = priority.reduce((sum, key) => sum + cappedMinimums[key], 0);
-  const remainingMinimumTotal = minimumTotal - cappedMinimums.rules;
   let remainingChars = totalChars;
+  const nonRuleMinimumTotal = minimumTotal - cappedMinimums.rules;
+  const shouldReserveRulesBudget = remainingChars >= cappedMinimums.rules + Math.min(nonRuleMinimumTotal, 1_200);
+  const reservedRulesBudget = shouldReserveRulesBudget ? Math.min(cappedMinimums.rules, remainingChars) : 0;
+  const remainingMinimumTotal = minimumTotal - reservedRulesBudget;
 
-  const reservedRulesBudget = Math.min(cappedMinimums.rules, remainingChars);
+  if (reservedRulesBudget > 0) {
+    budgets.rules = reservedRulesBudget;
+    remainingChars -= reservedRulesBudget;
 
-  budgets.rules = reservedRulesBudget;
-  remainingChars -= reservedRulesBudget;
-
-  if (remainingChars <= 0) {
-    return budgets;
+    if (remainingChars <= 0) {
+      return budgets;
+    }
   }
 
   if (remainingChars <= remainingMinimumTotal) {
     if (hasHints) {
-      if (mode === 'parser') {
+      if (mode === 'parser' || desiredLengths.invalidSource > 0) {
         const draftBudget = Math.min(cappedMinimums.invalidSource, remainingChars > 0 ? 1 : 0);
 
         budgets.invalidSource = draftBudget;
@@ -522,7 +525,7 @@ function allocateRepairSectionBudgets(
       budgets.hints = hintBudget;
       remainingChars -= hintBudget;
 
-      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && candidate !== 'rules' && budgets[candidate] === 0)) {
+      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && (!shouldReserveRulesBudget || candidate !== 'rules') && budgets[candidate] === 0)) {
         if (remainingChars <= 0) {
           break;
         }
@@ -536,7 +539,7 @@ function allocateRepairSectionBudgets(
     }
 
     for (const key of priority) {
-      if (key === 'rules') {
+      if (shouldReserveRulesBudget && key === 'rules') {
         continue;
       }
 
@@ -553,7 +556,7 @@ function allocateRepairSectionBudgets(
   }
 
   for (const key of priority) {
-    if (key === 'rules') {
+    if (shouldReserveRulesBudget && key === 'rules') {
       continue;
     }
 
