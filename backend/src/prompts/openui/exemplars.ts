@@ -73,6 +73,68 @@ root = AppShell([
 ])`,
 };
 
+const EDITABLE_TODO_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'editable-todo-task-list',
+  title: 'Editable todo item pattern',
+  text: `$draft = ""
+$editTitle = ""
+$targetItemId = ""
+
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+updateItemTitle = Mutation("update_item_field", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "title",
+  value: $editTitle
+})
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Button("edit-" + item.id, "Edit", "secondary", Action([@Set($targetItemId, item.id), @Set($editTitle, item.title)]), false)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Editable todos", [
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Group("Edit selected task", "horizontal", [
+      Input("edit-title", "Selected task title", $editTitle, "Choose a row first"),
+      Button("save-edit", "Save", "default", Action([@Run(updateItemTitle), @Run(items), @Reset($targetItemId, $editTitle)]), $targetItemId == "" || $editTitle == "")
+    ], "inline"),
+    Repeater(rows, "No tasks yet.")
+  ])
+])`,
+};
+
+const DELETE_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'delete-remove-item',
+  title: 'Delete/remove item pattern',
+  text: `$targetItemId = ""
+
+items = Query("read_state", { path: "app.items" }, [])
+scratchItems = Query("read_state", { path: "app.scratch" }, [])
+removeItem = Mutation("remove_item", {
+  path: "app.items",
+  idField: "id",
+  id: $targetItemId
+})
+removeFirstScratchItem = Mutation("remove_state", { path: "app.scratch", index: 0 })
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Button("remove-" + item.id, "Remove", "destructive", Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)]), false)
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Removable items", [
+    Repeater(rows, "No items yet."),
+    Button("remove-first-scratch", "Remove first scratch item", "secondary", Action([@Run(removeFirstScratchItem), @Run(scratchItems)]), @Count(scratchItems) == 0)
+  ])
+])`,
+};
+
 const VALIDATION_FORM_REQUEST_EXEMPLAR: PromptExemplar = {
   key: 'validation-form',
   title: 'Validation form pattern',
@@ -97,6 +159,27 @@ root = AppShell([
 ])`,
 };
 
+const COMPUTED_VALIDATION_WARNING_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'computed-validation-warning',
+  title: 'Computed validation warning pattern',
+  text: `$name = ""
+
+nameIsEmpty = Query("compute_value", {
+  op: "is_empty",
+  input: $name,
+  returnType: "boolean"
+}, { value: true })
+
+root = AppShell([
+  Screen("main", "Name check", [
+    Input("name", "Name", $name, "Ada", "Required", "text", [
+      { type: "required", message: "Name is required" }
+    ]),
+    Text(nameIsEmpty.value ? "Warning: name is empty." : "Name looks good.", "body", "start")
+  ])
+])`,
+};
+
 const THEME_TOGGLE_REQUEST_EXEMPLAR: PromptExemplar = {
   key: 'theme-toggle',
   title: 'Theme toggle pattern',
@@ -114,6 +197,39 @@ root = AppShell([
       Button("theme-dark", "Dark", "default", Action([@Set($currentTheme, "dark")]), false, $currentTheme == "dark" ? activeThemeButton : inactiveThemeButton)
     ], "inline"),
     Text("Current theme: " + $currentTheme, "body", "start")
+  ])
+], appTheme)`,
+};
+
+const THEMED_TODO_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'themed-todo-task-list',
+  title: 'Themed todo list pattern',
+  text: `$draft = ""
+$targetItemId = ""
+$currentTheme = "light"
+lightTheme = { mainColor: "#F8FAFC", contrastColor: "#0F172A" }
+darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
+appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Themed todos", [
+    Group("Theme", "horizontal", [
+      Button("theme-light", "Light", "secondary", Action([@Set($currentTheme, "light")]), false),
+      Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false)
+    ], "inline"),
+    Group("Add task", "horizontal", [
+      Input("draft", "Task", $draft, "New task"),
+      Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+    ], "inline"),
+    Repeater(rows, "No tasks yet.")
   ])
 ], appTheme)`,
 };
@@ -183,8 +299,37 @@ root = AppShell([
 ])`,
 };
 
+const MULTI_SCREEN_VALIDATION_FORM_REQUEST_EXEMPLAR: PromptExemplar = {
+  key: 'multi-screen-validation-form',
+  title: 'Multi-screen validation form pattern',
+  text: `$currentScreen = "form"
+$email = ""
+$agree = false
+
+root = AppShell([
+  Screen("form", "Contact details", [
+    Input("email", "Email", $email, "ada@example.com", "Required email", "email", [
+      { type: "required", message: "Email is required" },
+      { type: "email", message: "Enter a valid email" }
+    ]),
+    Checkbox("agree", "I agree", $agree, "Required to continue", [{ type: "required", message: "Agreement is required" }]),
+    Button("review", "Review", "default", Action([@Set($currentScreen, "review")]), $email == "" || !$agree)
+  ], $currentScreen == "form"),
+  Screen("review", "Review", [
+    Text("Email: " + $email, "body", "start"),
+    Button("back", "Back", "secondary", Action([@Set($currentScreen, "form")]), false),
+    Button("submit", "Submit", "default", Action([@Set($currentScreen, "done")]), false)
+  ], $currentScreen == "review"),
+  Screen("done", "Done", [
+    Text("Submitted.", "title", "start")
+  ], $currentScreen == "done")
+])`,
+};
+
 const DATE_COMPARISON_REQUEST_PATTERN =
   /\b(date\s+comparison|compare\s+dates?|deadline|deadlines?|due\s+dates?)\b|(?:сравн[а-яё]*\s+дат[а-яё]*|дедлайн[а-яё]*|срок[а-яё]*)/i;
+const EDIT_ITEM_REQUEST_PATTERN =
+  /\b(?:edit|rename|update|change)\s+(?:an?\s+)?(?:item|task|todo|row|entry)\b|\b(?:editable|renameable)\s+(?:items?|tasks?|todos?|rows?)\b|(?:редактир\w*|переимен\w*|обнов\w*)\s+(?:задач\w*|элемент\w*|строк\w*)/i;
 
 const REPAIR_EXEMPLARS: Record<string, PromptExemplar> = {
   'control-action-and-binding': {
@@ -255,6 +400,34 @@ OK: [{ label: "Email", value: "email" }, { label: "Phone", value: "phone" }]`,
     text: `WRONG: Button("add-task", "Add", "default", Action([@Run(addItem), @Reset($draft)]), $draft == "")
 OK: Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")`,
   },
+  'quality-random-result-not-visible': {
+    key: 'quality-random-result-not-visible',
+    title: 'Show persisted random result',
+    text: `WRONG: Button("roll", "Roll", "default", Action([@Run(rollDice)]), false)
+OK: rollValue = Query("read_state", { path: "app.roll" }, null)
+OK: Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)
+OK: Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")`,
+  },
+  'quality-theme-state-not-applied': {
+    key: 'quality-theme-state-not-applied',
+    title: 'Apply selected theme to AppShell',
+    text: `WRONG: appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+WRONG: root = AppShell([Screen("main", "Theme", [...])])
+OK: root = AppShell([Screen("main", "Theme", [...])], appTheme)`,
+  },
+  'item-bound-control-without-action': {
+    key: 'item-bound-control-without-action',
+    title: 'Persist item-scoped controls with actions',
+    text: `WRONG: @Each(items, "item", Checkbox("done-" + item.id, "", item.completed))
+OK: toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
+OK: @Each(items, "item", Checkbox("done-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])))`,
+  },
+  'mutation-uses-array-index-path': {
+    key: 'mutation-uses-array-index-path',
+    title: 'Avoid numeric persisted row paths',
+    text: `WRONG: updateFirst = Mutation("write_state", { path: "app.items.0.completed", value: true })
+OK: updateItem = Mutation("update_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed", value: true })`,
+  },
   'reserved-last-choice-outside-action-mode': {
     key: 'reserved-last-choice-outside-action-mode',
     title: 'Use $lastChoice only inside action-mode flows',
@@ -297,15 +470,29 @@ export function getRelevantRequestExemplars(userPrompt: string) {
 
   if (intents.todo && intents.filtering) {
     exemplars.push(FILTERED_TODO_REQUEST_EXEMPLAR);
+  } else if (intents.todo && intents.theme) {
+    exemplars.push(THEMED_TODO_REQUEST_EXEMPLAR);
   } else if (promptRequiresBlockingTodoControls(userPrompt)) {
     exemplars.push(TODO_REQUEST_EXEMPLAR);
   }
 
-  if (intents.validation) {
+  if (intents.todo && EDIT_ITEM_REQUEST_PATTERN.test(userPrompt)) {
+    exemplars.push(EDITABLE_TODO_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.delete) {
+    exemplars.push(DELETE_REQUEST_EXEMPLAR);
+  }
+
+  if (intents.validation && intents.multiScreen) {
+    exemplars.push(MULTI_SCREEN_VALIDATION_FORM_REQUEST_EXEMPLAR);
+  } else if (intents.validation && intents.compute && !intents.random && !DATE_COMPARISON_REQUEST_PATTERN.test(userPrompt)) {
+    exemplars.push(COMPUTED_VALIDATION_WARNING_REQUEST_EXEMPLAR);
+  } else if (intents.validation) {
     exemplars.push(VALIDATION_FORM_REQUEST_EXEMPLAR);
   }
 
-  if (intents.theme) {
+  if (intents.theme && !intents.todo) {
     exemplars.push(THEME_TOGGLE_REQUEST_EXEMPLAR);
   }
 
@@ -315,7 +502,7 @@ export function getRelevantRequestExemplars(userPrompt: string) {
     exemplars.push(DATE_COMPARISON_REQUEST_EXEMPLAR);
   }
 
-  if (intents.multiScreen) {
+  if (intents.multiScreen && !intents.validation) {
     exemplars.push(MULTI_SCREEN_QUIZ_REQUEST_EXEMPLAR);
   }
 

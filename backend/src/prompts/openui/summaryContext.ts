@@ -17,6 +17,12 @@ function normalizeSummaryForMatch(summary: string) {
   return summary.trim().replace(/\s+/g, ' ').toLowerCase().replace(/\.$/, '');
 }
 
+export function getSummaryQualityWarning(summary: string) {
+  return shouldExcludeSummaryFromLlmContext(summary)
+    ? 'The model returned a generic summary; it was kept visible but excluded from future model context.'
+    : undefined;
+}
+
 export function shouldExcludeSummaryFromLlmContext(summary: string) {
   const trimmedSummary = summary.trim();
 

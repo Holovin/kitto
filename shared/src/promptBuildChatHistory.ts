@@ -30,8 +30,26 @@ function normalizeMaxItems(maxItems?: number) {
   return maxItems ?? Number.POSITIVE_INFINITY;
 }
 
+const SEMINAL_CREATE_REQUEST_PATTERN =
+  /\b(?:new|fresh)\s+(?:app|application|tool|experience)\b|\bfrom\s+scratch\b|^\s*(?:create|build|make|generate)\s+(?:a|an|the)?\s*.*\b(?:app|application|tool|showcase|quiz|form|list|dashboard|planner|tracker|counter|calculator|catalog|wizard)\b|(?:создай|сделай|построй|сгенерируй)\s+(?:нов[а-яё]*\s+)?(?:приложен[а-яё]*|форм[а-яё]*|спис[а-яё]*|квиз[а-яё]*|дашборд[а-яё]*|планировщик[а-яё]*)/i;
+const SEMINAL_MODIFY_REQUEST_PATTERN =
+  /^\s*(?:add|append|change|edit|extend|fix|keep|modify|preserve|remove|rename|switch|turn\s+(?:it|this)|update)\b|^\s*(?:добавь|дополни|измени|исправь|обнови|оставь|переименуй|сохрани|удали)\b/i;
+
 function getFirstUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
   return messages.findIndex((message) => message.role === 'user');
+}
+
+function isSeminalUserIntentMessage(message: PromptBuildChatHistoryMessage) {
+  return (
+    message.role === 'user' &&
+    (SEMINAL_CREATE_REQUEST_PATTERN.test(message.content) || SEMINAL_MODIFY_REQUEST_PATTERN.test(message.content))
+  );
+}
+
+function getSeminalUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
+  const firstSeminalUserMessageIndex = messages.findIndex(isSeminalUserIntentMessage);
+
+  return firstSeminalUserMessageIndex >= 0 ? firstSeminalUserMessageIndex : getFirstUserMessageIndex(messages);
 }
 
 interface PromptBuildChatHistoryTurn {
@@ -112,20 +130,20 @@ export function retainPromptBuildChatHistoryTail(
   }
 
   const normalizedTailCount = Math.max(0, Math.min(messages.length, Math.floor(latestTailCount)));
-  const firstUserMessageIndex = getFirstUserMessageIndex(messages);
-  const firstUserMessage = firstUserMessageIndex >= 0 ? messages[firstUserMessageIndex] : null;
+  const seminalUserMessageIndex = getSeminalUserMessageIndex(messages);
+  const seminalUserMessage = seminalUserMessageIndex >= 0 ? messages[seminalUserMessageIndex] : null;
 
   if (normalizedTailCount === 0) {
-    return firstUserMessage ? [firstUserMessage] : [];
+    return seminalUserMessage ? [seminalUserMessage] : [];
   }
 
-  if (!firstUserMessage) {
+  if (!seminalUserMessage) {
     return retainNewestTurnAwareTail(messages, normalizedTailCount);
   }
 
-  const tailMessages = retainNewestTurnAwareTail(messages.slice(firstUserMessageIndex + 1), normalizedTailCount);
+  const tailMessages = retainNewestTurnAwareTail(messages.slice(seminalUserMessageIndex + 1), normalizedTailCount);
 
-  return [firstUserMessage, ...tailMessages];
+  return [seminalUserMessage, ...tailMessages];
 }
 
 export function retainPromptBuildChatHistory(
@@ -142,15 +160,15 @@ export function retainPromptBuildChatHistory(
     return messages;
   }
 
-  const firstUserMessageIndex = getFirstUserMessageIndex(messages);
-  const firstUserMessage = firstUserMessageIndex >= 0 ? messages[firstUserMessageIndex] : null;
+  const seminalUserMessageIndex = getSeminalUserMessageIndex(messages);
+  const seminalUserMessage = seminalUserMessageIndex >= 0 ? messages[seminalUserMessageIndex] : null;
 
-  if (!firstUserMessage) {
+  if (!seminalUserMessage) {
     return messages.slice(-normalizedMaxItems);
   }
 
   if (normalizedMaxItems === 1) {
-    return [firstUserMessage];
+    return [seminalUserMessage];
   }
 
   return retainPromptBuildChatHistoryTail(messages, normalizedMaxItems - 1);

@@ -200,8 +200,10 @@ function dedupeToolExamples(examples: string[]) {
 function getToolExampleIntents(prompt?: string) {
   return prompt?.trim()
     ? detectPromptIntents(prompt)
-    : {
+      : {
         compute: false,
+        controlShowcase: false,
+        delete: false,
         filtering: false,
         multiScreen: false,
         random: false,

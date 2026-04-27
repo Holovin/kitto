@@ -94,6 +94,11 @@ const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
     prompt: 'Roll a dice.',
   },
   {
+    id: 'delete',
+    label: 'Delete',
+    prompt: 'Create a todo list where items can be removed.',
+  },
+  {
     id: 'multi-screen',
     label: 'Multi-screen',
     prompt: 'Create a quiz with three questions on separate screens.',

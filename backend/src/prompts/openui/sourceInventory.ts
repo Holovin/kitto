@@ -1,4 +1,8 @@
-import { collectTopLevelStatements, type OpenUiTopLevelStatement } from '@kitto-openui/shared/openuiAst.js';
+import {
+  collectOwnedActionRunRefGroups,
+  collectTopLevelStatements,
+  type OpenUiTopLevelStatement,
+} from '@kitto-openui/shared/openuiAst.js';
 import { visitOpenUiValue } from '#backend/prompts/openui/quality/astWalk.js';
 import {
   extractPathLiteral,
@@ -13,6 +17,7 @@ const MAX_VALUE_LENGTH = 120;
 const MAX_STATEMENTS = 30;
 const MAX_SCREENS = 20;
 const MAX_TOOL_STATEMENTS = 25;
+const MAX_ACTIONS = 30;
 const MAX_RUNTIME_STATE = 30;
 const MAX_DOMAIN_PATHS = 30;
 const RESERVED_RUNTIME_STATE_NAMES = new Set(['$lastChoice']);
@@ -63,6 +68,16 @@ function formatToolCall(statementId: string, toolAst: ToolAst, argsAst: unknown)
   const path = extractPathLiteral(argsAst);
 
   return path ? `${statementId} -> ${toolName}(${path})` : `${statementId} -> ${toolName}`;
+}
+
+function formatActionRunGroup(
+  actionGroup: ReturnType<typeof collectOwnedActionRunRefGroups>[number],
+  index: number,
+) {
+  const owner = actionGroup.ownerStatementId ?? actionGroup.ownerTypeName ?? `action${index + 1}`;
+  const runRefs = actionGroup.runRefs.map((runRef) => `@Run(${runRef.statementId})`).join(', ');
+
+  return `${owner} -> ${runRefs}`;
 }
 
 function collectScreenIds(root: unknown) {
@@ -117,6 +132,9 @@ export function buildCurrentSourceInventory(source: string) {
     const mutationToolCalls = parseResult.mutationStatements.map((mutation) =>
       formatToolCall(mutation.statementId, mutation.toolAST, mutation.argsAST),
     );
+    const actionRunGroups = collectOwnedActionRunRefGroups(parseResult.root)
+      .filter((actionGroup) => actionGroup.runRefs.length > 0)
+      .map(formatActionRunGroup);
     const runtimeState = collectRuntimeStateNames(Object.keys(parseResult.stateDeclarations));
     const domainPaths: string[] = [];
     const seenDomainPaths = new Set<string>();
@@ -134,6 +152,7 @@ export function buildCurrentSourceInventory(source: string) {
       `screens: ${formatInventoryList(screens, MAX_SCREENS)}`,
       `queries: ${formatInventoryList(queryToolCalls, MAX_TOOL_STATEMENTS)}`,
       `mutations: ${formatInventoryList(mutationToolCalls, MAX_TOOL_STATEMENTS)}`,
+      `actions: ${formatInventoryList(actionRunGroups, MAX_ACTIONS)}`,
       `runtime_state: ${formatInventoryList(runtimeState, MAX_RUNTIME_STATE)}`,
       `domain_paths: ${formatInventoryList(domainPaths, MAX_DOMAIN_PATHS)}`,
     ].join('\n');

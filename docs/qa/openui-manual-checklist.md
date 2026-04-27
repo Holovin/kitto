@@ -21,7 +21,7 @@ Guardrails:
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` accept raw builder inputs only: the original user prompt, the current committed source, full builder chat history, and repair-only `invalidDraft` plus structured validation issues. `prompt` and each `chatHistory[].content` are capped by `GET /api/config` `limits.promptMaxChars` / `limits.chatMessageMaxChars`; `currentSource` and `invalidDraft` are capped by `limits.sourceMaxChars`; the full serialized request is still capped by `limits.requestMaxBytes`. Repair validation issues may include optional `severity` to preserve blocking/fatal/warning priority across the frontend/backend boundary. Issue-specific repair context must be structured, such as `undefined-state-reference` `context.refName` / `context.exampleInitializer`, `quality-stale-persisted-query` `context.statementId` / `context.suggestedQueryRefs`, and `quality-options-shape` `context.groupId` / `context.invalidValues`. The backend filters history and assembles the model-visible initial conversation input plus repair prompt text
 - generation rate limiting and commit telemetry matching must ignore client-supplied `x-forwarded-for` and `x-real-ip` headers
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` share one process-local generation rate-limit bucket. This is intentional for the no-auth demo scope and is meant to cap demo traffic, not provide per-user isolation. A non-stream fallback after a pre-activity stream transport/timeout failure must reuse the same `x-kitto-request-id`, send `x-kitto-stream-fallback: 1`, and consume only a recorded one-use fallback exemption; early upstream API/model errors must not grant fallback exemptions. An automatic repair must send `x-kitto-automatic-repair: 1`, `x-kitto-repair-for`, and `x-kitto-repair-attempt`, then consume only the recorded one-use repair exemption for that parent request and attempt. A manual `Repeat` after failure is different: it resubmits the saved prompt as a fresh `mode: initial` generation with a new request id, must not send automatic-repair headers, must count as a normal generation request, and only earns a new repair exemption chain after that repeated generation completes.
-- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
+- the model envelope schema is `{ summary, source }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, summaryWarning?, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation request ids sent in `x-kitto-request-id`, validate that the JSON body request id matches that header including optional `qualityWarnings`, reject unmatched or overused request ids before accepting arbitrary telemetry bodies, and stay separate from import-only local flows
 
 ## Prompt docs page
@@ -31,14 +31,14 @@ Guardrails:
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
 - Confirm the system-prompt block is stable: it shows `Base`, `intentVector: base`, and one stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
-- Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Control showcase`, `Filter`, `Validation`, `Compute`, `Random`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
+- Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Control showcase`, `Filter`, `Validation`, `Compute`, `Random`, `Delete`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
-- Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then a separate `<intent_context>` user message carries `<request_intent>`, intent-specific rules, and relevant patterns/examples before the final user turn.
+- Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then the final user turn starts with `<intent_context>`, an explicit separator, and the latest request/current source blocks.
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
-- Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/controlShowcase/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
+- Confirm the `<request_intent>` block appears inside `<intent_context>` and lists todo/controlShowcase/delete/filtering/validation/compute/random/theme/multiScreen booleans plus `operation` (`create`, `modify`, `repair`, or `unknown`) and `minimality` (`simple` or `normal`).
 - Confirm the final user turn contains optional `<current_source_inventory>`, `<latest_user_request>`, and `<current_source>` blocks.
-- Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, runtime state names, and persisted domain paths.
-- Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 160 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
+- Confirm the optional `<current_source_inventory>` block appears before `<current_source>` when the committed source can be parsed and summarizes existing statements, screen ids, Query/Mutation tools, action run chains, runtime state names, and persisted domain paths.
+- Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
 - Confirm the user prompt template includes a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
@@ -47,9 +47,8 @@ Guardrails:
 
 ## Prompt baseline
 
-- Stable structured system prompt baseline: `systemPromptHash = f37da00067bcb7be`, `systemPromptCharCount = 30461`.
-- This replaces the older documented hash `ebb69b47f13a54d7`.
-- Verified on 2026-04-27 from the current prompt builder in the repo.
+- Stable structured system prompt baselines are exposed by `/api/prompts/info` through `systemPromptHash` and `systemPromptCharCount`.
+- After prompt-contract changes, compare the current values from `/api/prompts/info` against the expected review baseline for that change rather than relying on a hardcoded value in this checklist.
 
 ## Runtime invariants
 
@@ -63,7 +62,7 @@ Guardrails:
 - `Group(...)` inside `Group(...)` remains valid and should not be flagged on its own.
 - Definition may show streamed draft text while generation is still in progress, but it must render only the parsed partial OpenUI `source`, not the raw JSON envelope.
 - While a generation is still in progress, chat should show a single pending assistant summary derived from the streamed envelope as soon as `summary` becomes available. The pending summary uses a shimmer loading treatment instead of adding a textual status prefix.
-- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryExcludeFromLlmContext` / `compaction`.
+- Streaming `chunk` events reflect the in-progress model envelope; only the final `done` event carries the backend response payload with `model`, prompt-aware `qualityIssues`, and optional `summaryWarning` / `summaryExcludeFromLlmContext` / `compaction`.
 - When the backend compacts oversized chat history for an initial generation request, it should prefer keeping the earliest retained user request for the current app context plus the newest retained context instead of collapsing to a newest-only tail when both cannot fit.
 - After a successful commit, that summary should remain in chat as a normal assistant message and stay eligible for future LLM context unless it is explicitly marked otherwise.
 - Committed assistant summaries that stay in LLM context should describe concrete user-visible changes; generic status-only summaries such as `Updated the app` or `Made the requested changes` should not survive as context.

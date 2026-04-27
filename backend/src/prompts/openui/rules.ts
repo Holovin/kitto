@@ -1,11 +1,12 @@
 import { detectPromptIntents, type PromptIntentVector } from './promptIntents.js';
-import { BUTTON_APPEARANCE_RULE, buildIntentSpecificRules } from './ruleRegistry.js';
+import { BUTTON_APPEARANCE_RULE, RADIO_SELECT_OPTIONS_SHAPE_RULE, buildIntentSpecificRules } from './ruleRegistry.js';
 
-export { BUTTON_APPEARANCE_RULE };
+export { BUTTON_APPEARANCE_RULE, RADIO_SELECT_OPTIONS_SHAPE_RULE };
 
 const BASE_PROMPT_INTENTS: PromptIntentVector = {
   compute: false,
   controlShowcase: false,
+  delete: false,
   filtering: false,
   multiScreen: false,
   random: false,

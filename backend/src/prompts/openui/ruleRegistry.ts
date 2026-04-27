@@ -3,6 +3,8 @@ import type { PromptIntentVector } from './promptIntents.js';
 
 export const BUTTON_APPEARANCE_RULE =
   'For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.';
+export const RADIO_SELECT_OPTIONS_SHAPE_RULE =
+  'RadioGroup/Select options must be arrays of `{ label, value }` objects, never bare string or number arrays such as `["Email", "Phone"]`.';
 
 type OpenUiRuleGroupId =
   | 'appearance-and-theme'
@@ -10,6 +12,7 @@ type OpenUiRuleGroupId =
   | 'compute-tool'
   | 'control-showcase'
   | 'core-program'
+  | 'delete'
   | 'filter'
   | 'general-control-action-mode'
   | 'input-and-validation'
@@ -27,6 +30,42 @@ interface OpenUiRuleGroup {
   intent?: keyof PromptIntentVector;
   rules: readonly string[];
 }
+
+export interface OpenUiCanonicalAppPattern {
+  id: string;
+  intentVector: Partial<PromptIntentVector>;
+  rules: readonly string[];
+  title: string;
+}
+
+const OPENUI_CANONICAL_APP_PATTERNS: readonly OpenUiCanonicalAppPattern[] = [
+  {
+    id: 'persisted-todo-list',
+    title: 'Persisted todo list',
+    intentVector: { todo: true },
+    rules: [
+      'Use one persisted collection path for tasks, such as `app.todos`, read with `items = Query("read_state", { path: "app.todos" }, [])`.',
+      'Declare local UI state up front: `$draft = ""` and `$targetItemId = ""`.',
+      'Add rows with `append_item` and a plain object value such as `{ title: $draft, completed: false }`; after add, run the items Query and reset `$draft`.',
+      'Toggle completion with `toggle_item_field` using `idField: "id"`, `id: $targetItemId`, and `field: "completed"`.',
+      'Render rows as `rows = @Each(visibleItemsOrItems, "item", Group(...))`; keep the row template inline so `item` is in scope.',
+      'Inside each row, use action-mode Checkbox with `item.completed` plus `Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])`; do not bind controls directly to `item.completed`.',
+      'Pass built rows to `Repeater(rows, "No tasks yet")`; never pass raw Query data directly to Repeater.',
+    ],
+  },
+  {
+    id: 'filtered-todo-list',
+    title: 'Filtered todo list',
+    intentVector: { todo: true, filtering: true },
+    rules: [
+      'Use the persisted todo list pattern, then derive the visible collection before rendering rows.',
+      'For all/active/completed filters, keep one source `items` collection and derive `visibleItems = $filter == "active" ? @Filter(items, "completed", "==", false) : $filter == "completed" ? @Filter(items, "completed", "==", true) : items`.',
+      'For search, use `@Filter(items, "title", "contains", $query)` or combine search with status by naming each derived collection.',
+      'Render only the derived collection: `rows = @Each(visibleItems, "item", Group(...))`, then `Repeater(rows, "No matching tasks")`.',
+      'Keep filter controls in local state such as `$filter` or `$query` unless the user explicitly asks for persisted filter preferences.',
+    ],
+  },
+] as const;
 
 const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
   {
@@ -62,7 +101,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
     rules: [
       'Checkbox supports two modes: use `$binding<boolean>` for local form state, or pass a display-only boolean plus `Action([...])` for explicit persisted row toggles.',
       'RadioGroup and Select also support action mode: use a display-only string plus `Action([...])` when the newly chosen option should trigger a persisted update instead of local form binding.',
-      'RadioGroup/Select options must be `[{ label, value }]`, never `["Email", "Phone"]`.',
+      RADIO_SELECT_OPTIONS_SHAPE_RULE,
       'Never combine `action` with a writable `$binding<...>` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only `$binding`.',
       'BAD/GOOD Checkbox modes: BAD `Checkbox("done", "Done", $done, null, null, Action([@Run(saveDone)]))`; GOOD binding `Checkbox("done", "Done", $done)`; GOOD action `Checkbox("done-" + item.id, "Done", item.done, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))`.',
       'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
@@ -166,6 +205,18 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       'When the user asks for all, active, completed, or similar filtered views of one collection, keep one source collection and derive the visible collection with `@Filter(...)` instead of inventing a new tool.',
       'Expressions are allowed inside the source argument to `@Each(...)`, so you may pass either a named derived collection or an inline filtered expression.',
       'Do not invent custom filtering tools, todo-specific tool names, or special collection helpers when built-in functions already cover the request.',
+    ],
+  },
+  {
+    id: 'delete',
+    intent: 'delete',
+    rules: [
+      'DELETE / REMOVE RULE:',
+      'When removing UI structure such as a screen, field, section, or component from the current app, edit the OpenUI source directly; do not invent persisted tools for UI-only deletion.',
+      'For persisted object collection rows, prefer `remove_item(path, idField, id)` with relay state such as `$targetItemId` instead of numeric array paths.',
+      'Row delete recipe: `removeItem = Mutation("remove_item", { path: "app.items", idField: "id", id: $targetItemId })`, then inside `@Each(...)` use `Action([@Set($targetItemId, item.id), @Run(removeItem), @Run(items)])`.',
+      'After any delete Mutation that affects visible persisted data, re-run the Query that reads that path later in the same Action.',
+      'Use `remove_state(path, index)` only when the request clearly targets a numeric array position and the index is explicit; use `remove_item` for id-based object rows.',
     ],
   },
   {
@@ -280,10 +331,25 @@ function flattenRuleGroups(groupIds: OpenUiRuleGroupId[]) {
   return groupIds.flatMap((groupId) => [...getRuleGroup(groupId).rules]);
 }
 
+function matchesIntentVector(intents: PromptIntentVector, intentVector: Partial<PromptIntentVector>) {
+  return (Object.entries(intentVector) as Array<[keyof PromptIntentVector, boolean]>).every(
+    ([intentKey, expectedValue]) => intents[intentKey] === expectedValue,
+  );
+}
+
 export function buildStableSystemRules() {
   return flattenRuleGroups(STABLE_SYSTEM_RULE_GROUP_IDS);
 }
 
+export function getCanonicalAppPatterns() {
+  return OPENUI_CANONICAL_APP_PATTERNS;
+}
+
 export function buildIntentSpecificRules(intents: PromptIntentVector) {
-  return OPENUI_RULE_GROUPS.flatMap((group) => (group.intent && intents[group.intent] ? [...group.rules] : []));
+  const canonicalPatternRules = OPENUI_CANONICAL_APP_PATTERNS.flatMap((pattern) =>
+    matchesIntentVector(intents, pattern.intentVector) ? [`CANONICAL APP PATTERN - ${pattern.title}:`, ...pattern.rules] : [],
+  );
+  const intentSpecificRules = OPENUI_RULE_GROUPS.flatMap((group) => (group.intent && intents[group.intent] ? [...group.rules] : []));
+
+  return [...canonicalPatternRules, ...intentSpecificRules];
 }

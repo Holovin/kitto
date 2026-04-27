@@ -31,6 +31,7 @@ interface StreamDonePayload {
   source?: string;
   summary?: string;
   summaryExcludeFromLlmContext?: boolean;
+  summaryWarning?: string;
   temperature?: number;
 }
 
@@ -40,6 +41,7 @@ interface StreamBuilderDefinitionResult {
   source: string;
   summary?: string;
   summaryExcludeFromLlmContext?: boolean;
+  summaryWarning?: string;
 }
 
 function hasDoneSource(payload: StreamDonePayload): payload is StreamDonePayload & { source: string } {
@@ -203,6 +205,7 @@ export async function streamBuilderDefinition({
         source: donePayload.source,
         summary: donePayload.summary,
         summaryExcludeFromLlmContext: donePayload.summaryExcludeFromLlmContext,
+        summaryWarning: donePayload.summaryWarning,
       };
     }
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 import { openUiComponentSpec, openUiComponentSpecHash } from './componentSpec.js';
-import { buildStableSystemRules } from './ruleRegistry.js';
+import { buildStableSystemRules, getCanonicalAppPatterns, type OpenUiCanonicalAppPattern } from './ruleRegistry.js';
 import { buildStableToolExamples } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
 
@@ -118,7 +118,7 @@ function renderSyntaxRules(rootName: string) {
 5. EVERY variable (except root) MUST be referenced by at least one other variable. Unreferenced variables are silently dropped and will NOT render. Always include defined variables in their parent's children/items array.
 6. Arguments are POSITIONAL (order matters, not names). Write \`Group("Filters", "horizontal", [child], "inline")\` NOT \`Group("Filters", direction: "horizontal", children: [child])\`; colon syntax is NOT supported and silently breaks
 7. Optional arguments can be omitted from the end
-8. Declare every mutable state ref with \`$varName = defaultValue\` before use. Components marked with \`$binding\` can read/write these.
+8. Declare every state variable as \`$varName = defaultValue\` before first use. Props typed \`$binding<T>\` in signatures accept a \`$varName\` reference for two-way data binding.
 9. String concatenation: \`"text" + $var + "more"\`
 10. Dot member access: \`query.field\` reads a field; on arrays it extracts that field from every element
 11. Index access: \`arr[0]\`, \`data[index]\`
@@ -283,6 +283,30 @@ root = AppShell([Screen("main", "Items", [Repeater(rows, "No items")])])
 \`\`\``;
 }
 
+function renderIntentVector(intentVector: OpenUiCanonicalAppPattern['intentVector']) {
+  const entries = Object.entries(intentVector).map(([intentKey, enabled]) => `${intentKey}: ${enabled}`);
+
+  return entries.length > 0 ? entries.join(', ') : 'base';
+}
+
+function renderCanonicalAppPatternsSection() {
+  const lines = [
+    '## Canonical App Patterns',
+    '',
+    'Use these recipes before stitching together lower-level collection, filter, @Each, and control-action rules. Match them against the backend intent_context/request_intent vector.',
+  ];
+
+  for (const pattern of getCanonicalAppPatterns()) {
+    lines.push('', `### ${pattern.title}`, `Intent vector: ${renderIntentVector(pattern.intentVector)}`);
+
+    for (const rule of pattern.rules) {
+      lines.push(`- ${rule}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 function renderToolSignature(tool: ToolSpec) {
   const inputSchema = tool.inputSchema as { properties?: Record<string, unknown>; required?: string[] } | undefined;
   const properties = inputSchema?.properties ?? {};
@@ -369,6 +393,8 @@ function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples
     renderActionSection(),
     '',
     renderKittoWorkflowSection(),
+    '',
+    renderCanonicalAppPatternsSection(),
     '',
     renderAvailableToolsSection(tools),
     '',

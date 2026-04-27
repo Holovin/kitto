@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import type { AppEnv } from '#backend/env.js';
 import {
   detectPromptAwareQualityIssues,
+  getSummaryQualityWarning,
   getOpenUiTemperature,
   shouldExcludeSummaryFromLlmContext,
 } from '#backend/prompts/openui.js';
@@ -23,6 +24,7 @@ export function createLlmResponsePayload(
   responseEnvelope: OpenUiGenerationEnvelope,
 ) {
   const { source, summary } = responseEnvelope;
+  const summaryWarning = getSummaryQualityWarning(summary);
 
   assertModelOutputWithinLimit(source, env);
 
@@ -37,6 +39,7 @@ export function createLlmResponsePayload(
     ),
     source,
     summary,
+    summaryWarning,
     summaryExcludeFromLlmContext: shouldExcludeSummaryFromLlmContext(summary) || undefined,
     temperature: getOpenUiTemperature(invocation.request.mode),
   };

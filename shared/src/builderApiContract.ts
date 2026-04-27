@@ -105,6 +105,7 @@ export interface BuilderLlmResponse {
   source: string;
   summary?: string;
   summaryExcludeFromLlmContext?: boolean;
+  summaryWarning?: string;
   temperature: number;
 }
 

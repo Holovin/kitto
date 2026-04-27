@@ -12,10 +12,11 @@ export {
   retainPromptBuildChatHistory,
   retainPromptBuildChatHistoryTail,
 } from '@kitto-openui/shared/promptBuildChatHistory.js';
-export { shouldExcludeSummaryFromLlmContext } from './summaryContext.js';
+export { getSummaryQualityWarning, shouldExcludeSummaryFromLlmContext } from './summaryContext.js';
 export { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages } from './repairPrompt.js';
 export {
   buildOpenUiAssistantSummaryMessage,
+  buildOpenUiInitialUserPrompt,
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
   buildOpenUiUserPrompt,

@@ -69,7 +69,7 @@ export interface BuilderDefinitionExport {
 }
 
 export interface BuilderGeneratedDraft
-  extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary' | 'summaryExcludeFromLlmContext'> {
+  extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary' | 'summaryExcludeFromLlmContext' | 'summaryWarning'> {
   commitSource: BuilderCommitSource;
   requestId: BuilderRequestId;
 }

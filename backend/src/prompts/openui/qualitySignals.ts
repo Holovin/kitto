@@ -5,17 +5,23 @@ export { detectChoiceOptionsShapeIssues } from '#backend/prompts/openui/quality/
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
 const SIMPLE_PROMPT_EXCLUDE_PATTERN = /\b(wizard|quiz|multi[\s-]?step|screens?|pages?)\b/i;
+const THEME_NEGATION_PATTERN =
+  /\b(?:do\s+not|don't|dont|without|no|avoid|skip|disable|remove)\b[^.!?\n]{0,80}\b(?:theme|theming|dark\s+(?:theme|mode)|light\s+(?:theme|mode)|theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme)\b|(?:\b(?:не|без|избегай|пропусти|отключи|убери|удали)\b[^.!?\n]{0,80}(?:тем\w*|переключател\w*\s+тем\w*))/i;
+const VISUAL_STYLING_NEGATION_PATTERN =
+  /\b(?:do\s+not|don't|dont|without|no|avoid|skip|disable|remove)\b[^.!?\n]{0,80}\b(?:theme|theming|styles?|styling|palette|colou?rs?|accents?|dark\s+(?:theme|mode|background|surface|ui|interface)|light\s+(?:theme|mode|background|surface|ui|interface))\b|(?:\b(?:не|без|избегай|пропусти|отключи|убери|удали)\b[^.!?\n]{0,80}(?:стил\w*|цвет\w*|палитр\w*|акцент\w*|тем\w*|тёмн\w*|светл\w*))/i;
 const THEME_REQUEST_PATTERN =
   /\b(theme|theming|dark\s+theme|light\s+theme|dark\s+mode|light\s+mode|theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme)\b|(?:темн\w*\s+тем\w*|тёмн\w*\s+тем\w*|светл\w*\s+тем\w*|переключател\w*\s+тем\w*|смен\w*\s+тем\w*)/i;
 const THEME_STATE_REQUEST_PATTERN =
   /\b(theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme|(?:light|dark)\s+and\s+(?:light|dark)\s+(?:themes?|modes?)|(?:light|dark)\s*\/\s*(?:light|dark)\s+(?:themes?|modes?))\b|(?:переключател\w*\s+тем\w*|смен\w*\s+тем\w*|светл\w*.*темн\w*|тёмн\w*.*светл\w*)/i;
 const VISUAL_STYLING_REQUEST_PATTERN =
-  /\b(theme|theming|dark|light|color|colors|colour|colours|palette|accent|accents)\b|(?:цвет\w*|палитр\w*|акцент\w*|темн\w*|тёмн\w*|светл\w*)/i;
+  /\b(?:theme|theming|visual\s+styles?|styling|styled|palette|colou?r\s+(?:scheme|palette|theme|background|text|button|accent)s?|background\s+colou?r|text\s+colou?r|button\s+colou?r|accent\s+colou?r|dark\s+(?:background|surface|ui|interface)|light\s+(?:background|surface|ui|interface))\b|(?:цветов\w*\s+схем\w*|цвет\w*\s+(?:фон\w*|текст\w*|кноп\w*|акцент\w*)|палитр\w*|акцентн\w*\s+цвет\w*|т[её]мн\w*\s+(?:фон\w*|интерфейс\w*)|светл\w*\s+(?:фон\w*|интерфейс\w*))/i;
 const COMPUTE_REQUEST_PATTERN =
   /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b|(?:расч[её]т[а-яё]*|посчита[а-яё]*|сравн[а-яё]*\s+дат[а-яё]*|случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
 const FILTER_REQUEST_PATTERN = /\b(filter(?:s|ed|ing)?|search)\b|(?:фильтр[а-яё]*|поиск[а-яё]*)/i;
+const DELETE_REQUEST_PATTERN =
+  /\b(?:delete|remove|discard|clear)\s+(?:an?\s+|the\s+|this\s+|that\s+|last\s+|first\s+)?(?:item|task|todo|row|entry|screen|page|field|section|card|record|value|state|list)\b|^\s*(?:delete|remove|discard|clear)\b|(?:удали|убери|очисти|удалить|убрать|очистить)\s+(?:задач\w*|элемент\w*|строк\w*|экран\w*|пол[ея]\w*|секци\w*|значени\w*|спис\w*)/i;
 const VALIDATION_REQUEST_PATTERN =
-  /\b(validation|validate|validated|required|error|errors|invalid|rules?)\b|(?:валидац[а-яё]*|обязател[а-яё]*|ошибк[а-яё]*)/i;
+  /\b(?:validation|validate|validated|required|invalid|validation\s+rules?|form\s+rules?|field\s+rules?|input\s+rules?|(?:error|warning)\s+(?:when|if|for|on)\s+(?:invalid|required|empty)|show\s+(?:an?\s+)?(?:error|warning)\s+(?:when|if))\b|(?:валидац[а-яё]*|обязател[а-яё]*|некорректн[а-яё]*|(?:ошибк[а-яё]*|предупрежден[а-яё]*)\s+(?:если|при)\s+(?:некорректн[а-яё]*|пуст[а-яё]*|обязател[а-яё]*))/i;
 const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b|(?:случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
 const CONTROL_SHOWCASE_REQUEST_PATTERN =
   /\b(?:every|all|each)\s+(?:control|component|field|input)s?\b|\b(?:control|component)\s+showcase\b|(?:все\s+(?:контрол[а-яё]*|компонент[а-яё]*|пол[яеи])|кажд[а-яё]*\s+(?:контрол[а-яё]*|компонент[а-яё]*))/i;
@@ -29,15 +35,15 @@ function isSimplePrompt(prompt: string) {
 }
 
 export function promptRequestsTheme(prompt: string) {
-  return THEME_REQUEST_PATTERN.test(prompt);
+  return !THEME_NEGATION_PATTERN.test(prompt) && THEME_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsThemeState(prompt: string) {
-  return THEME_STATE_REQUEST_PATTERN.test(prompt);
+  return !THEME_NEGATION_PATTERN.test(prompt) && THEME_STATE_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsVisualStyling(prompt: string) {
-  return VISUAL_STYLING_REQUEST_PATTERN.test(prompt);
+  return !VISUAL_STYLING_NEGATION_PATTERN.test(prompt) && VISUAL_STYLING_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsTodo(prompt: string) {
@@ -50,6 +56,10 @@ export function promptRequestsCompute(prompt: string) {
 
 export function promptRequestsFiltering(prompt: string) {
   return FILTER_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsDelete(prompt: string) {
+  return DELETE_REQUEST_PATTERN.test(prompt);
 }
 
 export function promptRequestsValidation(prompt: string) {

@@ -2,14 +2,14 @@ import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/build
 import { collectTopLevelStatements } from '@kitto-openui/shared/openuiAst.js';
 import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { buildOpenUiComponentSignatureRule } from './componentSpec.js';
-import { getRelevantRepairExemplars } from './exemplars.js';
+import { getRelevantRepairExemplars, getRelevantRequestExemplars } from './exemplars.js';
 import {
   CONTROL_ACTION_AND_BINDING_REPAIR_HINT,
   getOptionsShapeIssueContext,
   getRepairHintsForIssue,
   getStalePersistedQueryIssueContext,
 } from './repairHintRegistry.js';
-import { BUTTON_APPEARANCE_RULE } from './rules.js';
+import { BUTTON_APPEARANCE_RULE, RADIO_SELECT_OPTIONS_SHAPE_RULE, buildIntentSpecificRulesForPrompt } from './rules.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
 import type { PromptBuildChatHistoryMessage, PromptBuildValidationIssue } from './types.js';
@@ -37,6 +37,8 @@ interface UndefinedStateReferenceSummary {
 }
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
+const REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD = 5_000;
+const REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES = 5;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 1_024;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
@@ -65,7 +67,7 @@ const REPAIR_LAYOUT_CRITICAL_RULES = [
 
 const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
-  'RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.',
+  RADIO_SELECT_OPTIONS_SHAPE_RULE,
   'Validation rules must be literal arrays. To skip validation before `action` or `appearance`, use `null` or `[]`.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
 ] as const;
@@ -125,6 +127,47 @@ function truncateText(value: string, maxChars: number) {
 
 function buildRepairSection(title: string, content: string) {
   return `${title}:\n${content}`;
+}
+
+function getRepairIssueStatementIds(issues: PromptBuildValidationIssue[]) {
+  return [...new Set(issues.flatMap((issue) => (issue.statementId ? [issue.statementId] : [])))];
+}
+
+function formatSourceLineExcerpt(source: string, startLine: number, endLine: number) {
+  const lines = source.split('\n');
+  const excerptLines = lines.slice(startLine - 1, endLine);
+
+  return `lines ${startLine}-${endLine}:\n${excerptLines.join('\n')}`;
+}
+
+function buildCommittedSourceContext(source: string, issues: PromptBuildValidationIssue[]) {
+  const trimmedSource = source.trim();
+
+  if (!trimmedSource || trimmedSource.length <= REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD) {
+    return source;
+  }
+
+  const inventory = buildCurrentSourceInventory(source);
+  const statements = collectTopLevelStatements(source);
+  const statementIds = new Set(getRepairIssueStatementIds(issues));
+  const sourceLines = source.split('\n');
+  const excerpts = statements
+    .filter((statement) => statementIds.has(statement.statementId))
+    .slice(0, 6)
+    .map((statement) => {
+      const startLine = Math.max(1, statement.lineNumber - REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES);
+      const endLine = Math.min(sourceLines.length, statement.lineNumber + REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES);
+
+      return formatSourceLineExcerpt(source, startLine, endLine);
+    });
+
+  return [
+    'Committed source is large; use this compact context instead of the full source.',
+    inventory ? `Inventory:\n${inventory}` : null,
+    excerpts.length > 0 ? `Affected committed-source excerpts:\n${excerpts.join('\n\n')}` : 'No matching committed-source statement excerpts were found.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function formatRepairExemplarLines(exemplars: ReturnType<typeof getRelevantRepairExemplars>) {
@@ -418,7 +461,7 @@ function allocateRepairSectionBudgets(
     committedSource: 180,
     invalidSource: 160,
     issues: 300,
-    rules: 1_200,
+    rules: 2_400,
     statementExcerpts: 0,
     hints: hasHints ? 520 : 0,
   };
@@ -448,9 +491,19 @@ function allocateRepairSectionBudgets(
     hints: Math.min(desiredLengths.hints, minimumBudgets.hints),
   };
   const minimumTotal = priority.reduce((sum, key) => sum + cappedMinimums[key], 0);
+  const remainingMinimumTotal = minimumTotal - cappedMinimums.rules;
   let remainingChars = totalChars;
 
-  if (remainingChars <= minimumTotal) {
+  const reservedRulesBudget = Math.min(cappedMinimums.rules, remainingChars);
+
+  budgets.rules = reservedRulesBudget;
+  remainingChars -= reservedRulesBudget;
+
+  if (remainingChars <= 0) {
+    return budgets;
+  }
+
+  if (remainingChars <= remainingMinimumTotal) {
     if (hasHints) {
       if (mode === 'parser') {
         const draftBudget = Math.min(cappedMinimums.invalidSource, remainingChars > 0 ? 1 : 0);
@@ -469,7 +522,7 @@ function allocateRepairSectionBudgets(
       budgets.hints = hintBudget;
       remainingChars -= hintBudget;
 
-      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && budgets[candidate] === 0)) {
+      for (const key of priority.filter((candidate) => candidate !== 'issues' && candidate !== 'hints' && candidate !== 'rules' && budgets[candidate] === 0)) {
         if (remainingChars <= 0) {
           break;
         }
@@ -483,6 +536,10 @@ function allocateRepairSectionBudgets(
     }
 
     for (const key of priority) {
+      if (key === 'rules') {
+        continue;
+      }
+
       if (remainingChars <= 0) {
         break;
       }
@@ -496,6 +553,10 @@ function allocateRepairSectionBudgets(
   }
 
   for (const key of priority) {
+    if (key === 'rules') {
+      continue;
+    }
+
     budgets[key] = cappedMinimums[key];
     remainingChars -= cappedMinimums[key];
   }
@@ -743,10 +804,13 @@ function buildOpenUiRepairPromptParts(
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
   const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
+  const requestExemplars = getRelevantRequestExemplars(userPrompt).filter(
+    (requestExemplar) => !repairExemplars.some((repairExemplar) => repairExemplar.key === requestExemplar.key),
+  );
   const conversationContextLines = buildRepairConversationContextLines(chatHistory);
   const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
-  const hasHints = repairHints.length > 0 || repairExemplars.length > 0;
+  const hasHints = repairHints.length > 0 || repairExemplars.length > 0 || requestExemplars.length > 0;
   const hasConversationContext = conversationContextLines.length > 0;
   const hasStatementExcerpts = statementExcerptLines.length > 0;
   const introSection =
@@ -762,9 +826,19 @@ function buildOpenUiRepairPromptParts(
   const draftSectionFallback =
     outputFormat === 'roleMessages' ? '(the failed draft was empty)' : getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
-  const ruleLines = REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`);
+  const intentSpecificRuleLines = buildIntentSpecificRulesForPrompt(userPrompt).map((rule) => `- ${rule}`);
+  const ruleLines = [
+    ...REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`),
+    ...(intentSpecificRuleLines.length > 0
+      ? ['', 'Intent-specific rules from original user request:', ...intentSpecificRuleLines]
+      : []),
+  ];
   const rulesSection = ruleLines.join('\n');
-  const hintLines = [...repairHints.map((hint) => `- ${hint}`), ...formatRepairExemplarLines(repairExemplars)];
+  const hintLines = [
+    ...repairHints.map((hint) => `- ${hint}`),
+    ...formatRepairExemplarLines(repairExemplars),
+    ...formatRepairExemplarLines(requestExemplars),
+  ];
   const fullIssuesSectionContent = buildRepairIssueSection(sanitizedIssues, Number.MAX_SAFE_INTEGER);
   const fullHintsSectionContent = buildBoundedSectionContent(
     hintLines,
@@ -783,7 +857,7 @@ function buildOpenUiRepairPromptParts(
   );
   const sourceContext = outputFormat === 'roleMessages'
     ? buildCurrentSourceInventory(committedSource) ?? '(blank canvas, no committed OpenUI inventory yet)'
-    : committedSource;
+    : buildCommittedSourceContext(committedSource, sanitizedIssues);
   const sourceContextFallback =
     outputFormat === 'roleMessages'
       ? '(blank canvas, no committed OpenUI inventory yet)'

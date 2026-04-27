@@ -1,6 +1,7 @@
 import {
   promptRequestsCompute,
   promptRequestsControlShowcase,
+  promptRequestsDelete,
   promptRequestsFiltering,
   promptRequestsMultiScreen,
   promptRequestsRandom,
@@ -15,6 +16,7 @@ import {
 export interface PromptIntentVector {
   compute: boolean;
   controlShowcase: boolean;
+  delete: boolean;
   filtering: boolean;
   multiScreen: boolean;
   random: boolean;
@@ -39,6 +41,7 @@ interface DetectPromptRequestIntentOptions {
 const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
   ['todo', 't'],
   ['controlShowcase', 'ctrl'],
+  ['delete', 'd'],
   ['theme', 'th'],
   ['filtering', 'f'],
   ['validation', 'v'],
@@ -50,6 +53,7 @@ const PROMPT_INTENT_CODES: Array<[keyof PromptIntentVector, string]> = [
 const COMPLEX_MINIMALITY_INTENT_KEYS: Array<keyof PromptIntentVector> = [
   'compute',
   'controlShowcase',
+  'delete',
   'filtering',
   'multiScreen',
   'random',
@@ -64,6 +68,7 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
   return {
     compute: promptRequestsCompute(trimmedPrompt) || random,
     controlShowcase: promptRequestsControlShowcase(trimmedPrompt),
+    delete: promptRequestsDelete(trimmedPrompt),
     filtering: promptRequestsFiltering(trimmedPrompt),
     multiScreen: promptRequestsMultiScreen(trimmedPrompt),
     random,
@@ -119,6 +124,7 @@ export function formatPromptRequestIntentBlock(intent: PromptRequestIntent) {
   return [
     `todo: ${intent.todo}`,
     `controlShowcase: ${intent.controlShowcase}`,
+    `delete: ${intent.delete}`,
     `filtering: ${intent.filtering}`,
     `validation: ${intent.validation}`,
     `compute: ${intent.compute}`,

@@ -1,4 +1,7 @@
-import { detectControlActionBindingConflicts } from '@pages/Chat/builder/openui/runtime/validation/detectors/controlActionBinding';
+import {
+  detectControlActionBindingConflicts,
+  detectPersistedMutationRefreshWarnings,
+} from '@kitto-openui/shared/openuiQualityDetectors.js';
 import { detectInlineToolCallIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/inlineToolCall';
 import { detectItemBoundControlsWithoutAction } from '@pages/Chat/builder/openui/runtime/validation/detectors/itemBoundControl';
 import {
@@ -7,7 +10,6 @@ import {
 } from '@pages/Chat/builder/openui/runtime/validation/detectors/lastChoiceOutsideAction';
 import { detectArrayIndexPathMutationIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/mutationIndexPath';
 import { detectChoiceOptionsShapeIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/optionsShape';
-import { detectPersistedMutationRefreshWarnings } from '@pages/Chat/builder/openui/runtime/validation/detectors/persistedMutationRefresh';
 import { detectStructuralInvariantIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { detectUndefinedStateReferenceIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/undefinedStateReference';
 import { getOpenUiQualityIssueSeverity } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';

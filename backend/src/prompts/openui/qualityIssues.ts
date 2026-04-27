@@ -1,4 +1,8 @@
 import { collectQualityMetrics, visitOpenUiValue } from '#backend/prompts/openui/quality/astWalk.js';
+import {
+  detectControlActionBindingConflicts,
+  detectPersistedMutationRefreshWarnings,
+} from '@kitto-openui/shared/openuiQualityDetectors.js';
 import { detectRandomResultVisibilityIssues } from '#backend/prompts/openui/quality/detectors/randomResultVisibility.js';
 import { detectThemeAppearanceIssues } from '#backend/prompts/openui/quality/detectors/themeAppearance.js';
 import {
@@ -129,6 +133,14 @@ export function detectPromptAwareQualityIssues(
   const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;
 
   issues.push(...detectChoiceOptionsShapeIssues(programIndex));
+  issues.push(...detectControlActionBindingConflicts(result.root));
+  issues.push(
+    ...detectPersistedMutationRefreshWarnings(result, programIndex).map((issue) => ({
+      ...issue,
+      severity: 'blocking-quality' as const,
+      source: 'quality' as const,
+    })),
+  );
 
   if (isSimplePromptRequest(trimmedPrompt) && metrics.screenCount > 1) {
     issues.push(
