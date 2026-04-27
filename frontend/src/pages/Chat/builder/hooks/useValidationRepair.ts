@@ -386,17 +386,11 @@ export function useValidationRepair({
     let candidateResponse: BuilderGeneratedDraft = { ...initialResponse };
     let parserRepairCount = 0;
     let qualityRepairCount = 0;
-    let repairAttemptCount = 0;
     let hasCompletedRepairRequest = false;
     let pendingQualityRepairTelemetry: PendingQualityRepairTelemetry | null = null;
 
     function getRepairAttemptCount() {
-      const totalRepairAttempts = parserRepairCount + qualityRepairCount;
-      if (totalRepairAttempts !== repairAttemptCount) {
-        throw new Error('Internal validation repair accounting mismatch.');
-      }
-
-      return repairAttemptCount;
+      return parserRepairCount + qualityRepairCount;
     }
 
     function registerRepairAttempt(issueMode: RepairIssueMode) {
@@ -406,7 +400,6 @@ export function useValidationRepair({
         qualityRepairCount += 1;
       }
 
-      repairAttemptCount += 1;
       return getRepairAttemptCount();
     }
 
@@ -521,7 +514,7 @@ export function useValidationRepair({
       }
 
       throwIfInactiveRequest(requestId);
-      showStreamingSummaryStatus(requestId, formatRepairPendingMessage(repairAttemptCount));
+      showStreamingSummaryStatus(requestId, formatRepairPendingMessage(getRepairAttemptCount()));
 
       try {
         const repairedResponse = await runGenerateRequest(requestId, transportRequest, {

@@ -30,16 +30,30 @@ let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenA
 let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
 function isOpenAiStreamRequest(init: Parameters<typeof fetch>[1] | undefined) {
-  if (!init || typeof init.body !== 'string') {
+  if (!init) {
     return false;
   }
 
-  try {
-    const body = JSON.parse(init.body) as { stream?: unknown };
-    return body.stream === true;
-  } catch {
+  if (typeof init.body === 'string') {
+    try {
+      const body = JSON.parse(init.body) as { stream?: unknown };
+      if (body.stream === true) {
+        return true;
+      }
+    } catch {
+      // Ignore JSON parsing failures in request bodies that do not need content-type stream checks.
+    }
+  }
+
+  const acceptedStreamContentTypes = new Headers(init.headers).get('accept');
+  if (!acceptedStreamContentTypes) {
     return false;
   }
+
+  return acceptedStreamContentTypes
+    .split(',')
+    .map((headerValue) => headerValue.toLowerCase().split(';', 1)[0].trim())
+    .includes('text/event-stream');
 }
 
 function isTextEventStreamContentType(contentType: string | null) {
