@@ -30,6 +30,15 @@ function createGenerationContinuationRateLimitRegistry({
   windowMs: number;
 }) {
   const entries = new Map<string, number>();
+  const cleanupIntervalMs = windowMs > 0 ? Math.min(windowMs, 60_000) : 0;
+
+  if (windowMs > 0 && maxEntries > 0) {
+    const cleanupTimer = setInterval(() => {
+      pruneExpiredEntries(Date.now());
+    }, cleanupIntervalMs);
+
+    cleanupTimer?.unref?.();
+  }
 
   function getKey(kind: string, requestId: string, attemptNumber?: number) {
     return `${kind}\0${requestId}\0${attemptNumber ?? ''}`;
