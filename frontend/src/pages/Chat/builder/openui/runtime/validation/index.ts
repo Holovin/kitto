@@ -18,7 +18,7 @@ import {
   escapeStringLiteralBackticksForParser,
   maskStringLiterals,
   parser,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
   type OpenUiValidationContext,
   type OpenUiValidationResult,
 } from './shared';
@@ -27,18 +27,18 @@ type LocalRuntimeQualityIssueOptions = Partial<Pick<OpenUiValidationContext, 'no
   validationIssues?: OpenUiValidationResult['issues'];
 };
 
-function mapKnownValidationQualityIssues(validationIssues?: OpenUiValidationResult['issues']): OpenUiQualityIssue[] | null {
+function mapKnownValidationQualityIssues(validationIssues?: OpenUiValidationResult['issues']): BuilderQualityIssue[] | null {
   if (!validationIssues) {
     return null;
   }
 
-  const qualityIssues: OpenUiQualityIssue[] = [];
+  const qualityIssues: BuilderQualityIssue[] = [];
 
   for (const issue of validationIssues) {
     const severity = getOpenUiQualityIssueSeverity(issue);
 
     if (severity) {
-      qualityIssues.push({ ...issue, severity });
+      qualityIssues.push({ ...issue, severity, source: 'quality' });
     }
   }
 
@@ -48,7 +48,7 @@ function mapKnownValidationQualityIssues(validationIssues?: OpenUiValidationResu
 export function detectLocalRuntimeQualityIssues(
   source: string,
   options: LocalRuntimeQualityIssueOptions = {},
-): OpenUiQualityIssue[] {
+): BuilderQualityIssue[] {
   const trimmedSource = options.normalizedSource ?? source.trim();
 
   if (!trimmedSource) {
@@ -61,7 +61,7 @@ export function detectLocalRuntimeQualityIssues(
     return [];
   }
 
-  const issues: OpenUiQualityIssue[] = [];
+  const issues: BuilderQualityIssue[] = [];
   const programIndex = options.programIndex ?? createOpenUiProgramIndex(result, trimmedSource);
   const knownValidationQualityIssues = mapKnownValidationQualityIssues(options.validationIssues);
 

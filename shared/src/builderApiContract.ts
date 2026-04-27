@@ -84,6 +84,7 @@ export interface PromptBuildRequest {
 
 export interface BuilderQualityIssue extends PromptBuildValidationIssue {
   severity: BuilderQualityIssueSeverity;
+  source: 'quality';
 }
 
 export interface BuilderLlmRequestCompaction {
@@ -111,7 +112,7 @@ export interface BuilderCommitTelemetryRequest {
   validationIssues: string[];
 }
 
-export interface PromptInfoToolSpec {
+export interface OpenUiPromptInfoToolSpec {
   description: string;
   name: string;
   signature: string;

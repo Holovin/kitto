@@ -1,6 +1,9 @@
 import { createParser, type LibraryJSONSchema, type ParseResult } from '@openuidev/lang-core';
 import openUiLibrarySchema from '@kitto-openui/shared/openui-library-schema.json' with { type: 'json' };
-import type { BuilderQualityIssueSeverity } from '@kitto-openui/shared/builderApiContract.js';
+import type {
+  BuilderQualityIssue,
+  BuilderQualityIssueSeverity,
+} from '@kitto-openui/shared/builderApiContract.js';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.js';
 
 export {
@@ -20,16 +23,11 @@ export type {
   OpenUiPersistedPathStatementRef as PersistedPathStatementRef,
   OpenUiProgramIndex,
 } from '@kitto-openui/shared/openuiAst.js';
+export type { BuilderQualityIssue, BuilderQualityIssueSeverity };
 
 export const parser = createParser(openUiLibrarySchema as LibraryJSONSchema);
 
 export type ToolAst = ParseResult['queryStatements'][number]['toolAST'] | ParseResult['mutationStatements'][number]['toolAST'];
-export type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
-
-export interface OpenUiQualityIssue extends PromptBuildValidationIssue {
-  severity: OpenUiQualityIssueSeverity;
-  source: 'quality';
-}
 
 export function createQualityIssue(issue: Omit<PromptBuildValidationIssue, 'source'>): PromptBuildValidationIssue {
   return {
@@ -39,9 +37,9 @@ export function createQualityIssue(issue: Omit<PromptBuildValidationIssue, 'sour
 }
 
 export function createOpenUiQualityIssue(
-  severity: OpenUiQualityIssueSeverity,
+  severity: BuilderQualityIssueSeverity,
   issue: Omit<PromptBuildValidationIssue, 'source'>,
-): OpenUiQualityIssue {
+): BuilderQualityIssue {
   return {
     ...issue,
     severity,
@@ -49,7 +47,7 @@ export function createOpenUiQualityIssue(
   };
 }
 
-export function stripQualityIssueSeverity(issue: OpenUiQualityIssue): PromptBuildValidationIssue {
+export function stripQualityIssueSeverity(issue: BuilderQualityIssue): PromptBuildValidationIssue {
   const strippedIssue: PromptBuildValidationIssue = {
     code: issue.code,
     message: issue.message,

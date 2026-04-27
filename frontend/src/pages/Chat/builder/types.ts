@@ -2,8 +2,8 @@ import type {
   BuilderCommitSource,
   BuilderLlmResponse,
   BuilderRequestId,
+  OpenUiPromptInfoToolSpec,
   PromptBuildChatHistoryRole,
-  PromptInfoToolSpec,
 } from '@kitto-openui/shared/builderApiContract.js';
 
 export { toBuilderRequestId } from '@kitto-openui/shared/builderApiContract.js';
@@ -23,9 +23,9 @@ export type {
   BuilderQualityIssue,
   BuilderQualityIssueSeverity,
   BuilderRequestId,
+  OpenUiPromptInfoToolSpec,
   PromptBuildStalePersistedQueryIssueContext,
   PromptBuildUndefinedStateReferenceIssueContext,
-  PromptInfoToolSpec,
 } from '@kitto-openui/shared/builderApiContract.js';
 
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
@@ -139,6 +139,6 @@ export interface PromptsInfoResponse {
   repairPromptTemplate: string;
   systemPrompt: PromptInfoSystemPromptVariant;
   systemPromptVariants: PromptInfoSystemPromptVariant[];
-  toolSpecs: PromptInfoToolSpec[];
+  toolSpecs: OpenUiPromptInfoToolSpec[];
   requestPromptTemplate: string;
 }

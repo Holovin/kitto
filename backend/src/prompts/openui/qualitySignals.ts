@@ -1,6 +1,6 @@
 import type { ParseResult } from '@openuidev/lang-core';
 import { promptMentionsTodoIntent, promptRequiresBlockingTodoControls } from './qualityIntents.js';
-import { extractStringLiteral, isElementNode, type OpenUiQualityIssueSeverity } from '#backend/prompts/openui/quality/shared.js';
+import { extractStringLiteral, isElementNode, type BuilderQualityIssueSeverity } from '#backend/prompts/openui/quality/shared.js';
 export { detectChoiceOptionsShapeIssues } from '#backend/prompts/openui/quality/detectors/optionsShape.js';
 
 const SIMPLE_PROMPT_INCLUDE_PATTERN = /\b(todo|to-do|list|form|counter)\b/i;
@@ -61,7 +61,7 @@ export function promptRequestsMultiScreen(prompt: string) {
   return MULTI_SCREEN_REQUEST_PATTERN.test(prompt);
 }
 
-export function getTodoIssueSeverity(prompt: string): OpenUiQualityIssueSeverity {
+export function getTodoIssueSeverity(prompt: string): BuilderQualityIssueSeverity {
   return promptRequiresBlockingTodoControls(prompt) ? 'blocking-quality' : 'soft-warning';
 }
 

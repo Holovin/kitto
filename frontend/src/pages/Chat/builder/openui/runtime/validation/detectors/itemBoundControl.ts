@@ -1,20 +1,24 @@
 import {
   findFunctionCalls,
-  findMatchingDelimiter,
   parseStringLiteralValue,
-  splitTopLevelArgs,
 } from '@kitto-openui/shared/openuiSourceParsing.js';
-import { createOpenUiQualityIssue, escapeRegExp, maskStringLiterals, type OpenUiQualityIssue } from '@pages/Chat/builder/openui/runtime/validation/shared';
+import { createOpenUiQualityIssue, escapeRegExp, maskStringLiterals, type BuilderQualityIssue } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
-const ITEM_SCOPED_CONTROL_CALL_PATTERN = /\b(Checkbox|Input|RadioGroup|Select|TextArea)\s*\(/g;
+const ITEM_SCOPED_CONTROL_TYPE_NAMES = ['Checkbox', 'Input', 'RadioGroup', 'Select', 'TextArea'] as const;
+
+type ItemScopedControlTypeName = (typeof ITEM_SCOPED_CONTROL_TYPE_NAMES)[number];
 
 type ItemScopedControlCall = {
   args: string[];
   text: string;
-  typeName: string;
+  typeName: ItemScopedControlTypeName;
 };
 
-function getItemScopedControlArgIndexes(typeName: string) {
+function isItemScopedControlTypeName(value: string): value is ItemScopedControlTypeName {
+  return (ITEM_SCOPED_CONTROL_TYPE_NAMES as readonly string[]).includes(value);
+}
+
+function getItemScopedControlArgIndexes(typeName: ItemScopedControlTypeName) {
   if (typeName === 'Checkbox') {
     return {
       action: 5,
@@ -51,34 +55,23 @@ function sourceReferencesItemField(expressionSource: string, itemAlias: string) 
 }
 
 function findItemScopedControlCalls(source: string): ItemScopedControlCall[] {
-  const calls: ItemScopedControlCall[] = [];
-  const callPattern = new RegExp(ITEM_SCOPED_CONTROL_CALL_PATTERN);
-  let match = callPattern.exec(source);
-
-  while (match) {
-    const typeName = match[1] ?? '';
-    const matchText = match[0] ?? '';
-    const openParenIndex = (match.index ?? 0) + matchText.lastIndexOf('(');
-    const closeParenIndex = findMatchingDelimiter(source, openParenIndex, '(', ')');
-
-    if (closeParenIndex >= 0) {
-      const argsSource = source.slice(openParenIndex + 1, closeParenIndex);
-
-      calls.push({
-        args: splitTopLevelArgs(argsSource),
-        text: source.slice(match.index ?? 0, closeParenIndex + 1),
-        typeName,
-      });
+  return findFunctionCalls(source, ITEM_SCOPED_CONTROL_TYPE_NAMES).flatMap((call) => {
+    if (!isItemScopedControlTypeName(call.functionName)) {
+      return [];
     }
 
-    match = callPattern.exec(source);
-  }
-
-  return calls;
+    return [
+      {
+        args: call.args,
+        text: call.text,
+        typeName: call.functionName,
+      },
+    ];
+  });
 }
 
-export function detectItemBoundControlsWithoutAction(source: string): OpenUiQualityIssue[] {
-  const issues: OpenUiQualityIssue[] = [];
+export function detectItemBoundControlsWithoutAction(source: string): BuilderQualityIssue[] {
+  const issues: BuilderQualityIssue[] = [];
   const seenIssueKeys = new Set<string>();
 
   for (const eachCall of findFunctionCalls(source, 'Each')) {

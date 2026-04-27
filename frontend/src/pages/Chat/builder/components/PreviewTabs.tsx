@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
@@ -52,6 +52,17 @@ interface PreviewTabsProps {
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
 }
 
+interface PreviewStreamingOverlayProps {
+  isPreviewEmptyCanvas: boolean;
+  lastStreamChunkAt: number | null;
+  streamedSourceBytes: number;
+}
+
+type StreamingTimerTick = {
+  clockMs: number;
+  startedAt: number;
+};
+
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
@@ -86,6 +97,53 @@ function formatByteCount(bytes: number) {
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
 }
 
+function PreviewStreamingOverlay({ isPreviewEmptyCanvas, lastStreamChunkAt, streamedSourceBytes }: PreviewStreamingOverlayProps) {
+  const [timerTick, setTimerTick] = useState<StreamingTimerTick | null>(null);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const intervalId = window.setInterval(() => {
+      setTimerTick({
+        clockMs: Date.now(),
+        startedAt,
+      });
+    }, 1_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
+  const elapsedStreamingSeconds = timerTick ? Math.floor((timerTick.clockMs - timerTick.startedAt) / 1_000) : 0;
+  const previewOverlayTimerLabel = `${elapsedStreamingSeconds}s elapsed`;
+  const streamAgeMs = lastStreamChunkAt === null ? null : Math.max(0, (timerTick?.clockMs ?? lastStreamChunkAt) - lastStreamChunkAt);
+  const previewOverlayStatusLabel =
+    lastStreamChunkAt === null
+      ? 'Waiting for first chunk'
+      : streamAgeMs !== null && streamAgeMs <= STREAM_ACTIVE_WINDOW_MS
+        ? 'Stream active'
+        : 'Finalizing response';
+  const previewOverlayPrimaryLabel = `${previewOverlayLabel} · ${previewOverlayTimerLabel}`;
+  const previewOverlaySecondaryLabel = `${previewOverlayStatusLabel} · ${formatByteCount(streamedSourceBytes)} draft`;
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[1.75rem] bg-white/60 backdrop-blur-[1px]">
+      <div
+        aria-live="polite"
+        className="flex min-w-[350px] items-center gap-3 rounded-full border border-slate-200/80 bg-white/90 px-5 py-4 text-slate-900 shadow-lg"
+        role="status"
+      >
+        <LoaderCircle className="h-7 w-7 animate-spin" />
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{previewOverlayPrimaryLabel}</span>
+          <span className="text-xs text-slate-500">{previewOverlaySecondaryLabel}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const dispatch = useAppDispatch();
   const activeTab = useAppSelector(selectActiveTab);
@@ -105,8 +163,6 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     scope: '',
   });
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
-  const [elapsedStreamingSeconds, setElapsedStreamingSeconds] = useState(0);
-  const [streamingClockMs, setStreamingClockMs] = useState(0);
   const currentSnapshot = history.at(-1);
   const currentSnapshotCommittedAt = currentSnapshot?.committedAt ?? '';
   const previewRenderInput = useMemo(
@@ -156,19 +212,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     parseIssues,
     runtimeIssues,
   });
-  const previewOverlayLabel = isPreviewEmptyCanvas ? 'Generating...' : 'Updating...';
-  const previewOverlayTimerLabel = `${elapsedStreamingSeconds}s elapsed`;
   const streamedSourceBytes = getByteLength(streamedSource);
-  const streamAgeMs =
-    lastStreamChunkAt === null ? null : Math.max(0, (streamingClockMs || lastStreamChunkAt) - lastStreamChunkAt);
-  const previewOverlayStatusLabel =
-    lastStreamChunkAt === null
-      ? 'Waiting for first chunk'
-      : streamAgeMs !== null && streamAgeMs <= STREAM_ACTIVE_WINDOW_MS
-        ? 'Stream active'
-        : 'Finalizing response';
-  const previewOverlayPrimaryLabel = `${previewOverlayLabel} · ${previewOverlayTimerLabel}`;
-  const previewOverlaySecondaryLabel = `${previewOverlayStatusLabel} · ${formatByteCount(streamedSourceBytes)} draft`;
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
     previewSource: string;
@@ -222,35 +266,14 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     }
   }, [dispatch, isShowingRejectedDefinition, previewSource]);
 
-  useEffect(() => {
-    if (!isStreaming) {
-      const resetTimeoutId = window.setTimeout(() => {
-        setElapsedStreamingSeconds(0);
-        setStreamingClockMs(0);
-      }, 0);
-
-      return () => {
-        window.clearTimeout(resetTimeoutId);
-      };
-    }
-
-    const startedAt = Date.now();
-    const resetTimeoutId = window.setTimeout(() => {
-      setElapsedStreamingSeconds(0);
-      setStreamingClockMs(startedAt);
-    }, 0);
-
-    const intervalId = window.setInterval(() => {
-      const now = Date.now();
-      setElapsedStreamingSeconds(Math.floor((now - startedAt) / 1_000));
-      setStreamingClockMs(now);
-    }, 1_000);
-
-    return () => {
-      window.clearTimeout(resetTimeoutId);
-      window.clearInterval(intervalId);
-    };
-  }, [isStreaming]);
+  const handleRuntimeStateUpdate = useCallback(
+    (state: unknown) => {
+      const nextState = state as Record<string, unknown>;
+      dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
+      dispatch(builderActions.syncLatestSnapshotState({ runtimeState: nextState }));
+    },
+    [dispatch],
+  );
 
   useEffect(() => {
     if (!isFileMenuOpen) {
@@ -460,11 +483,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
 
                         dispatch(builderActions.setParseIssues(mapParseResultToIssues(result)));
                       }}
-                      onStateUpdate={(state) => {
-                        const nextState = state as Record<string, unknown>;
-                        dispatch(builderSessionActions.replaceRuntimeSessionState(nextState));
-                        dispatch(builderActions.syncLatestSnapshotState({ runtimeState: nextState }));
-                      }}
+                      onStateUpdate={handleRuntimeStateUpdate}
                       queryLoader={
                         <div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
                           <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -479,19 +498,11 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
               )}
 
               {isStreaming ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[1.75rem] bg-white/60 backdrop-blur-[1px]">
-                  <div
-                    aria-live="polite"
-                    className="flex min-w-[350px] items-center gap-3 rounded-full border border-slate-200/80 bg-white/90 px-5 py-4 text-slate-900 shadow-lg"
-                    role="status"
-                  >
-                    <LoaderCircle className="h-7 w-7 animate-spin" />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{previewOverlayPrimaryLabel}</span>
-                      <span className="text-xs text-slate-500">{previewOverlaySecondaryLabel}</span>
-                    </div>
-                  </div>
-                </div>
+                <PreviewStreamingOverlay
+                  isPreviewEmptyCanvas={isPreviewEmptyCanvas}
+                  lastStreamChunkAt={lastStreamChunkAt}
+                  streamedSourceBytes={streamedSourceBytes}
+                />
               ) : null}
             </div>
           </CardContent>

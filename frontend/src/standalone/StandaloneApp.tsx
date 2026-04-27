@@ -1,4 +1,4 @@
-import { startTransition, useMemo, useState } from 'react';
+import { startTransition, useCallback, useMemo, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
 import { RotateCcw } from 'lucide-react';
@@ -173,15 +173,15 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
   const [runtimeIssues, setRuntimeIssues] = useState<PromptBuildValidationIssue[]>([]);
   const [resetVersion, setResetVersion] = useState(0);
 
-  function persistStandaloneState(nextSnapshot: StandaloneSnapshot) {
+  const persistStandaloneState = useCallback((nextSnapshot: StandaloneSnapshot) => {
     if (!parsedPayload) {
       return;
     }
 
     writeStandaloneStoredState(parsedPayload.storageKey, nextSnapshot.runtimeState, nextSnapshot.domainData);
-  }
+  }, [parsedPayload]);
 
-  function commitStandaloneSnapshot(update: StandaloneSnapshotUpdate) {
+  const commitStandaloneSnapshot = useCallback((update: StandaloneSnapshotUpdate) => {
     const nextSnapshot = standaloneSnapshotStore.mergeSnapshot(update);
 
     if (isStandaloneSnapshotUpdateKey(update, 'runtimeState')) {
@@ -193,22 +193,26 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     }
 
     persistStandaloneState(nextSnapshot);
-  }
+  }, [persistStandaloneState, standaloneSnapshotStore]);
 
-  function replaceStandaloneDomainData(nextDomainData: Record<string, unknown>) {
+  const replaceStandaloneDomainData = useCallback((nextDomainData: Record<string, unknown>) => {
     commitStandaloneSnapshot({ domainData: nextDomainData });
-  }
+  }, [commitStandaloneSnapshot]);
 
-  const standaloneToolProvider = createDomainToolProvider({
-    readDomainData: () => standaloneSnapshotStore.getSnapshot().domainData,
-    replaceDomainData: replaceStandaloneDomainData,
-  });
+  const standaloneToolProvider = useMemo(
+    () =>
+      createDomainToolProvider({
+        readDomainData: () => standaloneSnapshotStore.getSnapshot().domainData,
+        replaceDomainData: replaceStandaloneDomainData,
+      }),
+    [replaceStandaloneDomainData, standaloneSnapshotStore],
+  );
 
-  function handleRuntimeStateUpdate(nextRuntimeState: Record<string, unknown>) {
-    commitStandaloneSnapshot({ runtimeState: nextRuntimeState });
-  }
+  const handleRuntimeStateUpdate = useCallback((nextRuntimeState: unknown) => {
+    commitStandaloneSnapshot({ runtimeState: nextRuntimeState as Record<string, unknown> });
+  }, [commitStandaloneSnapshot]);
 
-  function handleResetLocalData() {
+  const handleResetLocalData = useCallback(() => {
     if (!parsedPayload) {
       return;
     }
@@ -224,7 +228,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
       setDomainRevision((currentValue) => currentValue + 1);
       setResetVersion((currentValue) => currentValue + 1);
     });
-  }
+  }, [parsedPayload, standaloneSnapshotStore]);
 
   if (!parsedPayload || !sourceValidation) {
     return <StandaloneFallback title="Unable to open standalone app" />;
@@ -271,9 +275,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
                 onParseResult={(result) => {
                   setParseIssues(mapParseResultToIssues(result));
                 }}
-                onStateUpdate={(nextRuntimeState) => {
-                  handleRuntimeStateUpdate(nextRuntimeState as Record<string, unknown>);
-                }}
+                onStateUpdate={handleRuntimeStateUpdate}
                 queryLoader={<Badge variant="muted">Loading query…</Badge>}
                 response={parserSource}
                 toolProvider={standaloneToolProvider}

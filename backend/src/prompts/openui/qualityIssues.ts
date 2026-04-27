@@ -7,7 +7,7 @@ import {
   maskStringLiterals,
   parser,
   stripQualityIssueSeverity,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
 } from '#backend/prompts/openui/quality/shared.js';
 import {
   detectChoiceOptionsShapeIssues,
@@ -35,8 +35,9 @@ type SourceFeatureFlags = {
   validation: boolean;
 };
 
-function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
-  const parseResult = parser.parse(source);
+type OpenUiParseResult = ReturnType<typeof parser.parse>;
+
+function collectParsedSourceQualityProfile(parseResult: OpenUiParseResult) {
   if (parseResult.meta.incomplete || parseResult.meta.errors.length > 0 || !parseResult.root) {
     return null;
   }
@@ -44,11 +45,18 @@ function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
   const metrics = collectQualityMetrics(parseResult.root);
 
   return {
-    compute: hasComputeTools(parseResult),
-    filter: metrics.hasFilterUsage,
-    theme: metrics.hasThemeStyling,
-    validation: metrics.hasValidationRules,
+    featureFlags: {
+      compute: hasComputeTools(parseResult),
+      filter: metrics.hasFilterUsage,
+      theme: metrics.hasThemeStyling,
+      validation: metrics.hasValidationRules,
+    },
+    metrics,
   };
+}
+
+function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
+  return collectParsedSourceQualityProfile(parser.parse(source))?.featureFlags ?? null;
 }
 
 function hasRequestUnrequestedNewFeature(
@@ -76,7 +84,7 @@ export function detectPromptAwareQualityIssues(
   userPrompt: string,
   currentSource?: string,
   mode: PromptAwareGenerationMode = 'initial',
-): OpenUiQualityIssue[] {
+): BuilderQualityIssue[] {
   const trimmedSource = source.trim();
   const trimmedPrompt = userPrompt.trim();
   const trimmedCurrentSource = currentSource ? currentSource.trim() : '';
@@ -87,21 +95,16 @@ export function detectPromptAwareQualityIssues(
   }
 
   const result = parser.parse(trimmedSource);
+  const nextSourceProfile = collectParsedSourceQualityProfile(result);
 
-  if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root || trimmedPrompt.length === 0) {
+  if (!nextSourceProfile || trimmedPrompt.length === 0) {
     return [];
   }
 
-  const issues: OpenUiQualityIssue[] = [];
+  const issues: BuilderQualityIssue[] = [];
   const maskedSource = maskStringLiterals(trimmedSource);
   const programIndex = createOpenUiProgramIndex(result, trimmedSource);
-  const metrics = collectQualityMetrics(result.root);
-  const nextFeatureFlags = {
-    compute: hasComputeTools(result),
-    filter: metrics.hasFilterUsage,
-    theme: metrics.hasThemeStyling,
-    validation: metrics.hasValidationRules,
-  };
+  const { featureFlags: nextFeatureFlags, metrics } = nextSourceProfile;
   const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;
 
   issues.push(...detectChoiceOptionsShapeIssues(programIndex));

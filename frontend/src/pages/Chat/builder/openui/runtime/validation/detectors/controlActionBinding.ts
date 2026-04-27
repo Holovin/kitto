@@ -3,11 +3,11 @@ import {
   createOpenUiQualityIssue,
   isElementNode,
   isWritableBindingValue,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
 } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
-export function detectControlActionBindingConflicts(value: unknown): OpenUiQualityIssue[] {
-  const issues: OpenUiQualityIssue[] = [];
+export function detectControlActionBindingConflicts(value: unknown): BuilderQualityIssue[] {
+  const issues: BuilderQualityIssue[] = [];
 
   visitOpenUiValue(value, (node, context) => {
     if (!isElementNode(node)) {

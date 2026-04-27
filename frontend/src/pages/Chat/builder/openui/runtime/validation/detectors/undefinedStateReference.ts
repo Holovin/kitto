@@ -3,7 +3,7 @@ import {
   createOpenUiQualityIssue,
   escapeRegExp,
   type OpenUiProgramIndex,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
 } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
 const RESERVED_STATE_REF_NAMES = new Set(['$lastChoice']);
@@ -30,12 +30,12 @@ function inferInitializerExample(refName: string, statementValueSource: string) 
   return setMatch?.[1] ?? null;
 }
 
-export function detectUndefinedStateReferenceIssues(result: ParseResult, programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
+export function detectUndefinedStateReferenceIssues(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderQualityIssue[] {
   if (result.meta.incomplete) {
     return [];
   }
 
-  const issues: OpenUiQualityIssue[] = [];
+  const issues: BuilderQualityIssue[] = [];
   const topLevelStatements = programIndex.topLevelStatements;
   const declaredStateRefs = programIndex.declaredStateRefs;
   const seenStateRefs = new Set<string>();

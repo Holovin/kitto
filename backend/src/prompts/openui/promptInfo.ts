@@ -52,16 +52,6 @@ export interface PromptInfoSnapshot {
   requestPromptTemplate: string;
 }
 
-let cachedPromptInfoSnapshot: { cacheKey: string; snapshot: PromptInfoSnapshot } | null = null;
-
-const SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS = [
-  {
-    id: 'base',
-    label: 'Base',
-    prompt: null,
-  },
-] as const;
-
 const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
   {
     id: 'base',
@@ -105,6 +95,8 @@ const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
   },
 ] as const;
 
+let cachedPromptInfoSnapshot: { cacheKey: string; snapshot: PromptInfoSnapshot } | null = null;
+
 function buildPromptInfoSnapshotCacheKey(env: AppEnv) {
   return JSON.stringify({
     model: env.OPENAI_MODEL,
@@ -115,18 +107,14 @@ function buildPromptInfoSnapshotCacheKey(env: AppEnv) {
   });
 }
 
-function buildSystemPromptVariant(
-  definition: (typeof SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS)[number],
-): PromptInfoSystemPromptVariant {
-  const prompt = definition.prompt ?? undefined;
-
+function buildBaseSystemPromptVariant(): PromptInfoSystemPromptVariant {
   return {
     cacheKey: getOpenUiSystemPromptCacheKey(),
     hash: getOpenUiSystemPromptHash(),
-    id: definition.id,
-    intentVector: getPromptIntentCacheVector(prompt),
-    label: definition.label,
-    sampleRequest: definition.prompt,
+    id: 'base',
+    intentVector: getPromptIntentCacheVector(undefined),
+    label: 'Base',
+    sampleRequest: null,
     text: buildOpenUiSystemPrompt(),
   };
 }
@@ -157,14 +145,9 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     return cachedPromptInfoSnapshot.snapshot;
   }
 
-  const systemPromptVariants = SYSTEM_PROMPT_INTENT_VARIANT_DEFINITIONS.map(buildSystemPromptVariant);
-  const baseSystemPrompt = systemPromptVariants[0];
+  const baseSystemPrompt = buildBaseSystemPromptVariant();
   const intentContextVariants = INTENT_CONTEXT_VARIANT_DEFINITIONS.map(buildIntentContextVariant);
   const baseIntentContext = intentContextVariants[0];
-
-  if (!baseSystemPrompt) {
-    throw new Error('Prompt diagnostics must include a base system prompt variant.');
-  }
 
   if (!baseIntentContext) {
     throw new Error('Prompt diagnostics must include a base intent context variant.');
@@ -187,7 +170,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     intentContextVariants,
     repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),
     systemPrompt: baseSystemPrompt,
-    systemPromptVariants,
+    systemPromptVariants: [baseSystemPrompt],
     toolSpecs: [...getPromptToolSpecSummaries()],
     requestPromptTemplate: buildOpenUiUserPromptTemplate(),
   };

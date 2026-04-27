@@ -1,6 +1,10 @@
 import { createParser, type ParseResult } from '@openuidev/react-lang';
 import { builderOpenUiLibrary } from '@pages/Chat/builder/openui/library';
-import type { PromptBuildValidationIssue, BuilderQualityIssueSeverity } from '@pages/Chat/builder/types';
+import type {
+  BuilderQualityIssue,
+  BuilderQualityIssueSeverity,
+  PromptBuildValidationIssue,
+} from '@pages/Chat/builder/types';
 import type { OpenUiProgramIndex } from '@kitto-openui/shared/openuiAst.js';
 
 export {
@@ -23,6 +27,7 @@ export {
 export type {
   OpenUiProgramIndex,
 } from '@kitto-openui/shared/openuiAst.js';
+export type { BuilderQualityIssue };
 
 const openUiJsonSchema = builderOpenUiLibrary.toJSONSchema();
 
@@ -51,12 +56,6 @@ export interface OpenUiValidationContext {
   validation: OpenUiValidationResult;
 }
 
-type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
-
-export interface OpenUiQualityIssue extends PromptBuildValidationIssue {
-  severity: OpenUiQualityIssueSeverity;
-}
-
 export const ACTION_MODE_CHOICE_COMPONENT_NAMES = new Set(['RadioGroup', 'Select']);
 export const RESERVED_INLINE_TOOL_CALL_NAMES = new Set(['Mutation', 'Query']);
 
@@ -75,9 +74,9 @@ export function createQualityIssue(issue: Omit<PromptBuildValidationIssue, 'sour
 }
 
 export function createOpenUiQualityIssue(
-  severity: OpenUiQualityIssueSeverity,
+  severity: BuilderQualityIssueSeverity,
   issue: Omit<PromptBuildValidationIssue, 'source'>,
-): OpenUiQualityIssue {
+): BuilderQualityIssue {
   return {
     ...issue,
     severity,

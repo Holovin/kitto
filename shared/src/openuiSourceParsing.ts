@@ -2,6 +2,7 @@ import { escapeRegExp } from './openuiAst.js';
 
 export interface OpenUiFunctionCallMatch {
   args: string[];
+  functionName: string;
   text: string;
 }
 
@@ -133,12 +134,23 @@ export function splitTopLevelArgs(source: string) {
   return args;
 }
 
-export function findFunctionCalls(source: string, functionName: string): OpenUiFunctionCallMatch[] {
+export function findFunctionCalls(source: string, functionName: string | readonly string[]): OpenUiFunctionCallMatch[] {
+  const functionNames = typeof functionName === 'string' ? [functionName] : [...functionName];
+
+  if (functionNames.length === 0) {
+    return [];
+  }
+
   const matches: OpenUiFunctionCallMatch[] = [];
-  const callPattern = new RegExp(`\\b${escapeRegExp(functionName)}\\s*\\(`, 'g');
+  const functionNamePattern = functionNames
+    .sort((leftName, rightName) => rightName.length - leftName.length)
+    .map(escapeRegExp)
+    .join('|');
+  const callPattern = new RegExp(`\\b(${functionNamePattern})\\s*\\(`, 'g');
   let match = callPattern.exec(source);
 
   while (match) {
+    const matchedFunctionName = match[1] ?? '';
     const matchText = match[0] ?? '';
     const openParenIndex = (match.index ?? 0) + matchText.lastIndexOf('(');
     const closeParenIndex = findMatchingDelimiter(source, openParenIndex, '(', ')');
@@ -148,6 +160,7 @@ export function findFunctionCalls(source: string, functionName: string): OpenUiF
       const argsSource = source.slice(openParenIndex + 1, closeParenIndex);
       matches.push({
         args: splitTopLevelArgs(argsSource),
+        functionName: matchedFunctionName,
         text: callText,
       });
     }

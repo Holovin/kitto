@@ -8,10 +8,10 @@ import {
   isAstNode,
   isElementNode,
   type OpenUiProgramIndex,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
 } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
-function createReservedLastChoiceIssue(statementId?: string): OpenUiQualityIssue {
+function createReservedLastChoiceIssue(statementId?: string): BuilderQualityIssue {
   return createOpenUiQualityIssue('blocking-quality', {
     code: 'reserved-last-choice-outside-action-mode',
     message:
@@ -25,7 +25,7 @@ export function detectReservedLastChoiceRootIssues(
   inheritedStatementId?: string,
   allowLastChoice = false,
   seenIssueKeys: Set<string> = new Set(),
-): OpenUiQualityIssue[] {
+): BuilderQualityIssue[] {
   if (Array.isArray(value)) {
     return value.flatMap((entry) =>
       detectReservedLastChoiceRootIssues(entry, inheritedStatementId, allowLastChoice, seenIssueKeys),
@@ -72,8 +72,8 @@ export function detectReservedLastChoiceRootIssues(
   return [];
 }
 
-export function detectReservedLastChoiceStatementIssues(result: ParseResult, programIndex: OpenUiProgramIndex): OpenUiQualityIssue[] {
-  const issues: OpenUiQualityIssue[] = [];
+export function detectReservedLastChoiceStatementIssues(result: ParseResult, programIndex: OpenUiProgramIndex): BuilderQualityIssue[] {
+  const issues: BuilderQualityIssue[] = [];
   const seenIssueKeys = new Set<string>();
   const actionGroups = programIndex.ownedActionRunRefGroups;
   const ownerTypesByStatementId = new Map<string, Set<string>>();

@@ -448,34 +448,10 @@ export function isOpenUiToolName(value: string): value is OpenUiToolName {
   return OPENUI_TOOL_NAME_SET.has(value as OpenUiToolName);
 }
 
-const OPENUI_PROMPT_TOOL_ORDER = [
-  'read_state',
-  'compute_value',
-  'write_state',
-  'merge_state',
-  'append_state',
-  'append_item',
-  'toggle_item_field',
-  'update_item_field',
-  'remove_item',
-  'write_computed_state',
-  'remove_state',
-] as const satisfies readonly OpenUiToolName[];
-
-const OPENUI_TOOL_BY_NAME = new Map<OpenUiToolName, OpenUiToolRegistryEntry>(
-  OPENUI_TOOL_REGISTRY.map((tool) => [tool.name, tool] as const),
-);
-
 export function getOpenUiPromptToolSpecs(): OpenUiPromptToolSpec[] {
-  return OPENUI_PROMPT_TOOL_ORDER.map((toolName) => {
-    const tool = OPENUI_TOOL_BY_NAME.get(toolName);
-
-    if (!tool) {
-      throw new Error(`Missing OpenUI tool registry entry for "${toolName}".`);
-    }
-
+  return OPENUI_TOOL_REGISTRY.map((tool) => {
     return {
-      annotations: tool.annotations,
+      annotations: 'annotations' in tool ? tool.annotations : undefined,
       description: tool.description,
       inputSchema: tool.promptInputSchema,
       name: tool.name,

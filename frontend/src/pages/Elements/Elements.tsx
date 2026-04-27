@@ -17,7 +17,7 @@ import type {
   PromptBuildValidationIssue,
   PromptInfoIntentContextVariant,
   PromptInfoSystemPromptVariant,
-  PromptInfoToolSpec,
+  OpenUiPromptInfoToolSpec,
   PromptsInfoResponse,
 } from '@pages/Chat/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
@@ -115,7 +115,7 @@ const PROMPT_REFERENCE_SECTIONS: PromptReferenceSectionDefinition[] = [
     description: 'Human-readable tool list derived from the backend tool specs, without expanding full JSON schemas.',
     formatBody: (data) =>
       data.toolSpecs
-        .map((toolSpec: PromptInfoToolSpec) => [`${toolSpec.signature}`, toolSpec.description].join('\n'))
+        .map((toolSpec: OpenUiPromptInfoToolSpec) => [`${toolSpec.signature}`, toolSpec.description].join('\n'))
         .join('\n\n'),
   },
   {

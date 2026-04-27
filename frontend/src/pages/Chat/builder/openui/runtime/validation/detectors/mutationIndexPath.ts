@@ -4,12 +4,12 @@ import {
   extractPathLiteral,
   extractStringLiteral,
   pathUsesArrayIndexSegment,
-  type OpenUiQualityIssue,
+  type BuilderQualityIssue,
 } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
 const ARRAY_INDEX_PATH_MUTATION_TOOL_NAMES = new Set(['merge_state', 'remove_state', 'write_state']);
 
-export function detectArrayIndexPathMutationIssues(result: ParseResult): OpenUiQualityIssue[] {
+export function detectArrayIndexPathMutationIssues(result: ParseResult): BuilderQualityIssue[] {
   return result.mutationStatements.flatMap((mutation) => {
     const toolName = extractStringLiteral(mutation.toolAST);
     const path = extractPathLiteral(mutation.argsAST);

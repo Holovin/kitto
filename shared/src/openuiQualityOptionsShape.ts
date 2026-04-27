@@ -1,37 +1,39 @@
-import { collectTopLevelStatements, type OpenUiTopLevelStatement } from './openuiAst.js';
+import { collectTopLevelStatements, isElementNode, type OpenUiTopLevelStatement } from './openuiAst.js';
 import { findFunctionCalls, parseStringLiteralValue } from './openuiSourceParsing.js';
-import type { BuilderQualityIssueSeverity } from './builderApiContract.js';
+import type { BuilderQualityIssue, BuilderQualityIssueSeverity } from './builderApiContract.js';
 
-export type SharedOpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
-
-export interface SharedOpenUiQualityIssue {
-  code: string;
-  context?: SharedOpenUiQualityIssueContext;
-  message: string;
-  severity: SharedOpenUiQualityIssueSeverity;
-  source: 'quality';
-  statementId?: string;
+interface OpenUiExpressionProbeParseResult {
+  meta: {
+    errors: readonly unknown[];
+    incomplete: boolean;
+  };
+  root: unknown;
 }
-
-export interface SharedOptionsShapeIssueContext {
-  groupId: string;
-  invalidValues: Array<number | string>;
-}
-
-export type SharedOpenUiQualityIssueContext = SharedOptionsShapeIssueContext;
 
 export interface DetectChoiceOptionsShapeIssuesOptions {
   parseExpressionValue: (expressionSource: string) => unknown;
 }
 
+export interface CreateChoiceOptionsShapeExpressionValueParserOptions {
+  normalizeSource?: (source: string) => string;
+  parseSource: (source: string) => OpenUiExpressionProbeParseResult;
+}
+
 const CHOICE_CONTROL_TYPE_NAMES = ['RadioGroup', 'Select'] as const;
 const BARE_OPTIONS_MESSAGE = 'RadioGroup/Select options must be `{label, value}` objects, not bare strings or numbers.';
 const MAX_CONTEXT_INVALID_VALUES = 20;
+const PROBE_SOURCE_PREFIX = 'expr = ';
+const PROBE_SOURCE_SUFFIX = `
+root = AppShell([
+  Screen("probe", "Probe", [
+    Text(expr, "body", "start")
+  ])
+])`;
 
-function createSharedOpenUiQualityIssue(
-  severity: SharedOpenUiQualityIssueSeverity,
-  issue: Omit<SharedOpenUiQualityIssue, 'severity' | 'source'>,
-): SharedOpenUiQualityIssue {
+function createBuilderQualityIssue(
+  severity: BuilderQualityIssueSeverity,
+  issue: Omit<BuilderQualityIssue, 'severity' | 'source'>,
+): BuilderQualityIssue {
   return {
     ...issue,
     severity,
@@ -53,6 +55,30 @@ function capInvalidValues(invalidValues: Array<number | string>) {
 
 function getBarePrimitiveOptionValues(value: unknown) {
   return isBarePrimitiveChoiceOptionsArray(value) ? capInvalidValues(value) : null;
+}
+
+export function createChoiceOptionsShapeExpressionValueParser({
+  normalizeSource = (source) => source,
+  parseSource,
+}: CreateChoiceOptionsShapeExpressionValueParserOptions) {
+  return function parseChoiceOptionsShapeExpressionValue(expressionSource: string) {
+    const wrappedSource = `${PROBE_SOURCE_PREFIX}${expressionSource}${PROBE_SOURCE_SUFFIX}`;
+    const result = parseSource(normalizeSource(wrappedSource));
+
+    if (result.meta.incomplete || result.meta.errors.length > 0 || !isElementNode(result.root)) {
+      return null;
+    }
+
+    const screenNode = Array.isArray(result.root.props.children) ? result.root.props.children[0] : null;
+
+    if (!isElementNode(screenNode)) {
+      return null;
+    }
+
+    const textNode = Array.isArray(screenNode.props.children) ? screenNode.props.children[0] : null;
+
+    return isElementNode(textNode) ? textNode.props.value : null;
+  };
 }
 
 function getCollectionBarePrimitiveOptionValues(value: unknown) {
@@ -196,41 +222,39 @@ function detectOptionsShapeIssuesInFragment(
   aliasBindings: Map<string, string>,
   valueCache: Map<string, unknown>,
   seenIssueKeys: Set<string>,
-  issues: SharedOpenUiQualityIssue[],
+  issues: BuilderQualityIssue[],
   parseExpressionValue: DetectChoiceOptionsShapeIssuesOptions['parseExpressionValue'],
 ) {
-  for (const controlTypeName of CHOICE_CONTROL_TYPE_NAMES) {
-    for (const call of findFunctionCalls(sourceFragment, controlTypeName)) {
-      const optionsSource = call.args[3] ?? '';
-      const resolvedIssue = resolveOptionsShapeIssue(
-        optionsSource,
-        ownerStatementId,
-        statementSources,
-        aliasBindings,
-        valueCache,
-        parseExpressionValue,
-      );
+  for (const call of findFunctionCalls(sourceFragment, CHOICE_CONTROL_TYPE_NAMES)) {
+    const optionsSource = call.args[3] ?? '';
+    const resolvedIssue = resolveOptionsShapeIssue(
+      optionsSource,
+      ownerStatementId,
+      statementSources,
+      aliasBindings,
+      valueCache,
+      parseExpressionValue,
+    );
 
-      if (!resolvedIssue) {
-        continue;
-      }
-
-      const issueKey = `${resolvedIssue.statementId ?? ownerStatementId}:${optionsSource.trim()}`;
-
-      if (seenIssueKeys.has(issueKey)) {
-        continue;
-      }
-
-      seenIssueKeys.add(issueKey);
-      issues.push(
-        createSharedOpenUiQualityIssue('blocking-quality', {
-          code: 'quality-options-shape',
-          context: resolvedIssue.context,
-          message: resolvedIssue.message,
-          statementId: resolvedIssue.statementId,
-        }),
-      );
+    if (!resolvedIssue) {
+      continue;
     }
+
+    const issueKey = `${resolvedIssue.statementId ?? ownerStatementId}:${optionsSource.trim()}`;
+
+    if (seenIssueKeys.has(issueKey)) {
+      continue;
+    }
+
+    seenIssueKeys.add(issueKey);
+    issues.push(
+      createBuilderQualityIssue('blocking-quality', {
+        code: 'quality-options-shape',
+        context: resolvedIssue.context,
+        message: resolvedIssue.message,
+        statementId: resolvedIssue.statementId,
+      }),
+    );
   }
 
   for (const eachCall of findFunctionCalls(sourceFragment, 'Each')) {
@@ -260,12 +284,12 @@ function detectOptionsShapeIssuesInFragment(
 export function detectChoiceOptionsShapeIssues(
   sourceOrStatements: OpenUiTopLevelStatement[] | string,
   { parseExpressionValue }: DetectChoiceOptionsShapeIssuesOptions,
-): SharedOpenUiQualityIssue[] {
+): BuilderQualityIssue[] {
   const statements = typeof sourceOrStatements === 'string' ? collectTopLevelStatements(sourceOrStatements) : sourceOrStatements;
   const statementSources = new Map(statements.map((statement) => [statement.statementId, statement.rawValueSource]));
   const valueCache = new Map<string, unknown>();
   const seenIssueKeys = new Set<string>();
-  const issues: SharedOpenUiQualityIssue[] = [];
+  const issues: BuilderQualityIssue[] = [];
 
   for (const statement of statements) {
     detectOptionsShapeIssuesInFragment(
