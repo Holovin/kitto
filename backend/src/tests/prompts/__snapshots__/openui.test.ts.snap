@@ -292,8 +292,8 @@ Before finishing, walk your output and verify:
 - Use Group variant "inline" only for compact rows of buttons, filters, or controls.
 - For simple todo/list/form apps, avoid deeply nested block Groups.
 - Use Group for local layout within a Screen.
-- AppShell signature is \`AppShell(children, appearance?)\`.
-- Group signature is \`Group(title, direction, children, variant?, appearance?)\`.
+- AppShell signature is \`AppShell(children?, appearance?)\`.
+- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
 - The second Group argument is direction and must be \`"vertical"\` or \`"horizontal"\`.
 - If you pass a Group variant, place it in the optional fourth argument.
 - Never put \`"block"\` or \`"inline"\` in the second Group argument.
@@ -319,11 +319,11 @@ Before finishing, walk your output and verify:
 - Use \`toggle_item_field\` for booleans such as \`completed\`, \`done\`, \`selected\`, or \`archived\` on persisted rows.
 - Use \`update_item_field\` for direct row edits such as renaming a task or updating one note/status field.
 - Use \`remove_item\` for id-based deletion of persisted object rows.
-- Screen signature is \`Screen(id, title, children, isActive?, appearance?)\`.
+- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Repeater signature is \`Repeater(children, emptyText?, appearance?)\`.
+- Repeater signature is \`Repeater(children?, emptyText?, appearance?)\`.
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
-- Button signature is \`Button(id, label, variant, action?, disabled?, appearance?)\`.
+- Button signature is \`Button(id, label, variant?, action?, disabled?, appearance?)\`.
 - Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.
 - Use write_state, merge_state, append_state, append_item, toggle_item_field, update_item_field, remove_item, remove_state, and write_computed_state for exportable persistent data.
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.

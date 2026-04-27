@@ -1,3 +1,4 @@
+import { buildOpenUiComponentSignatureRule, getOpenUiComponentCompactSignature } from './componentSpec.js';
 import type { PromptIntentVector } from './promptIntents.js';
 
 export const BUTTON_APPEARANCE_RULE =
@@ -91,8 +92,8 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       'Use Group variant "inline" only for compact rows of buttons, filters, or controls.',
       'For simple todo/list/form apps, avoid deeply nested block Groups.',
       'Use Group for local layout within a Screen.',
-      'AppShell signature is `AppShell(children, appearance?)`.',
-      'Group signature is `Group(title, direction, children, variant?, appearance?)`.',
+      buildOpenUiComponentSignatureRule('AppShell'),
+      buildOpenUiComponentSignatureRule('Group'),
       'The second Group argument is direction and must be `"vertical"` or `"horizontal"`.',
       'If you pass a Group variant, place it in the optional fourth argument.',
       'Never put `"block"` or `"inline"` in the second Group argument.',
@@ -170,11 +171,11 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
   {
     id: 'screen-and-component-base',
     rules: [
-      'Screen signature is `Screen(id, title, children, isActive?, appearance?)`.',
+      buildOpenUiComponentSignatureRule('Screen'),
       'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
-      'Repeater signature is `Repeater(children, emptyText?, appearance?)`.',
+      buildOpenUiComponentSignatureRule('Repeater'),
       'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
-      'Button signature is `Button(id, label, variant, action?, disabled?, appearance?)`.',
+      buildOpenUiComponentSignatureRule('Button'),
       'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
     ],
   },
@@ -182,7 +183,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
     id: 'multi-screen',
     intent: 'multiScreen',
     rules: [
-      'Use `Screen(id, title, children, isActive?, appearance?)` when you need screen-level sections.',
+      `Use \`${getOpenUiComponentCompactSignature('Screen')}\` when you need screen-level sections.`,
       'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
       'Use `$currentScreen` + `@Set(...)` for screen navigation.',
       'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',

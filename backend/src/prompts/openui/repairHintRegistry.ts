@@ -1,3 +1,4 @@
+import { getOpenUiComponentCompactSignature } from './componentSpec.js';
 import { BUTTON_APPEARANCE_RULE } from './rules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
@@ -101,7 +102,7 @@ const REPAIR_HINT_HANDLERS: Record<string, RepairHintHandler> = {
     }
 
     if (issue.message.includes('Screen.appearance') || issue.message.includes('Screen.color') || issue.message.includes('Screen.background')) {
-      hints.push('Screen appearance belongs in the optional fifth argument: Screen(id, title, children, isActive?, appearance?).');
+      hints.push(`Screen appearance belongs in the optional fifth argument: ${getOpenUiComponentCompactSignature('Screen')}.`);
     }
 
     return hints;

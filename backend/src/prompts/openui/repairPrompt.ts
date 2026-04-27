@@ -1,6 +1,7 @@
 import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/builderApiContract.js';
 import { collectTopLevelStatements } from '@kitto-openui/shared/openuiAst.js';
 import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
+import { buildOpenUiComponentSignatureRule } from './componentSpec.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
 import {
   CONTROL_ACTION_AND_BINDING_REPAIR_HINT,
@@ -52,10 +53,10 @@ const REPAIR_CORE_CRITICAL_RULES = [
 ] as const;
 
 const REPAIR_LAYOUT_CRITICAL_RULES = [
-  'AppShell signature is AppShell(children, appearance?).',
-  'Screen signature is Screen(id, title, children, isActive?, appearance?).',
+  buildOpenUiComponentSignatureRule('AppShell'),
+  buildOpenUiComponentSignatureRule('Screen'),
   'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
-  'Group signature is Group(title, direction, children, variant?, appearance?).',
+  buildOpenUiComponentSignatureRule('Group'),
   'The second Group argument is direction and must be "vertical" or "horizontal".',
   'If you pass a Group variant, place it in the optional fourth argument.',
   'Never put "block" or "inline" in the second Group argument.',
@@ -79,7 +80,7 @@ const REPAIR_APPEARANCE_CRITICAL_RULES = [
 const REPAIR_STATE_CRITICAL_RULES = [
   'Use $currentScreen + @Set for screen navigation.',
   'Declare every `$var` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.',
-  'Button signature is Button(id, label, variant, action?, disabled?, appearance?).',
+  buildOpenUiComponentSignatureRule('Button'),
 ] as const;
 
 function buildRepairPromptCriticalRules() {

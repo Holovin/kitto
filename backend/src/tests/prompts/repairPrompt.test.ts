@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
 import { buildOpenUiRepairPrompt } from '#backend/prompts/openui.js';
+import { getOpenUiComponentCompactSignature } from '#backend/prompts/openui/componentSpec.js';
 
 function buildUndefinedStateReferenceIssues(count: number) {
   return Array.from({ length: count }, (_, index) => {
@@ -59,11 +60,11 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain(
       'Make `summary` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.',
     );
-    expect(prompt).toContain('AppShell signature is AppShell(children, appearance?).');
+    expect(prompt).toContain(`AppShell signature is \`${getOpenUiComponentCompactSignature('AppShell')}\`.`);
     expect(prompt).toContain(
       'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',
     );
-    expect(prompt).toContain('Group signature is Group(title, direction, children, variant?, appearance?).');
+    expect(prompt).toContain(`Group signature is \`${getOpenUiComponentCompactSignature('Group')}\`.`);
     expect(prompt).toContain('The second Group argument is direction and must be "vertical" or "horizontal".');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put "block" or "inline" in the second Group argument.');

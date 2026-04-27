@@ -105,7 +105,7 @@ Group("Question 5", "vertical", [
 ]),
 Group("Question 6", "vertical", [
   Text("Question 6", "body", "start"),
-  RadioGroup("question-6", "Questi…
+  RadioGroup("questi…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
@@ -114,10 +114,10 @@ Current critical syntax rules:
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is AppShell(children, appearance?).
-- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- AppShell signature is \`AppShell(children?, appearance?)\`.
+- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is Group(title, direction, children, variant?, appearance?).
+- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
 - The second Group argument is direction and must be "vertical" or "horizontal".
 - If you pass a Group variant, place it in the optional fourth argument.
 - Never put "block" or "inline" in the second Group argument.
@@ -134,7 +134,7 @@ Current critical syntax rules:
 - Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
 - Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, vari…"
+- Button signature is \`Button(id, label, varian…"
 `;
 
 exports[`buildOpenUiRepairPrompt > truncates the draft before issues and hints when the repair prompt is over budget 1`] = `
@@ -182,9 +182,6 @@ Targeted repair hints:
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
 
-Relevant draft statement excerpts:
-- root…
-
 Model draft to repair:
 root = AppShell([
   Screen("quiz", "Quiz", [
@@ -199,10 +196,10 @@ Current critical syntax rules:
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is AppShell(children, appearance?).
-- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- AppShell signature is \`AppShell(children?, appearance?)\`.
+- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is Group(title, direction, children, variant?, appearance?).
+- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
 - The second Group argument is direction and must be "vertical" or "horizontal".
 - If you pass a Group variant, place it in the optional fourth argument.
 - Never put "block" or "inline" in the second Group argument.
@@ -219,7 +216,7 @@ Current critical syntax rules:
 - Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
 - Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is Button(id, label, varia…"
+- Button signature is \`Button(id, label, variant?, action?, disabled?, appear…"
 `;
 
 exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
@@ -259,10 +256,10 @@ Current critical syntax rules:
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is AppShell(children, appearance?).
-- Screen signature is Screen(id, title, children, isActive?, appearance?).
+- AppShell signature is \`AppShell(children?, appearance?)\`.
+- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
 - Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is Group(title, direction, children, variant?, appearance?).
+- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
 - The second Group argument is direction and must be "vertical" or "horizontal".
 - If you pass a Group variant, place it in the optional fourth argument.
 - Never put "block" or "inline" in the second Group argument.
@@ -276,5 +273,5 @@ Current critical syntax rules:
 - Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
 - Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
 - For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, style objects…"
+- Never use CSS, className, st…"
 `;

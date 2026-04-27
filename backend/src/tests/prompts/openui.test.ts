@@ -13,6 +13,7 @@ import {
   formatPromptRequestIntentBlock,
   getPromptIntentCacheVector,
 } from '#backend/prompts/openui/promptIntents.js';
+import { getOpenUiComponentCompactSignature } from '#backend/prompts/openui/componentSpec.js';
 
 interface ComponentSpec {
   components: Record<
@@ -367,7 +368,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Use Group variant "inline" only for compact rows of buttons, filters, or controls.');
     expect(prompt).toContain('For simple todo/list/form apps, avoid deeply nested block Groups.');
     expect(prompt).toContain('Do not over-nest block Groups.');
-    expect(prompt).toContain('Group signature is `Group(title, direction, children, variant?, appearance?)`.');
+    expect(prompt).toContain(`Group signature is \`${getOpenUiComponentCompactSignature('Group')}\`.`);
     expect(prompt).toContain('The second Group argument is direction and must be `"vertical"` or `"horizontal"`.');
     expect(prompt).toContain('If you pass a Group variant, place it in the optional fourth argument.');
     expect(prompt).toContain('Never put `"block"` or `"inline"` in the second Group argument.');

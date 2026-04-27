@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
+import { openUiComponentSpec, openUiComponentSpecHash } from './componentSpec.js';
 import { buildStableSystemRules } from './ruleRegistry.js';
 import { buildStableToolExamples } from './toolExamples.js';
 import { toolSpecifications } from './toolSpecs.js';
@@ -12,10 +12,6 @@ interface KittoPromptInput {
   tools: ToolSpec[];
 }
 
-const componentSpecUrl = new URL(import.meta.resolve('@kitto-openui/shared/openui-component-spec.json'));
-const componentSpecSource = fs.readFileSync(componentSpecUrl, 'utf8');
-const componentSpecHash = createHash('sha256').update(componentSpecSource).digest('hex').slice(0, 12);
-const componentSpec = JSON.parse(componentSpecSource) as PromptSpec;
 export const OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX = 'kitto:openui';
 const OPENUI_SYSTEM_PROMPT_CACHE_TOKEN = 'base';
 
@@ -414,12 +410,12 @@ function getCachedSystemPrompt() {
 
   const prompt = buildKittoOpenUiPrompt({
     additionalRules: buildAdditionalRules(),
-    componentSpec,
+    componentSpec: openUiComponentSpec,
     examples: buildToolExamples(),
     tools: toolSpecifications,
   });
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
-  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${cacheToken}:${componentSpecHash}`;
+  const cacheKey = `${OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX}:${cacheToken}:${openUiComponentSpecHash}`;
   const cachedEntry = {
     prompt,
     hash: promptHash,
