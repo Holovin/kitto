@@ -587,6 +587,30 @@ export function collectActionRunRefsFromActionAst(actionAst: unknown): OpenUiAct
   return runRefs;
 }
 
+function getAstComponentName(node: OpenUiExpressionAst) {
+  return node.k === 'Comp' && 'name' in node && typeof node.name === 'string' ? node.name : null;
+}
+
+function getAstMappedProps(node: OpenUiExpressionAst) {
+  if (
+    !('mappedProps' in node) ||
+    typeof node.mappedProps !== 'object' ||
+    node.mappedProps === null ||
+    Array.isArray(node.mappedProps)
+  ) {
+    return null;
+  }
+
+  return node.mappedProps as Record<string, unknown>;
+}
+
+function getAstTraversalValues(node: OpenUiExpressionAst) {
+  const componentName = getAstComponentName(node);
+  const mappedProps = componentName && componentName !== 'Action' ? getAstMappedProps(node) : null;
+
+  return mappedProps ? Object.values(mappedProps) : Object.values(node);
+}
+
 export function collectActionRunRefGroups(value: unknown): OpenUiActionRunRef[][] {
   const actionGroups: OpenUiActionRunRef[][] = [];
 
@@ -606,7 +630,7 @@ export function collectActionRunRefGroups(value: unknown): OpenUiActionRunRef[][
         actionGroups.push(collectActionRunRefsFromActionAst(node));
       }
 
-      Object.values(node).forEach(visit);
+      getAstTraversalValues(node).forEach(visit);
       return;
     }
 
@@ -651,9 +675,24 @@ export function collectOwnedActionRunRefGroups(value: unknown): OpenUiOwnedActio
           ownerTypeName: owner?.typeName,
           runRefs: collectActionRunRefsFromActionAst(node),
         });
+
+        getAstTraversalValues(node).forEach((entry) => visit(entry, owner));
+        return;
       }
 
-      Object.values(node).forEach((entry) => visit(entry, owner));
+      const componentName = getAstComponentName(node);
+
+      if (componentName) {
+        const nextOwner = {
+          statementId: owner?.statementId,
+          typeName: componentName,
+        };
+
+        getAstTraversalValues(node).forEach((entry) => visit(entry, nextOwner));
+        return;
+      }
+
+      getAstTraversalValues(node).forEach((entry) => visit(entry, owner));
       return;
     }
 
@@ -666,246 +705,9 @@ export function collectOwnedActionRunRefGroups(value: unknown): OpenUiOwnedActio
   return actionGroups;
 }
 
-function findMatchingParen(source: string, openParenIndex: number) {
-  let depth = 0;
-  let activeQuote: '"' | "'" | null = null;
-  let isEscaped = false;
-
-  for (let index = openParenIndex; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (activeQuote) {
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (character === '\\') {
-        isEscaped = true;
-        continue;
-      }
-
-      if (character === activeQuote) {
-        activeQuote = null;
-      }
-
-      continue;
-    }
-
-    if (character === '"' || character === "'") {
-      activeQuote = character;
-      continue;
-    }
-
-    if (character === '(') {
-      depth += 1;
-      continue;
-    }
-
-    if (character !== ')') {
-      continue;
-    }
-
-    depth -= 1;
-
-    if (depth === 0) {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-function splitTopLevelArguments(source: string) {
-  const args: string[] = [];
-  let depthParen = 0;
-  let depthBracket = 0;
-  let depthBrace = 0;
-  let activeQuote: '"' | "'" | null = null;
-  let isEscaped = false;
-  let segmentStart = 0;
-
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (activeQuote) {
-      if (isEscaped) {
-        isEscaped = false;
-        continue;
-      }
-
-      if (character === '\\') {
-        isEscaped = true;
-        continue;
-      }
-
-      if (character === activeQuote) {
-        activeQuote = null;
-      }
-
-      continue;
-    }
-
-    if (character === '"' || character === "'") {
-      activeQuote = character;
-      continue;
-    }
-
-    if (character === '(') {
-      depthParen += 1;
-      continue;
-    }
-
-    if (character === ')') {
-      depthParen = Math.max(0, depthParen - 1);
-      continue;
-    }
-
-    if (character === '[') {
-      depthBracket += 1;
-      continue;
-    }
-
-    if (character === ']') {
-      depthBracket = Math.max(0, depthBracket - 1);
-      continue;
-    }
-
-    if (character === '{') {
-      depthBrace += 1;
-      continue;
-    }
-
-    if (character === '}') {
-      depthBrace = Math.max(0, depthBrace - 1);
-      continue;
-    }
-
-    if (character !== ',' || depthParen > 0 || depthBracket > 0 || depthBrace > 0) {
-      continue;
-    }
-
-    args.push(source.slice(segmentStart, index));
-    segmentStart = index + 1;
-  }
-
-  args.push(source.slice(segmentStart));
-  return args;
-}
-
-function collectRunRefsFromActionSource(
-  source: string,
-  resolveRunRefType: (statementId: string) => OpenUiActionRunRef['refType'] | null,
-): OpenUiActionRunRef[] {
-  const runRefs: OpenUiActionRunRef[] = [];
-  const runRefPattern = /@Run\s*\(\s*([A-Za-z_][\w$]*)\s*\)/g;
-  let match = runRefPattern.exec(source);
-
-  while (match) {
-    const statementId = match[1];
-
-    if (!statementId) {
-      match = runRefPattern.exec(source);
-      continue;
-    }
-
-    const refType = resolveRunRefType(statementId);
-
-    if (!refType) {
-      match = runRefPattern.exec(source);
-      continue;
-    }
-
-    runRefs.push({
-      refType,
-      statementId,
-    });
-    match = runRefPattern.exec(source);
-  }
-
-  return runRefs;
-}
-
-function collectOwnedActionRunRefGroupsFromSourceText(
-  source: string,
-  resolveRunRefType: (statementId: string) => OpenUiActionRunRef['refType'] | null,
-): OpenUiOwnedActionRunRefGroup[] {
-  const actionGroups: OpenUiOwnedActionRunRefGroup[] = [];
-
-  function visit(text: string) {
-    const componentPattern = /\b([A-Z][A-Za-z0-9_]*)\s*\(/g;
-    let match = componentPattern.exec(text);
-
-    while (match) {
-      const typeName = match[1];
-
-      if (!typeName) {
-        match = componentPattern.exec(text);
-        continue;
-      }
-
-      const openParenIndex = text.indexOf('(', match.index + typeName.length);
-      const closeParenIndex = openParenIndex >= 0 ? findMatchingParen(text, openParenIndex) : -1;
-
-      if (openParenIndex < 0 || closeParenIndex < 0) {
-        break;
-      }
-
-      const argsSource = text.slice(openParenIndex + 1, closeParenIndex);
-      const args = splitTopLevelArguments(argsSource);
-      const actionArg = args.find((arg) => /^\s*Action\s*\(/.test(arg));
-
-      if (actionArg) {
-        const actionRunRefs = collectRunRefsFromActionSource(actionArg, resolveRunRefType);
-
-        if (actionRunRefs.length > 0) {
-          actionGroups.push({
-            ownerTypeName: typeName,
-            runRefs: actionRunRefs,
-          });
-        }
-      }
-
-      args.forEach(visit);
-      componentPattern.lastIndex = closeParenIndex + 1;
-      match = componentPattern.exec(text);
-    }
-  }
-
-  visit(source);
-  return actionGroups;
-}
-
 export function createOpenUiProgramIndex(result: OpenUiParseResultLike, source = ''): OpenUiProgramIndex {
   const topLevelStatements = collectTopLevelStatements(source);
   const statementById = new Map(topLevelStatements.map((statement) => [statement.statementId, statement]));
-  const runRefTypeByStatementId = new Map<string, OpenUiActionRunRef['refType']>();
-
-  result.queryStatements.forEach((statement) => runRefTypeByStatementId.set(statement.statementId, 'query'));
-  result.mutationStatements.forEach((statement) => runRefTypeByStatementId.set(statement.statementId, 'mutation'));
-
-  topLevelStatements.forEach((statement) => {
-    if (runRefTypeByStatementId.has(statement.statementId)) {
-      return;
-    }
-
-    const valueSource = statement.rawValueSource.trimStart();
-
-    if (/^Query\s*\(/.test(valueSource)) {
-      runRefTypeByStatementId.set(statement.statementId, 'query');
-      return;
-    }
-
-    if (/^Mutation\s*\(/.test(valueSource)) {
-      runRefTypeByStatementId.set(statement.statementId, 'mutation');
-    }
-  });
-
-  const resolveRunRefType = (statementId: string) => runRefTypeByStatementId.get(statementId) ?? null;
-  const ownedActionRunRefGroups = [
-    ...collectOwnedActionRunRefGroups(result.root),
-    ...(source ? collectOwnedActionRunRefGroupsFromSourceText(maskStringLiterals(source), resolveRunRefType) : []),
-  ];
 
   return {
     actionRunRefGroups: collectActionRunRefGroups(result.root),
@@ -917,7 +719,7 @@ export function createOpenUiProgramIndex(result: OpenUiParseResultLike, source =
         .map((statement) => statement.statementId),
     ),
     mutationToolRefs: collectToolStatementRefs(result.mutationStatements),
-    ownedActionRunRefGroups,
+    ownedActionRunRefGroups: collectOwnedActionRunRefGroups(result.root),
     persistedQueryRefs: collectPersistedQueryRefs(result),
     queryToolRefs: collectToolStatementRefs(result.queryStatements),
     statementById,

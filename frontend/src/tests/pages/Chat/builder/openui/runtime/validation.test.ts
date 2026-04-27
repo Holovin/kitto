@@ -1524,7 +1524,7 @@ root = AppShell([
 });
 
 describe('createOpenUiProgramIndex', () => {
-  it('classifies source-fallback @Run refs as queries or mutations', () => {
+  it('collects owned @Run refs from the parsed AST without source fallback duplicates', () => {
     const source = `items = Query("read_state", { path: "app.items" }, [])
 saveItems = Mutation("write_state", {
   path: "app.items",
@@ -1540,26 +1540,66 @@ root = AppShell([
 ])`;
     const parseResult = parser.parse(source);
     const programIndex = createOpenUiProgramIndex(parseResult, source);
-    const sourceFallbackActionGroups = programIndex.ownedActionRunRefGroups.filter(
-      (actionGroup) => actionGroup.ownerStatementId === undefined,
-    );
 
-    expect(sourceFallbackActionGroups).toEqual(
-      expect.arrayContaining([
-        {
-          ownerTypeName: 'Button',
-          runRefs: [
-            {
-              refType: 'mutation',
-              statementId: 'saveItems',
-            },
-            {
-              refType: 'query',
-              statementId: 'items',
-            },
-          ],
-        },
-      ]),
-    );
+    expect(programIndex.ownedActionRunRefGroups).toEqual([
+      {
+        ownerStatementId: 'root',
+        ownerTypeName: 'Button',
+        runRefs: [
+          {
+            refType: 'mutation',
+            statementId: 'saveItems',
+          },
+          {
+            refType: 'query',
+            statementId: 'items',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('tracks action owners inside dynamic component ASTs', () => {
+    const source = `$targetItemId = ""
+items = Query("read_state", { path: "kanban.items" }, [])
+moveItem = Mutation("update_item_field", {
+  path: "kanban.items",
+  idField: "id",
+  id: $targetItemId,
+  field: "column",
+  value: $lastChoice
+})
+columnOptions = [
+  { label: "Todo", value: "todo" },
+  { label: "Done", value: "done" }
+]
+rows = @Each(items, "item", Group(null, "vertical", [
+  Select("move-" + item.id, "Move", item.column, columnOptions, null, [], Action([@Set($targetItemId, item.id), @Run(moveItem), @Run(items)]))
+], "block"))
+
+root = AppShell([
+  Screen("main", "Main", [
+    Repeater(rows, "No items yet.")
+  ])
+])`;
+    const parseResult = parser.parse(source);
+    const programIndex = createOpenUiProgramIndex(parseResult, source);
+
+    expect(programIndex.ownedActionRunRefGroups).toEqual([
+      {
+        ownerStatementId: 'root',
+        ownerTypeName: 'Select',
+        runRefs: [
+          {
+            refType: 'mutation',
+            statementId: 'moveItem',
+          },
+          {
+            refType: 'query',
+            statementId: 'items',
+          },
+        ],
+      },
+    ]);
   });
 });
