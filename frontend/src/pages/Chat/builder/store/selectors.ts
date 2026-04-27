@@ -8,6 +8,7 @@ export const selectCurrentRequestId = (state: RootState) => state.builder.curren
 export const selectDomainData = (state: RootState) => state.domain.data;
 export const selectDraftPrompt = (state: RootState) => state.builder.draftPrompt;
 export const selectHistory = (state: RootState) => state.builder.history;
+export const selectPreviousCommittedSource = (state: RootState) => state.builder.history.at(-2)?.source;
 export const selectDefinitionWarnings = (state: RootState) =>
   selectIsStreaming(state) || selectHasRejectedDefinition(state) ? [] : state.builder.definitionWarnings;
 export const selectIsStreaming = (state: RootState) => selectCurrentRequestId(state) !== null;

@@ -41,27 +41,6 @@ Targeted repair hints:
   WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
-- Example for multi-screen quiz pattern:
-  $currentScreen = "intro"
-  $answer = ""
-  answerOptions = [
-    { label: "3", value: "3" },
-    { label: "4", value: "4" }
-  ]
-  
-  root = AppShell([
-    Screen("intro", "Quiz", [
-      Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
-    ], $currentScreen == "intro"),
-    Screen("question", "Question", [
-      RadioGroup("answer", "2 + 2?", $answer, answerOptions),
-      Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
-    ], $currentScreen == "question"),
-    Screen("result", "Result", [
-      Text($answer == "4" ? "Correct." : "Try again.", "title", "start"),
-      Button("restart-quiz", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($answer)]), false)
-    ], $currentScreen == "result")
-  ])
 
 Relevant draft statement excerpts:
 - root:
@@ -167,7 +146,36 @@ Group("Question 9", "vertical", [
     { label: "No", value: "no" }
   ])
 ]),
-Group("Question 1…
+Group("Question 10", "vertical", [
+  Text("Question 10", "body", "start"),
+  RadioGroup("question-10", "Question 10", $q10, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 11", "vertical", [
+  Text("Question 11", "body", "start"),
+  RadioGroup("question-11", "Question 11", $q11, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 12", "vertical", [
+  Text("Question 12", "body", "start"),
+  RadioGroup("question-12", "Question 12", $q12, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 13", "vertical", [
+  Text("Question 13", "body", "start"),
+  RadioGroup("question-13", "Question 13", $q13, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 14", "vertical", [
+  Text("Question 14", "body"…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
@@ -226,27 +234,6 @@ Targeted repair hints:
   WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
-- Example for multi-screen quiz pattern:
-  $currentScreen = "intro"
-  $answer = ""
-  answerOptions = [
-    { label: "3", value: "3" },
-    { label: "4", value: "4" }
-  ]
-  
-  root = AppShell([
-    Screen("intro", "Quiz", [
-      Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
-    ], $currentScreen == "intro"),
-    Screen("question", "Question", [
-      RadioGroup("answer", "2 + 2?", $answer, answerOptions),
-      Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
-    ], $currentScreen == "question"),
-    Screen("result", "Result", [
-      Text($answer == "4" ? "Correct." : "Try again.", "title", "start"),
-      Button("restart-quiz", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($answer)]), false)
-    ], $currentScreen == "result")
-  ])
 
 Relevant draft statement excerpts:
 - root:
@@ -274,14 +261,43 @@ Relevant draft statement excerpts:
     ])
   ]),
   Group("Question 4", "vertical", [
-    Text("Question…
+    Text("Question 4", "body", "start"),
+    RadioGroup("question-4", "Question 4", $q4, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 5", "vertical", [
+    Text("Question 5", "body", "start"),
+    RadioGroup("question-5", "Question 5", $q5, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value:…
 
 Model draft to repair:
 root = AppShell([
   Screen("quiz", "Quiz", [
 Group("Question 1", "vertical", [
   Text("Question 1", "body", "start"),
-  RadioGroup("question-1", "Question 1",…
+  RadioGroup("question-1", "Question 1", $q1, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 2", "vertical", [
+  Text("Question 2", "body", "start"),
+  RadioGroup("question-2", "Question 2", $q2, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 3", "vertical", [
+  Text("Question 3", "body", "start"),
+  RadioGroup("question-3", "Question 3", $q3, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 4", "vertical…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
@@ -296,7 +312,7 @@ Intent-specific rules from original user request:
 - Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
 - For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
 - Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
-- Do not use persisted tools for internal screen navigation. Use tools only f…"
+- Do not use persisted tools for internal screen navigation. Use tools only…"
 `;
 
 exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
@@ -322,24 +338,17 @@ Targeted repair hints:
   OK: addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
   OK: rows = @Each(items, "item", ...)
   OK: Repeater(rows, "No tasks yet.")
-- Example for todo/task list pattern:
+- Example for todo add fragment:
   $draft = ""
-  $targetItemId = ""
-  
   items = Query("read_state", { path: "app.items" }, [])
-  addItem = Mutation("append_item", {
-    path: "app.items",
-    value: { title: $draft, completed: false }
-  })
-  toggleItem = Mutation("toggle_item_field", {
-    path: "app.items",
-    idField: "id",
-    id: $targetItemId,
-    field: "completed"
-  })
+  addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+  Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+- Example for todo list rows fragment:
+  $targetItemId = ""
+  toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
   rows = @Each(items, "item", Group(null, "horizontal", [
     Text(item.title, "body", "start"),
-    Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]…
+    Checkbox("toggle-" +…
 
 Model draft to repair:
 root = AppShell([])

@@ -1362,6 +1362,47 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('sends previousSource only when there is a prior committed history snapshot', async () => {
+    seedHistorySources(PREVIOUS_SOURCE, SECOND_REQUEST_SOURCE);
+    setDraftPrompt('Add sorting.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { currentSource: string; previousSource?: string };
+    }).request;
+
+    expect(request.currentSource).toBe(SECOND_REQUEST_SOURCE);
+    expect(request).toHaveProperty('previousSource', PREVIOUS_SOURCE);
+
+    submission.unmount();
+  });
+
+  it('does not send previousSource for the initial committed snapshot', async () => {
+    seedCommittedSource(PREVIOUS_SOURCE);
+    setDraftPrompt('Add sorting.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { previousSource?: string };
+    }).request;
+
+    expect(Object.prototype.hasOwnProperty.call(request, 'previousSource')).toBe(false);
+
+    submission.unmount();
+  });
+
   it('keeps the failed prompt in chat history when Repeat resubmits it', async () => {
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();

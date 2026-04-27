@@ -37,6 +37,7 @@ interface RawParsedLlmRequest {
   mode: 'initial' | 'repair';
   parentRequestId?: string;
   prompt: string;
+  previousSource?: string;
   repairAttemptNumber?: number;
   validationIssues?: PromptBuildValidationIssue[];
 }

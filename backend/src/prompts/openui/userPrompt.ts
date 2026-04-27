@@ -110,6 +110,60 @@ export const OPENUI_INTENT_CONTEXT_SEPARATOR =
 const REQUEST_INTENT_TEMPLATE_BLOCK = [
   'This request appears to be: [operation], [screen flow], [scope], [detected feature hints].',
 ].join('\n');
+
+function collectSourceEntries(source: string, pattern: RegExp) {
+  return [...source.matchAll(pattern)].map((match) => match[1]).filter((value): value is string => Boolean(value));
+}
+
+function diffSourceEntrySummary(label: string, previousEntries: string[], currentEntries: string[]) {
+  const previousSet = new Set(previousEntries);
+  const currentSet = new Set(currentEntries);
+  const added = currentEntries.filter((entry) => !previousSet.has(entry));
+  const removed = previousEntries.filter((entry) => !currentSet.has(entry));
+  const lines: string[] = [];
+
+  if (added.length > 0) {
+    lines.push(`Added ${label}: ${added.slice(0, 4).join(', ')}${added.length > 4 ? `, +${added.length - 4} more` : ''}.`);
+  }
+
+  if (removed.length > 0) {
+    lines.push(`Removed ${label}: ${removed.slice(0, 4).join(', ')}${removed.length > 4 ? `, +${removed.length - 4} more` : ''}.`);
+  }
+
+  return lines;
+}
+
+function computeSourceDeltaSummary(previousSource: string, currentSource: string) {
+  const previousStatements = collectSourceEntries(previousSource, /^([A-Za-z_]\w*|\$[A-Za-z_]\w*)\s*=/gm);
+  const currentStatements = collectSourceEntries(currentSource, /^([A-Za-z_]\w*|\$[A-Za-z_]\w*)\s*=/gm);
+  const previousScreens = collectSourceEntries(previousSource, /\bScreen\("([^"]+)"/g);
+  const currentScreens = collectSourceEntries(currentSource, /\bScreen\("([^"]+)"/g);
+  const previousQueries = collectSourceEntries(previousSource, /^([A-Za-z_]\w*)\s*=\s*Query\(/gm);
+  const currentQueries = collectSourceEntries(currentSource, /^([A-Za-z_]\w*)\s*=\s*Query\(/gm);
+  const previousMutations = collectSourceEntries(previousSource, /^([A-Za-z_]\w*)\s*=\s*Mutation\(/gm);
+  const currentMutations = collectSourceEntries(currentSource, /^([A-Za-z_]\w*)\s*=\s*Mutation\(/gm);
+
+  return [
+    ...diffSourceEntrySummary('screens', previousScreens, currentScreens),
+    ...diffSourceEntrySummary('queries', previousQueries, currentQueries),
+    ...diffSourceEntrySummary('mutations', previousMutations, currentMutations),
+    ...diffSourceEntrySummary('statements', previousStatements, currentStatements),
+  ].slice(0, 4);
+}
+
+function buildPreviousChangesBlock(previousSource: string | undefined, currentSource: string) {
+  if (!previousSource?.trim() || !currentSource.trim() || previousSource === currentSource) {
+    return null;
+  }
+
+  const summary = computeSourceDeltaSummary(previousSource, currentSource);
+
+  if (summary.length === 0) {
+    return null;
+  }
+
+  return buildPromptDataBlock('previous_changes', summary.map((line) => `- ${line}`).join('\n'));
+}
 const CURRENT_SOURCE_INVENTORY_TEMPLATE_BLOCK = [
   'statements: [top-level non-tool statement names, or none]',
   'screens: [screen ids, or none]',
@@ -167,6 +221,7 @@ function buildCurrentSourceSection({
 
 function buildOpenUiLatestUserTurn(
   currentSource: string,
+  previousSource: string | undefined,
   userRequest: string,
   currentSourceInventory: string | null,
   isFollowUp: boolean,
@@ -174,6 +229,7 @@ function buildOpenUiLatestUserTurn(
 ) {
   return [
     ...INITIAL_USER_PROMPT_INTRO_LINES,
+    buildPreviousChangesBlock(previousSource, currentSource),
     buildPromptDataBlock('latest_user_request', userRequest),
     ...buildCurrentSourceSection({
       currentSource,
@@ -222,6 +278,7 @@ export function buildOpenUiUserPromptTemplate() {
     'Final user turn request/source block sent after the intent-context separator:',
     buildOpenUiLatestUserTurn(
       '[current committed OpenUI source, or the blank-canvas placeholder when empty]',
+      undefined,
       '[latest user request text]',
       CURRENT_SOURCE_INVENTORY_TEMPLATE_BLOCK,
       true,
@@ -240,18 +297,22 @@ export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
   const currentSourceValue = request.currentSource;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const intentPrompt = request.prompt;
-  const requestIntentBlock = formatPromptRequestIntentBlock(
-    detectPromptRequestIntent(intentPrompt, {
-      currentSource: currentSourceValue,
-      mode: request.mode,
-    }),
-  );
+  const requestIntent = detectPromptRequestIntent(intentPrompt, {
+    currentSource: currentSourceValue,
+    mode: request.mode,
+  });
+  const requestIntentBlock = formatPromptRequestIntentBlock(requestIntent);
 
   return buildIntentContextTurn(
     requestIntentBlock,
     [],
-    getRelevantRequestExemplars(rawUserRequest),
-    [...new Set([...buildStableToolExamples(), ...buildIntentToolExamplesForPrompt(intentPrompt)])],
+    getRelevantRequestExemplars(rawUserRequest, { operation: requestIntent.operation }),
+    [
+      ...new Set([
+        ...buildStableToolExamples({ operation: requestIntent.operation }),
+        ...buildIntentToolExamplesForPrompt(intentPrompt, { operation: requestIntent.operation }),
+      ]),
+    ],
   );
 }
 
@@ -280,6 +341,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
 
   return buildOpenUiLatestUserTurn(
     currentSource,
+    request.previousSource,
     rawUserRequest,
     currentSourceInventory,
     currentSourceValue.trim().length > 0 && requestIntent.operation !== 'create',

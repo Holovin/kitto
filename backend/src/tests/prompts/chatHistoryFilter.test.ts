@@ -136,10 +136,6 @@ describe('filterPromptBuildChatHistory', () => {
       ),
     ).toEqual([
       {
-        content: 'First request',
-        role: 'user',
-      },
-      {
         content: 'Add sorting',
         role: 'user',
       },
@@ -226,6 +222,37 @@ describe('retainPromptBuildChatHistoryTail', () => {
 });
 
 describe('compactPromptBuildChatHistory', () => {
+  it('adds a bounded history summary when multiple older turns are omitted', () => {
+    const messages = [
+      createMessage('user', 'Create a todo app'),
+      createMessage('assistant', 'Built a todo app with add and toggle controls.'),
+      createMessage('user', 'Add filters'),
+      createMessage('assistant', 'Added all, active, and completed filters.'),
+      createMessage('user', 'Add theme'),
+      createMessage('assistant', 'Added a light and dark theme toggle.'),
+      createMessage('user', 'Add validation'),
+      createMessage('assistant', 'Added required field validation.'),
+      createMessage('user', 'Add sorting'),
+      createMessage('assistant', 'Added sorting controls.'),
+    ];
+    const result = compactPromptBuildChatHistory(messages, {
+      getSizeBytes: () => 0,
+      maxBytes: 10_000,
+      maxItems: 4,
+    });
+
+    expect(result.chatHistory).toEqual([
+      { role: 'user', content: 'Create a todo app' },
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('<history_summary>'),
+      }),
+      { role: 'user', content: 'Add sorting' },
+      { role: 'assistant', content: 'Added sorting controls.' },
+    ]);
+    expect(result.omittedChatMessages).toBe(6);
+  });
+
   it('keeps the first user request pinned during byte compaction', () => {
     const messages = [
       { role: 'user', content: 'Build a catalog app ' + 'a'.repeat(48) },

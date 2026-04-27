@@ -1,4 +1,4 @@
-import { detectPromptIntents } from './promptIntents.js';
+import { detectPromptIntents, type PromptRequestOperation } from './promptIntents.js';
 import { promptRequiresBlockingTodoControls } from './qualityIntents.js';
 import { TODO_TASK_LIST_REQUEST_EXEMPLAR_TEXT } from './sharedExemplars.js';
 import type { PromptBuildValidationIssue } from './types.js';
@@ -13,6 +13,70 @@ const TODO_REQUEST_EXEMPLAR: PromptExemplar = {
   key: 'todo-task-list',
   title: 'Todo/task list pattern',
   text: TODO_TASK_LIST_REQUEST_EXEMPLAR_TEXT,
+};
+
+const TODO_ADD_FRAGMENT: PromptExemplar = {
+  key: 'fragment-todo-add',
+  title: 'Todo add fragment',
+  text: `$draft = ""
+items = Query("read_state", { path: "app.items" }, [])
+addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
+Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")`,
+};
+
+const TODO_LIST_FRAGMENT: PromptExemplar = {
+  key: 'fragment-todo-list',
+  title: 'Todo list rows fragment',
+  text: `$targetItemId = ""
+toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
+rows = @Each(items, "item", Group(null, "horizontal", [
+  Text(item.title, "body", "start"),
+  Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+], "inline"))
+Repeater(rows, "No tasks yet.")`,
+};
+
+const TODO_FILTER_FRAGMENT: PromptExemplar = {
+  key: 'fragment-todo-filter',
+  title: 'Todo filter fragment',
+  text: `$filter = "all"
+filterOptions = [
+  { label: "All", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Completed", value: "completed" }
+]
+visibleItems = $filter == "completed" ? @Filter(items, "completed", "==", true) : $filter == "active" ? @Filter(items, "completed", "==", false) : items
+Select("filter", "Show", $filter, filterOptions)`,
+};
+
+const VALIDATION_RULES_FRAGMENT: PromptExemplar = {
+  key: 'fragment-validation-rules',
+  title: 'Validation rules fragment',
+  text: `Input("email", "Email", $email, "ada@example.com", "Required email", "email", [
+  { type: "required", message: "Email is required" },
+  { type: "email", message: "Enter a valid email" }
+])
+Checkbox("agreement", "I agree", $agreement, "Required to submit", [{ type: "required", message: "Agreement is required" }])`,
+};
+
+const THEME_TOGGLE_FRAGMENT: PromptExemplar = {
+  key: 'fragment-theme-toggle',
+  title: 'Theme toggle fragment',
+  text: `$currentTheme = "light"
+lightTheme = { mainColor: "#FFFFFF", contrastColor: "#111827" }
+darkTheme = { mainColor: "#111827", contrastColor: "#F9FAFB" }
+appTheme = $currentTheme == "dark" ? darkTheme : lightTheme
+Button("theme-dark", "Dark", "secondary", Action([@Set($currentTheme, "dark")]), false)
+root = AppShell([...], appTheme)`,
+};
+
+const RANDOM_BUTTON_FRAGMENT: PromptExemplar = {
+  key: 'fragment-random-button',
+  title: 'Random button-trigger fragment',
+  text: `rollDice = Mutation("write_computed_state", { path: "app.roll", op: "random_int", options: { min: 1, max: 6 }, returnType: "number" })
+rollValue = Query("read_state", { path: "app.roll" }, null)
+Button("roll-dice", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false)
+Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")`,
 };
 
 const FILTERED_TODO_REQUEST_EXEMPLAR: PromptExemplar = {
@@ -438,9 +502,37 @@ export function getRelevantRepairExemplars(issues: PromptBuildValidationIssue[])
   );
 }
 
-export function getRelevantRequestExemplars(userPrompt: string) {
+export function getRelevantRequestExemplars(
+  userPrompt: string,
+  options: { operation?: PromptRequestOperation } = {},
+) {
   const exemplars: PromptExemplar[] = [];
   const intents = detectPromptIntents(userPrompt);
+  const useFragments = options.operation === 'modify' || options.operation === 'repair';
+
+  if (useFragments) {
+    if (intents.todo) {
+      exemplars.push(TODO_ADD_FRAGMENT, TODO_LIST_FRAGMENT);
+    }
+
+    if (intents.todo && intents.filtering) {
+      exemplars.push(TODO_FILTER_FRAGMENT);
+    }
+
+    if (intents.validation) {
+      exemplars.push(VALIDATION_RULES_FRAGMENT);
+    }
+
+    if (intents.theme) {
+      exemplars.push(THEME_TOGGLE_FRAGMENT);
+    }
+
+    if (intents.random) {
+      exemplars.push(RANDOM_BUTTON_FRAGMENT);
+    }
+
+    return dedupeExemplars(exemplars);
+  }
 
   if (intents.todo && intents.filtering) {
     exemplars.push(FILTERED_TODO_REQUEST_EXEMPLAR);

@@ -74,6 +74,31 @@ describe('repair prompt assembly', () => {
     expect(prompt).not.toContain('Invalid model draft:');
   });
 
+  it('accepts previousSource on repair requests without adding previous-change data sections', () => {
+    const prompt = buildOpenUiUserPrompt({
+      prompt: 'Fix the broken draft.',
+      previousSource: 'root = AppShell([Screen("main", "Main", [])])',
+      currentSource: 'root = AppShell([Screen("main", "Main", [])])',
+      invalidDraft: 'root = AppShell([',
+      mode: 'repair',
+      chatHistory: [],
+      parentRequestId: 'req-1',
+      repairAttemptNumber: 1,
+      validationIssues: [
+        {
+          code: 'parser',
+          source: 'parser',
+          message: 'Parser found issues in the draft.',
+        },
+      ],
+    });
+
+    expect(prompt).toContain('Original user request');
+    expect(prompt).toContain('Validation issues');
+    expect(prompt).toContain('Invalid model draft');
+    expect(prompt).not.toContain('<previous_changes>');
+  });
+
   it('keeps fallback text in role-based repair source sections when section budgets are exhausted', () => {
     const messages = buildOpenUiRepairRoleMessages({
       attemptNumber: 1,

@@ -82,6 +82,7 @@ export interface PromptBuildRequest {
   invalidDraft?: string;
   mode: BuilderLlmRequestMode;
   parentRequestId?: string;
+  previousSource?: string;
   prompt: string;
   repairAttemptNumber?: number;
   validationIssues?: PromptBuildValidationIssue[];
@@ -259,6 +260,7 @@ export function createBuilderLlmRequestSchema({
       .min(1, 'Prompt must not be empty.')
       .max(promptMaxChars, `Prompt is too large. Limit: ${promptMaxChars} characters.`),
     currentSource: currentSourceSchema.default(''),
+    previousSource: currentSourceSchema.optional(),
     chatHistory: z
       .array(
         z.object({

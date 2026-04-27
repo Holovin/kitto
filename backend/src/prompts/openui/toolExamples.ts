@@ -1,5 +1,5 @@
 import { TODO_TASK_LIST_REQUEST_EXEMPLAR_TEXT } from './sharedExemplars.js';
-import { detectPromptIntents } from './promptIntents.js';
+import { detectPromptIntents, type PromptRequestOperation } from './promptIntents.js';
 
 const expenseEditExample = `$selectedExpenseId = ""
 $editTitle = ""
@@ -187,7 +187,11 @@ function getToolExampleIntents(prompt?: string) {
       };
 }
 
-export function buildIntentToolExamplesForPrompt(prompt?: string) {
+export function buildIntentToolExamplesForPrompt(prompt?: string, options: { operation?: PromptRequestOperation } = {}) {
+  if (options.operation === 'modify' || options.operation === 'repair') {
+    return [];
+  }
+
   const intents = getToolExampleIntents(prompt);
   const selectedExamples: string[] = [];
 
@@ -220,6 +224,10 @@ export function buildIntentToolExamplesForPrompt(prompt?: string) {
   return dedupeToolExamples(selectedExamples);
 }
 
-export function buildStableToolExamples() {
+export function buildStableToolExamples(options: { operation?: PromptRequestOperation } = {}) {
+  if (options.operation === 'modify' || options.operation === 'repair') {
+    return dedupeToolExamples([stateMutationExamples]);
+  }
+
   return dedupeToolExamples([expenseEditExample, stateMutationExamples]);
 }

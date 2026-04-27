@@ -917,7 +917,7 @@ function buildOpenUiRepairPromptParts(
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
   const repairExemplars = getRelevantRepairExemplars(sanitizedIssues);
-  const requestExemplars = getRelevantRequestExemplars(userPrompt).filter(
+  const requestExemplars = getRelevantRequestExemplars(userPrompt, { operation: 'repair' }).filter(
     (requestExemplar) => !repairExemplars.some((repairExemplar) => repairExemplar.key === requestExemplar.key),
   );
   const conversationContextLines = buildRepairConversationContextLines(chatHistory);

@@ -499,6 +499,7 @@ export function useValidationRepair({
       const repairRequest: PromptBuildRequest = {
         prompt: request.prompt,
         currentSource: request.currentSource,
+        ...(request.previousSource !== undefined ? { previousSource: request.previousSource } : {}),
         chatHistory: buildRepairChatHistoryWithRejectedDraftNotice(request.chatHistory, validationIssues),
         invalidDraft: candidateResponse.source,
         mode: 'repair',

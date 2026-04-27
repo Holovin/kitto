@@ -16,6 +16,7 @@ interface PromptBuildChatHistoryCompactionResult {
 
 interface CompactPromptBuildChatHistoryOptions {
   getSizeBytes: (messages: PromptBuildChatHistoryMessage[]) => number;
+  maxSummaryCostBytes?: number;
   maxBytes: number;
   maxItems?: number;
 }
@@ -121,6 +122,137 @@ function retainNewestTurnAwareTail(
   return retainedTurns.flat();
 }
 
+function getMessageKey(message: PromptBuildChatHistoryMessage) {
+  return `${message.role}\u0000${message.content}`;
+}
+
+function getTextByteLength(value: string) {
+  let bytes = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const codePoint = value.charCodeAt(index);
+
+    if (codePoint < 0x80) {
+      bytes += 1;
+    } else if (codePoint < 0x800) {
+      bytes += 2;
+    } else if (codePoint >= 0xd800 && codePoint <= 0xdbff && index + 1 < value.length) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+
+  return bytes;
+}
+
+function getOmittedMessages(
+  previousMessages: PromptBuildChatHistoryMessage[],
+  retainedMessages: PromptBuildChatHistoryMessage[],
+) {
+  const retainedCounts = new Map<string, number>();
+
+  for (const message of retainedMessages) {
+    const key = getMessageKey(message);
+    retainedCounts.set(key, (retainedCounts.get(key) ?? 0) + 1);
+  }
+
+  return previousMessages.filter((message) => {
+    const key = getMessageKey(message);
+    const retainedCount = retainedCounts.get(key) ?? 0;
+
+    if (retainedCount > 0) {
+      retainedCounts.set(key, retainedCount - 1);
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildHistorySummaryMessage(
+  omittedMessages: PromptBuildChatHistoryMessage[],
+  maxSummaryCostBytes: number,
+): PromptBuildChatHistoryMessage | null {
+  const userAssistantPairCount = Math.floor(omittedMessages.filter((message) => message.role === 'user').length);
+
+  if (userAssistantPairCount < 2 || maxSummaryCostBytes <= 0) {
+    return null;
+  }
+
+  const clippedMessages: string[] = [];
+  let remainingBytes = maxSummaryCostBytes;
+
+  for (const message of omittedMessages) {
+    const line = `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.trim().replace(/\s+/g, ' ')}`;
+    const lineBytes = getTextByteLength(line);
+
+    if (lineBytes > remainingBytes && clippedMessages.length > 0) {
+      break;
+    }
+
+    clippedMessages.push(lineBytes > remainingBytes ? `${line.slice(0, Math.max(1, remainingBytes - 1)).trimEnd()}…` : line);
+    remainingBytes -= Math.min(lineBytes, remainingBytes);
+
+    if (remainingBytes <= 0) {
+      break;
+    }
+  }
+
+  if (clippedMessages.length === 0) {
+    return null;
+  }
+
+  return {
+    role: 'assistant',
+    content: `<history_summary>\nEarlier omitted chat context: ${clippedMessages.join(' | ')}\n</history_summary>`,
+  };
+}
+
+function insertHistorySummary(
+  retainedMessages: PromptBuildChatHistoryMessage[],
+  summaryMessage: PromptBuildChatHistoryMessage,
+) {
+  const firstUserMessageIndex = getFirstUserMessageIndex(retainedMessages);
+
+  if (firstUserMessageIndex < 0) {
+    return [summaryMessage, ...retainedMessages];
+  }
+
+  return [
+    ...retainedMessages.slice(0, firstUserMessageIndex + 1),
+    summaryMessage,
+    ...retainedMessages.slice(firstUserMessageIndex + 1),
+  ];
+}
+
+function trimSummarizedHistoryToMaxItems(
+  messages: PromptBuildChatHistoryMessage[],
+  summaryMessage: PromptBuildChatHistoryMessage,
+  maxItems: number | undefined,
+) {
+  if (maxItems === undefined || messages.length <= maxItems) {
+    return messages;
+  }
+
+  const trimmedMessages = [...messages];
+
+  while (trimmedMessages.length > maxItems) {
+    const removableIndex = trimmedMessages.findIndex(
+      (message, index) => index > 0 && message !== summaryMessage,
+    );
+
+    if (removableIndex < 0) {
+      break;
+    }
+
+    trimmedMessages.splice(removableIndex, 1);
+  }
+
+  return trimmedMessages;
+}
+
 export function retainPromptBuildChatHistoryTail(
   messages: PromptBuildChatHistoryMessage[],
   latestTailCount: number,
@@ -198,6 +330,7 @@ export function compactPromptBuildChatHistory(
   options: CompactPromptBuildChatHistoryOptions,
 ): PromptBuildChatHistoryCompactionResult {
   const filteredMessages = filterPromptBuildChatHistory(messages);
+  const omittedMessagesForSummary: PromptBuildChatHistoryMessage[] = [];
   let compactedByBytes = false;
   let compactedByItemLimit = false;
   let omittedChatMessages = 0;
@@ -205,6 +338,7 @@ export function compactPromptBuildChatHistory(
 
   if (options.maxItems !== undefined && chatHistory.length > options.maxItems) {
     const retainedChatHistory = retainPromptBuildChatHistory(chatHistory, options.maxItems);
+    omittedMessagesForSummary.push(...getOmittedMessages(chatHistory, retainedChatHistory));
     omittedChatMessages += chatHistory.length - retainedChatHistory.length;
     compactedByItemLimit = true;
     chatHistory = retainedChatHistory;
@@ -232,8 +366,26 @@ export function compactPromptBuildChatHistory(
     const retainedChatHistory =
       maximumRetainedTailCount === null ? [] : retainPromptBuildChatHistoryTail(chatHistory, maximumRetainedTailCount);
 
+    omittedMessagesForSummary.push(...getOmittedMessages(chatHistory, retainedChatHistory));
     omittedChatMessages += chatHistory.length - retainedChatHistory.length;
     chatHistory = retainedChatHistory;
+  }
+
+  if (omittedMessagesForSummary.length > 0) {
+    const summaryMessage = buildHistorySummaryMessage(omittedMessagesForSummary, options.maxSummaryCostBytes ?? 2_000);
+
+    if (summaryMessage) {
+      const summarizedChatHistory = trimSummarizedHistoryToMaxItems(
+        insertHistorySummary(chatHistory, summaryMessage),
+        summaryMessage,
+        options.maxItems,
+      );
+      const respectsItemLimit = options.maxItems === undefined || summarizedChatHistory.length <= options.maxItems;
+
+      if (respectsItemLimit && options.getSizeBytes(summarizedChatHistory) <= options.maxBytes) {
+        chatHistory = summarizedChatHistory;
+      }
+    }
   }
 
   return {

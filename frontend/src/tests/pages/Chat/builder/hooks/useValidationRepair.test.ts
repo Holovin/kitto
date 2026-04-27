@@ -1,9 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import type { RawPromptBuildChatHistoryMessage, PromptBuildValidationIssue, BuilderQualityIssue } from '@pages/Chat/builder/types';
+import { describe, expect, it, vi } from 'vitest';
+import type {
+  BuilderGeneratedDraft,
+  BuilderQualityIssue,
+  PromptBuildRequest,
+  RawPromptBuildChatHistoryMessage,
+} from '@pages/Chat/builder/types';
+import type { BuilderRequestLimits } from '@pages/Chat/builder/config';
 import {
   buildRepairChatHistoryWithRejectedDraftNotice,
   dedupeQualityIssues,
   sanitizeRepairValidationIssues,
+  useValidationRepair,
 } from '@pages/Chat/builder/hooks/useValidationRepair';
 
 describe('dedupeQualityIssues', () => {
@@ -275,5 +282,55 @@ describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
       },
     ]);
     expect(chatHistory).toHaveLength(2);
+  });
+
+  it('passes previousSource into generated repair requests when present on the original request', async () => {
+    const requestLimits: BuilderRequestLimits = {
+      chatMessageMaxChars: 4_096,
+      chatHistoryMaxItems: 40,
+      promptMaxChars: 4_096,
+      requestMaxBytes: 300_000,
+      sourceMaxChars: 12_288,
+    };
+    const request: PromptBuildRequest = {
+      prompt: 'Fix an invalid draft.',
+      currentSource: 'root = AppShell([Screen("main", "Main", [])])',
+      previousSource: 'root = AppShell([Screen("main", "Legacy", [])])',
+      chatHistory: [],
+      mode: 'initial',
+    };
+    const runGenerateRequest = vi.fn<
+      (
+        requestId: string,
+        repairRequest: PromptBuildRequest,
+        options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: string },
+      ) => Promise<BuilderGeneratedDraft>
+    >(async (_requestId, repairRequest) => {
+      return {
+        commitSource: 'fallback',
+        requestId: 'repair-1',
+        source: 'root = AppShell([Screen("main", "Main", [])])',
+        qualityIssues: [],
+      };
+    });
+    const validationRepair = useValidationRepair({
+      maxRepairAttempts: 2,
+      maxRepairValidationIssues: 20,
+      requestLimits,
+      runGenerateRequest,
+      showStreamingSummaryStatus: () => undefined,
+      throwIfInactiveRequest: () => undefined,
+    });
+    const initialResponse: BuilderGeneratedDraft = {
+      commitSource: 'streaming',
+      requestId: 'initial',
+      source: 'root = AppShell([',
+      qualityIssues: [],
+    };
+
+    await validationRepair.ensureValidGeneratedSource(initialResponse, request, 'initial');
+
+    expect(runGenerateRequest).toHaveBeenCalledTimes(1);
+    expect(runGenerateRequest.mock.calls[0]?.[1]?.previousSource).toBe(request.previousSource);
   });
 });

@@ -3,6 +3,7 @@ import type { PromptBuildRequest } from '@pages/Chat/builder/types';
 type SerializedBuilderLlmRequest = Pick<PromptBuildRequest, 'chatHistory' | 'currentSource' | 'mode' | 'prompt'> & {
   invalidDraft?: PromptBuildRequest['invalidDraft'];
   parentRequestId?: PromptBuildRequest['parentRequestId'];
+  previousSource?: PromptBuildRequest['previousSource'];
   repairAttemptNumber?: PromptBuildRequest['repairAttemptNumber'];
   validationIssues?: PromptBuildRequest['validationIssues'];
 };
@@ -17,6 +18,10 @@ function createBuilderLlmRequestPayload(request: PromptBuildRequest): Serialized
 
   if (request.parentRequestId !== undefined) {
     payload.parentRequestId = request.parentRequestId;
+  }
+
+  if (request.previousSource !== undefined) {
+    payload.previousSource = request.previousSource;
   }
 
   if (request.repairAttemptNumber !== undefined) {

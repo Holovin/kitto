@@ -30,17 +30,20 @@ Guardrails:
 - Confirm `Output envelope schema` documents the model envelope only (`summary` + `source`) and does not describe the outer backend response payload fields such as `model` or `compaction`.
 - Confirm the prompts tab shows the same contents-style table of contents and per-section return-to-top button pattern used by `Elements` / `Actions`.
 - Confirm the system-prompt block shows a visible `systemPromptHash`.
-- Confirm the system-prompt block is stable: it shows `Base`, `intentVector: base`, and one stable `promptCacheKey` keyed as `kitto:openui:base:<componentSpecHash>` without a system prompt hash suffix.
+- Confirm the system-prompt block is layered: the base view shows core syntax/rules plus base tool specs, while production requests build intent-aware system prompts with cache keys such as `kitto:openui:t:<componentSpecHash>` or `kitto:openui:th:<componentSpecHash>`.
 - Confirm the intent-context block shows intent tabs for `Base`, `Todo`, `Theme`, `Control showcase`, `Filter`, `Validation`, `Compute`, `Random`, `Delete`, and `Multi-screen`; each tab changes the displayed `intentVector`, sample request, and `<intent_context>` text using the single `/api/prompts/info` response.
 - Confirm the `Repair prompt` section explicitly mentions the repair temperature `0.2`.
 - Confirm the user prompt template documents the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then the final user turn starts with `<intent_context>`, an explicit separator, and the latest request/current source blocks.
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - Confirm the `<request_intent>` block appears inside `<intent_context>` as one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
+- Confirm intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
 - Confirm the final user turn contains `<latest_user_request>` plus either `<current_source>` for small/current-source cases or `<current_source_inventory>` for large modify cases where full source is omitted.
+- Confirm requests may include optional `previousSource`; when present, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
 - Confirm the optional `<current_source_inventory>` block summarizes existing statements, screen ids, Query/Mutation tools, action run chains, runtime state names, and persisted domain paths.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
 - Confirm the user prompt template includes a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - Confirm the repair-prompt block carries the same structured-summary guidance and always instructs the model to return the corrected program in `source`.
+- Confirm quality-only repair examples use the failed draft plus issues/hints and do not include committed source or current-source inventory as fallback context.
 - Confirm the repair-prompt block renders backend-owned parser-only, quality-only, and mixed repair examples from the same builder used in production.
 - Confirm the system prompt does not contain legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - Confirm the prompts tab stays read-only and does not show edit or copy controls.

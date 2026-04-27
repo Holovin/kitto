@@ -20,6 +20,7 @@ import {
   selectCommittedSource,
   selectDomainData,
   selectDraftPrompt,
+  selectPreviousCommittedSource,
   selectRetryPrompt,
 } from '@pages/Chat/builder/store/selectors';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
@@ -38,6 +39,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
   const dispatch = useAppDispatch();
   const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
+  const previousSource = useAppSelector(selectPreviousCommittedSource);
   const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
@@ -102,6 +104,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
     const request: PromptBuildRequest = {
       prompt: nextPrompt,
       currentSource: committedSource,
+      ...(previousSource !== undefined && previousSource !== committedSource ? { previousSource } : {}),
       chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
         content,
         excludeFromLlmContext,
