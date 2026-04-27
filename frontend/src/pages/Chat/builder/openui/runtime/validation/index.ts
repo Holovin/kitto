@@ -15,6 +15,8 @@ import { collectOpenUiParserValidationIssues } from './parser';
 import {
   createParserIssue,
   createOpenUiProgramIndex,
+  escapeStringLiteralBackticksForParser,
+  maskStringLiterals,
   normalizeSourceForValidation,
   parser,
   type OpenUiQualityIssue,
@@ -54,7 +56,7 @@ export function detectLocalRuntimeQualityIssues(
     return [];
   }
 
-  const result = options.parseResult ?? parser.parse(trimmedSource);
+  const result = options.parseResult ?? parser.parse(escapeStringLiteralBackticksForParser(trimmedSource));
 
   if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root) {
     return [];
@@ -120,7 +122,7 @@ export function validateOpenUiSourceWithContext(source: string): OpenUiValidatio
     };
   }
 
-  if (trimmedSource.includes('```')) {
+  if (maskStringLiterals(trimmedSource).includes('```')) {
     return {
       normalizedSource: trimmedSource,
       parseResult: null,
@@ -137,7 +139,8 @@ export function validateOpenUiSourceWithContext(source: string): OpenUiValidatio
     };
   }
 
-  const result = parser.parse(trimmedSource);
+  const parserSource = escapeStringLiteralBackticksForParser(trimmedSource);
+  const result = parser.parse(parserSource);
   const programIndex = createOpenUiProgramIndex(result, trimmedSource);
   const issues = [
     ...collectOpenUiParserValidationIssues(trimmedSource, result),

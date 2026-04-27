@@ -121,6 +121,50 @@ export function maskStringLiterals(source: string) {
   return maskedSource;
 }
 
+export function escapeStringLiteralBackticksForParser(source: string) {
+  let escapedSource = '';
+  let activeQuote: '"' | "'" | null = null;
+  let isEscaped = false;
+
+  for (const character of source) {
+    if (activeQuote) {
+      if (isEscaped) {
+        isEscaped = false;
+        escapedSource += character;
+        continue;
+      }
+
+      if (character === '\\') {
+        isEscaped = true;
+        escapedSource += character;
+        continue;
+      }
+
+      if (character === activeQuote) {
+        activeQuote = null;
+        escapedSource += character;
+        continue;
+      }
+
+      if (character === '`') {
+        escapedSource += activeQuote === '"' ? '\\u0060' : '\\`';
+        continue;
+      }
+
+      escapedSource += character;
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      activeQuote = character;
+    }
+
+    escapedSource += character;
+  }
+
+  return escapedSource;
+}
+
 export function isElementNode(value: unknown): value is OpenUiElementNode {
   return (
     typeof value === 'object' &&

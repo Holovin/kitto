@@ -4,7 +4,7 @@ import {
   validateOpenUiSource,
   validateOpenUiSourceWithContext,
 } from '@pages/Chat/builder/openui/runtime/validation';
-import { createOpenUiProgramIndex, parser } from '@pages/Chat/builder/openui/runtime/validation/shared';
+import { createOpenUiProgramIndex, isElementNode, parser } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -127,6 +127,35 @@ describe('validateOpenUiSource', () => {
         }),
       ]),
     );
+  });
+
+  it('accepts markdown fence text inside string literals', () => {
+    const context = validateOpenUiSourceWithContext(`root = AppShell([
+  Screen("main", "Main", [
+    Text("Documentation: \`\`\`json { } \`\`\`", "body", "start")
+  ])
+])`);
+
+    expect(context.validation).toEqual({
+      isValid: true,
+      issues: [],
+    });
+
+    const screenNode = Array.isArray(context.parseResult?.root?.props.children) ? context.parseResult.root.props.children[0] : null;
+    expect(isElementNode(screenNode)).toBe(true);
+
+    if (!isElementNode(screenNode)) {
+      throw new Error('Expected parser to preserve the Screen node.');
+    }
+
+    const textNode = Array.isArray(screenNode.props.children) ? screenNode.props.children[0] : null;
+    expect(isElementNode(textNode)).toBe(true);
+
+    if (!isElementNode(textNode)) {
+      throw new Error('Expected parser to preserve the Text node.');
+    }
+
+    expect(textNode.props.value).toBe('Documentation: ```json { } ```');
   });
 
   it('accepts a valid OpenUI document', () => {

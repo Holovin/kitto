@@ -1,5 +1,6 @@
 import { startTransition, useMemo, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
+import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
 import { RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Badge } from '@components/ui/badge';
@@ -150,6 +151,10 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
 
     return validateOpenUiSource(parsedPayload.source);
   }, [parsedPayload]);
+  const parserSource = useMemo(
+    () => (parsedPayload ? escapeStringLiteralBackticksForParser(parsedPayload.source) : ''),
+    [parsedPayload],
+  );
   const [restoredState] = useState(() =>
     parsedPayload
       ? restoreStandaloneState(parsedPayload.storageKey, parsedPayload.initialRuntimeState, parsedPayload.initialDomainData)
@@ -270,7 +275,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
                   handleRuntimeStateUpdate(nextRuntimeState as Record<string, unknown>);
                 }}
                 queryLoader={<Badge variant="muted">Loading query…</Badge>}
-                response={parsedPayload.source}
+                response={parserSource}
                 toolProvider={standaloneToolProvider}
               />
             </div>

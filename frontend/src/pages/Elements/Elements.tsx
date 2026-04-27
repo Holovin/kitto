@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Renderer } from '@openuidev/react-lang';
+import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
 import { ArrowUp, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useGetPromptsInfoQuery } from '@api/apiSlice';
@@ -595,7 +596,7 @@ function ElementSandbox({ componentName, source, initialDomainData, initialRunti
                     setRuntimeState(state as Record<string, unknown>);
                   }}
                   queryLoader={<Badge variant="muted">Loading query…</Badge>}
-                  response={source}
+                  response={escapeStringLiteralBackticksForParser(source)}
                   toolProvider={toolProvider}
                 />
               </ErrorBoundary>

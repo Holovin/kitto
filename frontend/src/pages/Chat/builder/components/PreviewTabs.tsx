@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
+import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Button } from '@components/ui/button';
@@ -117,6 +118,10 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   );
   const deferredPreviewRender = useDeferredValue(previewRenderInput);
   const deferredPreviewSource = deferredPreviewRender.source;
+  const deferredPreviewParserSource = useMemo(
+    () => escapeStringLiteralBackticksForParser(deferredPreviewSource),
+    [deferredPreviewSource],
+  );
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
   const previewCanvasState = resolvePreviewCanvasState({
     isShowingRejectedDefinition,
@@ -466,7 +471,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
                           Loading query...
                         </div>
                       }
-                      response={deferredPreviewSource}
+                      response={deferredPreviewParserSource}
                       toolProvider={toolProvider}
                     />
                   </ErrorBoundary>

@@ -1,5 +1,6 @@
 import { detectChoiceOptionsShapeIssues as detectSharedChoiceOptionsShapeIssues } from '@kitto-openui/shared/openuiQualityOptionsShape.js';
 import {
+  escapeStringLiteralBackticksForParser,
   isElementNode,
   parser,
   type OpenUiProgramIndex,
@@ -16,7 +17,7 @@ root = AppShell([
 
 function parseExpressionValue(expressionSource: string) {
   const wrappedSource = `${PROBE_SOURCE_PREFIX}${expressionSource}${PROBE_SOURCE_SUFFIX}`;
-  const result = parser.parse(wrappedSource);
+  const result = parser.parse(escapeStringLiteralBackticksForParser(wrappedSource));
 
   if (result.meta.incomplete || result.meta.errors.length > 0 || !result.root) {
     return null;

@@ -6,6 +6,7 @@ import type { OpenUiProgramIndex } from '@kitto-openui/shared/openuiAst.js';
 export {
   createOpenUiProgramIndex,
   doPathsOverlapByPrefix,
+  escapeStringLiteralBackticksForParser,
   escapeRegExp,
   extractPathLiteral,
   extractStringLiteral,
