@@ -354,7 +354,7 @@ root = AppShell([
       issues,
       attemptNumber: 1,
       maxRepairAttempts: 1,
-      promptMaxChars: 9_000,
+      promptMaxChars: 9_544,
     });
 
     expect(prompt.indexOf('Targeted repair hints:')).toBeLessThan(prompt.indexOf('Model draft to repair:'));

@@ -2,7 +2,7 @@ import { getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/builderApiContract.js';
 
 export const DEFAULT_LLM_USER_PROMPT_MAX_CHARS = 4_096;
-export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = 12_288;
+export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = 16_384;
 export const DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS = 40;
 export const DEFAULT_LLM_MAX_REPAIR_ATTEMPTS = 2;
 export const DEFAULT_LLM_REQUEST_MAX_BYTES = 300_000;

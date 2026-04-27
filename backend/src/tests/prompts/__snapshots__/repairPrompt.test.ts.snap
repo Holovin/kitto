@@ -63,7 +63,25 @@ Relevant draft statement excerpts:
       { label: "No", value: "no" }
     ])
   ]),
-  Group("Question 3", "vertical", […
+  Group("Question 3", "vertical", [
+    Text("Question 3", "body", "start"),
+    RadioGroup("question-3", "Question 3", $q3, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 4", "vertical", [
+    Text("Question 4", "body", "start"),
+    RadioGroup("question-4", "Question 4", $q4, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 5", "vertical", [
+    Text("Question 5", "body", "start"),
+    RadioGroup("question-5", "Question 5", $q5, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value:…
 
 Model draft to repair:
 root = AppShell([
@@ -104,8 +122,7 @@ Group("Question 5", "vertical", [
   ])
 ]),
 Group("Question 6", "vertical", [
-  Text("Question 6", "body", "start"),
-  RadioGroup("questi…
+  Text("Question 6",…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.

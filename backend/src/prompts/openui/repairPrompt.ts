@@ -37,7 +37,7 @@ interface UndefinedStateReferenceSummary {
 }
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
-const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 480;
+const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 1_024;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
   'Use `$lastChoice` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.',
