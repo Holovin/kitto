@@ -30,6 +30,8 @@ export function detectRandomResultVisibilityIssues(result: ParseResult): PromptB
     return [{ path, statementId: mutation.statementId } satisfies PersistedPathStatementRef];
   });
 
+  let hasRandomResultNotVisible = false;
+
   for (const randomMutation of randomMutations) {
     const matchingQueryIds = persistedQueryRefs
       .filter((queryRef) => doPathsOverlapByPrefix(randomMutation.path, queryRef.path))
@@ -50,9 +52,11 @@ export function detectRandomResultVisibilityIssues(result: ParseResult): PromptB
       ),
     );
 
-    if (hasVisibleRefreshAction) {
-      return [];
-    }
+    hasRandomResultNotVisible ||= !hasVisibleRefreshAction;
+  }
+
+  if (!hasRandomResultNotVisible) {
+    return [];
   }
 
   return [
