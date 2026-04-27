@@ -1,4 +1,4 @@
-import { MAX_REPAIR_VALIDATION_ISSUES } from '#backend/limits.js';
+import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/builderApiContract.js';
 import { collectTopLevelStatements } from '@kitto-openui/shared/openuiAst.js';
 import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { getRelevantRepairExemplars } from './exemplars.js';
@@ -380,7 +380,7 @@ function sanitizeRepairPromptIssues(issues: PromptBuildValidationIssue[]) {
       priority: getRepairIssuePriority(issue),
     }))
     .sort((left, right) => left.priority - right.priority || left.index - right.index)
-    .slice(0, MAX_REPAIR_VALIDATION_ISSUES)
+    .slice(0, DEFAULT_MAX_REPAIR_VALIDATION_ISSUES)
     .map(({ issue }) => issue);
 }
 

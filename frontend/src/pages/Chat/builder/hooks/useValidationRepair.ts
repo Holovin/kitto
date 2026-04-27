@@ -1,4 +1,5 @@
 import type { BuilderRequestLimits } from '@pages/Chat/builder/config';
+import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/builderApiContract.js';
 import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { postCommitTelemetry } from '@pages/Chat/builder/api/commitTelemetry';
 import { createRequestId } from '@pages/Chat/builder/api/requestId';
@@ -96,8 +97,6 @@ export function dedupeQualityIssues(issues: BuilderQualityIssue[]) {
 
   return dedupedIssues;
 }
-
-const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
 
 type RepairValidationIssue = PromptBuildValidationIssue | BuilderQualityIssue;
 type RepairIssueMode = 'parser' | 'quality';
