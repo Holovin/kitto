@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '#backend/env.js';
+import { UpstreamFailureError } from '#backend/errors/publicError.js';
 import {
   buildOpenUiAssistantSummaryMessage,
   buildOpenUiIntentContextPrompt,
@@ -28,6 +29,28 @@ const openAiRequestIdCaptureStorage = new AsyncLocalStorage<OpenAiRequestIdCaptu
 let cachedClient: { apiKey: string; client: OpenAiClient; overrideFactory: OpenAiClientFactory | null } | null = null;
 let openAiClientFactoryOverride: OpenAiClientFactory | null = null;
 
+function isOpenAiStreamRequest(init: Parameters<typeof fetch>[1] | undefined) {
+  if (!init || typeof init.body !== 'string') {
+    return false;
+  }
+
+  try {
+    const body = JSON.parse(init.body) as { stream?: unknown };
+    return body.stream === true;
+  } catch {
+    return false;
+  }
+}
+
+function isTextEventStreamContentType(contentType: string | null) {
+  if (!contentType) {
+    return false;
+  }
+
+  const mediaType = contentType.toLowerCase().split(';', 1)[0];
+  return mediaType.trim() === 'text/event-stream';
+}
+
 export function getSystemPromptHash() {
   return getOpenUiSystemPromptHash();
 }
@@ -35,10 +58,23 @@ export function getSystemPromptHash() {
 async function captureOpenAiRequestIdFetch(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
   const response = await fetch(input, init);
   const requestId = response.headers.get('x-request-id');
+  const contentType = response.headers.get('content-type');
   const capture = openAiRequestIdCaptureStorage.getStore();
 
   if (capture && requestId) {
     capture.requestId = requestId;
+  }
+
+  if (isOpenAiStreamRequest(init) && !isTextEventStreamContentType(contentType)) {
+    const errorMessage = `Unexpected OpenAI streaming content-type: ${contentType ?? 'missing'}`;
+
+    try {
+      response.body?.cancel();
+    } catch {
+      // Ignore cancellation failures while surfacing a structured upstream error.
+    }
+
+    throw new UpstreamFailureError(errorMessage);
   }
 
   return response;

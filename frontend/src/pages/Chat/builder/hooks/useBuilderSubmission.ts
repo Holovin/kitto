@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FormEvent } from 'react';
+import { useRef, type FormEvent } from 'react';
 import { useConfigQuery } from '@api/apiSlice';
 import {
   getBuilderMaxRepairAttempts,
@@ -42,6 +42,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
   const domainDataRef = useRef(domainData);
+  domainDataRef.current = domainData;
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data, isError }) => ({
       data,
@@ -67,10 +68,6 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
     showStreamingSummaryStatus: streamingSummary.upsertStreamingStatusMessage,
     throwIfInactiveRequest: generationLifecycle.throwIfInactiveRequest,
   });
-
-  useEffect(() => {
-    domainDataRef.current = domainData;
-  }, [domainData]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -390,6 +390,26 @@ export function useValidationRepair({
     let hasCompletedRepairRequest = false;
     let pendingQualityRepairTelemetry: PendingQualityRepairTelemetry | null = null;
 
+    function getRepairAttemptCount() {
+      const totalRepairAttempts = parserRepairCount + qualityRepairCount;
+      if (totalRepairAttempts !== repairAttemptCount) {
+        throw new Error('Internal validation repair accounting mismatch.');
+      }
+
+      return repairAttemptCount;
+    }
+
+    function registerRepairAttempt(issueMode: RepairIssueMode) {
+      if (issueMode === 'parser') {
+        parserRepairCount += 1;
+      } else {
+        qualityRepairCount += 1;
+      }
+
+      repairAttemptCount += 1;
+      return getRepairAttemptCount();
+    }
+
     function buildRepairNote() {
       if (parserRepairCount > 0 && qualityRepairCount > 0) {
         return 'The first draft had parser issues and blocking quality issues, so it was repaired automatically before commit.';
@@ -468,18 +488,21 @@ export function useValidationRepair({
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
-      if (repairAttemptCount >= maxRepairAttempts) {
+      const currentRepairAttemptCount = getRepairAttemptCount();
+
+      if (currentRepairAttemptCount >= maxRepairAttempts) {
         throw new OpenUiValidationError(
           createValidationFailureMessage(
             issues.map(stripRepairQualitySeverity),
-            parserRepairCount + qualityRepairCount,
+            currentRepairAttemptCount,
           ),
         );
       }
 
-      repairAttemptCount += 1;
+      const repairAttemptNumber = registerRepairAttempt(issueMode);
       reportRejectedCandidate(issues.map(stripRepairQualitySeverity));
       const validationIssues = sanitizeRepairValidationIssues(issues, maxRepairValidationIssues);
+
       const repairRequest: PromptBuildRequest = {
         prompt: request.prompt,
         currentSource: request.currentSource,
@@ -487,7 +510,7 @@ export function useValidationRepair({
         invalidDraft: candidateResponse.source,
         mode: 'repair',
         parentRequestId: requestId,
-        repairAttemptNumber: repairAttemptCount,
+        repairAttemptNumber,
         validationIssues,
       };
       const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest, requestLimits);
@@ -529,7 +552,9 @@ export function useValidationRepair({
         if (fatalValidationIssues.length > 0) {
           reportRejectedCandidate(fatalValidationIssues);
           reportQualityRepairOutcome('failed');
-          throw new OpenUiValidationError(createValidationFailureMessage(fatalValidationIssues, parserRepairCount + qualityRepairCount));
+          throw new OpenUiValidationError(
+            createValidationFailureMessage(fatalValidationIssues, getRepairAttemptCount()),
+          );
         }
       }
 
@@ -552,7 +577,7 @@ export function useValidationRepair({
           throw new OpenUiValidationError(
             createValidationFailureMessage(
               fatalQualityIssues.map(stripQualitySeverity),
-              parserRepairCount + qualityRepairCount,
+              getRepairAttemptCount(),
             ),
           );
         }
@@ -562,18 +587,17 @@ export function useValidationRepair({
             throw new Error('Chat send is unavailable until the runtime config has loaded.');
           }
 
-          if (repairAttemptCount >= maxRepairAttempts) {
+          if (getRepairAttemptCount() >= maxRepairAttempts) {
             reportRejectedCandidate(blockingQualityIssues.map(stripQualitySeverity));
             reportQualityRepairOutcome('failed');
             throw new OpenUiValidationError(
               createValidationFailureMessage(
                 blockingQualityIssues.map(stripQualitySeverity),
-                parserRepairCount + qualityRepairCount,
+                getRepairAttemptCount(),
               ),
             );
           }
 
-          qualityRepairCount += 1;
           queueQualityRepairOutcome(blockingQualityIssues);
           await runRepairRequest(blockingQualityIssues, 'quality');
           continue;
@@ -595,13 +619,14 @@ export function useValidationRepair({
         throw new Error('Chat send is unavailable until the runtime config has loaded.');
       }
 
-      if (repairAttemptCount >= maxRepairAttempts) {
+      if (getRepairAttemptCount() >= maxRepairAttempts) {
         reportRejectedCandidate(validation.issues);
         reportQualityRepairOutcome('failed');
-        throw new OpenUiValidationError(createValidationFailureMessage(validation.issues, parserRepairCount + qualityRepairCount));
+        throw new OpenUiValidationError(
+          createValidationFailureMessage(validation.issues, getRepairAttemptCount()),
+        );
       }
 
-      parserRepairCount += 1;
       await runRepairRequest(validation.issues, 'parser');
     }
   }

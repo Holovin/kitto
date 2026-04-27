@@ -45,6 +45,7 @@ export function useStreamingSummary() {
 
   useEffect(() => {
     const pendingSummaryStates = pendingSummaryStatesRef.current;
+    const summaryMessageContents = summaryMessageContentRef.current;
 
     return () => {
       for (const pendingSummaryState of pendingSummaryStates.values()) {
@@ -54,6 +55,7 @@ export function useStreamingSummary() {
       }
 
       pendingSummaryStates.clear();
+      summaryMessageContents.clear();
     };
   }, []);
 
