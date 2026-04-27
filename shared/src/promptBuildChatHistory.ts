@@ -36,6 +36,262 @@ const SEMINAL_CREATE_REQUEST_PATTERN =
 const SEMINAL_MODIFY_REQUEST_PATTERN =
   /^\s*(?:add|append|change|edit|extend|fix|keep|modify|preserve|remove|rename|switch|turn\s+(?:it|this)|update)\b|^\s*(?:добавь|дополни|измени|исправь|обнови|оставь|переименуй|сохрани|удали)\b/i;
 
+const DEFAULT_MAX_SUMMARY_COST_BYTES = 800;
+const MAX_SUMMARY_COST_BYTES = 1_200;
+const HISTORY_SUMMARY_MAX_LINES = 6;
+const MAX_SUMMARY_LINE_WORDS = 8;
+
+const USER_SUMMARY_VERB_KEYWORDS: Array<{ keyword: string; verb: string }> = [
+  { keyword: 'создай', verb: 'create' },
+  { keyword: 'создайте', verb: 'create' },
+  { keyword: 'делай', verb: 'create' },
+  { keyword: 'сделай', verb: 'create' },
+  { keyword: 'сделайте', verb: 'create' },
+  { keyword: 'build', verb: 'create' },
+  { keyword: 'builds', verb: 'create' },
+  { keyword: 'creating', verb: 'create' },
+  { keyword: 'generate', verb: 'create' },
+  { keyword: 'start', verb: 'create' },
+  { keyword: 'add', verb: 'add' },
+  { keyword: 'adds', verb: 'add' },
+  { keyword: 'adding', verb: 'add' },
+  { keyword: 'append', verb: 'add' },
+  { keyword: 'put', verb: 'add' },
+  { keyword: 'include', verb: 'add' },
+  { keyword: 'добавь', verb: 'add' },
+  { keyword: 'добавьте', verb: 'add' },
+  { keyword: 'добавил', verb: 'add' },
+  { keyword: 'добавить', verb: 'add' },
+  { keyword: 'remove', verb: 'remove' },
+  { keyword: 'removed', verb: 'remove' },
+  { keyword: 'removing', verb: 'remove' },
+  { keyword: 'delete', verb: 'remove' },
+  { keyword: 'удали', verb: 'remove' },
+  { keyword: 'убери', verb: 'remove' },
+  { keyword: 'сними', verb: 'remove' },
+  { keyword: 'смен', verb: 'replace' },
+  { keyword: 'replace', verb: 'replace' },
+  { keyword: 'replace', verb: 'replace' },
+  { keyword: 'replaced', verb: 'replace' },
+  { keyword: 'changing', verb: 'replace' },
+  { keyword: 'change', verb: 'replace' },
+  { keyword: 'changed', verb: 'replace' },
+  { keyword: 'modify', verb: 'replace' },
+  { keyword: 'modified', verb: 'replace' },
+  { keyword: 'modified', verb: 'replace' },
+  { keyword: 'update', verb: 'replace' },
+  { keyword: 'updated', verb: 'replace' },
+  { keyword: 'update', verb: 'replace' },
+  { keyword: 'замени', verb: 'replace' },
+  { keyword: 'замените', verb: 'replace' },
+  { keyword: 'переключ', verb: 'replace' },
+  { keyword: 'fix', verb: 'fix' },
+  { keyword: 'fixed', verb: 'fix' },
+  { keyword: 'fixes', verb: 'fix' },
+  { keyword: 'repair', verb: 'fix' },
+  { keyword: 'исправь', verb: 'fix' },
+  { keyword: 'почини', verb: 'fix' },
+  { keyword: 'исправил', verb: 'fix' },
+];
+
+const ASSISTANT_SUMMARY_VERB_KEYWORDS: Array<{ keyword: string; verb: string }> = [
+  { keyword: 'added', verb: 'added' },
+  { keyword: 'adding', verb: 'added' },
+  { keyword: 'add', verb: 'added' },
+  { keyword: 'created', verb: 'added' },
+  { keyword: 'created', verb: 'added' },
+  { keyword: 'built', verb: 'added' },
+  { keyword: 'updated', verb: 'updated' },
+  { keyword: 'update', verb: 'updated' },
+  { keyword: 'updated', verb: 'updated' },
+  { keyword: 'updated', verb: 'updated' },
+  { keyword: 'kept', verb: 'kept' },
+  { keyword: 'preserved', verb: 'kept' },
+  { keyword: 'removed', verb: 'removed' },
+  { keyword: 'removed', verb: 'removed' },
+  { keyword: 'replace', verb: 'replaced' },
+  { keyword: 'replaced', verb: 'replaced' },
+  { keyword: 'fixed', verb: 'fixed' },
+  { keyword: 'fix', verb: 'fixed' },
+  { keyword: 'rewrote', verb: 'replaced' },
+  { keyword: 'changed', verb: 'updated' },
+];
+
+const SUMMARY_STOPWORDS = new Set(['a', 'an', 'the', 'to', 'and', 'on', 'for', 'with', 'в', 'и', 'на', 'по']);
+
+function normalizeMessageText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function tokenizeMessage(value: string) {
+  return normalizeMessageText(value)
+    .split(' ')
+    .map((token) => token.replace(/^[^a-zA-Zа-яА-ЯёЁ0-9_-]+|[^a-zA-Zа-яА-ЯёЁ0-9_-]+$/g, ''))
+    .filter(Boolean);
+}
+
+function trimSummaryWords(value: string, maxWords: number) {
+  const words = tokenizeMessage(value);
+
+  if (words.length <= maxWords) {
+    return words;
+  }
+
+  return words.slice(0, maxWords);
+}
+
+function normalizeSummaryObject(value: string, maxWords: number) {
+  const words = trimSummaryWords(value, maxWords).filter((word) => !SUMMARY_STOPWORDS.has(word.toLowerCase()));
+
+  if (words.length === 0) {
+    return trimSummaryWords(value, maxWords).join(' ');
+  }
+
+  return words.join(' ');
+}
+
+function findFirstMatchingVerb(
+  words: string[],
+  mapping: Array<{ keyword: string; verb: string }>,
+) {
+  const lowerWords = words.map((word) => word.toLowerCase());
+
+  for (let index = 0; index < lowerWords.length; index += 1) {
+    const word = lowerWords[index];
+
+    if (!word) {
+      continue;
+    }
+
+    for (const { keyword, verb } of mapping) {
+      if (word.startsWith(keyword)) {
+        return { verb, remainder: words.slice(index + 1) };
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeUserSummary(message: string) {
+  const words = tokenizeMessage(message);
+  const match = findFirstMatchingVerb(words, USER_SUMMARY_VERB_KEYWORDS);
+
+  if (!match) {
+    return normalizeSummaryObject(message, 6);
+  }
+
+  const remainder = normalizeSummaryObject(match.remainder.join(' '), MAX_SUMMARY_LINE_WORDS);
+
+  if (remainder.trim().length === 0) {
+    return match.verb;
+  }
+
+  return `${match.verb} ${remainder}`;
+}
+
+function normalizeAssistantSummary(message: string) {
+  const words = tokenizeMessage(message);
+  const match = findFirstMatchingVerb(words, ASSISTANT_SUMMARY_VERB_KEYWORDS);
+
+  if (!match) {
+    return normalizeSummaryObject(message, 6);
+  }
+
+  const remainder = normalizeSummaryObject(match.remainder.join(' '), MAX_SUMMARY_LINE_WORDS);
+
+  if (remainder.trim().length === 0) {
+    return match.verb;
+  }
+
+  return `${match.verb} ${remainder}`;
+}
+
+function buildTurnSummaries(
+  omittedMessages: PromptBuildChatHistoryMessage[],
+): Array<{ userSummary: string; assistantSummary?: string }> {
+  const turns = buildPromptBuildChatHistoryTurns(omittedMessages);
+
+  return turns
+    .filter((turn) => turn.user.role === 'user' && normalizeMessageText(turn.user.content).length > 0)
+    .map((turn) => {
+      const userSummary = normalizeUserSummary(turn.user.content);
+      const assistantMessages = turn.assistants;
+      const latestAssistantMessage = assistantMessages[assistantMessages.length - 1];
+
+      const assistantSummary = latestAssistantMessage ? normalizeAssistantSummary(latestAssistantMessage.content) : undefined;
+
+      return {
+        assistantSummary,
+        userSummary,
+      };
+    });
+}
+
+function getTurnSummaryLines(omittedMessages: PromptBuildChatHistoryMessage[]) {
+  const summaries = buildTurnSummaries(omittedMessages);
+
+  if (summaries.length < 2) {
+    return [];
+  }
+
+  const turnSummaryLines = summaries.map((summary) => {
+    const lines = [`User: ${summary.userSummary}`];
+
+    if (summary.assistantSummary) {
+      lines.push(`Assistant: ${summary.assistantSummary}`);
+    }
+
+    return lines;
+  });
+
+  const selectedLines: string[] = [];
+  let remainingLines = HISTORY_SUMMARY_MAX_LINES;
+
+  for (let index = turnSummaryLines.length - 1; index >= 0 && remainingLines > 0; index -= 1) {
+    const turnLines = turnSummaryLines[index];
+
+    if (!turnLines) {
+      continue;
+    }
+
+    const lineCountForThisTurn = turnLines.length;
+
+    if (lineCountForThisTurn > remainingLines) {
+      continue;
+    }
+
+    selectedLines.unshift(...turnLines);
+    remainingLines -= lineCountForThisTurn;
+  }
+
+  return selectedLines.slice(-HISTORY_SUMMARY_MAX_LINES);
+}
+
+function trimToByteBudget(value: string, maxBytes: number) {
+  if (value.length === 0 || maxBytes <= 0) {
+    return null;
+  }
+
+  if (getTextByteLength(value) <= maxBytes) {
+    return value;
+  }
+
+  for (let end = value.length - 1; end > 0; end -= 1) {
+    const candidate = value.slice(0, end).trimEnd();
+
+    if (candidate.length === 0) {
+      continue;
+    }
+
+    if (getTextByteLength(`${candidate}…`) <= maxBytes) {
+      return `${candidate}…`;
+    }
+  }
+
+  return null;
+}
+
 function getFirstUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
   return messages.findIndex((message) => message.role === 'user');
 }
@@ -175,38 +431,54 @@ function buildHistorySummaryMessage(
   omittedMessages: PromptBuildChatHistoryMessage[],
   maxSummaryCostBytes: number,
 ): PromptBuildChatHistoryMessage | null {
-  const userAssistantPairCount = Math.floor(omittedMessages.filter((message) => message.role === 'user').length);
+  const summaryLines = getTurnSummaryLines(omittedMessages);
+  const userAssistantPairCount = buildTurnSummaries(omittedMessages).length;
 
   if (userAssistantPairCount < 2 || maxSummaryCostBytes <= 0) {
     return null;
   }
 
-  const clippedMessages: string[] = [];
-  let remainingBytes = maxSummaryCostBytes;
+  const openingTag = '<history_summary>\n';
+  const closingTag = '\n</history_summary>';
+  const usedTagBytes = getTextByteLength(openingTag + closingTag);
+  const availableBytes = Math.max(0, maxSummaryCostBytes - usedTagBytes);
+  const trimmedSummaryLines: string[] = [];
+  let usedBytes = 0;
 
-  for (const message of omittedMessages) {
-    const line = `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content.trim().replace(/\s+/g, ' ')}`;
-    const lineBytes = getTextByteLength(line);
-
-    if (lineBytes > remainingBytes && clippedMessages.length > 0) {
-      break;
-    }
-
-    clippedMessages.push(lineBytes > remainingBytes ? `${line.slice(0, Math.max(1, remainingBytes - 1)).trimEnd()}…` : line);
-    remainingBytes -= Math.min(lineBytes, remainingBytes);
-
-    if (remainingBytes <= 0) {
-      break;
-    }
+  if (summaryLines.length === 0 || summaryLines.length < 2 || maxSummaryCostBytes <= 0) {
+    return null;
   }
 
-  if (clippedMessages.length === 0) {
+  for (const line of summaryLines) {
+    const lineText = line.length > 0 ? line : line;
+    const nextLinePrefix = trimmedSummaryLines.length === 0 ? '' : '\n';
+    const nextLineBytes = getTextByteLength(nextLinePrefix + lineText);
+
+    if (usedBytes + nextLineBytes > availableBytes) {
+      if (trimmedSummaryLines.length === 0) {
+        const truncatedLine = trimToByteBudget(lineText, availableBytes);
+
+        if (!truncatedLine) {
+          return null;
+        }
+
+        trimmedSummaryLines.push(truncatedLine);
+      }
+
+      break;
+    }
+
+    trimmedSummaryLines.push(lineText);
+    usedBytes += nextLineBytes;
+  }
+
+  if (trimmedSummaryLines.length === 0) {
     return null;
   }
 
   return {
     role: 'assistant',
-    content: `<history_summary>\nEarlier omitted chat context: ${clippedMessages.join(' | ')}\n</history_summary>`,
+    content: `<history_summary>\n${trimmedSummaryLines.join('\n')}\n</history_summary>`,
   };
 }
 
@@ -372,7 +644,10 @@ export function compactPromptBuildChatHistory(
   }
 
   if (omittedMessagesForSummary.length > 0) {
-    const summaryMessage = buildHistorySummaryMessage(omittedMessagesForSummary, options.maxSummaryCostBytes ?? 2_000);
+    const summaryBudget = options.maxSummaryCostBytes ?? DEFAULT_MAX_SUMMARY_COST_BYTES;
+    const maxSummaryCostBytes = Math.max(0, Math.min(summaryBudget, MAX_SUMMARY_COST_BYTES));
+
+    const summaryMessage = buildHistorySummaryMessage(omittedMessagesForSummary, maxSummaryCostBytes);
 
     if (summaryMessage) {
       const summarizedChatHistory = trimSummarizedHistoryToMaxItems(

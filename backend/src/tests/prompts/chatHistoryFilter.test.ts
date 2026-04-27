@@ -222,7 +222,7 @@ describe('retainPromptBuildChatHistoryTail', () => {
 });
 
 describe('compactPromptBuildChatHistory', () => {
-  it('adds a bounded history summary when multiple older turns are omitted', () => {
+  it('adds a structured and bounded history summary when multiple older turns are omitted', () => {
     const messages = [
       createMessage('user', 'Create a todo app'),
       createMessage('assistant', 'Built a todo app with add and toggle controls.'),
@@ -241,15 +241,128 @@ describe('compactPromptBuildChatHistory', () => {
       maxItems: 4,
     });
 
+    const summaryMessage = result.chatHistory.find(
+      (message) => message.role === 'assistant' && message.content.includes('<history_summary>'),
+    );
+
     expect(result.chatHistory).toEqual([
       { role: 'user', content: 'Create a todo app' },
       expect.objectContaining({
         role: 'assistant',
-        content: expect.stringContaining('<history_summary>'),
+        content: expect.stringContaining('User: add'),
       }),
       { role: 'user', content: 'Add sorting' },
       { role: 'assistant', content: 'Added sorting controls.' },
     ]);
+    expect(summaryMessage).toBeTruthy();
+    expect(summaryMessage?.content).toContain('User: add filters');
+    expect(summaryMessage?.content).toContain('Assistant: added all');
+    expect(result.omittedChatMessages).toBe(6);
+  });
+
+  it('does not include a summary when too few older turns exist', () => {
+    const messages = [
+      createMessage('user', 'Create a todo app'),
+      createMessage('assistant', 'Built a todo app with a due date field.'),
+      createMessage('user', 'Add filters'),
+      createMessage('assistant', 'Added basic filters.'),
+    ];
+    const result = compactPromptBuildChatHistory(messages, {
+      getSizeBytes: () => 0,
+      maxBytes: 10_000,
+      maxItems: 3,
+    });
+
+    expect(result.chatHistory).toEqual([
+      { role: 'user', content: 'Create a todo app' },
+      { role: 'user', content: 'Add filters' },
+      { role: 'assistant', content: 'Added basic filters.' },
+    ]);
+    expect(result.chatHistory).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+          content: expect.stringContaining('<history_summary>'),
+        }),
+      ]),
+    );
+    expect(result.omittedChatMessages).toBe(1);
+  });
+
+  it('keeps summary within byte budget while preserving the newest omitted turns', () => {
+    const messages: RawPromptBuildChatHistoryMessage[] = [
+      createMessage('user', 'Create a planner dashboard'),
+      createMessage('assistant', 'Built the initial planner dashboard shell.'),
+    ];
+
+    for (let index = 2; index <= 10; index += 1) {
+      messages.push(
+        createMessage(
+          'user',
+          `Add feature ${index} for task management with advanced validation, sorting, filter toggles, keyboard shortcuts, and custom tags.`,
+        ),
+        createMessage(
+          'assistant',
+          `Added feature ${index} with deep layout adjustments, computed metadata, and resilient persisted state while preserving existing controls and labels.`,
+        ),
+      );
+    }
+
+    const result = compactPromptBuildChatHistory(messages, {
+      getSizeBytes: () => 0,
+      maxBytes: 10_000,
+      maxItems: 3,
+      maxSummaryCostBytes: 500,
+    });
+
+    const summaryMessage = result.chatHistory.find(
+      (message) => message.role === 'assistant' && message.content.includes('<history_summary>'),
+    );
+
+    expect(summaryMessage).toBeTruthy();
+    const summaryText = summaryMessage?.content ?? '';
+    const firstUserMessage = result.chatHistory.find((message) => message.role === 'user' && message.content === 'Create a planner dashboard');
+    const summaryIndex = summaryMessage ? result.chatHistory.indexOf(summaryMessage) : -1;
+    const firstUserIndex = firstUserMessage ? result.chatHistory.indexOf(firstUserMessage) : -1;
+
+    expect(Buffer.byteLength(summaryText)).toBeLessThanOrEqual(500);
+    expect(summaryText).toContain('User: add feature 9');
+    expect(summaryText).toContain('User: add feature 8');
+    expect(summaryText).not.toContain('User: add feature 2');
+    expect(firstUserIndex).toBeGreaterThan(-1);
+    expect(summaryIndex).toBe(firstUserIndex + 1);
+    expect(result.omittedChatMessages).toBe(17);
+  });
+
+  it('falls back to no summary when the requested budget is too small', () => {
+    const messages: RawPromptBuildChatHistoryMessage[] = [
+      createMessage('user', 'Create a checklist app'),
+      createMessage('assistant', 'Built the base checklist app.'),
+      createMessage('user', 'Add reminders'),
+      createMessage('assistant', 'Added reminders section.'),
+      createMessage('user', 'Add export'),
+      createMessage('assistant', 'Added export controls.'),
+      createMessage('user', 'Add sharing'),
+      createMessage('assistant', 'Added sharing toggle.'),
+      createMessage('user', 'Add search'),
+      createMessage('assistant', 'Added search controls.'),
+    ];
+
+    const result = compactPromptBuildChatHistory(messages, {
+      getSizeBytes: () => 0,
+      maxBytes: 10_000,
+      maxItems: 4,
+      maxSummaryCostBytes: 1,
+    });
+
+    expect(result.chatHistory).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+          content: expect.stringContaining('<history_summary>'),
+        }),
+      ]),
+    );
     expect(result.omittedChatMessages).toBe(6);
   });
 
