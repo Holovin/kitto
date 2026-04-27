@@ -494,15 +494,15 @@ describe('openui prompts', () => {
     expect(checkboxSpec?.signature).toContain('helper?:');
     expect(checkboxSpec?.signature).toContain('checked?: $binding<boolean> | boolean');
     expect(checkboxSpec?.signature).toContain('validation?: {');
-    expect(checkboxSpec?.signature).toContain('action?: any');
+    expect(checkboxSpec?.signature).toContain('action?: Action');
     expect(radioGroupSpec?.signature).toContain('value?: $binding<string> | string');
     expect(radioGroupSpec?.signature).toContain('helper?:');
     expect(radioGroupSpec?.signature).toContain('validation?: {');
-    expect(radioGroupSpec?.signature).toContain('action?: any');
+    expect(radioGroupSpec?.signature).toContain('action?: Action');
     expect(selectSpec?.signature).toContain('value?: $binding<string> | string');
     expect(selectSpec?.signature).toContain('helper?:');
     expect(selectSpec?.signature).toContain('validation?: {');
-    expect(selectSpec?.signature).toContain('action?: any');
+    expect(selectSpec?.signature).toContain('action?: Action');
 
     expect(prompt).toContain('INPUT / VALIDATION CONTRACT:');
     expect(prompt).toContain(
