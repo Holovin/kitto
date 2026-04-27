@@ -78,8 +78,20 @@ function getPromptLogInputShape(mode: PromptIoLogMode) {
   return undefined;
 }
 
-function getRepairAttempt(mode: PromptIoLogMode) {
-  return mode === 'repair' ? 1 : 0;
+function getRepairAttempt(mode: PromptIoLogMode, repairAttemptNumber?: number) {
+  if (mode !== 'repair') {
+    return 0;
+  }
+
+  return repairAttemptNumber ?? 1;
+}
+
+function getCurrentSourceLen(request: { currentSource?: unknown }) {
+  return typeof request.currentSource === 'string' ? request.currentSource.length : undefined;
+}
+
+function getChatHistoryLen(request: { chatHistory?: unknown }) {
+  return Array.isArray(request.chatHistory) ? request.chatHistory.length : undefined;
 }
 
 function getPartialPromptBuildContext(partialBody: unknown) {
@@ -90,6 +102,7 @@ function getPartialPromptBuildContext(partialBody: unknown) {
       mode: null,
       parentRequestId: null,
       rawUserRequest: undefined,
+      repairAttemptNumber: undefined,
       validationIssues: [] as string[],
     };
   }
@@ -100,6 +113,7 @@ function getPartialPromptBuildContext(partialBody: unknown) {
     mode?: unknown;
     parentRequestId?: unknown;
     prompt?: unknown;
+    repairAttemptNumber?: unknown;
     validationIssues?: unknown;
   };
   const mode = getPromptLogMode(partialRequest.mode);
@@ -131,6 +145,8 @@ function getPartialPromptBuildContext(partialBody: unknown) {
             prompt: partialRequest.prompt,
           })
         : undefined,
+    repairAttemptNumber:
+      typeof partialRequest.repairAttemptNumber === 'number' ? partialRequest.repairAttemptNumber : undefined,
     validationIssues: sanitizeValidationIssues(partialValidationIssues),
   };
 }
@@ -243,12 +259,12 @@ export async function writePromptIoLogSafely(
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
-        repairAttempt: getRepairAttempt(mode),
+        repairAttempt: getRepairAttempt(mode, request.repairAttemptNumber),
         mode,
         phase: null,
         rawUserRequest: getPromptLogRawUserRequest(request),
-        currentSourceLen: request.currentSource.length,
-        chatHistoryLen: request.chatHistory.length,
+        currentSourceLen: getCurrentSourceLen(request),
+        chatHistoryLen: getChatHistoryLen(request),
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
@@ -297,12 +313,12 @@ export async function writePromptIoFailureSafely(
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
         parentRequestId: request.parentRequestId ?? null,
-        repairAttempt: getRepairAttempt(mode),
+        repairAttempt: getRepairAttempt(mode, request.repairAttemptNumber),
         mode,
         phase: options.phase,
         rawUserRequest: getPromptLogRawUserRequest(request),
-        currentSourceLen: request.currentSource.length,
-        chatHistoryLen: request.chatHistory.length,
+        currentSourceLen: getCurrentSourceLen(request),
+        chatHistoryLen: getChatHistoryLen(request),
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
@@ -343,7 +359,7 @@ export async function writePromptIoIntakeFailureSafely(
         ts: new Date().toISOString(),
         requestId: options.requestId,
         parentRequestId: partialContext.parentRequestId,
-        repairAttempt: getRepairAttempt(partialContext.mode),
+        repairAttempt: getRepairAttempt(partialContext.mode, partialContext.repairAttemptNumber),
         mode: partialContext.mode,
         phase: 'intake',
         rawUserRequest: partialContext.rawUserRequest,

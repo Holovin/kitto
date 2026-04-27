@@ -29,7 +29,7 @@ describe('promptLog.write', () => {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-123',
         parentRequestId: null,
-        repairAttempt: 1,
+        repairAttempt: 2,
         mode: 'repair',
         phase: null,
         rawUserRequest: 'u'.repeat(40),
@@ -79,11 +79,13 @@ describe('promptLog.write', () => {
       omittedChatMessages: number;
       parsedEnvelope: { source: string; summary: string };
       rawUserRequest: string;
+      repairAttempt: number;
       validationIssues: string[];
       compactionTrimmedItems?: unknown;
       inputShape?: string;
     };
 
+    expect(entry.repairAttempt).toBe(2);
     expect(entry.rawUserRequest).toBe('uuuuuuuuuuuuuuuu… [truncated 24 chars]');
     expect(entry.omittedChatMessages).toBe(2);
     expect(entry.inputShape).toBe('role-based');

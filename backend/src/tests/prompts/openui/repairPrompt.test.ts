@@ -74,6 +74,27 @@ describe('repair prompt assembly', () => {
     expect(prompt).not.toContain('Invalid model draft:');
   });
 
+  it('keeps fallback text in role-based repair source sections when section budgets are exhausted', () => {
+    const messages = buildOpenUiRepairRoleMessages({
+      attemptNumber: 1,
+      committedSource: '',
+      invalidSource: '',
+      issues: [],
+      maxRepairAttempts: 1,
+      promptMaxChars: 1,
+      userPrompt: '',
+    });
+
+    expect(extractDataBlock(messages.requestContext, 'original_user_request')).toBe('(empty user request)');
+    expect(extractDataBlock(messages.requestContext, 'current_source_inventory')).toBe(
+      '(blank canvas, no committed OpenUI inventory yet)',
+    );
+    expect(extractDataBlock(messages.failedDraft, 'model_draft_that_failed')).toBe('(the failed draft was empty)');
+    expect(extractDataBlock(messages.correctionRequest, 'validation_issues')).toBe(
+      '- Validation issues were detected, but they could not be enumerated in full.',
+    );
+  });
+
   it('includes filtered repair chat history in the repair prompt with newest context first', () => {
     const prompt = buildOpenUiUserPrompt({
       prompt: 'Create a todo app.',

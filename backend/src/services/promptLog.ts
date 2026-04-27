@@ -8,7 +8,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 
 export type PromptIoLogMode = 'initial' | 'repair' | null;
 export type PromptIoLogPhase = 'client-commit' | 'intake' | 'parse' | 'request' | 'stream' | null;
-export type PromptIoRepairAttempt = 0 | 1;
+export type PromptIoRepairAttempt = number;
 export type PromptIoRepairOutcome = 'failed' | 'fixed';
 export type PromptIoCommitSource = 'fallback' | 'streaming';
 export type PromptIoInputShape = 'role-based';

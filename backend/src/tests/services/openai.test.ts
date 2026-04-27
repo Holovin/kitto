@@ -824,6 +824,113 @@ describe('generateOpenUiSource', () => {
     );
   });
 
+  it('writes the concrete repair attempt number in prompt I/O logs', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-prompt-log-repair-attempt',
+      PROMPT_IO_LOG: true,
+    });
+    const repairRequestWithAttempt: PromptBuildRequest = {
+      ...repairRequest,
+      repairAttemptNumber: 2,
+    };
+
+    promptLogWriteMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Repairs the app shell.',
+        source: 'root = AppShell([])',
+      }),
+      usage: null,
+    });
+
+    await expect(
+      generateOpenUiSource(env, repairRequestWithAttempt, undefined, { requestId: 'builder-request-repair-2' }),
+    ).resolves.toEqual({
+      summary: 'Repairs the app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'repair',
+        repairAttempt: 2,
+        requestId: 'builder-request-repair-2',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
+  it('writes prompt I/O logs when currentSource is missing on a direct service request', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-prompt-log-missing-current-source',
+      PROMPT_IO_LOG: true,
+    });
+    const requestWithoutCurrentSource = {
+      chatHistory: [],
+      mode: 'initial',
+      prompt: 'Build a todo app',
+    } as unknown as PromptBuildRequest;
+
+    promptLogWriteMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Builds a blank app shell.',
+        source: 'root = AppShell([])',
+      }),
+      usage: null,
+    });
+
+    await expect(
+      generateOpenUiSource(env, requestWithoutCurrentSource, undefined, { requestId: 'builder-request-no-source' }),
+    ).resolves.toEqual({
+      summary: 'Builds a blank app shell.',
+      source: 'root = AppShell([])',
+    });
+
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentSourceLen: undefined,
+        requestId: 'builder-request-no-source',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
+  it('writes failure prompt logs when currentSource is missing on a direct service request', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-failure-log-missing-current-source',
+      PROMPT_IO_LOG: true,
+    });
+    const timeoutError = new Error('The model request timed out.');
+    const requestWithoutCurrentSource = {
+      chatHistory: [],
+      mode: 'initial',
+      prompt: 'Build a todo app',
+    } as unknown as PromptBuildRequest;
+
+    timeoutError.name = 'TimeoutError';
+    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockRejectedValue(timeoutError);
+
+    await expect(
+      generateOpenUiSource(env, requestWithoutCurrentSource, undefined, { requestId: 'builder-request-no-source-failure' }),
+    ).rejects.toBe(timeoutError);
+
+    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentSourceLen: undefined,
+        requestId: 'builder-request-no-source-failure',
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
   it('writes parse failure prompt logs with parent request linkage and repair validation issue codes', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-parse-failure-log',

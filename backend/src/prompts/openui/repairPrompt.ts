@@ -199,17 +199,31 @@ function buildStatementExcerptLines(issues: PromptBuildValidationIssue[], invali
   return statementExcerptLines;
 }
 
-function buildRepairSourceSectionContent(value: string, maxChars: number, fallback: string) {
+interface RepairSectionContentOptions {
+  preserveFallbackWhenEmptyBudget?: boolean;
+}
+
+function buildRepairSourceSectionContent(
+  value: string,
+  maxChars: number,
+  fallback: string,
+  options: RepairSectionContentOptions = {},
+) {
   if (maxChars <= 0) {
-    return truncateText(fallback, maxChars);
+    return options.preserveFallbackWhenEmptyBudget ? fallback : truncateText(fallback, maxChars);
   }
 
   return value.trim() ? truncateText(value, maxChars) : truncateText(fallback, maxChars);
 }
 
-function buildBoundedSectionContent(lines: string[], maxChars: number, fallback: string) {
+function buildBoundedSectionContent(
+  lines: string[],
+  maxChars: number,
+  fallback: string,
+  options: RepairSectionContentOptions = {},
+) {
   if (maxChars <= 0) {
-    return truncateText(fallback, maxChars);
+    return options.preserveFallbackWhenEmptyBudget ? fallback : truncateText(fallback, maxChars);
   }
 
   if (!lines.length) {
@@ -503,7 +517,11 @@ function allocateRepairSectionBudgets(
   return budgets;
 }
 
-function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars: number) {
+function buildRepairIssueSection(
+  issues: PromptBuildValidationIssue[],
+  maxChars: number,
+  options: RepairSectionContentOptions = {},
+) {
   const inlineHintLines = [
     ...new Set(
       issues
@@ -517,6 +535,7 @@ function buildRepairIssueSection(issues: PromptBuildValidationIssue[], maxChars:
     [...issueLines, ...inlineHintLines],
     maxChars,
     '- Validation issues were detected, but they could not be enumerated in full.',
+    options,
   );
 }
 
@@ -807,34 +826,60 @@ function buildOpenUiRepairPromptParts(
     statementExcerpts: hasStatementExcerpts ? fullStatementExcerptsSectionContent.length : 0,
     hints: hasHints ? fullHintsSectionContent.length : 0,
   }, hasHints, issueMode);
-  const rulesSectionContent = buildBoundedSectionContent(ruleLines, budgets.rules, '- Critical syntax rules were truncated.');
-  const userRequestSectionContent = buildRepairSourceSectionContent(userPrompt, budgets.userPrompt, '(empty user request)');
+  const budgetedSectionOptions = {
+    preserveFallbackWhenEmptyBudget: outputFormat === 'roleMessages',
+  };
+  const rulesSectionContent = buildBoundedSectionContent(
+    ruleLines,
+    budgets.rules,
+    '- Critical syntax rules were truncated.',
+    budgetedSectionOptions,
+  );
+  const userRequestSectionContent = buildRepairSourceSectionContent(
+    userPrompt,
+    budgets.userPrompt,
+    '(empty user request)',
+    budgetedSectionOptions,
+  );
   const conversationContextSectionContent =
     hasConversationContext
       ? buildBoundedSectionContent(
           conversationContextLines,
           budgets.conversationContext,
           '- Recent conversation context was truncated.',
+          budgetedSectionOptions,
         )
       : '';
   const sourceContextSectionContent = buildRepairSourceSectionContent(
     sourceContext,
     budgets.committedSource,
     sourceContextFallback,
+    budgetedSectionOptions,
   );
-  const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues);
+  const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues, budgetedSectionOptions);
   const hintsSectionContent = hasHints
     ? buildBoundedSectionContent(
         hintLines,
         budgets.hints,
         '- No targeted repair hints were available.',
+        budgetedSectionOptions,
       )
     : '';
   const statementExcerptsSectionContent =
     hasStatementExcerpts
-      ? buildBoundedSectionContent(statementExcerptLines, budgets.statementExcerpts, '- No matching draft statements were found.')
+      ? buildBoundedSectionContent(
+          statementExcerptLines,
+          budgets.statementExcerpts,
+          '- No matching draft statements were found.',
+          budgetedSectionOptions,
+        )
       : '';
-  const draftSectionContent = buildRepairSourceSectionContent(invalidSource, budgets.invalidSource, draftSectionFallback);
+  const draftSectionContent = buildRepairSourceSectionContent(
+    invalidSource,
+    budgets.invalidSource,
+    draftSectionFallback,
+    budgetedSectionOptions,
+  );
 
   return {
     conversationContextSectionContent,
