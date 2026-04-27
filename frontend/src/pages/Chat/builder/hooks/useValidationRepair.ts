@@ -1,9 +1,9 @@
 import type { BuilderRequestLimits } from '@pages/Chat/builder/config';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { postCommitTelemetry } from '@pages/Chat/builder/api/commitTelemetry';
 import { createRequestId } from '@pages/Chat/builder/api/requestId';
 import { getBuilderRequestErrorMessage } from '@pages/Chat/builder/api/requestErrors';
 import { getBuilderSanitizedLlmRequestForTransport, validateBuilderLlmRequest } from '@pages/Chat/builder/config';
-import { isRecord } from '@pages/Chat/builder/objectGuards';
 import {
   detectLocalRuntimeQualityIssues,
   validateOpenUiSourceWithContext,

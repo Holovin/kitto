@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import type { BuilderDefinitionExport, PromptBuildValidationIssue, BuilderSnapshot } from '@pages/Chat/builder/types';
-import { isRecord } from '@pages/Chat/builder/objectGuards';
 import { DEFAULT_DOMAIN_DATA } from '@pages/Chat/builder/store/defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@pages/Chat/builder/store/path';
 import { validateOpenUiSource } from './validation';

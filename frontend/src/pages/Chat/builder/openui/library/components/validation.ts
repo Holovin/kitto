@@ -1,4 +1,5 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { isPlainObject } from '@kitto-openui/shared/objectGuards.js';
 import { isStrictIsoDateString } from '@pages/Chat/builder/openui/date';
 import { INPUT_TYPES, VALIDATION_RULE_TYPES, type InputType, type ValidationRuleType } from './schemas';
 
@@ -67,14 +68,8 @@ function isAstNode(value: unknown): value is { k: string } {
   return typeof value === 'object' && value !== null && 'k' in value && typeof value.k === 'string';
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value) || isAstNode(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-
-  return prototype === Object.prototype || prototype === null;
+function isPlainValidationObject(value: unknown): value is Record<string, unknown> {
+  return isPlainObject(value) && !isAstNode(value);
 }
 
 function isValidationRuleType(value: unknown): value is ValidationRuleType {
@@ -264,7 +259,7 @@ export function inspectValidationConfig(args: {
   const issues: ValidationConfigIssue[] = [];
 
   validation.forEach((rule, index) => {
-    if (!isPlainObject(rule)) {
+    if (!isPlainValidationObject(rule)) {
       issues.push({
         path: `validation[${index}]`,
         message: `${componentType}.validation[${index}] must be a plain validation rule object.`,
@@ -287,7 +282,7 @@ export function sanitizeValidationRules(target: ValidationTarget, rawRules: unkn
   const rules: ValidationRule[] = [];
 
   for (const rawRule of rawRules) {
-    if (!isPlainObject(rawRule) || !isValidationRuleType(rawRule.type) || !allowedRuleTypes.has(rawRule.type)) {
+    if (!isPlainValidationObject(rawRule) || !isValidationRuleType(rawRule.type) || !allowedRuleTypes.has(rawRule.type)) {
       continue;
     }
 

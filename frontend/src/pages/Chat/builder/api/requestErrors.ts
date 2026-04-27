@@ -1,6 +1,6 @@
 import type { SerializedError } from '@reduxjs/toolkit';
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import { isRecord } from '@pages/Chat/builder/objectGuards';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 
 type BuilderPublicErrorCode = 'internal_error' | 'timeout_error' | 'upstream_error' | 'validation_error';
 

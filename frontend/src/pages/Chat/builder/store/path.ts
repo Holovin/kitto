@@ -1,3 +1,5 @@
+import { isPlainObject } from '@kitto-openui/shared/objectGuards.js';
+
 const FORBIDDEN_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 const PATH_SEGMENT_PATTERN = /^[A-Za-z0-9_-]+$/;
 const RUNTIME_VARIABLE_KEY_PATTERN = /^\$[A-Za-z_][\w$]*$/;
@@ -115,14 +117,7 @@ export function validateDomainFieldName(fieldName: string, label = 'Field name')
   return trimmedFieldName;
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
+export { isPlainObject };
 
 function isAllowedPersistedStateKey(key: string, allowRuntimeVariableKeys: boolean) {
   if (PATH_SEGMENT_PATTERN.test(key)) {

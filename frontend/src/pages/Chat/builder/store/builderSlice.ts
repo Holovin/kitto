@@ -1,7 +1,7 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
 import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContract.js';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@pages/Chat/builder/historyVersionState';
-import { isRecord } from '@pages/Chat/builder/objectGuards';
 import { DEFAULT_OPENUI_SOURCE } from '@pages/Chat/builder/openui/runtime/defaultSource';
 import { cloneBuilderSnapshot, createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';

@@ -1,4 +1,4 @@
-import { isRecord } from '@pages/Chat/builder/objectGuards';
+import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from '@pages/Chat/builder/store/path';
 
 export const KITTO_STANDALONE_PAYLOAD_VERSION = 1 as const;
