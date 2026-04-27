@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { postCommitTelemetry } from '@pages/Chat/builder/api/commitTelemetry';
+import { toBuilderRequestId } from '@pages/Chat/builder/types';
 
 describe('postCommitTelemetry', () => {
   afterEach(() => {
@@ -14,7 +15,7 @@ describe('postCommitTelemetry', () => {
       commitSource: 'streaming',
       committed: true,
       qualityWarnings: ['quality-unrequested-theme'],
-      requestId: 'builder-request-123',
+      requestId: toBuilderRequestId('builder-request-123'),
       validationIssues: [],
     });
 
@@ -25,7 +26,7 @@ describe('postCommitTelemetry', () => {
           commitSource: 'streaming',
           committed: true,
           qualityWarnings: ['quality-unrequested-theme'],
-          requestId: 'builder-request-123',
+          requestId: toBuilderRequestId('builder-request-123'),
           validationIssues: [],
         }),
         headers: expect.objectContaining({

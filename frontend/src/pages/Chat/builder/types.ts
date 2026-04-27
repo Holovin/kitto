@@ -6,6 +6,8 @@ import type {
   PromptInfoToolSpec,
 } from '@kitto-openui/shared/builderApiContract.js';
 
+export { toBuilderRequestId } from '@kitto-openui/shared/builderApiContract.js';
+
 export type {
   BuilderCommitRepairOutcome,
   BuilderCommitSource,

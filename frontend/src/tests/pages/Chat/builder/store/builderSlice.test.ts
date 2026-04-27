@@ -3,6 +3,7 @@ import { BACKEND_RECONNECTED_NOTICE } from '@pages/Chat/builder/components/chatN
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, MAX_UI_MESSAGES, normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
+import { toBuilderRequestId } from '@pages/Chat/builder/types';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -55,7 +56,7 @@ describe('builderSlice', () => {
         },
       ],
       committedSource: validSource,
-      currentRequestId: 'request-restore',
+      currentRequestId: toBuilderRequestId('request-restore'),
       history: [snapshot],
       lastStreamChunkAt: 123456789,
       parseIssues: [{ code: 'persisted-issue', message: 'Should be dropped.' }],
@@ -108,7 +109,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a simple app',
-        requestId: 'request-1',
+        requestId: toBuilderRequestId('request-1'),
       }),
     );
 
@@ -116,14 +117,14 @@ describe('builderSlice', () => {
       started,
       builderActions.appendStreamChunk({
         chunk: 'ignored',
-        requestId: 'stale-request',
+        requestId: toBuilderRequestId('stale-request'),
       }),
     );
     const appendedChunk = builderReducer(
       ignoredChunk,
       builderActions.appendStreamChunk({
         chunk: validSource,
-        requestId: 'request-1',
+        requestId: toBuilderRequestId('request-1'),
       }),
     );
 
@@ -150,20 +151,20 @@ describe('builderSlice', () => {
       initialState,
       builderActions.beginStreaming({
         prompt: 'Start streaming',
-        requestId: 'request-abort',
+        requestId: toBuilderRequestId('request-abort'),
       }),
     );
     const withChunk = builderReducer(
       started,
       builderActions.appendStreamChunk({
         chunk: 'partial draft',
-        requestId: 'request-abort',
+        requestId: toBuilderRequestId('request-abort'),
       }),
     );
     const canceled = builderReducer(
       withChunk,
       builderActions.cancelStreaming({
-        requestId: 'request-abort',
+        requestId: toBuilderRequestId('request-abort'),
       }),
     );
 
@@ -193,7 +194,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Add a welcome screen',
-        requestId: 'request-2',
+        requestId: toBuilderRequestId('request-2'),
       }),
     );
     const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
@@ -201,7 +202,7 @@ describe('builderSlice', () => {
       started,
       builderActions.completeStreaming({
         note: 'Committed the streamed definition.',
-        requestId: 'request-2',
+        requestId: toBuilderRequestId('request-2'),
         snapshot,
         source: validSource,
         warnings: [],
@@ -234,7 +235,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Add a welcome screen',
-        requestId: 'request-summary',
+        requestId: toBuilderRequestId('request-summary'),
       }),
     );
     const withPendingSummary = builderReducer(
@@ -250,7 +251,7 @@ describe('builderSlice', () => {
     const completed = builderReducer(
       withPendingSummary,
       builderActions.completeStreaming({
-        requestId: 'request-summary',
+        requestId: toBuilderRequestId('request-summary'),
         skipDefaultAssistantMessage: true,
         snapshot,
         source: validSource,
@@ -283,13 +284,13 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Create a todo list',
-        requestId: 'request-quality-warning',
+        requestId: toBuilderRequestId('request-quality-warning'),
       }),
     );
     const completed = builderReducer(
       started,
       builderActions.completeStreaming({
-        requestId: 'request-quality-warning',
+        requestId: toBuilderRequestId('request-quality-warning'),
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
         warnings: [warning],
@@ -357,7 +358,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a simple app',
-        requestId: 'request-export-order',
+        requestId: toBuilderRequestId('request-export-order'),
       }),
     );
     const withExportMessage = builderReducer(
@@ -494,7 +495,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Keep this context',
-        requestId: 'request-import-order',
+        requestId: toBuilderRequestId('request-import-order'),
       }),
     );
     const importedSnapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
@@ -628,14 +629,14 @@ describe('builderSlice', () => {
       initialState,
       builderActions.beginStreaming({
         prompt: 'Break it',
-        requestId: 'request-3',
+        requestId: toBuilderRequestId('request-3'),
       }),
     );
     const failed = builderReducer(
       started,
       builderActions.failStreaming({
         message: 'The generated source was invalid.',
-        requestId: 'request-3',
+        requestId: toBuilderRequestId('request-3'),
         retryPrompt: 'Break it',
       }),
     );
@@ -664,12 +665,12 @@ describe('builderSlice', () => {
         createInitialState(),
         builderActions.beginStreaming({
           prompt: 'First failure',
-          requestId: 'request-failure-1',
+          requestId: toBuilderRequestId('request-failure-1'),
         }),
       ),
       builderActions.failStreaming({
         message: 'The first request failed.',
-        requestId: 'request-failure-1',
+        requestId: toBuilderRequestId('request-failure-1'),
         retryPrompt: 'First failure',
       }),
     );
@@ -678,14 +679,14 @@ describe('builderSlice', () => {
       firstFailed,
       builderActions.beginStreaming({
         prompt: 'Second failure',
-        requestId: 'request-failure-2',
+        requestId: toBuilderRequestId('request-failure-2'),
       }),
     );
     const secondFailed = builderReducer(
       secondStarted,
       builderActions.failStreaming({
         message: 'The second request failed.',
-        requestId: 'request-failure-2',
+        requestId: toBuilderRequestId('request-failure-2'),
         retryPrompt: 'Second failure',
       }),
     );
@@ -743,10 +744,10 @@ describe('builderSlice', () => {
     const withSecondCommit = builderReducer(
       {
         ...withFirstCommit,
-        currentRequestId: 'request-4',
+        currentRequestId: toBuilderRequestId('request-4'),
       },
       builderActions.completeStreaming({
-        requestId: 'request-4',
+        requestId: toBuilderRequestId('request-4'),
         snapshot: secondSnapshot,
         source: secondSnapshot.source,
         warnings: [],
@@ -824,7 +825,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a stale app',
-        requestId: 'request-reset-context',
+        requestId: toBuilderRequestId('request-reset-context'),
       }),
     );
     const reset = builderReducer(started, builderActions.resetToEmpty());
@@ -840,7 +841,7 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a stale app',
-        requestId: 'request-demo-context',
+        requestId: toBuilderRequestId('request-demo-context'),
       }),
     );
     const withFirstDemo = builderReducer(
@@ -875,20 +876,20 @@ describe('builderSlice', () => {
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'First prompt',
-        requestId: 'request-5',
+        requestId: toBuilderRequestId('request-5'),
       }),
     );
     const secondRequest = builderReducer(
       firstRequest,
       builderActions.beginStreaming({
         prompt: 'Second prompt',
-        requestId: 'request-6',
+        requestId: toBuilderRequestId('request-6'),
       }),
     );
     const staleCompletion = builderReducer(
       secondRequest,
       builderActions.completeStreaming({
-        requestId: 'request-5',
+        requestId: toBuilderRequestId('request-5'),
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
         warnings: [],
@@ -907,19 +908,19 @@ describe('builderSlice', () => {
       initialState,
       builderActions.beginStreaming({
         prompt: 'Cancel me',
-        requestId: 'request-7',
+        requestId: toBuilderRequestId('request-7'),
       }),
     );
     const canceled = builderReducer(
       started,
       builderActions.cancelStreaming({
-        requestId: 'request-7',
+        requestId: toBuilderRequestId('request-7'),
       }),
     );
     const staleCompletion = builderReducer(
       canceled,
       builderActions.completeStreaming({
-        requestId: 'request-7',
+        requestId: toBuilderRequestId('request-7'),
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
         warnings: [],

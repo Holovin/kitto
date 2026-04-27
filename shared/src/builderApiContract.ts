@@ -17,7 +17,12 @@ export type BuilderCommitSource = (typeof BUILDER_COMMIT_SOURCES)[number];
 export type BuilderCommitRepairOutcome = (typeof BUILDER_COMMIT_REPAIR_OUTCOMES)[number];
 export type PromptBuildValidationIssueSource = (typeof OPENUI_VALIDATION_ISSUE_SOURCES)[number];
 export type BuilderQualityIssueSeverity = (typeof BUILDER_QUALITY_ISSUE_SEVERITIES)[number];
-export type BuilderRequestId = string;
+declare const builderRequestIdBrand: unique symbol;
+export type BuilderRequestId = string & { readonly [builderRequestIdBrand]: 'BuilderRequestId' };
+
+export function toBuilderRequestId(value: string): BuilderRequestId {
+  return value as BuilderRequestId;
+}
 
 export interface PromptBuildValidationIssueSuggestion {
   kind: 'replace-text';
