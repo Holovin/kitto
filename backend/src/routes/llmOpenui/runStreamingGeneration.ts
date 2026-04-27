@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { APIConnectionError, APIConnectionTimeoutError, APIUserAbortError } from 'openai';
+import { createLinkedAbortController } from '#backend/abortController.js';
 import type { AppEnv } from '#backend/env.js';
 import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
@@ -39,24 +40,6 @@ function formatSseEvent(event: string, data: string) {
     .join('\n');
 
   return `event: ${event}\n${payload}\n\n`;
-}
-
-function createLinkedAbortController(signal?: AbortSignal) {
-  const abortController = new AbortController();
-  const handleAbort = () => abortController.abort();
-
-  if (signal?.aborted) {
-    handleAbort();
-  } else {
-    signal?.addEventListener('abort', handleAbort, { once: true });
-  }
-
-  return {
-    abortController,
-    cleanup() {
-      signal?.removeEventListener('abort', handleAbort);
-    },
-  };
 }
 
 function handleStreamingError(

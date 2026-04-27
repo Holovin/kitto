@@ -42,7 +42,7 @@ interface PromptIoLogEntryFields {
   repairOutcome?: PromptIoRepairOutcome;
 }
 
-export interface PromptIoLogEntry extends PromptIoLogEntryFields {}
+export type PromptIoLogEntry = PromptIoLogEntryFields;
 
 interface PromptLogWriteOptions {
   enabled: boolean;

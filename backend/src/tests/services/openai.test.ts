@@ -64,7 +64,6 @@ vi.mock('openai', () => {
       stream: responsesStreamMock,
     };
 
-    constructor(_options?: unknown) {}
   }
 
   return {
