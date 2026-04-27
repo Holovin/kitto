@@ -36,8 +36,7 @@ const SEMINAL_CREATE_REQUEST_PATTERN =
 const SEMINAL_MODIFY_REQUEST_PATTERN =
   /^\s*(?:add|append|change|edit|extend|fix|keep|modify|preserve|remove|rename|switch|turn\s+(?:it|this)|update)\b|^\s*(?:добавь|дополни|измени|исправь|обнови|оставь|переименуй|сохрани|удали)\b/i;
 
-const DEFAULT_MAX_SUMMARY_COST_BYTES = 800;
-const MAX_SUMMARY_COST_BYTES = 1_200;
+const MAX_SUMMARY_COST_BYTES = 2048;
 const HISTORY_SUMMARY_MAX_LINES = 6;
 const MAX_SUMMARY_LINE_WORDS = 8;
 
@@ -644,7 +643,7 @@ export function compactPromptBuildChatHistory(
   }
 
   if (omittedMessagesForSummary.length > 0) {
-    const summaryBudget = options.maxSummaryCostBytes ?? DEFAULT_MAX_SUMMARY_COST_BYTES;
+    const summaryBudget = options.maxSummaryCostBytes ?? MAX_SUMMARY_COST_BYTES;
     const maxSummaryCostBytes = Math.max(0, Math.min(summaryBudget, MAX_SUMMARY_COST_BYTES));
 
     const summaryMessage = buildHistorySummaryMessage(omittedMessagesForSummary, maxSummaryCostBytes);

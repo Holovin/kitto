@@ -202,8 +202,8 @@ describe('openui prompts', () => {
     expect(randomPrompt).toContain('roll = Mutation("write_computed_state", {');
   });
 
-  it('uses anchor fallback for task tracker wording and ambiguous random requests', () => {
-    const taskTrackerIntent = detectPromptRequestIntent('Build a task tracker.', {
+  it('uses anchor fallback and Jaccard thresholds for ambiguous intent cases', () => {
+    const taskTrackerIntent = detectPromptRequestIntent('Build a task tracker', {
       currentSource: '',
       mode: 'initial',
     });
@@ -211,11 +211,15 @@ describe('openui prompts', () => {
       currentSource: 'root = AppShell([])',
       mode: 'initial',
     });
+    const shortAmbiguousPromptVector = getPromptIntentCacheVector('Nice project idea.');
 
     expect(taskTrackerIntent.todo).toBe(true);
+    expect(taskTrackerIntent.random).toBe(false);
     expect(diceGameIntent.random).toBe(true);
     expect(diceGameIntent.compute).toBe(true);
+    expect(diceGameIntent.todo).toBe(false);
     expect(diceGameIntent.operation).toBe('modify');
+    expect(shortAmbiguousPromptVector).toBe('base');
   });
 
   it('formats request intent blocks from the same detector used by scoped prompt rules', () => {

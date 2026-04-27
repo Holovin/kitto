@@ -17,6 +17,9 @@ function tokenize(value: string) {
   return [...value.toLowerCase().matchAll(TOKEN_PATTERN)].map((match) => match[0] ?? '');
 }
 
+// Fallback mode is heuristic only: existing regex signals are optionally enriched by anchor
+// exemplar similarity and do not use embeddings, vector indexes, or external semantic search.
+// Similarity = Jaccard over lowercase token sets (intersection / union).
 function jaccardSimilarity(leftTokens: string[], rightTokens: string[]) {
   if (leftTokens.length === 0 || rightTokens.length === 0) {
     return 0;
@@ -34,7 +37,7 @@ function createEmptyConfidence(): Partial<Record<PromptIntentKey, number>> {
   return {};
 }
 
-export function classifyOpenUiPromptIntentWithAnchors(prompt: string): IntentClassifierResult {
+export function classifyOpenUiPromptIntentByAnchorJaccard(prompt: string): IntentClassifierResult {
   const promptTokens = tokenize(prompt);
   const confidence = createEmptyConfidence();
 
@@ -54,6 +57,7 @@ export function classifyOpenUiPromptIntentWithAnchors(prompt: string): IntentCla
   const intents = highConfidenceIntents.length > 0 ? highConfidenceIntents : sortedIntents.slice(0, 2).map(([intent]) => intent);
   const topScore = sortedIntents[0]?.[1] ?? 0;
   const secondScore = sortedIntents[1]?.[1] ?? 0;
+  // clarity labels the confidence geometry: clear = one intent is clearly above the threshold and margin.
 
   return {
     clarity: topScore >= HIGH_CONFIDENCE_THRESHOLD && topScore - secondScore >= 0.12 ? 'clear' : 'ambiguous',
@@ -62,14 +66,14 @@ export function classifyOpenUiPromptIntentWithAnchors(prompt: string): IntentCla
   };
 }
 
-export function mergeAnchorIntentFallback(intents: PromptIntentVector, prompt: string): PromptIntentVector {
+export function mergePromptIntentsWithAnchorJaccardFallback(intents: PromptIntentVector, prompt: string): PromptIntentVector {
   const activeIntentCount = Object.values(intents).filter(Boolean).length;
 
   if (activeIntentCount >= 2) {
     return intents;
   }
 
-  const classification = classifyOpenUiPromptIntentWithAnchors(prompt);
+  const classification = classifyOpenUiPromptIntentByAnchorJaccard(prompt);
   const mergedIntents = { ...intents };
 
   for (const intent of classification.intents) {

@@ -12,7 +12,7 @@ import {
   promptRequestsVisualStyling,
   isSimplePromptRequest,
 } from './qualitySignals.js';
-import { mergeAnchorIntentFallback } from './intentClassifier.js';
+import { mergePromptIntentsWithAnchorJaccardFallback } from './intentClassifier.js';
 
 export interface PromptIntentVector {
   compute: boolean;
@@ -66,7 +66,9 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
   const trimmedPrompt = prompt.trim();
   const random = promptRequestsRandom(trimmedPrompt);
 
-  return mergeAnchorIntentFallback({
+  // Primary regex intent detectors run first; anchor+Jaccard fallback is the secondary heuristic pass.
+  return mergePromptIntentsWithAnchorJaccardFallback(
+    {
     compute: promptRequestsCompute(trimmedPrompt) || random,
     controlShowcase: promptRequestsControlShowcase(trimmedPrompt),
     delete: promptRequestsDelete(trimmedPrompt),
@@ -79,7 +81,9 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
       promptRequestsVisualStyling(trimmedPrompt),
     todo: promptRequestsTodo(trimmedPrompt),
     validation: promptRequestsValidation(trimmedPrompt),
-  }, trimmedPrompt);
+    },
+    trimmedPrompt,
+  );
 }
 
 const CREATE_OR_REPLACE_REQUEST_PATTERN =
