@@ -1,35 +1,16 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { domainActions, domainReducer } from '@pages/Chat/builder/store/domainSlice';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDomainToolProvider } from '@pages/Chat/builder/openui/runtime/createDomainToolProvider';
+import { createBuilderToolProvider } from '@pages/Chat/builder/openui/runtime/toolProvider';
 
-type MockState = {
-  domain: ReturnType<typeof domainReducer>;
-};
+let domainData: Record<string, unknown> = {};
+let builderToolProvider: ReturnType<typeof createDomainToolProvider>;
 
-let mockState: MockState = {
-  domain: domainReducer(undefined, { type: 'domain/test-init' }),
-};
-
-const mockStore = {
-  dispatch(action: unknown) {
-    mockState = {
-      domain: domainReducer(mockState.domain, action as never),
-    };
-
-    return action;
-  },
-  getState() {
-    return mockState;
-  },
-};
-
-vi.mock('@store/store', () => ({
-  store: mockStore,
-}));
-
-let builderToolProvider: typeof import('@pages/Chat/builder/openui/runtime/toolProvider').builderToolProvider;
+function cloneDomainData(data: Record<string, unknown>) {
+  return structuredClone(data);
+}
 
 function seedDomainData(data: Record<string, unknown>) {
-  mockStore.dispatch(domainActions.replaceData(data));
+  domainData = cloneDomainData(data);
 }
 
 function createTaskRows() {
@@ -47,31 +28,31 @@ function createTaskRows() {
   ];
 }
 
-describe('builderToolProvider', () => {
-  beforeAll(async () => {
-    ({ builderToolProvider } = await import('@pages/Chat/builder/openui/runtime/toolProvider'));
-  });
-
+describe('createDomainToolProvider', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   beforeEach(() => {
-    mockState = {
-      domain: domainReducer(undefined, { type: 'domain/test-reset' }),
-    };
+    domainData = {};
+    builderToolProvider = createDomainToolProvider({
+      readDomainData: () => domainData,
+      replaceDomainData: (nextData) => {
+        domainData = cloneDomainData(nextData);
+      },
+    });
   });
 
   it('rejects write_state when path is empty', async () => {
     await expect(builderToolProvider.write_state({ path: '   ', value: 'Ada' })).rejects.toThrow('write_state: State path must be a non-empty dot-path.');
-    expect(mockState.domain.data).toEqual({});
+    expect(domainData).toEqual({});
   });
 
   it('rejects merge_state when path is empty', async () => {
     await expect(builderToolProvider.merge_state({ path: '   ', patch: { name: 'Ada' } })).rejects.toThrow(
       'merge_state: State path must be a non-empty dot-path.',
     );
-    expect(mockState.domain.data).toEqual({});
+    expect(domainData).toEqual({});
   });
 
   it('rejects remove_state without an explicit index', async () => {
@@ -82,7 +63,7 @@ describe('builderToolProvider', () => {
     });
 
     await expect(builderToolProvider.remove_state({ path: 'app.tasks' })).rejects.toThrow('remove_state: index must be a non-negative integer.');
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: ['first', 'second'],
       },
@@ -101,7 +82,7 @@ describe('builderToolProvider', () => {
     await expect(builderToolProvider.remove_state({ path: 'app.tasks', index: 0 })).rejects.toThrow(
       'remove_state: State path "app.tasks" does not contain an array value.',
     );
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: {
           title: 'not an array',
@@ -120,7 +101,7 @@ describe('builderToolProvider', () => {
     await expect(builderToolProvider.remove_state({ path: 'app.tasks', index: -1 })).rejects.toThrow(
       'remove_state: index must be a non-negative integer.',
     );
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: ['first', 'second'],
       },
@@ -129,7 +110,7 @@ describe('builderToolProvider', () => {
 
   it('writes to a valid state path', async () => {
     await expect(builderToolProvider.write_state({ path: 'app.profile.name', value: 'Ada' })).resolves.toBe('Ada');
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         profile: {
           name: 'Ada',
@@ -155,7 +136,7 @@ describe('builderToolProvider', () => {
 
     (value as { name: string }).name = 'Grace';
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         profile: {
           name: 'Ada',
@@ -182,7 +163,7 @@ describe('builderToolProvider', () => {
       name: 'Grace',
       role: 'engineer',
     });
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         profile: {
           name: 'Grace',
@@ -201,7 +182,7 @@ describe('builderToolProvider', () => {
     });
 
     await expect(builderToolProvider.remove_state({ path: 'app.tasks', index: 1 })).resolves.toEqual(['first', 'third']);
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: ['first', 'third'],
       },
@@ -219,7 +200,7 @@ describe('builderToolProvider', () => {
       { title: 'Draft tests' },
       { title: 'Ship fix' },
     ]);
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [{ title: 'Draft tests' }, { title: 'Ship fix' }],
       },
@@ -246,7 +227,7 @@ describe('builderToolProvider', () => {
       { id: 'generated-item-id', title: 'Review docs', completed: false },
     ]);
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Review docs', completed: false }],
       },
@@ -273,7 +254,7 @@ describe('builderToolProvider', () => {
     ]);
 
     expect(randomUUID).not.toHaveBeenCalled();
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [...createTaskRows(), { id: 'task-3', title: 'Review docs', completed: false }],
       },
@@ -300,7 +281,7 @@ describe('builderToolProvider', () => {
     ]);
 
     expect(randomUUID).toHaveBeenCalledTimes(1);
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Duplicate id', completed: false }],
       },
@@ -328,7 +309,7 @@ describe('builderToolProvider', () => {
     ]);
 
     expect(randomUUID).toHaveBeenCalledTimes(3);
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [...createTaskRows(), { id: 'generated-item-id', title: 'Collision-safe row', completed: false }],
       },
@@ -367,7 +348,7 @@ describe('builderToolProvider', () => {
       { id: 'generated-item-id-2', title: 'Whitespace id', completed: false },
     ]);
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [
           ...createTaskRows(),
@@ -389,7 +370,7 @@ describe('builderToolProvider', () => {
     expect(result).toHaveLength(1);
     expect(typeof result[0]?.id).toBe('string');
     expect((result[0]?.id as string).length).toBeGreaterThan(0);
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [
           {
@@ -406,7 +387,7 @@ describe('builderToolProvider', () => {
     await expect(builderToolProvider.append_item({ path: 'app.tasks', value: ['broken'] })).rejects.toThrow(
       'append_item: value must be a plain object.',
     );
-    expect(mockState.domain.data).toEqual({});
+    expect(domainData).toEqual({});
   });
 
   it('rejects append_item when the target path is not an array', async () => {
@@ -425,7 +406,7 @@ describe('builderToolProvider', () => {
       }),
     ).rejects.toThrow('append_item: State path "app.tasks" does not contain an array value.');
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: {
           broken: true,
@@ -453,7 +434,7 @@ describe('builderToolProvider', () => {
       { id: 'task-2', title: 'Ship fix', completed: true },
     ]);
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [
           { id: 'task-1', title: 'Draft tests', completed: true },
@@ -574,7 +555,7 @@ describe('builderToolProvider', () => {
       { id: 'task-2', title: 'Ship fix', completed: true },
     ]);
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [
           { id: 'task-1', title: 'Review specs', completed: false },
@@ -677,7 +658,7 @@ describe('builderToolProvider', () => {
       }),
     ).resolves.toEqual([{ id: 'task-2', title: 'Ship fix', completed: true }]);
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         tasks: [{ id: 'task-2', title: 'Ship fix', completed: true }],
       },
@@ -797,7 +778,7 @@ describe('builderToolProvider', () => {
       }),
     ).resolves.toEqual({ value: 4 });
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         roll: 4,
       },
@@ -819,7 +800,7 @@ describe('builderToolProvider', () => {
       }),
     ).rejects.toThrow('write_computed_state: options must be a plain object.');
 
-    expect(mockState.domain.data).toEqual({
+    expect(domainData).toEqual({
       app: {
         roll: 2,
       },
@@ -834,6 +815,35 @@ describe('builderToolProvider', () => {
       }),
     ).rejects.toThrow('write_computed_state: State path must be a non-empty dot-path.');
 
-    expect(mockState.domain.data).toEqual({});
+    expect(domainData).toEqual({});
+  });
+});
+
+describe('createBuilderToolProvider', () => {
+  it('replaces domain data and syncs the latest builder snapshot for mutations', async () => {
+    let localDomainData: Record<string, unknown> = {};
+    let replacedDomainData: Record<string, unknown> | null = null;
+    let syncedSnapshotDomainData: Record<string, unknown> | null = null;
+    const toolProvider = createBuilderToolProvider({
+      readDomainData: () => localDomainData,
+      replaceDomainData: (nextData) => {
+        replacedDomainData = cloneDomainData(nextData);
+        localDomainData = cloneDomainData(nextData);
+      },
+      syncLatestSnapshotDomainData: (nextData) => {
+        syncedSnapshotDomainData = cloneDomainData(nextData);
+      },
+    });
+
+    await expect(toolProvider.write_state({ path: 'app.profile.name', value: 'Ada' })).resolves.toBe('Ada');
+
+    expect(replacedDomainData).toEqual({
+      app: {
+        profile: {
+          name: 'Ada',
+        },
+      },
+    });
+    expect(syncedSnapshotDomainData).toEqual(replacedDomainData);
   });
 });

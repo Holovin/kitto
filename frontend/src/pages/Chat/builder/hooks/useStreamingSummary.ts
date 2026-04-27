@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
+import { selectChatMessages } from '@pages/Chat/builder/store/selectors';
 import type { BuilderRequestId } from '@pages/Chat/builder/types';
-import { useAppDispatch } from '@store/hooks';
-import { store } from '@store/store';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
 
 const PENDING_SUMMARY_THROTTLE_MS = 150;
 
@@ -34,7 +34,14 @@ function normalizeCommittedSummary(messageContent: string) {
 
 export function useStreamingSummary() {
   const dispatch = useAppDispatch();
+  const chatMessages = useAppSelector(selectChatMessages);
+  const chatMessagesRef = useRef(chatMessages);
   const pendingSummaryStatesRef = useRef<Map<BuilderRequestId, PendingSummaryState>>(new Map());
+  const summaryMessageContentRef = useRef<Map<BuilderRequestId, string>>(new Map());
+
+  useEffect(() => {
+    chatMessagesRef.current = chatMessages;
+  }, [chatMessages]);
 
   useEffect(() => {
     const pendingSummaryStates = pendingSummaryStatesRef.current;
@@ -91,9 +98,11 @@ export function useStreamingSummary() {
       return;
     }
 
+    const messageContent = options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary;
+    summaryMessageContentRef.current.set(requestId, messageContent);
     dispatch(
       builderActions.appendChatMessage({
-        content: options?.pending ? formatPendingSummary(trimmedSummary) : trimmedSummary,
+        content: messageContent,
         excludeFromLlmContext: pendingSummaryState.excludeFromLlmContext,
         isStreaming: options?.pending ? true : undefined,
         messageKey: getStreamingSummaryMessageKey(requestId),
@@ -111,6 +120,7 @@ export function useStreamingSummary() {
     const pendingSummaryState = pendingSummaryStatesRef.current.get(requestId);
     clearPendingSummaryTimer(pendingSummaryState);
     pendingSummaryStatesRef.current.delete(requestId);
+    summaryMessageContentRef.current.delete(requestId);
 
     dispatch(
       builderActions.removeChatMessageByKey({
@@ -136,9 +146,13 @@ export function useStreamingSummary() {
       return '';
     }
 
-    const pendingSummaryMessage = store
-      .getState()
-      .builder.chatMessages.find((message) => message.messageKey === getStreamingSummaryMessageKey(requestId));
+    const cachedMessageContent = summaryMessageContentRef.current.get(requestId);
+
+    if (cachedMessageContent) {
+      return normalizeCommittedSummary(cachedMessageContent);
+    }
+
+    const pendingSummaryMessage = chatMessagesRef.current.find((message) => message.messageKey === getStreamingSummaryMessageKey(requestId));
 
     if (!pendingSummaryMessage) {
       return '';

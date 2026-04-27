@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useEffect, useRef, type FormEvent } from 'react';
 import { useConfigQuery } from '@api/apiSlice';
 import {
   getBuilderMaxRepairAttempts,
@@ -16,6 +16,9 @@ import { runBuilderGeneration } from './builderGenerationService';
 import { resolveBuilderComposerPrompt } from './submissionPrompt';
 import { resolveRuntimeConfigNotice } from '@pages/Chat/builder/components/chatNotices';
 import {
+  selectChatMessages,
+  selectCommittedSource,
+  selectDomainData,
   selectDraftPrompt,
   selectRetryPrompt,
 } from '@pages/Chat/builder/store/selectors';
@@ -26,7 +29,6 @@ import type {
 } from '@pages/Chat/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
-import { store } from '@store/store';
 
 interface UseBuilderSubmissionOptions {
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
@@ -34,8 +36,12 @@ interface UseBuilderSubmissionOptions {
 
 export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
+  const chatMessages = useAppSelector(selectChatMessages);
+  const committedSource = useAppSelector(selectCommittedSource);
+  const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
+  const domainDataRef = useRef(domainData);
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data, isError }) => ({
       data,
@@ -61,6 +67,10 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
     showStreamingSummaryStatus: streamingSummary.upsertStreamingStatusMessage,
     throwIfInactiveRequest: generationLifecycle.throwIfInactiveRequest,
   });
+
+  useEffect(() => {
+    domainDataRef.current = domainData;
+  }, [domainData]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,11 +102,10 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       return;
     }
 
-    const currentState = store.getState();
     const request: PromptBuildRequest = {
       prompt: nextPrompt,
-      currentSource: currentState.builder.committedSource,
-      chatHistory: currentState.builder.chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
+      currentSource: committedSource,
+      chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
         content,
         excludeFromLlmContext,
         role,
@@ -120,7 +129,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       abortController,
       apiBaseUrl: getBackendApiBaseUrl(),
       dispatch,
-      getDomainData: () => store.getState().domain.data,
+      getDomainData: () => domainDataRef.current,
       lifecycle: generationLifecycle,
       request,
       requestId,

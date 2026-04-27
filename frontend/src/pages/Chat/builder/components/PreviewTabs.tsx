@@ -20,7 +20,7 @@ import {
   mapParseResultToIssues,
   shouldResetRuntimeIssues,
 } from '@pages/Chat/builder/openui/runtime/issues';
-import { builderToolProvider } from '@pages/Chat/builder/openui/runtime/toolProvider';
+import { createBuilderToolProvider } from '@pages/Chat/builder/openui/runtime/toolProvider';
 import {
   selectActiveTab,
   selectDefinitionWarnings,
@@ -53,6 +53,17 @@ interface PreviewTabsProps {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+function createDomainDataCell(initialData: Record<string, unknown>) {
+  let currentData = initialData;
+
+  return {
+    read: () => currentData,
+    replace: (nextData: Record<string, unknown>) => {
+      currentData = nextData;
+    },
+  };
 }
 
 const textEncoder = new TextEncoder();
@@ -117,6 +128,23 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
   const runtimeIssueScope = `${history.length}:${currentSnapshot?.committedAt ?? ''}:${previewSource}:${isShowingRejectedDefinition ? 'rejected' : 'preview'}:${rendererResetVersion}`;
   const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
+  const toolProvider = useMemo(
+    () => {
+      const domainDataCell = createDomainDataCell(domainData);
+
+      return createBuilderToolProvider({
+        readDomainData: domainDataCell.read,
+        replaceDomainData: (nextData) => {
+          domainDataCell.replace(nextData);
+          dispatch(domainActions.replaceData(nextData));
+        },
+        syncLatestSnapshotDomainData: (nextData) => {
+          dispatch(builderActions.syncLatestSnapshotState({ domainData: nextData }));
+        },
+      });
+    },
+    [dispatch, domainData],
+  );
   const combinedIssues = combinePreviewIssues({
     isPreviewEmptyCanvas,
     isShowingRejectedDefinition,
@@ -439,7 +467,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
                         </div>
                       }
                       response={deferredPreviewSource}
-                      toolProvider={builderToolProvider}
+                      toolProvider={toolProvider}
                     />
                   </ErrorBoundary>
                 </div>

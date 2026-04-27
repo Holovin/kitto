@@ -234,17 +234,11 @@ vi.mock('@store/hooks', () => ({
   },
 }));
 
-vi.mock('@store/errorRecovery', () => ({
-  resetAppState: () => {
-    const store = testHarness.storeRef.current;
-
-    if (!store) {
-      throw new Error('Test store is not initialized.');
-    }
-
-    store.dispatch({ type: 'domain/resetDomainState' });
-    store.dispatch({ type: 'builderSession/resetRuntimeSessionState' });
-    store.dispatch({ type: 'builder/resetToEmpty' });
+vi.mock('@store/resetAppState', () => ({
+  resetAppStateWithDispatch: (dispatch: (action: { type: string }) => unknown) => {
+    dispatch({ type: 'domain/resetDomainState' });
+    dispatch({ type: 'builderSession/resetRuntimeSessionState' });
+    dispatch({ type: 'builder/resetToEmpty' });
   },
 }));
 

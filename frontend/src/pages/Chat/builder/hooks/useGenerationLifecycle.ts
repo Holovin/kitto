@@ -5,11 +5,10 @@ import { getBuilderRequestErrorMessage } from '@pages/Chat/builder/api/requestEr
 import { BuilderStreamTimeoutError, type BuilderStreamTimeoutKind } from '@pages/Chat/builder/api/streamGenerate';
 import { useBuilderRequestControls } from '@pages/Chat/builder/context/builderRequestControls';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
-import { selectIsStreaming } from '@pages/Chat/builder/store/selectors';
+import { selectCurrentRequestId, selectIsStreaming } from '@pages/Chat/builder/store/selectors';
 import type { BuilderChatNotice, BuilderGeneratedDraft, PromptBuildRequest, BuilderRequestId } from '@pages/Chat/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
-import { store } from '@store/store';
 
 interface UseGenerationLifecycleOptions {
   clearStreamingSummaryMessage: (requestId: BuilderRequestId) => void;
@@ -48,12 +47,18 @@ export function useGenerationLifecycle({
     registerCancelActiveRequest,
   } = useBuilderRequestControls();
   const activeRequestIdRef = useRef<BuilderRequestId | null>(null);
+  const selectedCurrentRequestId = useAppSelector(selectCurrentRequestId);
+  const currentRequestIdRef = useRef<BuilderRequestId | null>(selectedCurrentRequestId);
   const userCancelledRequestIdRef = useRef<BuilderRequestId | null>(null);
   const isStreaming = useAppSelector(selectIsStreaming);
   const isSubmitting = isStreaming;
 
+  useEffect(() => {
+    currentRequestIdRef.current = selectedCurrentRequestId;
+  }, [selectedCurrentRequestId]);
+
   function isActiveRequest(requestId: BuilderRequestId) {
-    return activeRequestIdRef.current === requestId && store.getState().builder.currentRequestId === requestId;
+    return activeRequestIdRef.current === requestId && currentRequestIdRef.current === requestId;
   }
 
   function clearActiveRequest(requestId: BuilderRequestId) {
@@ -95,7 +100,7 @@ export function useGenerationLifecycle({
 
   function cancelRequest(requestId: BuilderRequestId, options?: { abort?: boolean }) {
     const isTrackedActiveRequest = activeRequestIdRef.current === requestId;
-    const isCurrentStreamingRequest = store.getState().builder.currentRequestId === requestId;
+    const isCurrentStreamingRequest = currentRequestIdRef.current === requestId;
 
     if (!isTrackedActiveRequest && !isCurrentStreamingRequest) {
       return;
@@ -113,6 +118,7 @@ export function useGenerationLifecycle({
 
     clearActiveRequest(requestId);
     if (isCurrentStreamingRequest) {
+      currentRequestIdRef.current = null;
       dispatch(builderActions.cancelStreaming({ requestId }));
     }
 
@@ -151,6 +157,9 @@ export function useGenerationLifecycle({
     }
 
     clearActiveRequest(requestId);
+    if (currentRequestIdRef.current === requestId) {
+      currentRequestIdRef.current = null;
+    }
     dispatch(
       builderActions.failStreaming({
         requestId,
@@ -207,6 +216,7 @@ export function useGenerationLifecycle({
     }
 
     activeRequestIdRef.current = requestId;
+    currentRequestIdRef.current = requestId;
     dispatch(builderActions.beginStreaming({ prompt, requestId }));
 
     const abortController = createAbortController();
@@ -220,6 +230,9 @@ export function useGenerationLifecycle({
   function completeGeneration(requestId: BuilderRequestId) {
     clearRequestHandles(requestId);
     clearActiveRequest(requestId);
+    if (currentRequestIdRef.current === requestId) {
+      currentRequestIdRef.current = null;
+    }
   }
 
   function finalizeGeneration(requestId: BuilderRequestId, abortController: AbortController) {

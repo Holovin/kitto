@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent } from 'react';
+import { useEffect, useRef, type ChangeEvent } from 'react';
 import { useBuilderRequestControls } from '@pages/Chat/builder/context/builderRequestControls';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { builderSessionActions } from '@pages/Chat/builder/store/builderSessionSlice';
@@ -23,8 +23,7 @@ import {
 } from '@pages/Chat/builder/store/selectors';
 import type { BuilderChatNotice } from '@pages/Chat/builder/types';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
-import { resetAppState } from '@store/errorRecovery';
-import { store } from '@store/store';
+import { resetAppStateWithDispatch } from '@store/resetAppState';
 
 interface UseBuilderHistoryControlsOptions {
   onSystemNotice: (notice: BuilderChatNotice | null) => void;
@@ -79,10 +78,6 @@ function preloadStandaloneHtmlModule() {
     });
 }
 
-function hasActiveGeneration() {
-  return selectIsStreaming(store.getState());
-}
-
 export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryControlsOptions) {
   const dispatch = useAppDispatch();
   const { cancelActiveRequest } = useBuilderRequestControls();
@@ -93,6 +88,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
   const hasRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const isStreaming = useAppSelector(selectIsStreaming);
   const redoHistory = useAppSelector(selectRedoHistory);
+  const isStreamingRef = useRef(isStreaming);
   const previousSnapshot = history.at(-2);
   const redoSnapshot = redoHistory.at(-1);
   const historyVersionCount = countCommittedVersions(history);
@@ -107,6 +103,10 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
     redoVersionCount,
   });
   const isPristineCanvas = !committedSource.trim() && historyVersionState.totalVersionCount === 0;
+
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   function appendSuccessChatMessage(content: string, messageKey?: string) {
     onSystemNotice(null);
@@ -229,7 +229,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
           ? validHistory
           : [createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData)];
 
-      resetAppState();
+      resetAppStateWithDispatch(dispatch);
       dispatch(domainActions.replaceData(importedDefinition.domainData));
       dispatch(builderSessionActions.replaceRuntimeSessionState(importedDefinition.runtimeState));
       dispatch(
@@ -250,7 +250,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
   }
 
   function handleUndo() {
-    if (hasActiveGeneration() || !previousSnapshot) {
+    if (isStreamingRef.current || !previousSnapshot) {
       return;
     }
 
@@ -260,7 +260,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
   }
 
   function handleRedo() {
-    if (hasActiveGeneration() || !redoSnapshot) {
+    if (isStreamingRef.current || !redoSnapshot) {
       return;
     }
 
@@ -270,12 +270,12 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
   }
 
   function handleResetToEmpty() {
-    if (hasActiveGeneration() || !historyVersionState.canReset) {
+    if (isStreamingRef.current || !historyVersionState.canReset) {
       return;
     }
 
     onSystemNotice(null);
-    resetAppState();
+    resetAppStateWithDispatch(dispatch);
     onSystemNotice({
       content: 'Cleared the local app state and reset the builder.',
       messageKey: SYSTEM_CHAT_MESSAGE_KEYS.builderResetStatus,
