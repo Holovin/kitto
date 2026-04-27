@@ -6,15 +6,14 @@ import {
   ELEMENT_REFERENCE_ITEMS,
   PROMPT_REFERENCE_GROUPS,
   PROMPT_REFERENCE_ITEMS,
-  createReferenceAnchorId,
   resolveReferenceTargetFromHash,
 } from '@pages/Elements/referenceNavigation';
 
 describe('referenceNavigation', () => {
   it('creates stable anchor ids for components and actions', () => {
-    expect(createReferenceAnchorId('Button')).toBe('button');
-    expect(createReferenceAnchorId('TextArea')).toBe('text-area');
-    expect(createReferenceAnchorId('read_state')).toBe('read_state');
+    expect(ELEMENT_REFERENCE_ITEMS.find(({ label }) => label === 'Button')?.id).toBe('button');
+    expect(ELEMENT_REFERENCE_ITEMS.find(({ label }) => label === 'TextArea')?.id).toBe('text-area');
+    expect(ACTION_REFERENCE_ITEMS.find(({ label }) => label === 'read_state')?.id).toBe('read_state');
   });
 
   it('keeps the current element and action ordering in the table of contents', () => {

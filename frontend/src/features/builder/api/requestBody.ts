@@ -7,7 +7,7 @@ type SerializedBuilderLlmRequest = Pick<PromptBuildRequest, 'chatHistory' | 'cur
   validationIssues?: PromptBuildRequest['validationIssues'];
 };
 
-export function createBuilderLlmRequestPayload(request: PromptBuildRequest): SerializedBuilderLlmRequest {
+function createBuilderLlmRequestPayload(request: PromptBuildRequest): SerializedBuilderLlmRequest {
   const payload: SerializedBuilderLlmRequest = {
     prompt: request.prompt,
     currentSource: request.currentSource,

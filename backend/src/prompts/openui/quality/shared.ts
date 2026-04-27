@@ -5,31 +5,21 @@ import type { PromptBuildValidationIssue } from '#backend/prompts/openui/types.j
 
 export {
   collectActionRunRefGroups,
-  collectActionRunRefsFromActionAst,
   collectPersistedQueryRefs,
-  collectThemeAppearanceRefNames,
   collectThemeAppearanceRefNamesFromStatements,
-  containsRuntimeRef,
   createOpenUiProgramIndex,
   doPathsOverlapByPrefix,
-  escapeRegExp,
   extractObjectStringLiteral,
   extractPathLiteral,
   extractStringLiteral,
   hasThemeDependentContainerAppearance,
-  isAstNode,
   isElementNode,
   maskStringLiterals,
   normalizeSourceForValidation,
-  THEME_CONTAINER_TYPE_NAMES,
-  visitOpenUiValue,
 } from '@kitto-openui/shared/openuiAst.js';
 export type {
-  OpenUiActionRunRef as ActionRunRef,
-  OpenUiExpressionAst as ExpressionAst,
   OpenUiPersistedPathStatementRef as PersistedPathStatementRef,
   OpenUiProgramIndex,
-  OpenUiQualityMetrics,
 } from '@kitto-openui/shared/openuiAst.js';
 
 export const parser = createParser(openUiLibrarySchema as LibraryJSONSchema);

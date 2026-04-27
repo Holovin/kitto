@@ -7,14 +7,14 @@ export type {
   RawPromptBuildChatHistoryMessage,
 } from './builderApiContract.js';
 
-export interface PromptBuildChatHistoryCompactionResult {
+interface PromptBuildChatHistoryCompactionResult {
   chatHistory: PromptBuildChatHistoryMessage[];
   compactedByBytes: boolean;
   compactedByItemLimit: boolean;
   omittedChatMessages: number;
 }
 
-export interface CompactPromptBuildChatHistoryOptions {
+interface CompactPromptBuildChatHistoryOptions {
   getSizeBytes: (messages: PromptBuildChatHistoryMessage[]) => number;
   maxBytes: number;
   maxItems?: number;

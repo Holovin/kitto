@@ -1,1 +1,1 @@
-export { collectQualityMetrics, visitOpenUiValue } from '@kitto-openui/shared/openuiAst.js';
+export { visitOpenUiValue } from '@kitto-openui/shared/openuiAst.js';

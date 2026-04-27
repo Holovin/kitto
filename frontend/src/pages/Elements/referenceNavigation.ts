@@ -29,7 +29,7 @@ function collapseReferenceValue(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-export function createReferenceAnchorId(value: string) {
+function createReferenceAnchorId(value: string) {
   return value
     .trim()
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')

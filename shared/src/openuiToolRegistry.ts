@@ -37,9 +37,9 @@ export const OPENUI_COMPUTE_RETURN_TYPES = ['string', 'number', 'boolean'] as co
 export type OpenUiComputeOp = (typeof OPENUI_COMPUTE_OPS)[number];
 export type OpenUiComputeReturnType = (typeof OPENUI_COMPUTE_RETURN_TYPES)[number];
 
-export type OpenUiJsonSchema = Record<string, unknown>;
+type OpenUiJsonSchema = Record<string, unknown>;
 
-export interface OpenUiPromptToolSpec {
+interface OpenUiPromptToolSpec {
   annotations?: Record<string, unknown>;
   description: string;
   inputSchema: OpenUiJsonSchema;
@@ -47,7 +47,7 @@ export interface OpenUiPromptToolSpec {
   outputSchema: OpenUiJsonSchema;
 }
 
-export interface OpenUiToolRegistryEntry {
+interface OpenUiToolRegistryEntry {
   actionInputSchema: OpenUiJsonSchema;
   annotations?: Record<string, unknown>;
   description: string;
@@ -108,7 +108,7 @@ const computeActionProperties = {
   },
 } as const satisfies Record<string, OpenUiJsonSchema>;
 
-export const openUiComputeToolSharedProperties = {
+const openUiComputeToolSharedProperties = {
   input: {
     description: 'Primary input value for unary operations.',
   },
@@ -438,10 +438,9 @@ export const OPENUI_TOOL_REGISTRY = [
   },
 ] as const satisfies readonly OpenUiToolRegistryEntry[];
 
-export type OpenUiToolName = (typeof OPENUI_TOOL_REGISTRY)[number]['name'];
+type OpenUiToolName = (typeof OPENUI_TOOL_REGISTRY)[number]['name'];
 
 export const OPENUI_TOOL_NAMES = OPENUI_TOOL_REGISTRY.map((tool) => tool.name) as OpenUiToolName[];
-export const OPENUI_TOOL_NAME_SET = new Set<string>(OPENUI_TOOL_NAMES);
 
 const OPENUI_PROMPT_TOOL_ORDER = [
   'read_state',

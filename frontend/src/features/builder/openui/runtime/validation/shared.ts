@@ -4,16 +4,9 @@ import type { PromptBuildValidationIssue, BuilderQualityIssueSeverity } from '@f
 import type { OpenUiProgramIndex } from '@kitto-openui/shared/openuiAst.js';
 
 export {
-  collectActionRunRefGroups,
-  collectActionRunRefsFromActionAst,
-  collectOwnedActionRunRefGroups,
-  collectPersistedQueryRefs,
-  collectRefreshablePersistedMutationPaths,
-  collectTopLevelStatements,
   createOpenUiProgramIndex,
   doPathsOverlapByPrefix,
   escapeRegExp,
-  extractObjectStringLiteral,
   extractPathLiteral,
   extractStringLiteral,
   hasStateRefNamed,
@@ -28,13 +21,7 @@ export {
   visitOpenUiValue,
 } from '@kitto-openui/shared/openuiAst.js';
 export type {
-  OpenUiActionRunRef as ActionRunRef,
-  OpenUiExpressionAst as ExpressionAst,
-  OpenUiOwnedActionRunRefGroup as OwnedActionRunRefGroup,
-  OpenUiPersistedPathStatementRef as PersistedPathStatementRef,
   OpenUiProgramIndex,
-  OpenUiQualityMetrics,
-  OpenUiTopLevelStatement,
 } from '@kitto-openui/shared/openuiAst.js';
 
 const openUiJsonSchema = builderOpenUiLibrary.toJSONSchema();
@@ -64,13 +51,7 @@ export interface OpenUiValidationContext {
   validation: OpenUiValidationResult;
 }
 
-export interface OpenUiFunctionCallMatch {
-  args: string[];
-  text: string;
-}
-
-export type ToolAst = ParseResult['queryStatements'][number]['toolAST'] | ParseResult['mutationStatements'][number]['toolAST'];
-export type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
+type OpenUiQualityIssueSeverity = BuilderQualityIssueSeverity;
 
 export interface OpenUiQualityIssue extends PromptBuildValidationIssue {
   severity: OpenUiQualityIssueSeverity;
