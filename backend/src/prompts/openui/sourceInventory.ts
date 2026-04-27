@@ -96,7 +96,7 @@ function collectRuntimeStateNames(declaredStateNames: string[]) {
 }
 
 export function buildCurrentSourceInventory(source: string) {
-  const trimmedSource = typeof source === 'string' ? source.trim() : '';
+  const trimmedSource = source.trim();
 
   if (!trimmedSource) {
     return null;

@@ -708,6 +708,57 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
+  it('rejects repair-shaped requests without an explicit mode before calling the OpenAI service', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'repair this invalid app',
+        currentSource: 'root = AppShell([])',
+        invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid drafts on initial requests before calling the OpenAI service', async () => {
+    const { app } = createRouteApp();
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'build a compact app',
+        currentSource: '',
+        invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
+        mode: 'initial',
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'The request payload is invalid.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('rejects undefined-state repair issues without structured context', async () => {
     const { app } = createRouteApp();
 

@@ -125,9 +125,7 @@ const CURRENT_SOURCE_INVENTORY_TEMPLATE_BLOCK = [
 ].join('\n');
 
 export function buildOpenUiRawUserRequest(request: PromptBuildRequest) {
-  const promptValue = typeof request.prompt === 'string' ? request.prompt : '';
-
-  return promptValue.trim() ? promptValue : '(empty user request)';
+  return request.prompt.trim() ? request.prompt : '(empty user request)';
 }
 
 export function buildOpenUiAssistantSummaryMessage(summary: string) {
@@ -199,9 +197,9 @@ export function buildOpenUiUserPromptTemplate() {
 }
 
 export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
-  const currentSourceValue = typeof request.currentSource === 'string' ? request.currentSource : '';
+  const currentSourceValue = request.currentSource;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
-  const intentPrompt = typeof request.prompt === 'string' ? request.prompt : '';
+  const intentPrompt = request.prompt;
   const requestIntentBlock = formatPromptRequestIntentBlock(
     detectPromptRequestIntent(intentPrompt, {
       currentSource: currentSourceValue,
@@ -220,25 +218,18 @@ export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
 export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: BuildOpenUiUserPromptOptions = {}) {
   if (request.mode === 'repair') {
     return buildOpenUiRepairPrompt({
-      attemptNumber:
-        typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
-          ? Math.floor(request.repairAttemptNumber)
-          : 1,
+      attemptNumber: request.repairAttemptNumber ?? 1,
       chatHistory: filterPromptBuildChatHistory(request.chatHistory, options.chatHistoryMaxItems),
-      committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
-      invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
-      issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],
-      maxRepairAttempts:
-        typeof options.maxRepairAttempts === 'number' && options.maxRepairAttempts > 0 ? Math.floor(options.maxRepairAttempts) : 1,
-      promptMaxChars:
-        typeof options.modelPromptMaxChars === 'number' && options.modelPromptMaxChars > 0
-          ? Math.floor(options.modelPromptMaxChars)
-          : DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS,
+      committedSource: request.currentSource,
+      invalidSource: request.invalidDraft ?? '',
+      issues: request.validationIssues ?? [],
+      maxRepairAttempts: options.maxRepairAttempts ?? 1,
+      promptMaxChars: options.modelPromptMaxChars ?? DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS,
       userPrompt: buildOpenUiRawUserRequest(request),
     });
   }
 
-  const currentSourceValue = typeof request.currentSource === 'string' ? request.currentSource : '';
+  const currentSourceValue = request.currentSource;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const currentSource = currentSourceValue.trim() ? currentSourceValue : '(blank canvas, no current OpenUI source yet)';
   const currentSourceInventory = buildCurrentSourceInventory(currentSourceValue);

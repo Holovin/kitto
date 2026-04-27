@@ -216,9 +216,9 @@ describe('repair prompt assembly', () => {
     expect(issueLines).toHaveLength(20);
     expect(issueLines[0]).toContain('invalid-prop in root');
     expect(issueLines[1]).toContain('quality-options-shape in questions');
-    expect(issueLines[19]).toContain('unresolved-reference in row-17');
-    expect(prompt).not.toContain('quality-theme-state-not-applied in theme');
-    expect(prompt).not.toContain('unresolved-reference in row-18');
+    expect(issueLines[2]).toContain('quality-theme-state-not-applied in theme');
+    expect(issueLines[19]).toContain('unresolved-reference in row-16');
+    expect(prompt).not.toContain('unresolved-reference in row-17');
   });
 
   it('prioritizes explicit blocking severity for dynamic quality codes', () => {

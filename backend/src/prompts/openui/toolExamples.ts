@@ -198,7 +198,7 @@ function dedupeToolExamples(examples: string[]) {
 }
 
 function getToolExampleIntents(prompt?: string) {
-  return typeof prompt === 'string' && prompt.trim().length > 0
+  return prompt?.trim()
     ? detectPromptIntents(prompt)
     : {
         compute: false,

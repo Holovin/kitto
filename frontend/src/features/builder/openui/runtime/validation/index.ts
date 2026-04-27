@@ -48,12 +48,7 @@ export function detectLocalRuntimeQualityIssues(
   source: string,
   options: LocalRuntimeQualityIssueOptions = {},
 ): OpenUiQualityIssue[] {
-  const trimmedSource =
-    typeof options.normalizedSource === 'string'
-      ? options.normalizedSource
-      : typeof source === 'string'
-        ? normalizeSourceForValidation(source)
-        : '';
+  const trimmedSource = options.normalizedSource ?? normalizeSourceForValidation(source);
 
   if (!trimmedSource) {
     return [];
@@ -106,7 +101,7 @@ export function detectLocalRuntimeQualityIssues(
 }
 
 export function validateOpenUiSourceWithContext(source: string): OpenUiValidationContext {
-  const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
+  const trimmedSource = normalizeSourceForValidation(source);
 
   if (!trimmedSource) {
     return {

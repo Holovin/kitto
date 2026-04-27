@@ -86,14 +86,6 @@ function getRepairAttempt(mode: PromptIoLogMode, repairAttemptNumber?: number) {
   return repairAttemptNumber ?? 1;
 }
 
-function getCurrentSourceLen(request: { currentSource?: unknown }) {
-  return typeof request.currentSource === 'string' ? request.currentSource.length : undefined;
-}
-
-function getChatHistoryLen(request: { chatHistory?: unknown }) {
-  return Array.isArray(request.chatHistory) ? request.chatHistory.length : undefined;
-}
-
 function getPartialPromptBuildContext(partialBody: unknown) {
   if (!partialBody || typeof partialBody !== 'object') {
     return {
@@ -263,8 +255,8 @@ export async function writePromptIoLogSafely(
         mode,
         phase: null,
         rawUserRequest: getPromptLogRawUserRequest(request),
-        currentSourceLen: getCurrentSourceLen(request),
-        chatHistoryLen: getChatHistoryLen(request),
+        currentSourceLen: request.currentSource.length,
+        chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
@@ -317,8 +309,8 @@ export async function writePromptIoFailureSafely(
         mode,
         phase: options.phase,
         rawUserRequest: getPromptLogRawUserRequest(request),
-        currentSourceLen: getCurrentSourceLen(request),
-        chatHistoryLen: getChatHistoryLen(request),
+        currentSourceLen: request.currentSource.length,
+        chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,

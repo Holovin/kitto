@@ -78,9 +78,9 @@ export function detectPromptAwareQualityIssues(
   currentSource?: string,
   mode: PromptAwareGenerationMode = 'initial',
 ): OpenUiQualityIssue[] {
-  const trimmedSource = typeof source === 'string' ? normalizeSourceForValidation(source) : '';
-  const trimmedPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
-  const trimmedCurrentSource = typeof currentSource === 'string' ? normalizeSourceForValidation(currentSource) : '';
+  const trimmedSource = normalizeSourceForValidation(source);
+  const trimmedPrompt = userPrompt.trim();
+  const trimmedCurrentSource = currentSource ? normalizeSourceForValidation(currentSource) : '';
   const compareAgainstBaseline = mode === 'repair' ? true : trimmedCurrentSource.length > 0;
 
   if (!trimmedSource) {

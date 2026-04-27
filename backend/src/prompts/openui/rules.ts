@@ -14,7 +14,7 @@ const BASE_PROMPT_INTENTS: PromptIntentVector = {
 };
 
 export function buildIntentSpecificRulesForPrompt(prompt: string | undefined) {
-  const intents = typeof prompt === 'string' && prompt.trim().length > 0 ? detectPromptIntents(prompt) : BASE_PROMPT_INTENTS;
+  const intents = prompt?.trim() ? detectPromptIntents(prompt) : BASE_PROMPT_INTENTS;
 
   return buildIntentSpecificRules(intents);
 }

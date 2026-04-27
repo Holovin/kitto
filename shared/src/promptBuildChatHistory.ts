@@ -27,11 +27,7 @@ function isPromptConversationChatMessage(
 }
 
 function normalizeMaxItems(maxItems?: number) {
-  if (typeof maxItems !== 'number' || !Number.isFinite(maxItems)) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  return Math.max(0, Math.floor(maxItems));
+  return maxItems ?? Number.POSITIVE_INFINITY;
 }
 
 function getFirstUserMessageIndex(messages: PromptBuildChatHistoryMessage[]) {
@@ -193,7 +189,7 @@ export function compactPromptBuildChatHistory(
   let omittedChatMessages = 0;
   let chatHistory = filteredMessages;
 
-  if (typeof options.maxItems === 'number' && Number.isFinite(options.maxItems) && chatHistory.length > options.maxItems) {
+  if (options.maxItems !== undefined && chatHistory.length > options.maxItems) {
     const retainedChatHistory = retainPromptBuildChatHistory(chatHistory, options.maxItems);
     omittedChatMessages += chatHistory.length - retainedChatHistory.length;
     compactedByItemLimit = true;

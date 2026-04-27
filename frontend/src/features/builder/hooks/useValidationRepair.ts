@@ -300,13 +300,8 @@ export function sanitizeRepairValidationIssues(
   issues: RepairValidationIssue[],
   maxValidationIssues = DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
 ): PromptBuildValidationIssue[] {
-  const boundedMaxValidationIssues =
-    Number.isInteger(maxValidationIssues) && maxValidationIssues > 0
-      ? maxValidationIssues
-      : DEFAULT_MAX_REPAIR_VALIDATION_ISSUES;
-
   return sortRepairValidationIssues(issues)
-    .slice(0, boundedMaxValidationIssues)
+    .slice(0, maxValidationIssues)
     .map((issue) => {
       const sanitizedContext = sanitizeRepairIssueContext(issue);
       const severity = getOpenUiQualityIssueSeverity(issue);

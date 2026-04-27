@@ -163,7 +163,7 @@ export function validateBuilderLlmRequest(request: PromptBuildRequest, limits: B
     return `Current source is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
   }
 
-  if (typeof request.invalidDraft === 'string' && request.invalidDraft.length > limits.sourceMaxChars) {
+  if ((request.invalidDraft?.length ?? 0) > limits.sourceMaxChars) {
     return `Invalid draft is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
   }
 

@@ -1127,6 +1127,37 @@ root = AppShell([
     );
   });
 
+  it('marks multiple item-bound control types inside one @Each row without rescanning by type', () => {
+    const issues = detectLocalRuntimeQualityIssues(
+      `items = Query("read_state", { path: "app.items" }, [])
+statusOptions = [
+  { label: "Todo", value: "todo" },
+  { label: "Done", value: "done" }
+]
+rows = @Each(items, "item", Group(null, "vertical", [
+  Input("title-" + item.id, "Title", item.title, "Task title"),
+  Select("status-" + item.id, "Status", item.status, statusOptions, null, [])
+], "inline"))
+
+root = AppShell([
+  Screen("main", "Items", [
+    Repeater(rows, "No items yet.")
+  ])
+])`);
+
+    const itemBoundIssues = issues.filter((issue) => issue.code === 'item-bound-control-without-action');
+
+    expect(itemBoundIssues).toHaveLength(2);
+    expect(itemBoundIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: 'blocking-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
   it('does not mark item-bound controls inside @Each when action mode is used', () => {
     const issues = detectLocalRuntimeQualityIssues(
       `items = Query("read_state", { path: "app.items" }, [])

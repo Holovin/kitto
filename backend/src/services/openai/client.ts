@@ -117,14 +117,11 @@ function createTextInputMessage(role: 'system' | 'user' | 'assistant', text: str
 function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseInput {
   if (request.mode === 'repair') {
     const repairMessages = buildOpenUiRepairRoleMessages({
-      attemptNumber:
-        typeof request.repairAttemptNumber === 'number' && request.repairAttemptNumber > 0
-          ? Math.floor(request.repairAttemptNumber)
-          : 1,
+      attemptNumber: request.repairAttemptNumber ?? 1,
       chatHistory: filterPromptBuildChatHistory(request.chatHistory),
-      committedSource: typeof request.currentSource === 'string' ? request.currentSource : '',
-      invalidSource: typeof request.invalidDraft === 'string' ? request.invalidDraft : '',
-      issues: Array.isArray(request.validationIssues) ? request.validationIssues : [],
+      committedSource: request.currentSource,
+      invalidSource: request.invalidDraft ?? '',
+      issues: request.validationIssues ?? [],
       maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
       promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
       userPrompt: buildOpenUiRawUserRequest(request),

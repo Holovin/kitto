@@ -153,7 +153,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
         },
   );
   const [runtimeState, setRuntimeState] = useState<Record<string, unknown>>(restoredState.runtimeState);
-  const [, setDomainData] = useState<Record<string, unknown>>(restoredState.domainData);
+  const [domainRevision, setDomainRevision] = useState(0);
   const [standaloneSnapshotStore] = useState(() =>
     createStandaloneSnapshotStore(createStandaloneSnapshot(restoredState.runtimeState, restoredState.domainData)),
   );
@@ -177,7 +177,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     }
 
     if (isStandaloneSnapshotUpdateKey(update, 'domainData')) {
-      setDomainData(nextSnapshot.domainData);
+      setDomainRevision((currentValue) => currentValue + 1);
     }
 
     persistStandaloneState(nextSnapshot);
@@ -209,7 +209,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
       setRuntimeIssues([]);
       standaloneSnapshotStore.setSnapshot(baselineSnapshot);
       setRuntimeState(baselineSnapshot.runtimeState);
-      setDomainData(baselineSnapshot.domainData);
+      setDomainRevision((currentValue) => currentValue + 1);
       setResetVersion((currentValue) => currentValue + 1);
     });
   }
@@ -251,7 +251,7 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
           >
             <div className="min-h-full overflow-y-auto rounded-[1.75rem] bg-transparent p-1 sm:p-2">
               <Renderer
-                key={`${parsedPayload.exportId}:${resetVersion}`}
+                key={`${parsedPayload.exportId}:${resetVersion}:${domainRevision}`}
                 initialState={runtimeState}
                 library={builderOpenUiLibrary}
                 onAction={handleOpenUiActionEvent}

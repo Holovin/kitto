@@ -122,7 +122,7 @@ export function formatPromptIntentVector(intents: PromptIntentVector) {
 }
 
 export function getPromptIntentCacheVector(prompt?: string) {
-  if (typeof prompt !== 'string' || prompt.trim().length === 0) {
+  if (!prompt?.trim()) {
     return 'base';
   }
 

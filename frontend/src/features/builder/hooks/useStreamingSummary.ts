@@ -120,7 +120,7 @@ export function useStreamingSummary() {
   }
 
   function getCommittedSummary(requestId: BuilderRequestId, summary?: string) {
-    const trimmedSummary = typeof summary === 'string' ? summary.trim() : '';
+    const trimmedSummary = summary?.trim() ?? '';
 
     if (trimmedSummary) {
       return trimmedSummary;

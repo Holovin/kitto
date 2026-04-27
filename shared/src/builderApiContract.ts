@@ -216,6 +216,7 @@ export function createBuilderLlmRequestSchema({
   promptMaxChars,
   sourceMaxChars,
 }: CreateBuilderLlmRequestSchemaOptions) {
+  const repairOnlyRequestKeys = ['invalidDraft', 'parentRequestId', 'repairAttemptNumber', 'validationIssues'] as const;
   const validationIssueSchema = createValidationIssueSchema(maxValidationIssues);
   const currentSourceSchema = z
     .string()
@@ -223,15 +224,12 @@ export function createBuilderLlmRequestSchema({
   const invalidDraftSchema = z
     .string()
     .max(sourceMaxChars, `Invalid draft is too large. Limit: ${sourceMaxChars} characters.`);
-  const baseLlmRequestSchema = z.object({
+  const commonLlmRequestSchema = z.object({
     prompt: z
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(promptMaxChars, `Prompt is too large. Limit: ${promptMaxChars} characters.`),
     currentSource: currentSourceSchema.default(''),
-    parentRequestId: z.string().trim().min(1).max(200).optional(),
-    repairAttemptNumber: z.coerce.number().int().positive().optional(),
-    validationIssues: z.array(validationIssueSchema).max(maxValidationIssues).optional(),
     chatHistory: z
       .array(
         z.object({
@@ -246,18 +244,28 @@ export function createBuilderLlmRequestSchema({
   });
 
   const requestSchema = z.discriminatedUnion('mode', [
-    baseLlmRequestSchema.extend({
-      invalidDraft: invalidDraftSchema.optional(),
+    commonLlmRequestSchema.extend({
+      invalidDraft: z.never().optional(),
       mode: z.literal('initial'),
+      parentRequestId: z.never().optional(),
+      repairAttemptNumber: z.never().optional(),
+      validationIssues: z.never().optional(),
     }),
-    baseLlmRequestSchema.extend({
+    commonLlmRequestSchema.extend({
       invalidDraft: invalidDraftSchema,
       mode: z.literal('repair'),
+      parentRequestId: z.string().trim().min(1).max(200).optional(),
+      repairAttemptNumber: z.coerce.number().int().positive().optional(),
+      validationIssues: z.array(validationIssueSchema).max(maxValidationIssues).optional(),
     }),
   ]);
 
   return z.preprocess((value) => {
     if (value && typeof value === 'object' && !Array.isArray(value) && !('mode' in value)) {
+      if (repairOnlyRequestKeys.some((key) => key in value)) {
+        return value;
+      }
+
       return {
         ...value,
         mode: 'initial',
@@ -283,7 +291,7 @@ export function createCommitTelemetrySchema({
 
 export function getPromptBuildValidationIssueCodes(validationIssues?: PromptBuildValidationIssue[]) {
   const codes = (validationIssues ?? [])
-    .map((issue) => (typeof issue.code === 'string' ? issue.code.trim() : ''))
+    .map((issue) => issue.code.trim())
     .filter((code): code is string => code.length > 0);
 
   return codes.length > 0 ? [...new Set(codes)] : [];
