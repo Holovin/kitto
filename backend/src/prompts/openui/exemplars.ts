@@ -173,7 +173,7 @@ root = AppShell([
     Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
   ], $currentScreen == "intro"),
   Screen("question", "Question", [
-    RadioGroup("answer", "2 + 2?", $answer, answerOptions, null, [{ type: "required", message: "Choose an answer" }]),
+    RadioGroup("answer", "2 + 2?", $answer, answerOptions),
     Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
   ], $currentScreen == "question"),
   Screen("result", "Result", [

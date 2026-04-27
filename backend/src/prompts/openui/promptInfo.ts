@@ -96,7 +96,7 @@ const INTENT_CONTEXT_VARIANT_DEFINITIONS = [
   {
     id: 'multi-screen',
     label: 'Multi-screen',
-    prompt: 'Create a three-screen quiz.',
+    prompt: 'Create a quiz with three questions on separate screens.',
   },
 ] as const;
 

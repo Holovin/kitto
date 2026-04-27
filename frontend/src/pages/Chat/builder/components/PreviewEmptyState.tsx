@@ -46,7 +46,7 @@ const EMPTY_PREVIEW_PROMPTS = [
     },
     icon: Brain,
     label: 'Quiz app',
-    prompt: 'Create a three-screen quiz app with intro, one question, and result screen.',
+    prompt: 'Create a quiz app with intro, three questions on separate screens, and result screen.',
   },
   {
     decoration: {

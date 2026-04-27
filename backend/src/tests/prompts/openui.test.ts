@@ -325,7 +325,7 @@ describe('openui prompts', () => {
     const randomPrompt = buildIntentContextPrompt('Create a random dice roller.');
     const datePrompt = buildIntentContextPrompt('Compare dates in a deadline checker.');
     const quizPrompt = buildIntentContextPrompt(
-      'Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.',
+      'Create a quiz app with intro, three questions on separate screens, and result screen. Use radio buttons, a Next button, and a Restart button.',
     );
 
     expect(basePrompt).not.toContain('Relevant patterns:');
@@ -371,6 +371,8 @@ describe('openui prompts', () => {
     expect(quizPrompt).toContain('Screen("intro", "Quiz", [');
     expect(quizPrompt).toContain('Screen("question", "Question", [');
     expect(quizPrompt).toContain('Screen("result", "Result", [');
+    expect(quizPrompt).toContain('RadioGroup("answer", "2 + 2?", $answer, answerOptions)');
+    expect(quizPrompt).not.toContain('RadioGroup("answer", "2 + 2?", $answer, answerOptions, null, [{ type: "required"');
   });
 
   it('keeps the committed Group signature and variant guidance aligned', () => {

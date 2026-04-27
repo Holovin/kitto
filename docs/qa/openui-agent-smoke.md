@@ -116,7 +116,7 @@ Create a todo list.
 ### Prompt
 
 ```txt
-Create a three-screen quiz app with intro, one question, and result screen. Use radio buttons, a Next button, and a Restart button.
+Create a quiz app with intro, three questions on separate screens, and result screen. Use radio buttons, a Next button, and a Restart button.
 ```
 
 ### Expected
