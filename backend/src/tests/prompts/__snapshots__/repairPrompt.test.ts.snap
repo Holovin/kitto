@@ -44,6 +44,27 @@ Targeted repair hints:
   WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
+- Example for multi-screen quiz pattern:
+  $currentScreen = "intro"
+  $answer = ""
+  answerOptions = [
+    { label: "3", value: "3" },
+    { label: "4", value: "4" }
+  ]
+  
+  root = AppShell([
+    Screen("intro", "Quiz", [
+      Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
+    ], $currentScreen == "intro"),
+    Screen("question", "Question", [
+      RadioGroup("answer", "2 + 2?", $answer, answerOptions),
+      Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
+    ], $currentScreen == "question"),
+    Screen("result", "Result", [
+      Text($answer == "4" ? "Correct." : "Try again.", "title", "start"),
+      Button("restart-quiz", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($answer)]), false)
+    ], $currentScreen == "result")
+  ])
 
 Relevant draft statement excerpts:
 - root:
@@ -122,36 +143,45 @@ Group("Question 5", "vertical", [
   ])
 ]),
 Group("Question 6", "vertical", [
-  Text("Question 6",…
+  Text("Question 6", "body", "start"),
+  RadioGroup("question-6", "Question 6", $q6, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 7", "vertical", [
+  Text("Question 7", "body", "start"),
+  RadioGroup("question-7", "Question 7", $q7, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 8", "vertical", [
+  Text("Question 8", "body", "start"),
+  RadioGroup("question-8", "Question 8", $q8, [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" }
+  ])
+]),
+Group("Question 9", "vertical", [
+  Text("Question 9", "body", "start"),
+  RadioGroup("question-9", "Question 9", $q9, [
+    { label: "Yes", value: "yes" },…
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is \`AppShell(children?, appearance?)\`.
-- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
-- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
-- The second Group argument is direction and must be "vertical" or "horizontal".
-- If you pass a Group variant, place it in the optional fourth argument.
-- Never put "block" or "inline" in the second Group argument.
-- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
-- Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
-- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
-- Validation rules must be literal arrays. To skip validation before \`action\` or \`appearance\`, use \`null\` or \`[]\`.
-- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
-- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
-- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
-- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
-- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
-- Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is \`Button(id, label, varian…"
+
+Intent-specific rules from original user request:
+- Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
+- For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
+- Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
+- Do not use persisted tools for internal screen navigation. Use tools only…"
 `;
 
 exports[`buildOpenUiRepairPrompt > truncates the draft before issues and hints when the repair prompt is over budget 1`] = `
@@ -198,6 +228,52 @@ Targeted repair hints:
   WRONG: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
   OK: $draft = ""
   OK: root = AppShell([Screen("main", "Draft", [Text($draft, "body", "start")])])
+- Example for multi-screen quiz pattern:
+  $currentScreen = "intro"
+  $answer = ""
+  answerOptions = [
+    { label: "3", value: "3" },
+    { label: "4", value: "4" }
+  ]
+  
+  root = AppShell([
+    Screen("intro", "Quiz", [
+      Button("start-quiz", "Start", "default", Action([@Set($currentScreen, "question")]), false)
+    ], $currentScreen == "intro"),
+    Screen("question", "Question", [
+      RadioGroup("answer", "2 + 2?", $answer, answerOptions),
+      Button("show-result", "Next", "default", Action([@Set($currentScreen, "result")]), $answer == "")
+    ], $currentScreen == "question"),
+    Screen("result", "Result", [
+      Text($answer == "4" ? "Correct." : "Try again.", "title", "start"),
+      Button("restart-quiz", "Restart", "secondary", Action([@Set($currentScreen, "intro"), @Reset($answer)]), false)
+    ], $currentScreen == "result")
+  ])
+
+Relevant draft statement excerpts:
+- root:
+  root = AppShell([
+    Screen("quiz", "Quiz", [
+  Group("Question 1", "vertical", [
+    Text("Question 1", "body", "start"),
+    RadioGroup("question-1", "Question 1", $q1, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 2", "vertical", [
+    Text("Question 2", "body", "start"),
+    RadioGroup("question-2", "Question 2", $q2, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])
+  ]),
+  Group("Question 3", "vertical", [
+    Text("Question 3", "body", "start"),
+    RadioGroup("question-3", "Question 3", $q3, [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" }
+    ])…
 
 Model draft to repair:
 root = AppShell([
@@ -207,33 +283,19 @@ Group("Question 1", "vertical", [
   RadioGroup("question-1", "Question 1",…
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is \`AppShell(children?, appearance?)\`.
-- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
-- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
-- The second Group argument is direction and must be "vertical" or "horizontal".
-- If you pass a Group variant, place it in the optional fourth argument.
-- Never put "block" or "inline" in the second Group argument.
-- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
-- Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
-- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
-- Validation rules must be literal arrays. To skip validation before \`action\` or \`appearance\`, use \`null\` or \`[]\`.
-- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
-- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
-- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
-- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
-- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, style objects, named colors, rgb(), hsl(), var(), url(), or arbitrary layout styling.
-- Use $currentScreen + @Set for screen navigation.
 - Declare every \`$var\` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.
-- Button signature is \`Button(id, label, variant?, action?, disabled?, appear…"
+
+Intent-specific rules from original user request:
+- Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
+- For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
+- Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
+- Do not use persisted tools for internal screen navigation. Use tools only fo…"
 `;
 
 exports[`buildOpenUiRepairPrompt > uses append_item in the todo repair hint 1`] = `
@@ -262,33 +324,45 @@ Targeted repair hints:
   OK: addItem = Mutation("append_item", { path: "app.items", value: { title: $draft, completed: false } })
   OK: rows = @Each(items, "item", ...)
   OK: Repeater(rows, "No tasks yet.")
+- Example for todo/task list pattern:
+  $draft = ""
+  $targetItemId = ""
+  
+  items = Query("read_state", { path: "app.items" }, [])
+  addItem = Mutation("append_item", {
+    path: "app.items",
+    value: { title: $draft, completed: false }
+  })
+  toggleItem = Mutation("toggle_item_field", {
+    path: "app.items",
+    idField: "id",
+    id: $targetItemId,
+    field: "completed"
+  })
+  rows = @Each(items, "item", Group(null, "horizontal", [
+    Text(item.title, "body", "start"),
+    Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([…
 
 Model draft to repair:
 root = AppShell([])
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
 - Define \`$state\`, collections, derived values, Query/Mutation refs, and reusable component refs as top-level statements outside AppShell/Screen/Group child arrays.
 - Component children arrays may contain only component refs or component calls, not declarations such as \`$x = ...\`, \`items = [...]\`, or \`row = Group(...)\`.
-- AppShell signature is \`AppShell(children?, appearance?)\`.
-- Screen signature is \`Screen(id, title, children?, isActive?, appearance?)\`.
-- Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.
-- Group signature is \`Group(title?, direction?, children?, variant?, appearance?)\`.
-- The second Group argument is direction and must be "vertical" or "horizontal".
-- If you pass a Group variant, place it in the optional fourth argument.
-- Never put "block" or "inline" in the second Group argument.
-- Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.
-- RadioGroup and Select options must be arrays of { label, value } objects. Never use bare string or number arrays for options.
-- Validation rules must be literal arrays. To skip validation before \`action\` or \`appearance\`, use \`null\` or \`[]\`.
-- When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.
-- Use \`$lastChoice\` only inside Select/RadioGroup action-mode flows or the top-level Mutation(...) / Query(...) statements those actions run.
-- Do not read \`$lastChoice\` directly in Text(...), disabled expressions, or unrelated statements.
-- Use appearance only as { mainColor?: "#RRGGBB", contrastColor?: "#RRGGBB" }.
-- Text supports only appearance.contrastColor. Do not pass appearance.mainColor to Text.
-- For any \`Button\` variant with appearance, background uses mainColor and text uses contrastColor.
-- Never use CSS, className, st…"
+
+Intent-specific rules from original user request:
+- CANONICAL APP PATTERN - Persisted todo list:
+- Use one persisted collection path for tasks, such as \`app.todos\`, read with \`items = Query("read_state", { path: "app.todos" }, [])\`.
+- Declare local UI state up front: \`$draft = ""\` and \`$targetItemId = ""\`.
+- Add rows with \`append_item\` and a plain object value such as \`{ title: $draft, completed: false }\`; after add, run the items Query and reset \`$draft\`.
+- Toggle completion with \`toggle_item_field\` using \`idField: "id"\`, \`id: $targetItemId\`, and \`field: "completed"\`.
+- Render rows as \`rows = @Each(visibleItemsOrItems, "item", Group(...))\`; keep the row template inline so \`item\` is in scope.
+- Inside each row, use action-mode Checkbox with \`item.completed\` plus \`Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])\`; do not bind controls directly to \`item.completed\`.
+- Pass built rows to \`Repeater(rows, "No tasks yet")\`; never pass raw Query data directly to Repeater.
+- Display-only \`Checkbox(item.completed)\` does not write back to persisted collections by i…"
 `;

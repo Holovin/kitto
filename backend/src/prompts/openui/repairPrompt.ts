@@ -36,6 +36,11 @@ interface UndefinedStateReferenceSummary {
   repeatCount: number;
 }
 
+interface RepairCriticalRule {
+  id: string;
+  text: string;
+}
+
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
 const REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD = 5_000;
 const REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES = 5;
@@ -87,16 +92,121 @@ const REPAIR_STATE_CRITICAL_RULES = [
 
 function buildRepairPromptCriticalRules() {
   return [
-    `Place the full corrected OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`,
-    ...REPAIR_CORE_CRITICAL_RULES,
-    ...REPAIR_LAYOUT_CRITICAL_RULES,
-    ...REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES,
-    ...REPAIR_APPEARANCE_CRITICAL_RULES,
-    ...REPAIR_STATE_CRITICAL_RULES,
+    {
+      id: 'structured-output',
+      text: `Place the full corrected OpenUI Lang program in \`source\`. ${COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT}`,
+    },
+    { id: 'supported-surface', text: REPAIR_CORE_CRITICAL_RULES[0] },
+    { id: 'run-ref-defined', text: REPAIR_CORE_CRITICAL_RULES[1] },
+    { id: 'app-shell-single-root', text: REPAIR_CORE_CRITICAL_RULES[2] },
+    { id: 'top-level-statements', text: REPAIR_CORE_CRITICAL_RULES[3] },
+    { id: 'component-children-no-declarations', text: REPAIR_CORE_CRITICAL_RULES[4] },
+    { id: 'app-shell-signature', text: REPAIR_LAYOUT_CRITICAL_RULES[0] },
+    { id: 'screen-signature', text: REPAIR_LAYOUT_CRITICAL_RULES[1] },
+    { id: 'screen-no-nesting', text: REPAIR_LAYOUT_CRITICAL_RULES[2] },
+    { id: 'group-signature', text: REPAIR_LAYOUT_CRITICAL_RULES[3] },
+    { id: 'group-direction', text: REPAIR_LAYOUT_CRITICAL_RULES[4] },
+    { id: 'group-variant-position', text: REPAIR_LAYOUT_CRITICAL_RULES[5] },
+    { id: 'group-variant-not-direction', text: REPAIR_LAYOUT_CRITICAL_RULES[6] },
+    { id: 'repeater-no-nesting', text: REPAIR_LAYOUT_CRITICAL_RULES[7] },
+    { id: 'query-mutation-placement', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[0] },
+    { id: 'options-shape', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[1] },
+    { id: 'validation-rules', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[2] },
+    { id: 'last-choice-runtime-write', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[0] },
+    { id: 'last-choice-scope', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[1] },
+    { id: 'last-choice-no-direct-read', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[2] },
+    { id: 'appearance-shape', text: REPAIR_APPEARANCE_CRITICAL_RULES[0] },
+    { id: 'text-appearance', text: REPAIR_APPEARANCE_CRITICAL_RULES[1] },
+    { id: 'button-appearance', text: REPAIR_APPEARANCE_CRITICAL_RULES[2] },
+    { id: 'no-arbitrary-styles', text: REPAIR_APPEARANCE_CRITICAL_RULES[3] },
+    { id: 'screen-navigation-state', text: REPAIR_STATE_CRITICAL_RULES[0] },
+    { id: 'declare-state', text: REPAIR_STATE_CRITICAL_RULES[1] },
+    { id: 'button-signature', text: REPAIR_STATE_CRITICAL_RULES[2] },
   ] as const;
 }
 
 const REPAIR_PROMPT_CRITICAL_RULES = buildRepairPromptCriticalRules();
+const DEFAULT_REPAIR_CRITICAL_RULE_IDS = [
+  'structured-output',
+  'supported-surface',
+  'run-ref-defined',
+  'app-shell-single-root',
+  'top-level-statements',
+  'component-children-no-declarations',
+] as const;
+const GROUP_REPAIR_CRITICAL_RULE_IDS = [
+  'group-signature',
+  'group-direction',
+  'group-variant-position',
+  'group-variant-not-direction',
+] as const;
+const LAST_CHOICE_REPAIR_CRITICAL_RULE_IDS = [
+  'query-mutation-placement',
+  'options-shape',
+  'last-choice-runtime-write',
+  'last-choice-scope',
+  'last-choice-no-direct-read',
+] as const;
+const ISSUE_TO_REPAIR_CRITICAL_RULE_IDS: Record<string, readonly string[]> = {
+  'app-shell-not-root': ['structured-output', 'app-shell-signature', 'app-shell-single-root'],
+  'control-action-and-binding': [
+    'query-mutation-placement',
+    'validation-rules',
+    'last-choice-runtime-write',
+    'last-choice-scope',
+    'last-choice-no-direct-read',
+  ],
+  'inline-tool-in-each': ['query-mutation-placement', 'top-level-statements'],
+  'inline-tool-in-prop': ['query-mutation-placement', 'top-level-statements'],
+  'inline-tool-in-repeater': ['query-mutation-placement', 'top-level-statements', 'repeater-no-nesting'],
+  'invalid-action': ['query-mutation-placement', 'run-ref-defined'],
+  'invalid-prop': [...GROUP_REPAIR_CRITICAL_RULE_IDS, 'button-signature', 'screen-signature', 'app-shell-signature'],
+  'item-bound-control-without-action': ['query-mutation-placement', 'run-ref-defined', 'last-choice-scope'],
+  'missing-root': ['structured-output', 'app-shell-single-root'],
+  'multiple-app-shells': ['app-shell-single-root'],
+  'mutation-uses-array-index-path': ['query-mutation-placement'],
+  'quality-missing-control-showcase-components': ['supported-surface'],
+  'quality-missing-screen-flow': ['screen-signature', 'screen-no-nesting', 'screen-navigation-state'],
+  'quality-missing-todo-controls': ['query-mutation-placement', 'run-ref-defined'],
+  'quality-options-shape': ['options-shape'],
+  'quality-random-result-not-visible': ['query-mutation-placement', 'run-ref-defined'],
+  'quality-stale-persisted-query': ['query-mutation-placement', 'run-ref-defined'],
+  'quality-theme-state-not-applied': ['appearance-shape', 'button-appearance'],
+  'repeater-inside-repeater': ['repeater-no-nesting'],
+  'reserved-last-choice-outside-action-mode': LAST_CHOICE_REPAIR_CRITICAL_RULE_IDS,
+  'screen-inside-screen': ['screen-signature', 'screen-no-nesting'],
+  'undefined-state-reference': ['declare-state'],
+  'unresolved-reference': ['run-ref-defined', 'top-level-statements'],
+};
+
+function selectRelevantCriticalRules(
+  issues: PromptBuildValidationIssue[],
+  allRules: readonly RepairCriticalRule[],
+): RepairCriticalRule[] {
+  const selectedRuleIds = new Set<string>(DEFAULT_REPAIR_CRITICAL_RULE_IDS);
+  let foundIssueRuleMapping = false;
+
+  for (const issue of issues) {
+    const issueRuleIds = ISSUE_TO_REPAIR_CRITICAL_RULE_IDS[issue.code];
+
+    if (!issueRuleIds) {
+      continue;
+    }
+
+    foundIssueRuleMapping = true;
+
+    for (const ruleId of issueRuleIds) {
+      selectedRuleIds.add(ruleId);
+    }
+  }
+
+  if (issues.length === 0 || !foundIssueRuleMapping) {
+    return [...allRules];
+  }
+
+  const selectedRules = allRules.filter((rule) => selectedRuleIds.has(rule.id));
+  return selectedRules.length > 0 ? selectedRules : [...allRules];
+}
 
 function addUniqueLine(lines: string[], seenLines: Set<string>, line: string) {
   if (seenLines.has(line)) {
@@ -829,9 +939,10 @@ function buildOpenUiRepairPromptParts(
   const draftSectionFallback =
     outputFormat === 'roleMessages' ? '(the failed draft was empty)' : getRepairDraftSectionFallback(issueMode);
   const issuesSectionTitle = getRepairIssuesSectionTitle(issueMode);
+  const criticalRules = selectRelevantCriticalRules(sanitizedIssues, REPAIR_PROMPT_CRITICAL_RULES);
   const intentSpecificRuleLines = buildIntentSpecificRulesForPrompt(userPrompt).map((rule) => `- ${rule}`);
   const ruleLines = [
-    ...REPAIR_PROMPT_CRITICAL_RULES.map((rule) => `- ${rule}`),
+    ...criticalRules.map((rule) => `- ${rule.text}`),
     ...(intentSpecificRuleLines.length > 0
       ? ['', 'Intent-specific rules from original user request:', ...intentSpecificRuleLines]
       : []),

@@ -403,8 +403,14 @@ describe('generateOpenUiSource', () => {
       },
     ]);
     expect(initialCall?.input?.[2]?.content).toContain('Built a one-screen todo app.');
-    expect(initialCall?.input?.[4]?.content?.[0]?.text).toContain('<request_intent>\ntodo: true');
-    expect(initialCall?.input?.[5]?.content?.[0]?.text).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
+    const initialIntentContextText = initialCall?.input?.[4]?.content?.[0]?.text ?? '';
+    const initialFinalUserText = initialCall?.input?.at(-1)?.content?.[0]?.text ?? '';
+
+    expect(initialIntentContextText).toContain('<intent_context>');
+    expect(initialIntentContextText).toContain(
+      '<request_intent>\nThis request appears to be: a fresh create request, single-screen app, simple scope, todo/list behavior, no explicit validation rules, no explicit theme switching.\n</request_intent>',
+    );
+    expect(initialFinalUserText).toContain('<current_source>\nroot = AppShell([])\n</current_source>');
     expect(repairCall?.input).toHaveLength(4);
     expect(repairCall?.input?.[0]?.role).toBe('system');
     expect(repairCall?.input?.[0]?.content?.[0]?.text).toContain('Repair-mode instruction:');
@@ -508,7 +514,39 @@ describe('generateOpenUiSource', () => {
       - unresolved-reference in items: This statement was referenced but never defined in the final source.
       </validation_issues>
 
-      Return the corrected complete OpenUI Lang program in \`source\`. Make \`summary\` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.",
+      <hints>
+      - Example for todo/task list pattern:
+        $draft = ""
+        $targetItemId = ""
+        
+        items = Query("read_state", { path: "app.items" }, [])
+        addItem = Mutation("append_item", {
+          path: "app.items",
+          value: { title: $draft, completed: false }
+        })
+        toggleItem = Mutation("toggle_item_field", {
+          path: "app.items",
+          idField: "id",
+          id: $targetItemId,
+          field: "completed"
+        })
+        rows = @Each(items, "item", Group(null, "horizontal", [
+          Text(item.title, "body", "start"),
+          Checkbox("toggle-" + item.id, "", item.completed, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))
+        ], "inline"))
+        
+        root = AppShell([
+          Screen("main", "Todo list", [
+            Group("Add task", "horizontal", [
+              Input("draft", "Task", $draft, "New task"),
+              Button("add-task", "Add", "default", Action([@Run(addItem), @Run(items), @Reset($draft)]), $draft == "")
+            ], "inline"),
+            Repeater(rows, "No tasks yet.")
+          ])
+        ])
+      </hints>
+
+      Return the corrected complete OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.",
               "type": "input_text",
             },
           ],

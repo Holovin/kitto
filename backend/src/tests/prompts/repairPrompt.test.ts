@@ -58,7 +58,7 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain('Place the full corrected OpenUI Lang program in `source`.');
     expect(prompt).not.toContain('Return only raw OpenUI Lang.');
     expect(prompt).toContain(
-      'Make `summary` a short user-facing description of the visible app/change with concrete features/screens, not generic "Updated the app" text.',
+      'Make `summary` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.',
     );
     expect(prompt).toContain(`AppShell signature is \`${getOpenUiComponentCompactSignature('AppShell')}\`.`);
     expect(prompt).toContain(

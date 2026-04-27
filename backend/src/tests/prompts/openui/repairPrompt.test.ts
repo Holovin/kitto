@@ -291,6 +291,53 @@ describe('repair prompt assembly', () => {
     expect(hintsSection.match(/Never put "block" or "inline" in the second Group argument\./g)).toHaveLength(1);
   });
 
+  it('filters repair critical rules to component argument rules for invalid props', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Group("Filters", "block", [])])',
+      issues: [
+        {
+          code: 'invalid-prop',
+          message: 'Group.direction must be one of "vertical", "horizontal".',
+          source: 'parser',
+          statementId: 'root',
+        },
+      ],
+      maxRepairAttempts: 1,
+      promptMaxChars: 8_000,
+      userPrompt: 'Fix the group.',
+    });
+    const rulesSection = extractSection(prompt, 'Current critical syntax rules', []);
+
+    expect(rulesSection).toContain('The second Group argument is direction and must be "vertical" or "horizontal".');
+    expect(rulesSection).toContain('If you pass a Group variant, place it in the optional fourth argument.');
+    expect(rulesSection).not.toContain('$lastChoice');
+  });
+
+  it('keeps last-choice repair rules only for last-choice issues', () => {
+    const prompt = buildOpenUiRepairPrompt({
+      attemptNumber: 1,
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Screen("main", "Main", [Text($lastChoice, "body", "start")])])',
+      issues: [
+        {
+          code: 'reserved-last-choice-outside-action-mode',
+          message: '$lastChoice can only be used in Select/RadioGroup action-mode flows.',
+          source: 'quality',
+          statementId: 'root',
+        },
+      ],
+      maxRepairAttempts: 1,
+      promptMaxChars: 8_000,
+      userPrompt: 'Repair the choice UI.',
+    });
+    const rulesSection = extractSection(prompt, 'Current critical syntax rules', []);
+
+    expect(rulesSection).toContain('When RadioGroup or Select runs in action mode');
+    expect(rulesSection).toContain('Do not read `$lastChoice` directly in Text(...)');
+  });
+
   it('keeps hints visible when the prompt budget forces the draft to truncate first', () => {
     const issues: PromptBuildValidationIssue[] = [
       {

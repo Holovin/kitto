@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import { BUILTINS, type PromptSpec, type ToolSpec } from '@openuidev/lang-core';
 import { openUiComponentSpec, openUiComponentSpecHash } from './componentSpec.js';
-import { buildStableSystemRules, getCanonicalAppPatterns, type OpenUiCanonicalAppPattern } from './ruleRegistry.js';
-import { buildStableToolExamples } from './toolExamples.js';
+import { buildStableSystemRules } from './ruleRegistry.js';
 import { toolSpecifications } from './toolSpecs.js';
 
 interface KittoPromptInput {
@@ -134,12 +133,13 @@ function renderComponentSignatures(spec: PromptSpec) {
   const lines = [
     '## Component Signatures',
     '',
-    'Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for readable top-level structure.',
+    'Arguments marked with ? are optional. Component arguments are positional.',
     'Props typed `ActionExpression` accept an `Action([@steps...])` expression. See the Action section for available steps.',
     'Props marked `$binding<type>` accept a `$variable` reference for two-way binding.',
   ];
 
   const renderedComponents = new Set<string>();
+  const formatCell = (value: string) => value.replaceAll('|', '\\|').replaceAll('\n', ' ');
   const formatComponent = (name: string) => {
     const component = spec.components[name];
 
@@ -149,11 +149,12 @@ function renderComponentSignatures(spec: PromptSpec) {
 
     renderedComponents.add(name);
 
-    return component.description ? `${component.signature} - ${component.description}` : component.signature;
+    return `| ${name} | \`${formatCell(component.signature)}\` |`;
   };
 
   for (const group of spec.componentGroups ?? []) {
     lines.push('', `### ${group.name}`);
+    lines.push('', '| Component | Signature |', '| --- | --- |');
 
     for (const componentName of group.components) {
       const renderedComponent = formatComponent(componentName);
@@ -163,8 +164,8 @@ function renderComponentSignatures(spec: PromptSpec) {
       }
     }
 
-    for (const note of group.notes ?? []) {
-      lines.push(note);
+    if ((group.notes ?? []).length > 0) {
+      lines.push('', ...group.notes.map((note) => `- ${note}`));
     }
   }
 
@@ -172,6 +173,7 @@ function renderComponentSignatures(spec: PromptSpec) {
 
   if (ungroupedComponents.length > 0) {
     lines.push('', '### Other');
+    lines.push('', '| Component | Signature |', '| --- | --- |');
 
     for (const componentName of ungroupedComponents) {
       const renderedComponent = formatComponent(componentName);
@@ -283,30 +285,6 @@ root = AppShell([Screen("main", "Items", [Repeater(rows, "No items")])])
 \`\`\``;
 }
 
-function renderIntentVector(intentVector: OpenUiCanonicalAppPattern['intentVector']) {
-  const entries = Object.entries(intentVector).map(([intentKey, enabled]) => `${intentKey}: ${enabled}`);
-
-  return entries.length > 0 ? entries.join(', ') : 'base';
-}
-
-function renderCanonicalAppPatternsSection() {
-  const lines = [
-    '## Canonical App Patterns',
-    '',
-    'Use these recipes before stitching together lower-level collection, filter, @Each, and control-action rules. Match them against the backend intent_context/request_intent vector.',
-  ];
-
-  for (const pattern of getCanonicalAppPatterns()) {
-    lines.push('', `### ${pattern.title}`, `Intent vector: ${renderIntentVector(pattern.intentVector)}`);
-
-    for (const rule of pattern.rules) {
-      lines.push(`- ${rule}`);
-    }
-  }
-
-  return lines.join('\n');
-}
-
 function renderToolSignature(tool: ToolSpec) {
   const inputSchema = tool.inputSchema as { properties?: Record<string, unknown>; required?: string[] } | undefined;
   const properties = inputSchema?.properties ?? {};
@@ -362,6 +340,17 @@ OpenUI Lang supports hoisting: a reference can be used before it is defined, and
 4. \`root = ${rootName}(...)\` - the single render entry point`;
 }
 
+function renderSummaryExamplesSection() {
+  return `## Summary Examples
+
+When writing the structured \`summary\`, mention concrete visible behavior instead of generic status text.
+
+- Good: "Added a todo list with task input, completion toggles, and persisted add/remove actions."
+- Good: "Converted the flow into a two-screen quiz with answer choices, navigation, and a result view."
+- Good: "Added required name and email validation with user-facing helper text on the signup form."
+- Bad: "Updated the app."`;
+}
+
 function renderImportantRules(rootName: string) {
   return `## Important Rules
 - When asked about data, generate realistic/plausible data.
@@ -394,11 +383,11 @@ function buildKittoOpenUiPrompt({ additionalRules, componentSpec: spec, examples
     '',
     renderKittoWorkflowSection(),
     '',
-    renderCanonicalAppPatternsSection(),
-    '',
     renderAvailableToolsSection(tools),
     '',
     renderStatementOrderSection(rootName),
+    '',
+    renderSummaryExamplesSection(),
   ];
 
   if (examples.length > 0) {
@@ -429,7 +418,7 @@ function getCachedSystemPrompt() {
   const prompt = buildKittoOpenUiPrompt({
     additionalRules: buildStableSystemRules(),
     componentSpec: openUiComponentSpec,
-    examples: buildStableToolExamples(),
+    examples: [],
     tools: toolSpecifications,
   });
   const promptHash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);

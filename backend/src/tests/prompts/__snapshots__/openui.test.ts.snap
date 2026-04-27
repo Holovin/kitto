@@ -12,7 +12,7 @@ exports[`openui prompts > keeps the structured system prompt snapshot stable 1`]
 5. EVERY variable (except root) MUST be referenced by at least one other variable. Unreferenced variables are silently dropped and will NOT render. Always include defined variables in their parent's children/items array.
 6. Arguments are POSITIONAL (order matters, not names). Write \`Group("Filters", "horizontal", [child], "inline")\` NOT \`Group("Filters", direction: "horizontal", children: [child])\`; colon syntax is NOT supported and silently breaks
 7. Optional arguments can be omitted from the end
-8. Declare every mutable state ref with \`$varName = defaultValue\` before use. Components marked with \`$binding\` can read/write these.
+8. Declare every state variable as \`$varName = defaultValue\` before first use. Props typed \`$binding<T>\` in signatures accept a \`$varName\` reference for two-way data binding.
 9. String concatenation: \`"text" + $var + "more"\`
 10. Dot member access: \`query.field\` reads a field; on arrays it extracts that field from every element
 11. Index access: \`arr[0]\`, \`data[index]\`
@@ -25,37 +25,49 @@ exports[`openui prompts > keeps the structured system prompt snapshot stable 1`]
 
 ## Component Signatures
 
-Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for readable top-level structure.
+Arguments marked with ? are optional. Component arguments are positional.
 Props typed \`ActionExpression\` accept an \`Action([@steps...])\` expression. See the Action section for available steps.
 Props marked \`$binding<type>\` accept a \`$variable\` reference for two-way binding.
 
 ### Containers
-AppShell(children?: OpenUiNode[], appearance?: {mainColor?: string, contrastColor?: string}) - Technical root wrapper for the generated app. Use it once as root; optional appearance sets the global theme for all nested content.
-Screen(id: string, title: string, children?: OpenUiNode[], isActive?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) - Screen-level section. Omit isActive for always-visible screens, or pass a boolean expression to control visibility. Optional appearance overrides theme colors for the whole screen subtree.
-Group(title?: string | null, direction?: "vertical" | "horizontal", children?: OpenUiNode[], variant?: "block" | "inline", appearance?: {mainColor?: string, contrastColor?: string}) - Local layout container for related controls or content. Use variant "block" for standalone sections and variant "inline" for lightweight nested groups, repeated rows, or inline controls. Optional appearance overrides theme colors for the group subtree.
-Repeater(children?: OpenUiNode[], emptyText?: string | null, appearance?: {mainColor?: string, contrastColor?: string}) - Dynamic collection container. Pass an array of already-built row nodes and it renders them as a vertical list. Use @Each(collection, "item", rowNode) to build rows from local arrays, runtime state, or Query("read_state", ...) results. Do not hardcode repeated rows when the user asked for dynamic data.
-Text(value?: string | number | boolean | null, variant?: "body" | "code" | "muted" | "title", align?: "start" | "center" | "end", appearance?: {contrastColor?: string}) - Generic text node for headings, helper copy, code-style snippets, and status lines.
-Use Screen for major steps and Group for local layout.
-Use Group variant "block" for standalone visual sections and variant "inline" for nested groups, inline controls, and repeated rows.
-Use AppShell.appearance for one shared theme pair, with mainColor as the main surface and contrastColor as the contrasting text/action color.
-Use Screen/Group/Repeater appearance only when a subtree needs a local theme override.
-Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.
+
+| Component | Signature |
+| --- | --- |
+| AppShell | \`AppShell(children?: OpenUiNode[], appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Screen | \`Screen(id: string, title: string, children?: OpenUiNode[], isActive?: boolean, appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Group | \`Group(title?: string \\| null, direction?: "vertical" \\| "horizontal", children?: OpenUiNode[], variant?: "block" \\| "inline", appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Repeater | \`Repeater(children?: OpenUiNode[], emptyText?: string \\| null, appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Text | \`Text(value?: string \\| number \\| boolean \\| null, variant?: "body" \\| "code" \\| "muted" \\| "title", align?: "start" \\| "center" \\| "end", appearance?: {contrastColor?: string})\` |
+
+- Use Screen for major steps and Group for local layout.
+- Use Group variant "block" for standalone visual sections and variant "inline" for nested groups, inline controls, and repeated rows.
+- Use AppShell.appearance for one shared theme pair, with mainColor as the main surface and contrastColor as the contrasting text/action color.
+- Use Screen/Group/Repeater appearance only when a subtree needs a local theme override.
+- Use Repeater with rows built by @Each(collection, "item", ...). Read persisted collections with Query("read_state", ...) before repeating them.
 
 ### Inputs
-Input(name: string, label: string, value?: $binding<string>, placeholder?: string | null, helper?: string | null, type?: "text" | "email" | "number" | "date" | "time" | "password", validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) - Single-line input with HTML type support, optional helper text, and declarative validation. Values always stay strings, including number, date, and time inputs.
-TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string | null, helper?: string | null, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string}) - Multi-line text input with optional helper text and declarative validation for longer descriptions, prompts, or notes.
-Checkbox(name: string, label: string, checked?: $binding<boolean> | boolean, helper?: string | null, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string}) - Boolean toggle for either local form state or explicit action flows. Use a $binding<boolean> for form state, or a display-only boolean plus action for persisted row toggles. Required validation means the checkbox must be checked.
-RadioGroup(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | null, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string}) - Single-choice list of options with optional helper text and declarative validation. Use a $binding<string> for form state, or a display-only string plus action for persisted choice updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
-Select(name: string, label: string, value?: $binding<string> | string, options?: {label: string, value: string}[], helper?: string | null, validation?: {type: "required" | "minLength" | "maxLength" | "minNumber" | "maxNumber" | "dateOnOrAfter" | "dateOnOrBefore" | "email", value?: number | string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string}) - Dropdown selector with optional helper text and declarative validation for choosing one item from a short list of label/value pairs. Use a $binding<string> for form state, or a display-only string plus action for persisted updates. In action mode, the runtime writes the new option to \`$lastChoice\` before Action([...]) runs.
-Bind interactive values to $variables when the user should control them.
-Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).
-Never combine action with a writable $binding on Checkbox, RadioGroup, or Select. Action mode uses display values; binding mode uses only $variables.
-RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.
+
+| Component | Signature |
+| --- | --- |
+| Input | \`Input(name: string, label: string, value?: $binding<string>, placeholder?: string \\| null, helper?: string \\| null, type?: "text" \\| "email" \\| "number" \\| "date" \\| "time" \\| "password", validation?: {type: "required" \\| "minLength" \\| "maxLength" \\| "minNumber" \\| "maxNumber" \\| "dateOnOrAfter" \\| "dateOnOrBefore" \\| "email", value?: number \\| string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})\` |
+| TextArea | \`TextArea(name: string, label: string, value?: $binding<string>, placeholder?: string \\| null, helper?: string \\| null, validation?: {type: "required" \\| "minLength" \\| "maxLength" \\| "minNumber" \\| "maxNumber" \\| "dateOnOrAfter" \\| "dateOnOrBefore" \\| "email", value?: number \\| string, message?: string}[], appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Checkbox | \`Checkbox(name: string, label: string, checked?: $binding<boolean> \\| boolean, helper?: string \\| null, validation?: {type: "required" \\| "minLength" \\| "maxLength" \\| "minNumber" \\| "maxNumber" \\| "dateOnOrAfter" \\| "dateOnOrBefore" \\| "email", value?: number \\| string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string})\` |
+| RadioGroup | \`RadioGroup(name: string, label: string, value?: $binding<string> \\| string, options?: {label: string, value: string}[], helper?: string \\| null, validation?: {type: "required" \\| "minLength" \\| "maxLength" \\| "minNumber" \\| "maxNumber" \\| "dateOnOrAfter" \\| "dateOnOrBefore" \\| "email", value?: number \\| string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Select | \`Select(name: string, label: string, value?: $binding<string> \\| string, options?: {label: string, value: string}[], helper?: string \\| null, validation?: {type: "required" \\| "minLength" \\| "maxLength" \\| "minNumber" \\| "maxNumber" \\| "dateOnOrAfter" \\| "dateOnOrBefore" \\| "email", value?: number \\| string, message?: string}[], action?: Action, appearance?: {mainColor?: string, contrastColor?: string})\` |
+
+- Bind interactive values to $variables when the user should control them.
+- Checkbox, RadioGroup, and Select can also run in action mode with display-only values plus Action([...]).
+- Never combine action with a writable $binding on Checkbox, RadioGroup, or Select. Action mode uses display values; binding mode uses only $variables.
+- RadioGroup and Select action mode write the newly chosen option to $lastChoice before the action runs.
 
 ### Actions
-Button(id: string, label: string, variant?: "default" | "secondary" | "destructive", action?: Action, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string}) - Clickable action trigger. The first argument must be a stable id string, followed by the visible label. Action([...]) runs steps in order, so one button can combine multiple @Run, @Set, @Reset, or @ToAssistant steps. When appearance is present, mainColor sets the button fill and contrastColor sets the button text.
-Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string}) - Text link for navigation to an external URL or a known browser route.
-Use Button with Action([...]) for Query and Mutation flows. When appearance is present, all button variants use mainColor for background and contrastColor for text.
+
+| Component | Signature |
+| --- | --- |
+| Button | \`Button(id: string, label: string, variant?: "default" \\| "secondary" \\| "destructive", action?: Action, disabled?: $binding<boolean>, appearance?: {mainColor?: string, contrastColor?: string})\` |
+| Link | \`Link(label: string, url: string, newTab?: boolean, appearance?: {mainColor?: string, contrastColor?: string})\` |
+
+- Use Button with Action([...]) for Query and Mutation flows. When appearance is present, all button variants use mainColor for background and contrastColor for text.
 
 ## Built-in Functions
 
@@ -210,39 +222,14 @@ OpenUI Lang supports hoisting: a reference can be used before it is defined, and
 3. Derived collections and reusable component refs - rows and sections stay readable
 4. \`root = AppShell(...)\` - the single render entry point
 
-## Examples
+## Summary Examples
 
-$selectedExpenseId = ""
-$editTitle = ""
+When writing the structured \`summary\`, mention concrete visible behavior instead of generic status text.
 
-expenses = Query("read_state", { path: "app.expenses" }, [])
-updateExpenseTitle = Mutation("update_item_field", {
-  path: "app.expenses",
-  idField: "id",
-  id: $selectedExpenseId,
-  field: "title",
-  value: $editTitle
-})
-expenseRows = @Each(expenses, "expense", Group(null, "horizontal", [
-  Text(expense.title, "body", "start"),
-  Button("edit-" + expense.id, "Edit", "secondary", Action([@Set($selectedExpenseId, expense.id), @Set($editTitle, expense.title)]), false)
-], "inline"))
-
-root = AppShell([
-  Screen("main", "Expenses", [
-    Repeater(expenseRows, "No expenses yet."),
-    Group("Edit selected expense", "vertical", [
-      Text($selectedExpenseId == "" ? "Select an expense to edit." : "Update the selected expense title.", "muted", "start"),
-      Input("editTitle", "Title", $editTitle, "Expense title"),
-      Button("save-expense", "Save", "default", Action([@Run(updateExpenseTitle), @Run(expenses)]), $selectedExpenseId == "" || $editTitle == "")
-    ])
-  ])
-])
-
-saveProfile = Mutation("merge_state", { path: "app.profile", patch: { theme: "dark", subscribed: true } })
-addTag = Mutation("append_state", { path: "app.tags", value: "urgent" })
-removeFirstTag = Mutation("remove_state", { path: "app.tags", index: 0 })
-
+- Good: "Added a todo list with task input, completion toggles, and persisted add/remove actions."
+- Good: "Converted the flow into a two-screen quiz with answer choices, navigation, and a result view."
+- Good: "Added required name and email validation with user-facing helper text on the signup form."
+- Bad: "Updated the app."
 ## Important Rules
 - When asked about data, generate realistic/plausible data.
 - Choose only supported components that best represent the content: Group/Repeater/Text for structure, Input/TextArea/Checkbox/RadioGroup/Select for controls, Button/Link for actions.
@@ -274,7 +261,7 @@ Before finishing, walk your output and verify:
 - Do not invent any other nested config objects.
 - Checkbox supports two modes: use \`$binding<boolean>\` for local form state, or pass a display-only boolean plus \`Action([...])\` for explicit persisted row toggles.
 - RadioGroup and Select also support action mode: use a display-only string plus \`Action([...])\` when the newly chosen option should trigger a persisted update instead of local form binding.
-- RadioGroup/Select options must be \`[{ label, value }]\`, never \`["Email", "Phone"]\`.
+- RadioGroup/Select options must be arrays of \`{ label, value }\` objects, never bare string or number arrays such as \`["Email", "Phone"]\`.
 - Never combine \`action\` with a writable \`$binding<...>\` on Checkbox, RadioGroup, or Select. Action-mode controls take a literal/item-field display value; binding-mode controls take only \`$binding\`.
 - BAD/GOOD Checkbox modes: BAD \`Checkbox("done", "Done", $done, null, null, Action([@Run(saveDone)]))\`; GOOD binding \`Checkbox("done", "Done", $done)\`; GOOD action \`Checkbox("done-" + item.id, "Done", item.done, null, null, Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)]))\`.
 - When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to \`$lastChoice\` before the action runs.

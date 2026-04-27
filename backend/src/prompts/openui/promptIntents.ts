@@ -121,19 +121,28 @@ export function detectPromptRequestIntent(prompt: string, options: DetectPromptR
 }
 
 export function formatPromptRequestIntentBlock(intent: PromptRequestIntent) {
-  return [
-    `todo: ${intent.todo}`,
-    `controlShowcase: ${intent.controlShowcase}`,
-    `delete: ${intent.delete}`,
-    `filtering: ${intent.filtering}`,
-    `validation: ${intent.validation}`,
-    `compute: ${intent.compute}`,
-    `random: ${intent.random}`,
-    `theme: ${intent.theme}`,
-    `multiScreen: ${intent.multiScreen}`,
-    `operation: ${intent.operation}`,
-    `minimality: ${intent.minimality}`,
-  ].join('\n');
+  const scope = intent.minimality === 'simple' ? 'simple scope' : 'expanded scope';
+  const operation =
+    intent.operation === 'modify'
+      ? 'a modify request'
+      : intent.operation === 'repair'
+        ? 'a repair request'
+        : intent.operation === 'create'
+          ? 'a fresh create request'
+          : 'an unknown-operation request';
+  const screenFlow = intent.multiScreen ? 'multi-screen app' : 'single-screen app';
+  const requestedFeatures = [
+    intent.todo ? 'todo/list behavior' : null,
+    intent.controlShowcase ? 'control showcase' : null,
+    intent.delete ? 'delete/remove behavior' : null,
+    intent.filtering ? 'filtering/search' : null,
+    intent.validation ? 'validation rules' : 'no explicit validation rules',
+    intent.random ? 'random generation' : null,
+    !intent.random && intent.compute ? 'computed values' : null,
+    intent.theme ? 'visual theme/styling' : 'no explicit theme switching',
+  ].filter(Boolean);
+
+  return `This request appears to be: ${operation}, ${screenFlow}, ${scope}, ${requestedFeatures.join(', ')}.`;
 }
 
 export function formatPromptIntentVector(intents: PromptIntentVector) {

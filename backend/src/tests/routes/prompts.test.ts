@@ -51,6 +51,7 @@ describe('GET /api/prompts/info', () => {
       'validation',
       'compute',
       'random',
+      'delete',
       'multi-screen',
     ]);
     expect(todoIntentContextVariant).toMatchObject({
@@ -62,21 +63,18 @@ describe('GET /api/prompts/info', () => {
     expect(todoIntentContextVariant?.text).toContain('Display-only `Checkbox(item.completed)` does not write back to persisted collections by itself.');
     expect(todoIntentContextVariant?.text).toContain('Todo/task list pattern:');
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
-    expect(payload.requestPromptTemplate).toContain('Final user turn sent to the model:');
+    expect(payload.requestPromptTemplate).toContain('Final user turn request/source block sent after the intent-context separator:');
     expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
     expect(payload.requestPromptTemplate).toContain('<intent_context>');
     expect(payload.requestPromptTemplate).toContain('<request_intent>');
-    expect(payload.requestPromptTemplate).toContain('controlShowcase: true|false');
-    expect(payload.requestPromptTemplate).toContain('operation: create|modify|repair|unknown');
-    expect(payload.requestPromptTemplate).toContain('minimality: simple|normal');
+    expect(payload.requestPromptTemplate).toContain('This request appears to be: [operation], [screen flow], [scope], [detected feature hints].');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
     expect(payload.requestPromptTemplate).toContain('<current_source_inventory>');
     expect(payload.requestPromptTemplate).toContain('optional `<conversation_context>`');
-    expect(payload.requestPromptTemplate).toContain('queries: [queryName -&gt; tool(path), or none]');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
     expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.requestPromptTemplate).toContain(
-      'The `summary` MUST describe the visible app/change in one complete user-facing sentence under 160 characters.',
+      'The `summary` MUST describe the visible app/change in one complete user-facing sentence under 200 characters.',
     );
     expect(payload.requestPromptTemplate).toContain(
       'Bad: "Updated the app." Good: "Added a required email field with inline validation to the signup form."',
