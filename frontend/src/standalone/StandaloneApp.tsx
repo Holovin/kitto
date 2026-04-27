@@ -1,4 +1,4 @@
-import { startTransition, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -142,7 +142,14 @@ function StandaloneIssuePanel({ issues }: { issues: PromptBuildValidationIssue[]
 }
 
 export function StandaloneApp({ payload }: StandaloneAppProps) {
-  const parsedPayload = parseStandalonePayload(payload);
+  const parsedPayload = useMemo(() => parseStandalonePayload(payload), [payload]);
+  const sourceValidation = useMemo(() => {
+    if (!parsedPayload) {
+      return null;
+    }
+
+    return validateOpenUiSource(parsedPayload.source);
+  }, [parsedPayload]);
   const [restoredState] = useState(() =>
     parsedPayload
       ? restoreStandaloneState(parsedPayload.storageKey, parsedPayload.initialRuntimeState, parsedPayload.initialDomainData)
@@ -214,11 +221,9 @@ export function StandaloneApp({ payload }: StandaloneAppProps) {
     });
   }
 
-  if (!parsedPayload) {
+  if (!parsedPayload || !sourceValidation) {
     return <StandaloneFallback title="Unable to open standalone app" />;
   }
-
-  const sourceValidation = validateOpenUiSource(parsedPayload.source);
 
   if (!sourceValidation.isValid) {
     return (

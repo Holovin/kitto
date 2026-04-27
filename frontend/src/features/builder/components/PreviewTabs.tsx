@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -95,12 +95,21 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const [rendererResetVersion, setRendererResetVersion] = useState(0);
   const [elapsedStreamingSeconds, setElapsedStreamingSeconds] = useState(0);
   const [streamingClockMs, setStreamingClockMs] = useState(0);
-  const deferredPreviewSource = useDeferredValue(previewSource);
   const currentSnapshot = history.at(-1);
+  const currentSnapshotCommittedAt = currentSnapshot?.committedAt ?? '';
+  const previewRenderInput = useMemo(
+    () => ({
+      key: `${history.length}:${currentSnapshotCommittedAt}:${previewSource}`,
+      source: previewSource,
+    }),
+    [currentSnapshotCommittedAt, history.length, previewSource],
+  );
+  const deferredPreviewRender = useDeferredValue(previewRenderInput);
+  const deferredPreviewSource = deferredPreviewRender.source;
   const isPreviewSynchronized = deferredPreviewSource === previewSource;
   const previewCanvasState = resolvePreviewCanvasState({
     isShowingRejectedDefinition,
-    previewSource,
+    previewSource: deferredPreviewSource,
   });
   const isPreviewEmptyCanvas = previewCanvasState !== 'preview';
   const isPreviewUnavailable = previewCanvasState === 'unavailable';
@@ -393,10 +402,10 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
                         scope: runtimeIssueScope,
                       });
                     }}
-                    resetKeys={[deferredPreviewSource, rendererResetVersion]}
+                    resetKeys={[deferredPreviewRender.key, rendererResetVersion]}
                   >
                     <Renderer
-                      key={`${history.length}:${currentSnapshot?.source ?? ''}:${rendererResetVersion}`}
+                      key={`${deferredPreviewRender.key}:${rendererResetVersion}`}
                       initialState={runtimeSessionState}
                       isStreaming={isStreaming}
                       library={builderOpenUiLibrary}
