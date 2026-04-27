@@ -108,10 +108,8 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@api': path.resolve(__dirname, 'src/api'),
         '@components': path.resolve(__dirname, 'src/components'),
-        '@features': path.resolve(__dirname, 'src/features'),
         '@helpers': path.resolve(__dirname, 'src/helpers'),
         '@layouts': path.resolve(__dirname, 'src/layouts'),
-        '@lib': path.resolve(__dirname, 'src/lib'),
         '@pages': path.resolve(__dirname, 'src/pages'),
         '@router': path.resolve(__dirname, 'src/router'),
         '@src': path.resolve(__dirname, 'src'),

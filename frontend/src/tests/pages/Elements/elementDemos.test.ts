@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
+import { ACTION_MODE_LAST_CHOICE_STATE } from '@pages/Chat/builder/openui/library/components/shared';
 import { ELEMENT_DEMO_DEFINITIONS } from '@pages/Elements/elementDemos';
 import { createMutationRefreshHarness } from '@src/tests/testUtils/createMutationRefreshHarness';
 

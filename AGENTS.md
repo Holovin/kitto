@@ -44,7 +44,7 @@ Steps:
 
 ## OpenUI Source Of Truth
 
-- The frontend OpenUI library is the source of truth: `frontend/src/features/builder/openui/library/index.tsx`
+- The frontend OpenUI library is the source of truth: `frontend/src/pages/Chat/builder/openui/library/index.tsx`
 - The generated component spec artifact lives at `shared/openui-component-spec.json`
 - The backend prompt consumes that generated spec in `backend/src/prompts/openui.ts`
 - Do not manually duplicate or hand-edit component signatures in the backend prompt
@@ -178,9 +178,9 @@ Steps:
 ## Tooling And Sync Points
 
 - Component changes are not fully centralized in one file yet. If you add, remove, or rename a component, check these manual sync points:
-  - `frontend/src/features/builder/openui/runtime/prompt.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/prompt.ts`
   - `frontend/src/pages/Elements/elementDemos.ts`
-  - `frontend/src/features/builder/openui/runtime/demos.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/demos.ts`
   - any component-specific documentation or examples in `/elements`
 - Route changes have an explicit contract now. If you add, remove, or rename a frontend route, sync:
   - `shared/frontend-routes.json`
@@ -189,19 +189,19 @@ Steps:
   - `frontend/src/tests/router/siteRoutes.test.ts`
 - Tool contract metadata starts in `shared/src/openuiToolRegistry.ts`. If you add, remove, or change a tool name, args, or semantics, sync:
   - `shared/src/openuiToolRegistry.ts`
-  - `frontend/src/features/builder/openui/runtime/createDomainToolProvider.ts`
-  - `frontend/src/features/builder/openui/runtime/toolProvider.ts`
-  - `frontend/src/features/builder/openui/runtime/actionDocs.ts`
-  - `frontend/src/features/builder/openui/runtime/actionDemos.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/createDomainToolProvider.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/toolProvider.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/actionDocs.ts`
+  - `frontend/src/pages/Chat/builder/openui/runtime/actionDemos.ts`
   - backend prompt rules/examples when model-facing guidance changes
   - `frontend/src/pages/Elements/Elements.tsx` sandbox tool provider when runtime behavior changes
 - Standalone export/player changes have their own sync points. If you change the standalone player runtime, HTML embedding, or standalone storage behavior, sync:
   - `frontend/src/standalone/player.tsx`
   - `frontend/src/standalone/bootstrap.tsx`
   - `frontend/src/standalone/StandaloneApp.tsx`
-  - `frontend/src/features/builder/standalone/createStandaloneHtml.ts`
-  - `frontend/src/features/builder/standalone/constants.ts`
-  - `frontend/src/features/builder/standalone/playerAssets.generated.ts`
+  - `frontend/src/pages/Chat/builder/standalone/createStandaloneHtml.ts`
+  - `frontend/src/pages/Chat/builder/standalone/constants.ts`
+  - `frontend/src/standalone/playerAssets.generated.ts`
   - `frontend/vite.standalone.config.ts`
   - `scripts/embed-standalone-player-assets.ts`
 - The `/elements` page reads both `builderOpenUiLibrary.toSpec()` and `builderOpenUiLibrary.toJSONSchema()`, so library changes directly affect that explorer

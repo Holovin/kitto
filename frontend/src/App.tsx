@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
-import { builderActions } from '@features/builder/store/builderSlice';
+import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { router } from '@router/router';
 import { useAppDispatch } from '@store/hooks';
 

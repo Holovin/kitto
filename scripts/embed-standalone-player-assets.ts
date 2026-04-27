@@ -8,7 +8,7 @@ const repositoryRoot = path.resolve(currentDirectory, '..');
 const standalonePlayerDirectory = path.resolve(repositoryRoot, 'frontend/dist-standalone-player');
 const standalonePlayerJsPath = path.resolve(standalonePlayerDirectory, 'player.js');
 const standalonePlayerCssPath = path.resolve(standalonePlayerDirectory, 'style.css');
-const generatedModulePath = path.resolve(repositoryRoot, 'frontend/src/features/builder/standalone/playerAssets.generated.ts');
+const generatedModulePath = path.resolve(repositoryRoot, 'frontend/src/standalone/playerAssets.generated.ts');
 const watchMode = process.argv.includes('--watch');
 const watchedBundlePaths = [standalonePlayerJsPath, standalonePlayerCssPath] as const;
 

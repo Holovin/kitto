@@ -1,9 +1,9 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { rememberEnhancer, rememberReducer } from 'redux-remember';
 import { apiSlice } from '@api/apiSlice';
-import { builderReducer } from '@features/builder/store/builderSlice';
-import { builderSessionReducer } from '@features/builder/store/builderSessionSlice';
-import { domainReducer } from '@features/builder/store/domainSlice';
+import { builderReducer } from '@pages/Chat/builder/store/builderSlice';
+import { builderSessionReducer } from '@pages/Chat/builder/store/builderSessionSlice';
+import { domainReducer } from '@pages/Chat/builder/store/domainSlice';
 import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from './persistence';
 
 const combinedReducer = combineReducers({

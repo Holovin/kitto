@@ -37,10 +37,8 @@ export default defineConfig({
     alias: {
       '@api': path.resolve(rootDir, 'src/api'),
       '@components': path.resolve(rootDir, 'src/components'),
-      '@features': path.resolve(rootDir, 'src/features'),
       '@helpers': path.resolve(rootDir, 'src/helpers'),
       '@layouts': path.resolve(rootDir, 'src/layouts'),
-      '@lib': path.resolve(rootDir, 'src/lib'),
       '@pages': path.resolve(rootDir, 'src/pages'),
       '@router': path.resolve(rootDir, 'src/router'),
       '@src': path.resolve(rootDir, 'src'),

@@ -1,6 +1,6 @@
-import { normalizeBuilderState } from '@features/builder/store/builderSlice';
-import { normalizeBuilderSessionState, validateRestoredBuilderSessionResult } from '@features/builder/store/builderSessionSlice';
-import { normalizeDomainState, validateRestoredDomainResult } from '@features/builder/store/domainSlice';
+import { normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
+import { normalizeBuilderSessionState, validateRestoredBuilderSessionResult } from '@pages/Chat/builder/store/builderSessionSlice';
+import { normalizeDomainState, validateRestoredDomainResult } from '@pages/Chat/builder/store/domainSlice';
 import { logRecoveryEvent } from './recoveryEvents';
 
 export const REMEMBER_PREFIX = '@@remember-';

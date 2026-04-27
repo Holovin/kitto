@@ -1,10 +1,10 @@
 import { createQueryManager, createStore, evaluate, evaluateElementProps } from '@openuidev/lang-core';
 import { createParser, type OpenUIError } from '@openuidev/react-lang';
 import { expect } from 'vitest';
-import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import { ACTION_MODE_LAST_CHOICE_STATE } from '@features/builder/openui/library/components/shared';
-import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
-import { mapOpenUiErrorsToIssues } from '@features/builder/openui/runtime/issues';
+import { builderOpenUiLibrary } from '@pages/Chat/builder/openui/library';
+import { ACTION_MODE_LAST_CHOICE_STATE } from '@pages/Chat/builder/openui/library/components/shared';
+import { createDomainToolProvider } from '@pages/Chat/builder/openui/runtime/createDomainToolProvider';
+import { mapOpenUiErrorsToIssues } from '@pages/Chat/builder/openui/runtime/issues';
 
 type OpenUiElementNode = {
   props: Record<string, unknown>;

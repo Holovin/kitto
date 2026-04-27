@@ -172,11 +172,7 @@ export function filterPromptBuildChatHistory(
     .filter((message) => message.excludeFromLlmContext !== true)
     .map(({ content, role }) => ({ content, role }));
 
-  if (!Number.isFinite(normalizedMaxItems)) {
-    return filteredMessages;
-  }
-
-  return filteredMessages.slice(-normalizedMaxItems);
+  return retainPromptBuildChatHistory(filteredMessages, normalizedMaxItems);
 }
 
 export function compactPromptBuildChatHistory(

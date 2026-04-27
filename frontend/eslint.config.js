@@ -21,7 +21,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/features/builder/openui/library/components/*.tsx'],
+    files: ['src/pages/Chat/builder/openui/library/components/*.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

@@ -1,6 +1,6 @@
-import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
-import { OPENUI_SUPPORTED_COMPONENTS } from '@features/builder/openui/runtime/prompt';
+import { builderOpenUiLibrary } from '@pages/Chat/builder/openui/library';
+import { OPENUI_ACTION_DEFINITIONS } from '@pages/Chat/builder/openui/runtime/actionCatalog';
+import { OPENUI_SUPPORTED_COMPONENTS } from '@pages/Chat/builder/openui/runtime/prompt';
 
 export type ReferenceTabId = 'elements' | 'actions' | 'prompts';
 export type PromptReferenceSectionLabel =

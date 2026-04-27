@@ -1,4 +1,4 @@
-import { normalizeStandaloneDomainData, normalizeStandaloneRuntimeState } from '@features/builder/standalone/types';
+import { normalizeStandaloneDomainData, normalizeStandaloneRuntimeState } from '@pages/Chat/builder/standalone/types';
 
 export type StandaloneSnapshot = {
   domainData: Record<string, unknown>;

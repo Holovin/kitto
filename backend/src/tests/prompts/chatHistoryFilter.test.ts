@@ -118,7 +118,7 @@ describe('filterPromptBuildChatHistory', () => {
     ]);
   });
 
-  it('respects the max item limit after excluding system and flagged assistant messages', () => {
+  it('uses turn-aware retention after excluding system and flagged assistant messages', () => {
     expect(
       filterPromptBuildChatHistory(
         [
@@ -136,8 +136,8 @@ describe('filterPromptBuildChatHistory', () => {
       ),
     ).toEqual([
       {
-        content: 'Preserved the todo flow and added filters.',
-        role: 'assistant',
+        content: 'First request',
+        role: 'user',
       },
       {
         content: 'Add sorting',

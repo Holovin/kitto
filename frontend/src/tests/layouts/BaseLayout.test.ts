@@ -9,7 +9,7 @@ const bootstrapState = vi.hoisted(() => ({
   model: 'gpt-test',
 }));
 
-vi.mock('@features/builder/hooks/useBuilderBootstrap', () => ({
+vi.mock('@pages/Chat/builder/hooks/useBuilderBootstrap', () => ({
   useBuilderBootstrap: () => bootstrapState,
 }));
 

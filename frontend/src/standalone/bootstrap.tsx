@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { parseStandalonePayload, type KittoStandalonePayload } from '@features/builder/standalone/types';
-import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@features/builder/standalone/constants';
+import { parseStandalonePayload, type KittoStandalonePayload } from '@pages/Chat/builder/standalone/types';
+import { STANDALONE_PAYLOAD_ELEMENT_ID, STANDALONE_ROOT_ELEMENT_ID } from '@pages/Chat/builder/standalone/constants';
 import { StandaloneApp } from './StandaloneApp';
 
 type StandaloneDocument = Pick<

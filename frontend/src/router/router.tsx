@@ -1,7 +1,7 @@
 import { RouteErrorBoundary } from '@components/ErrorFallback/RouteErrorBoundary';
 import { createBrowserRouter } from 'react-router-dom';
 import { BaseLayout } from '@layouts/BaseLayout';
-import ChatPage from '@pages/Chat/Chat';
+import { BuilderPage } from '@pages/Chat/builder/components/BuilderPage';
 import { SiteRoutes } from './siteRoutes';
 
 // React Router renders this during initial lazy route discovery, for example
@@ -17,11 +17,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: SiteRoutes.home.path,
-        element: <ChatPage />,
+        element: <BuilderPage />,
       },
       {
         path: SiteRoutes.chat.path,
-        element: <ChatPage />,
+        element: <BuilderPage />,
       },
       {
         path: SiteRoutes.elements.path,

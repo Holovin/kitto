@@ -1,25 +1,24 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@components/ui/button';
-import { BootLoader } from '@features/builder/components/BootLoader';
-import { useBuilderBootstrap } from '@features/builder/hooks/useBuilderBootstrap';
-import { StatusBadge } from '@features/builder/components/StatusBadge';
-import { cn } from '@lib/utils';
+import { BootLoader } from '@pages/Chat/builder/components/BootLoader';
+import { useBuilderBootstrap } from '@pages/Chat/builder/hooks/useBuilderBootstrap';
+import { StatusBadge } from '@pages/Chat/builder/components/StatusBadge';
+import { cn } from '@helpers/utils';
 import { SiteRoutes } from '@router/siteRoutes';
 
 export function BaseLayout() {
   const location = useLocation();
   const { connectionStatus, hasResolvedBootstrap, model } = useBuilderBootstrap();
   const activePath = location.pathname;
-  const isChatRoute = activePath === SiteRoutes.home.path || activePath === SiteRoutes.chat.path;
-  const isChatActive = isChatRoute;
+  const isBuilderRoute = activePath === SiteRoutes.home.path || activePath === SiteRoutes.chat.path;
 
   return (
-    <div className={cn(isChatRoute ? 'h-dvh' : 'min-h-screen')}>
+    <div className={cn(isBuilderRoute ? 'h-dvh' : 'min-h-screen')}>
       {!hasResolvedBootstrap ? <BootLoader /> : null}
       <div
         className={cn(
           'mx-auto flex max-w-[90rem] flex-col px-4 py-4 sm:px-6 lg:px-8',
-          isChatRoute ? 'h-full' : 'min-h-screen',
+          isBuilderRoute ? 'h-full' : 'min-h-screen',
         )}
       >
         <header className="mb-2 flex flex-wrap items-center justify-between gap-3 py-1.5">
@@ -32,9 +31,9 @@ export function BaseLayout() {
           <nav className="flex flex-wrap items-center gap-2">
             <Button
               asChild
-              className={cn(isChatActive && '!text-white')}
+              className={cn(isBuilderRoute && '!text-white')}
               size="sm"
-              variant={isChatActive ? 'default' : 'ghost'}
+              variant={isBuilderRoute ? 'default' : 'ghost'}
             >
               <NavLink to={SiteRoutes.home.path} end>
                 Chat

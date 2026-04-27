@@ -5,17 +5,17 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
-import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
-import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
-import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
-import { builderOpenUiLibrary } from '@features/builder/openui/library';
-import { validateOpenUiSource } from '@features/builder/openui/runtime/validation';
-import { clearStandaloneStoredState, restoreStandaloneState, writeStandaloneStoredState } from '@features/builder/standalone/storage';
+import { createDomainToolProvider } from '@pages/Chat/builder/openui/runtime/createDomainToolProvider';
+import { handleOpenUiActionEvent } from '@pages/Chat/builder/openui/runtime/actionEvents';
+import { mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@pages/Chat/builder/openui/runtime/issues';
+import { builderOpenUiLibrary } from '@pages/Chat/builder/openui/library';
+import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';
+import { clearStandaloneStoredState, restoreStandaloneState, writeStandaloneStoredState } from '@pages/Chat/builder/standalone/storage';
 import {
   parseStandalonePayload,
   type KittoStandalonePayload,
-} from '@features/builder/standalone/types';
-import type { PromptBuildValidationIssue } from '@features/builder/types';
+} from '@pages/Chat/builder/standalone/types';
+import type { PromptBuildValidationIssue } from '@pages/Chat/builder/types';
 import {
   createStandaloneSnapshot,
   isStandaloneSnapshotUpdateKey,

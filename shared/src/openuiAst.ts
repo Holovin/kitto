@@ -1,24 +1,13 @@
-export type OpenUiExpressionAst = {
-  args?: unknown[];
-  entries?: Array<[string, unknown]>;
-  k: string;
-  n?: string;
-  name?: string;
-  refType?: string;
-  v?: unknown;
-};
+import type { ASTNode, ElementNode } from '@openuidev/lang-core';
 
-export type OpenUiElementNode = {
-  props: Record<string, unknown>;
-  statementId?: string;
-  type: 'element';
-  typeName: string;
-};
+export type OpenUiExpressionAst = ASTNode;
 
-export type OpenUiToolAst = unknown;
+export type OpenUiElementNode = Omit<ElementNode, 'partial'> & Partial<Pick<ElementNode, 'partial'>>;
+
+export type OpenUiToolAst = ASTNode | null;
 
 export type OpenUiToolStatement = {
-  argsAST: unknown;
+  argsAST: ASTNode | null;
   statementId: string;
   toolAST: OpenUiToolAst;
 };
@@ -26,7 +15,7 @@ export type OpenUiToolStatement = {
 export type OpenUiParseResultLike = {
   mutationStatements: OpenUiToolStatement[];
   queryStatements: OpenUiToolStatement[];
-  root: unknown;
+  root: OpenUiElementNode | null;
   stateDeclarations?: Record<string, unknown>;
 };
 

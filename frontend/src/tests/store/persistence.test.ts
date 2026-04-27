@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBuilderSnapshot } from '@features/builder/openui/runtime/persistedState';
-import { normalizeBuilderState } from '@features/builder/store/builderSlice';
+import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
+import { normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
 import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from '@store/persistence';
 
 const validSource = `root = AppShell([

@@ -62,29 +62,29 @@ const pathActionProperty = {
   type: 'string',
   description:
     'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Avoid `__proto__`, `prototype`, and `constructor`.',
-} as const;
+} as const satisfies OpenUiJsonSchema;
 
 const pathPromptProperty = {
   type: 'string',
   description:
     'Non-empty dot-path. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
-} as const;
+} as const satisfies OpenUiJsonSchema;
 
 const readStatePathPromptProperty = {
   type: 'string',
   description:
     'Non-empty dot-path such as app.tasks or app.profile.name. Segments may use letters, numbers, `_`, or `-`. Never use __proto__, prototype, or constructor.',
-} as const;
+} as const satisfies OpenUiJsonSchema;
 
 const idFieldProperty = {
   type: 'string',
   description: 'Safe object field name used to match the target row, such as `id`.',
-} as const;
+} as const satisfies OpenUiJsonSchema;
 
 const idProperty = {
   oneOf: [{ type: 'string' }, { type: 'number' }],
   description: 'Item id to match against `idField`.',
-} as const;
+} as const satisfies OpenUiJsonSchema;
 
 const computeActionProperties = {
   op: {

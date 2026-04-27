@@ -7,18 +7,18 @@ import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
-import { builderOpenUiLibrary, getBuilderOpenUiSpec } from '@features/builder/openui/library';
-import { handleOpenUiActionEvent } from '@features/builder/openui/runtime/actionEvents';
-import { createDomainToolProvider } from '@features/builder/openui/runtime/createDomainToolProvider';
-import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@features/builder/openui/runtime/issues';
-import { OPENUI_ACTION_DEFINITIONS } from '@features/builder/openui/runtime/actionCatalog';
+import { builderOpenUiLibrary, getBuilderOpenUiSpec } from '@pages/Chat/builder/openui/library';
+import { handleOpenUiActionEvent } from '@pages/Chat/builder/openui/runtime/actionEvents';
+import { createDomainToolProvider } from '@pages/Chat/builder/openui/runtime/createDomainToolProvider';
+import { createRendererCrashIssue, mapOpenUiErrorsToIssues, mapParseResultToIssues } from '@pages/Chat/builder/openui/runtime/issues';
+import { OPENUI_ACTION_DEFINITIONS } from '@pages/Chat/builder/openui/runtime/actionCatalog';
 import type {
   PromptBuildValidationIssue,
   PromptInfoIntentContextVariant,
   PromptInfoSystemPromptVariant,
   PromptInfoToolSpec,
   PromptsInfoResponse,
-} from '@features/builder/types';
+} from '@pages/Chat/builder/types';
 import { ELEMENT_DEMO_DEFINITIONS } from './elementDemos';
 import {
   ACTION_REFERENCE_GROUPS,

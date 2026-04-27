@@ -73,10 +73,10 @@ By default:
 ## Key files
 
 - `src/layouts/BaseLayout.tsx` - app shell, navigation, and connection badge
-- `src/features/builder/components/ChatPanel.tsx` - prompt composer, chat feed, import/export, undo/redo
-- `src/features/builder/components/PreviewTabs.tsx` - preview/definition tabs and runtime reset
-- `src/features/builder/hooks/useBuilderSubmission.ts` - streaming, fallback, validation, and auto-repair flow
-- `src/features/builder/hooks/useBuilderBootstrap.ts` - config bootstrap and health polling
+- `src/pages/Chat/builder/components/ChatPanel.tsx` - prompt composer, chat feed, import/export, undo/redo
+- `src/pages/Chat/builder/components/PreviewTabs.tsx` - preview/definition tabs and runtime reset
+- `src/pages/Chat/builder/hooks/useBuilderSubmission.ts` - streaming, fallback, validation, and auto-repair flow
+- `src/pages/Chat/builder/hooks/useBuilderBootstrap.ts` - config bootstrap and health polling
 - `src/pages/Elements/Elements.tsx` - schema explorer and live OpenUI sandbox
 - `src/api/apiSlice.ts` - RTK Query endpoints
 - `src/store/store.ts` - Redux store and persisted builder state

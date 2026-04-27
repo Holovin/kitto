@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { builderActions } from '@features/builder/store/builderSlice';
-import { builderSessionActions } from '@features/builder/store/builderSessionSlice';
-import { domainActions } from '@features/builder/store/domainSlice';
+import { builderActions } from '@pages/Chat/builder/store/builderSlice';
+import { builderSessionActions } from '@pages/Chat/builder/store/builderSessionSlice';
+import { domainActions } from '@pages/Chat/builder/store/domainSlice';
 import { REMEMBER_KEYS, REMEMBER_PREFIX } from '@store/persistence';
 
 vi.mock('@store/store', () => ({

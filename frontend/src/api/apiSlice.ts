@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { BuilderConfigResponse, HealthResponse, PromptsInfoResponse } from '@features/builder/types';
+import type { BuilderConfigResponse, HealthResponse, PromptsInfoResponse } from '@pages/Chat/builder/types';
 import { getBackendApiBaseUrl } from '@helpers/environment';
 
 export const apiSlice = createApi({

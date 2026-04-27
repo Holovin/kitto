@@ -7,7 +7,7 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(currentDirectory, '..');
 const componentSpecPath = path.resolve(repositoryRoot, 'shared/openui-component-spec.json');
 const librarySchemaPath = path.resolve(repositoryRoot, 'shared/openui-library-schema.json');
-const libraryEntryPath = path.resolve(repositoryRoot, 'frontend/src/features/builder/openui/library/index.tsx');
+const libraryEntryPath = path.resolve(repositoryRoot, 'frontend/src/pages/Chat/builder/openui/library/index.tsx');
 const frontendTsconfigPath = path.resolve(repositoryRoot, 'frontend/tsconfig.app.json');
 
 async function main() {
