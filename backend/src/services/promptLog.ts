@@ -44,8 +44,6 @@ interface PromptIoLogEntryFields {
 
 export interface PromptIoLogEntry extends PromptIoLogEntryFields {}
 
-export interface PromptIoFailureLogEntry extends PromptIoLogEntryFields {}
-
 interface PromptLogWriteOptions {
   enabled: boolean;
   filePath?: string;
@@ -115,7 +113,7 @@ function sanitizeForJson(value: unknown, maxStringChars: number): JsonValue | un
   return undefined;
 }
 
-async function writePromptLogEntry(entry: PromptIoLogEntry | PromptIoFailureLogEntry, options: PromptLogWriteOptions) {
+async function writePromptLogEntry(entry: PromptIoLogEntry, options: PromptLogWriteOptions) {
   if (!options.enabled) {
     return;
   }
@@ -140,10 +138,6 @@ async function writePromptLogEntry(entry: PromptIoLogEntry | PromptIoFailureLogE
 
 export const promptLog = {
   async write(entry: PromptIoLogEntry, options: PromptLogWriteOptions) {
-    await writePromptLogEntry(entry, options);
-  },
-
-  async writeFailure(entry: PromptIoFailureLogEntry, options: PromptLogWriteOptions) {
     await writePromptLogEntry(entry, options);
   },
 };

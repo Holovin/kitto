@@ -8,7 +8,6 @@ const {
   MockApiConnectionTimeoutError,
   MockApiError,
   MockApiUserAbortError,
-  promptLogWriteFailureMock,
   promptLogWriteMock,
   responsesCreateMock,
   responsesStreamMock,
@@ -46,7 +45,6 @@ const {
     MockApiConnectionTimeoutError: HoistedMockApiConnectionTimeoutError,
     MockApiError: HoistedMockApiError,
     MockApiUserAbortError: HoistedMockApiUserAbortError,
-    promptLogWriteFailureMock: vi.fn(),
     promptLogWriteMock: vi.fn(),
     responsesCreateMock: vi.fn(),
     responsesStreamMock: vi.fn(),
@@ -56,7 +54,6 @@ const {
 vi.mock(import('#backend/services/promptLog.js'), () => ({
   promptLog: {
     write: promptLogWriteMock,
-    writeFailure: promptLogWriteFailureMock,
   },
 }));
 
@@ -300,7 +297,6 @@ describe('parseOpenUiGenerationEnvelope', () => {
 
 describe('generateOpenUiSource', () => {
   afterEach(() => {
-    promptLogWriteFailureMock.mockReset();
     promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
@@ -885,7 +881,7 @@ describe('generateOpenUiSource', () => {
       ],
     };
 
-    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    promptLogWriteMock.mockResolvedValue(undefined);
     responsesCreateMock.mockResolvedValue({
       output_text: 'not-json',
       usage: {
@@ -897,7 +893,7 @@ describe('generateOpenUiSource', () => {
       UpstreamFailureError,
     );
 
-    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-repair',
         parentRequestId: 'builder-request-parent',
@@ -925,12 +921,12 @@ describe('generateOpenUiSource', () => {
     const timeoutError = new Error('The model request timed out.');
 
     timeoutError.name = 'TimeoutError';
-    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    promptLogWriteMock.mockResolvedValue(undefined);
     responsesCreateMock.mockRejectedValue(timeoutError);
 
     await expect(generateOpenUiSource(env, request, undefined, { requestId: 'builder-request-timeout' })).rejects.toBe(timeoutError);
 
-    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-timeout',
         rawUserRequest: 'Build a todo app',
@@ -1051,7 +1047,6 @@ describe('generateOpenUiSource', () => {
 
 describe('streamOpenUiSource', () => {
   afterEach(() => {
-    promptLogWriteFailureMock.mockReset();
     promptLogWriteMock.mockReset();
     responsesCreateMock.mockReset();
     responsesStreamMock.mockReset();
@@ -1134,14 +1129,14 @@ describe('streamOpenUiSource', () => {
       { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
     );
 
-    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    promptLogWriteMock.mockResolvedValue(undefined);
     responsesStreamMock.mockReturnValue(stream);
 
     await expect(
       streamOpenUiSource(env, request, onTextDelta, abortController.signal, { requestId: 'builder-request-client-abort' }),
     ).rejects.toBeInstanceOf(MockApiUserAbortError);
 
-    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         errorCode: 'client_aborted',
         inputShape: 'role-based',
@@ -1451,7 +1446,7 @@ describe('streamOpenUiSource', () => {
     const streamTimeoutError = new Error('The model request timed out.');
 
     streamTimeoutError.name = 'TimeoutError';
-    promptLogWriteFailureMock.mockResolvedValue(undefined);
+    promptLogWriteMock.mockResolvedValue(undefined);
     responsesStreamMock.mockReturnValue({
       abort: vi.fn(),
       finalResponse: vi.fn().mockRejectedValue(streamTimeoutError),
@@ -1467,7 +1462,7 @@ describe('streamOpenUiSource', () => {
       streamTimeoutError,
     );
 
-    expect(promptLogWriteFailureMock).toHaveBeenCalledWith(
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'builder-request-stream-failure',
         rawUserRequest: 'Build a todo app',

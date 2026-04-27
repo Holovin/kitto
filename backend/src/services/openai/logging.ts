@@ -300,7 +300,7 @@ export async function writePromptIoFailureSafely(
   const mode = getPromptLogMode(request.mode);
 
   try {
-    await promptLog.writeFailure(
+    await promptLog.write(
       {
         ts: new Date().toISOString(),
         requestId: options.requestId ?? null,
@@ -346,7 +346,7 @@ export async function writePromptIoIntakeFailureSafely(
   const partialContext = getPartialPromptBuildContext(options.partialBody);
 
   try {
-    await promptLog.writeFailure(
+    await promptLog.write(
       {
         ts: new Date().toISOString(),
         requestId: options.requestId,

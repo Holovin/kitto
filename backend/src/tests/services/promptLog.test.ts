@@ -188,7 +188,7 @@ describe('promptLog.write', () => {
     const { cleanup, filePath } = await createTempLogFilePath();
     cleanupTasks.push(cleanup);
 
-    await promptLog.writeFailure(
+    await promptLog.write(
       {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-failure',
@@ -280,7 +280,7 @@ describe('promptLog.write', () => {
     const { cleanup, filePath } = await createTempLogFilePath();
     cleanupTasks.push(cleanup);
 
-    await promptLog.writeFailure(
+    await promptLog.write(
       {
         ts: '2026-04-21T10:00:00.000Z',
         requestId: 'request-intake',
