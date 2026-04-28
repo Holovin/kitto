@@ -110,7 +110,7 @@ Guardrails:
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Successful JSON import, demo load, and builder reset start fresh builder chat context for the new app or blank canvas; stale pre-change user requests must not be sent on the next generation.
 - Undo, redo, and builder reset in the chat toolbar are disabled during generation; use `Cancel` first before changing builder history or clearing the builder.
-- Invalid import keeps the last committed Preview/runtime/domain state and only surfaces the rejected source in Definition with parse issues.
+- Invalid import resets the builder first, so the previous committed Preview/runtime/domain state is cleared before the failure is surfaced. Parser-invalid OpenUI imports may still show the rejected source in Definition with parse issues, while Preview falls back to the reset blank state.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - New chat-generated commits intentionally reset local runtime state instead of migrating screen/form variables across source versions.
@@ -532,7 +532,7 @@ Builder controls that should stay working alongside generated apps:
 - import/export
 - standalone HTML export
 - builder feedback and backend connection notices append as chat history messages at the end of the dialog instead of showing a top feedback banner
-- invalid import should show Definition validation issues without replacing the current preview or wiping chat, undo/redo history, runtime state, or persisted data
+- invalid import should reset the builder first, then show one clear failure state; parser-invalid OpenUI imports may show Definition validation issues, but stale preview, chat, undo/redo history, runtime state, and persisted data should be cleared
 - undo/redo when generation is not active
 - reset when generation is not active
 

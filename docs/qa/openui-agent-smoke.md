@@ -340,9 +340,9 @@ Expected:
 
 - Import is rejected.
 - Invalid import shows a single clear failure message.
-- Preview remains on last committed valid app.
-- Definition shows rejected source or validation issues.
-- Chat/history/runtime/domain state are not wiped.
+- The previous committed app is cleared because import resets the builder before applying the file.
+- Parser-invalid OpenUI imports may show the rejected source or validation issues in Definition while Preview stays on the reset blank state.
+- Chat/history/runtime/domain state are wiped.
 - App does not crash.
 
 ## Scenario 10 — Draft issues and auto-repair

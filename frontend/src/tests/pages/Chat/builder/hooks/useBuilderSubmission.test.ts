@@ -961,13 +961,21 @@ function createImportEvent(file: { name: string; text: () => Promise<string> }) 
   } as unknown as ChangeEvent<HTMLInputElement>;
 }
 
-function createImportPayload(source = IMPORTED_SOURCE) {
+function createImportPayload(
+  source = IMPORTED_SOURCE,
+  overrides: Partial<{
+    domainData: Record<string, unknown>;
+    history: ReturnType<typeof createBuilderSnapshot>[];
+    runtimeState: Record<string, unknown>;
+  }> = {},
+) {
   return JSON.stringify({
     domainData: {},
     history: [],
     runtimeState: {},
     source,
     version: 1,
+    ...overrides,
   });
 }
 
@@ -1323,6 +1331,108 @@ describe('useBuilderSubmission', () => {
 
     historyControls.unmount();
     submission.unmount();
+  });
+
+  it('resets the builder before reading a valid import and then loads the imported app', async () => {
+    const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
+
+    seedHistorySnapshots(staleSnapshot);
+    appendChatMessages([
+      { content: 'Build a stale app.', role: 'user' },
+      { content: 'Built the stale app.', role: 'assistant' },
+    ]);
+    const historyControls = createHistoryControlsHarness();
+    const importedRuntimeState = { $screen: 'imported' };
+    const importedDomainData = { app: { imported: true } };
+
+    await historyControls.result().handleImport(
+      createImportEvent({
+        name: 'import.json',
+        text: async () => {
+          expect(getBuilderState().committedSource).toBe('');
+          expect(getBuilderState().streamedSource).toBe('');
+          expect(getBuilderState().history).toHaveLength(1);
+          expect(getBuilderSessionState()).toEqual({});
+          expect(getDomainState()).toEqual({});
+
+          return createImportPayload(IMPORTED_SOURCE, {
+            domainData: importedDomainData,
+            runtimeState: importedRuntimeState,
+          });
+        },
+      }),
+    );
+
+    expect(getBuilderState().committedSource).toBe(IMPORTED_SOURCE);
+    expect(getBuilderSessionState()).toEqual(importedRuntimeState);
+    expect(getDomainState()).toEqual(importedDomainData);
+    expect(getBuilderState().chatMessages.some((message) => message.content === 'Build a stale app.')).toBe(false);
+
+    historyControls.unmount();
+  });
+
+  it('resets stale app state when an import file is not valid JSON', async () => {
+    const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
+
+    seedHistorySnapshots(staleSnapshot);
+    const historyControls = createHistoryControlsHarness();
+
+    await historyControls.result().handleImport(
+      createImportEvent({
+        name: 'broken.json',
+        text: async () => '{"data"',
+      }),
+    );
+
+    expect(getBuilderState().committedSource).toBe('');
+    expect(getBuilderState().streamedSource).toBe('');
+    expect(getBuilderSessionState()).toEqual({});
+    expect(getDomainState()).toEqual({});
+    expect(findChatMessage('Import failed: Import file is not valid JSON.')).toEqual(
+      expect.objectContaining({
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+
+    historyControls.unmount();
+  });
+
+  it('resets stale app state when an import contains invalid OpenUI source', async () => {
+    const invalidImportedSource = 'root = UnknownComponent([])';
+    const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
+
+    seedHistorySnapshots(staleSnapshot);
+    const historyControls = createHistoryControlsHarness();
+
+    await historyControls.result().handleImport(
+      createImportEvent({
+        name: 'invalid.json',
+        text: async () => createImportPayload(invalidImportedSource),
+      }),
+    );
+
+    expect(getBuilderState().committedSource).toBe('');
+    expect(getBuilderState().streamedSource).toBe(invalidImportedSource);
+    expect(getBuilderState().hasRejectedDefinition).toBe(true);
+    expect(getBuilderState().parseIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-component',
+          statementId: 'root',
+        }),
+      ]),
+    );
+    expect(getBuilderSessionState()).toEqual({});
+    expect(getDomainState()).toEqual({});
+    expect(findChatMessage('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.')).toEqual(
+      expect.objectContaining({
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+
+    historyControls.unmount();
   });
 
   it('does not send stale chat history after loading a demo definition', async () => {

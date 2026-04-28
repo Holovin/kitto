@@ -208,6 +208,8 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
     }
 
     cancelActiveRequest();
+    onSystemNotice(null);
+    resetAppStateWithDispatch(dispatch);
 
     try {
       const rawValue = await file.text();
@@ -235,7 +237,6 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       const recoveredDomainData = recoverStaleNavigationDomainData(importedDefinition.source, importedDefinition.domainData);
       const recoveredImportedHistory = importedHistory.map((snapshot) => recoverStaleNavigationSnapshot(snapshot));
 
-      resetAppStateWithDispatch(dispatch);
       dispatch(domainActions.replaceData(recoveredDomainData.domainData));
       dispatch(builderSessionActions.replaceRuntimeSessionState(importedDefinition.runtimeState));
       dispatch(
