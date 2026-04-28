@@ -87,15 +87,13 @@ describe('GET /api/prompts/info', () => {
     expect(todoIntentContextVariant?.text).toContain('Checkbox("toggle-" + item.id');
     expect(payload.requestPromptTemplate).toContain('Initial generation input shape:');
     expect(payload.requestPromptTemplate).toContain('Final user turn request/source block sent after the intent-context separator:');
-    expect(payload.requestPromptTemplate).toContain('each sent as its own role-based message');
     expect(payload.requestPromptTemplate).toContain('<intent_context>');
     expect(payload.requestPromptTemplate).toContain('<request_intent>');
     expect(payload.requestPromptTemplate).toContain('This request appears to be: [operation], [screen flow], [scope], [detected feature hints].');
     expect(payload.requestPromptTemplate).toContain('<latest_user_request>');
-    expect(payload.requestPromptTemplate).toContain('<current_source_inventory>');
+    expect(payload.requestPromptTemplate).toContain('protected `<current_source>`');
     expect(payload.requestPromptTemplate).toContain('optional `<conversation_context>`');
     expect(payload.requestPromptTemplate).toContain('<current_source>');
-    expect(payload.requestPromptTemplate).toContain('<assistant_summary>');
     expect(payload.requestPromptTemplate).toContain(
       'The `summary` MUST describe the visible app/change in one complete user-facing sentence under 200 characters.',
     );
@@ -108,6 +106,21 @@ describe('GET /api/prompts/info', () => {
     expect(payload.repairPromptTemplate).toContain('Mixed repair example');
     expect(payload.repairPromptTemplate).toContain('Current critical syntax rules:');
     expect(payload.repairPromptTemplate).toContain('Place the full corrected OpenUI Lang program in `source`.');
+    expect(payload.staticPromptContextSections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          chars: expect.any(Number),
+          content: expect.any(String),
+          included: true,
+          name: 'structuredOutputContract',
+          priority: 2,
+          protected: true,
+          unminifiedChars: expect.any(Number),
+        }),
+      ]),
+    );
+    const structuredOutputSection = payload.staticPromptContextSections.find((section) => section.name === 'structuredOutputContract');
+    expect(structuredOutputSection?.unminifiedChars).toBeGreaterThan(structuredOutputSection?.chars ?? 0);
     expect(payload.toolSpecs).toEqual(getPromptToolSpecSummaries());
     expect(payload.envelopeSchema).toEqual({
       additionalProperties: false,

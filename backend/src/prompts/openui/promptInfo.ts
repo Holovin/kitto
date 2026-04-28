@@ -1,5 +1,6 @@
 import type { AppEnv } from '#backend/env.js';
 import { openUiEnvelopeFormat } from '#backend/services/openai/envelope.js';
+import type { BuilderPromptContextSection } from '@kitto-openui/shared/builderApiContract.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
 import {
   OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
@@ -47,6 +48,7 @@ export interface PromptInfoSnapshot {
   intentContext: PromptInfoIntentContextVariant;
   intentContextVariants: PromptInfoIntentContextVariant[];
   repairPromptTemplate: string;
+  staticPromptContextSections: BuilderPromptContextSection[];
   systemPrompt: PromptInfoSystemPromptVariant;
   systemPromptVariants: PromptInfoSystemPromptVariant[];
   toolSpecs: PromptToolSpecSummary[];
@@ -171,6 +173,48 @@ function buildIntentContextVariant(
   };
 }
 
+function createStaticPromptContextSection(
+  priority: number,
+  name: string,
+  content: string,
+  protectedSection: boolean,
+  options: {
+    unminifiedChars?: number;
+  } = {},
+): BuilderPromptContextSection {
+  return {
+    name,
+    chars: content.length,
+    content,
+    included: true,
+    priority,
+    protected: protectedSection,
+    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== content.length
+      ? { unminifiedChars: options.unminifiedChars }
+      : {}),
+  };
+}
+
+function buildStaticPromptContextSections(args: {
+  baseIntentContext: PromptInfoIntentContextVariant;
+  baseSystemPrompt: PromptInfoSystemPromptVariant;
+  repairPromptTemplate: string;
+  requestPromptTemplate: string;
+}) {
+  const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema);
+  const unminifiedStructuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
+
+  return [
+    createStaticPromptContextSection(1, 'system/contract', args.baseSystemPrompt.text, true),
+    createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true, {
+      unminifiedChars: unminifiedStructuredOutputContract.length,
+    }),
+    createStaticPromptContextSection(3, 'intentContext', args.baseIntentContext.text, false),
+    createStaticPromptContextSection(6, 'requestPromptTemplate', args.requestPromptTemplate, false),
+    createStaticPromptContextSection(7, 'repairPromptTemplate', args.repairPromptTemplate, false),
+  ];
+}
+
 export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
   const cacheKey = buildPromptInfoSnapshotCacheKey(env);
 
@@ -187,6 +231,8 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     throw new Error('Prompt diagnostics must include a base intent context variant.');
   }
 
+  const requestPromptTemplate = buildOpenUiUserPromptTemplate();
+  const repairPromptTemplate = buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS);
   const snapshot: PromptInfoSnapshot = {
     config: {
       cacheKeyPrefix: OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
@@ -202,11 +248,17 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
     intentContext: baseIntentContext,
     intentContextVariants,
-    repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),
+    repairPromptTemplate,
+    staticPromptContextSections: buildStaticPromptContextSections({
+      baseIntentContext,
+      baseSystemPrompt,
+      repairPromptTemplate,
+      requestPromptTemplate,
+    }),
     systemPrompt: baseSystemPrompt,
     systemPromptVariants,
     toolSpecs: [...getPromptToolSpecSummaries()],
-    requestPromptTemplate: buildOpenUiUserPromptTemplate(),
+    requestPromptTemplate,
   };
 
   cachedPromptInfoSnapshot = {

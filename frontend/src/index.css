@@ -60,3 +60,11 @@ pre {
   background-color: var(--selection-bg);
   color: var(--selection-text);
 }
+
+.kitto-context-table-scroll {
+  scrollbar-width: none;
+}
+
+.kitto-context-table-scroll::-webkit-scrollbar {
+  display: none;
+}

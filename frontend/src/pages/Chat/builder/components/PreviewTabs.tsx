@@ -119,7 +119,12 @@ function formatContextSectionChars(section: ContextMeterSection) {
     return baseChars;
   }
 
-  return `${baseChars} (${formatCharCount(section.unminifiedChars)})`;
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span>{baseChars}</span>
+      <span className="text-[0.68rem] text-slate-500">({formatCharCount(section.unminifiedChars)})</span>
+    </span>
+  );
 }
 
 function tryFormatJson(value: string) {
@@ -168,7 +173,7 @@ function ContextPanel({ sections }: ContextPanelProps) {
   return (
     <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
       <CardContent className="flex h-full min-h-0 flex-col p-6">
-        <div className="min-h-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
+        <div className="kitto-context-table-scroll min-h-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
           <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
             <thead className="sticky top-0 bg-slate-50 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
               <tr>

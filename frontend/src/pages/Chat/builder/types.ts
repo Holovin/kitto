@@ -160,6 +160,7 @@ export interface PromptsInfoResponse {
   intentContext: PromptInfoIntentContextVariant;
   intentContextVariants: PromptInfoIntentContextVariant[];
   repairPromptTemplate: string;
+  staticPromptContextSections: BuilderPromptContextSection[];
   systemPrompt: PromptInfoSystemPromptVariant;
   systemPromptVariants: PromptInfoSystemPromptVariant[];
   toolSpecs: OpenUiPromptInfoToolSpec[];

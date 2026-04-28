@@ -80,6 +80,7 @@ const promptsInfoState = vi.hoisted(() => ({
       },
     ],
     requestPromptTemplate: '<user_request>\n[latest user request text]\n</user_request>',
+    staticPromptContextSections: [],
   },
 }));
 

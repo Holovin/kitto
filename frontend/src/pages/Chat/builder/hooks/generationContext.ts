@@ -219,24 +219,10 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
     ];
   }
 
-  const structuredOutputContract = JSON.stringify(promptInfo.envelopeSchema);
-  const prettyStructuredOutputContract = JSON.stringify(promptInfo.envelopeSchema, null, 2);
+  const staticSections = promptInfo.staticPromptContextSections;
 
   return [
-    createMeterSection(1, 'system/contract', promptInfo.systemPrompt.text.length, true, true, promptInfo.systemPrompt.text),
-    createMeterSection(
-      2,
-      'structuredOutputContract',
-      structuredOutputContract.length,
-      true,
-      true,
-      structuredOutputContract,
-      undefined,
-      {
-        unminifiedChars: prettyStructuredOutputContract.length,
-      },
-    ),
-    createMeterSection(3, 'intentContext', promptInfo.intentContext.text.length, true, false, promptInfo.intentContext.text),
+    ...staticSections.filter((section) => section.priority < 4),
     createMeterSection(
       4,
       'latestUserPrompt',
@@ -255,22 +241,7 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
       '(no generation request has been sent yet; this section is populated from the backend response after Send)',
       'waiting for request',
     ),
-    createMeterSection(
-      6,
-      'requestPromptTemplate',
-      promptInfo.requestPromptTemplate.length,
-      true,
-      false,
-      promptInfo.requestPromptTemplate,
-    ),
-    createMeterSection(
-      7,
-      'repairPromptTemplate',
-      promptInfo.repairPromptTemplate.length,
-      true,
-      false,
-      promptInfo.repairPromptTemplate,
-    ),
+    ...staticSections.filter((section) => section.priority >= 6),
   ];
 }
 
