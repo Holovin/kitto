@@ -192,20 +192,42 @@ function createStaticPromptContextSection(
   content: string,
   protectedSection: boolean,
   options: {
+    budgetLabel?: string;
+    chars?: number;
+    limitLabels?: string[];
     unminifiedChars?: number;
   } = {},
 ): BuilderPromptContextSection {
   return {
     name,
-    chars: content.length,
+    chars: options.chars ?? content.length,
+    ...(options.budgetLabel !== undefined ? { budgetLabel: options.budgetLabel } : {}),
     content,
     included: true,
+    ...(options.limitLabels !== undefined ? { limitLabels: options.limitLabels } : {}),
     priority,
     protected: protectedSection,
-    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== content.length
+    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== (options.chars ?? content.length)
       ? { unminifiedChars: options.unminifiedChars }
       : {}),
   };
+}
+
+function buildGlobalLimitLabels(env: AppEnv) {
+  return [
+    `LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}`,
+    `LLM_REQUEST_MAX_BYTES ${env.LLM_REQUEST_MAX_BYTES}`,
+    `LLM_OUTPUT_MAX_BYTES ${env.LLM_OUTPUT_MAX_BYTES}`,
+  ];
+}
+
+function buildStaticGlobalPromptPreview(sections: BuilderPromptContextSection[]) {
+  return sections
+    .map((section) => {
+      const tagName = section.name.replace(/[^A-Za-z0-9_]/g, '_');
+      return `<${tagName}>\n${section.content}\n</${tagName}>`;
+    })
+    .join('\n\n');
 }
 
 function createPromptContextLimitSection(
@@ -267,13 +289,14 @@ function buildPromptContextLimitSections(env: AppEnv): BudgetDecisionSection[] {
 function buildStaticPromptContextSections(args: {
   baseIntentContext: PromptInfoIntentContextVariant;
   baseSystemPrompt: PromptInfoSystemPromptVariant;
+  env: AppEnv;
   repairPromptTemplate: string;
   requestPromptTemplate: string;
 }) {
   const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema);
   const unminifiedStructuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
 
-  return [
+  const sections = [
     createStaticPromptContextSection(1, 'system/contract', args.baseSystemPrompt.text, true),
     createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true, {
       unminifiedChars: unminifiedStructuredOutputContract.length,
@@ -281,6 +304,15 @@ function buildStaticPromptContextSections(args: {
     createStaticPromptContextSection(3, 'intentContext', args.baseIntentContext.text, false),
     createStaticPromptContextSection(6, 'requestPromptTemplate', args.requestPromptTemplate, false),
     createStaticPromptContextSection(7, 'repairPromptTemplate', args.repairPromptTemplate, false),
+  ];
+
+  return [
+    createStaticPromptContextSection(0, 'GLOBAL', buildStaticGlobalPromptPreview(sections), true, {
+      budgetLabel: '-',
+      chars: sections.reduce((total, section) => total + section.chars, 0),
+      limitLabels: buildGlobalLimitLabels(args.env),
+    }),
+    ...sections,
   ];
 }
 
@@ -322,6 +354,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     staticPromptContextSections: buildStaticPromptContextSections({
       baseIntentContext,
       baseSystemPrompt,
+      env,
       repairPromptTemplate,
       requestPromptTemplate,
     }),

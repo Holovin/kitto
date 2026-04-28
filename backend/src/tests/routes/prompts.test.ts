@@ -135,6 +135,20 @@ describe('GET /api/prompts/info', () => {
     expect(payload.staticPromptContextSections).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          budgetLabel: '-',
+          chars: expect.any(Number),
+          content: expect.any(String),
+          included: true,
+          limitLabels: [
+            'LLM_MODEL_PROMPT_MAX_CHARS 50000',
+            'LLM_REQUEST_MAX_BYTES 345678',
+            'LLM_OUTPUT_MAX_BYTES 120000',
+          ],
+          name: 'GLOBAL',
+          priority: 0,
+          protected: true,
+        }),
+        expect.objectContaining({
           chars: expect.any(Number),
           content: expect.any(String),
           included: true,

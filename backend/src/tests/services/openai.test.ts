@@ -80,7 +80,13 @@ vi.mock('openai', () => {
   };
 });
 
-import { generateHistorySummary, generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '#backend/services/openai.js';
+import {
+  buildPromptContextSnapshot,
+  generateHistorySummary,
+  generateOpenUiSource,
+  parseOpenUiGenerationEnvelope,
+  streamOpenUiSource,
+} from '#backend/services/openai.js';
 import { logResponseUsage } from '#backend/services/openai/logging.js';
 import { consumeOpenAiResponseStream, type OpenAiResponseStreamState } from '#backend/services/openai/streaming.js';
 
@@ -317,6 +323,36 @@ describe('parseOpenUiGenerationEnvelope', () => {
     expect(parsedEnvelope.appMemory.userPreferences).toEqual([...new Set(parsedEnvelope.appMemory.userPreferences)]);
     expect(parsedEnvelope.appMemory.userPreferences).not.toContain('');
     expect(JSON.stringify(parsedEnvelope.appMemory).length).toBeLessThanOrEqual(APP_MEMORY_MAX_CHARS);
+  });
+});
+
+describe('buildPromptContextSnapshot', () => {
+  it('adds a global row with total prompt chars, global limits, and the full prompt preview', () => {
+    const env = createTestEnv({
+      LLM_MODEL_PROMPT_MAX_CHARS: 12_345,
+      LLM_OUTPUT_MAX_BYTES: 67_890,
+      LLM_REQUEST_MAX_BYTES: 23_456,
+    });
+
+    const snapshot = buildPromptContextSnapshot(env, requestWithHistory);
+    const globalSection = snapshot.sections[0];
+
+    expect(globalSection).toMatchObject({
+      budgetLabel: '-',
+      chars: snapshot.totalChars,
+      included: true,
+      limitLabels: [
+        'LLM_MODEL_PROMPT_MAX_CHARS 12345',
+        'LLM_REQUEST_MAX_BYTES 23456',
+        'LLM_OUTPUT_MAX_BYTES 67890',
+      ],
+      name: 'GLOBAL',
+      priority: 0,
+      protected: true,
+    });
+    expect(globalSection?.content).toContain('<system>');
+    expect(globalSection?.content).toContain('<structuredOutputContract>');
+    expect(globalSection?.content).toContain('<current_source>');
   });
 });
 

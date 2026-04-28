@@ -274,9 +274,13 @@ function normalizePromptContextSection(value: unknown): BuilderPromptContextSect
   return {
     name: value.name,
     chars: value.chars,
+    ...(typeof value.budgetLabel === 'string' ? { budgetLabel: value.budgetLabel } : {}),
     content: value.content,
     ...(typeof value.hardLimitChars === 'number' ? { hardLimitChars: value.hardLimitChars } : {}),
     included: value.included,
+    ...(Array.isArray(value.limitLabels)
+      ? { limitLabels: value.limitLabels.flatMap((label) => (typeof label === 'string' ? [label] : [])) }
+      : {}),
     priority: value.priority,
     protected: value.protected,
     ...(typeof value.reason === 'string' ? { reason: value.reason } : {}),
@@ -470,6 +474,10 @@ function isRejectedDefinitionState(
   return state.currentRequestId === null && state.streamedSource !== state.committedSource && state.parseIssues.length > 0;
 }
 
+function clearPromptContextState(state: Pick<BuilderState, 'lastPromptContext'>) {
+  state.lastPromptContext = undefined;
+}
+
 const initialSnapshot = createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT_DOMAIN_DATA);
 
 const initialState: BuilderState = {
@@ -590,6 +598,7 @@ export const builderSlice = createSlice({
       state.streamingStatus = 'Processing request...';
       state.streamedSource = '';
       state.parseIssues = [];
+      clearPromptContextState(state);
       state.chatMessages = pushMessage(
         state.chatMessages,
         createMessage('user', action.payload.prompt, 'default', getGenerationUserMessageKey(action.payload.requestId)),
@@ -742,6 +751,7 @@ export const builderSlice = createSlice({
       state.streamingStatus = null;
       state.streamedSource = action.payload.source;
       state.parseIssues = action.payload.issues;
+      clearPromptContextState(state);
     },
     setParseIssues(state, action: PayloadAction<PromptBuildValidationIssue[]>) {
       state.parseIssues = action.payload;
@@ -913,6 +923,7 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.streamingStatus = null;
       state.lastStreamChunkAt = null;
+      clearPromptContextState(state);
       state.chatMessages = pushMessage(
         state.chatMessages,
         createMessage('system', action.payload.note ?? 'Imported a saved Kitto definition.', 'success', action.payload.messageKey),
@@ -943,6 +954,7 @@ export const builderSlice = createSlice({
       state.streamError = null;
       state.streamingStatus = null;
       state.lastStreamChunkAt = null;
+      clearPromptContextState(state);
       state.chatMessages = pushMessage(
         state.chatMessages,
         createMessage(
@@ -972,6 +984,7 @@ export const builderSlice = createSlice({
       state.retryPrompt = null;
       state.streamError = null;
       state.streamingStatus = null;
+      clearPromptContextState(state);
     },
   },
 });

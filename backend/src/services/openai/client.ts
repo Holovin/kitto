@@ -243,6 +243,35 @@ function getResponseInputChars(input: ResponseInput) {
   return input.reduce((total, message) => total + getInputMessageText(message).length, 0);
 }
 
+function getInputMessageRole(message: ResponseInput[number], index: number) {
+  if (!message || typeof message !== 'object' || !('role' in message)) {
+    return `message_${index + 1}`;
+  }
+
+  const role = (message as { role?: unknown }).role;
+  return typeof role === 'string' && role.trim() ? role.trim() : `message_${index + 1}`;
+}
+
+function buildGlobalLimitLabels(env: AppEnv) {
+  return [
+    `LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}`,
+    `LLM_REQUEST_MAX_BYTES ${env.LLM_REQUEST_MAX_BYTES}`,
+    `LLM_OUTPUT_MAX_BYTES ${env.LLM_OUTPUT_MAX_BYTES}`,
+  ];
+}
+
+function buildGlobalPromptPreview(input: ResponseInput, structuredOutputContract: string) {
+  const messageBlocks = input.map((message, index) => {
+    const role = getInputMessageRole(message, index);
+    return `<${role}>\n${getInputMessageText(message)}\n</${role}>`;
+  });
+
+  return [
+    ...messageBlocks,
+    `<structuredOutputContract>\n${structuredOutputContract}\n</structuredOutputContract>`,
+  ].join('\n\n');
+}
+
 function assertCurrentSourceWithinEmergencyCap(request: PromptBuildRequest) {
   if (request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS) {
     return;
@@ -484,17 +513,22 @@ function createStaticPromptContextSection(
   content: string,
   protectedSection: boolean,
   options: {
+    budgetLabel?: string;
+    chars?: number;
+    limitLabels?: string[];
     unminifiedChars?: number;
   } = {},
 ): BuilderPromptContextSection {
   return {
     name,
-    chars: content.length,
+    chars: options.chars ?? content.length,
+    ...(options.budgetLabel !== undefined ? { budgetLabel: options.budgetLabel } : {}),
     content,
     included: true,
+    ...(options.limitLabels !== undefined ? { limitLabels: options.limitLabels } : {}),
     priority,
     protected: protectedSection,
-    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== content.length
+    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== (options.chars ?? content.length)
       ? { unminifiedChars: options.unminifiedChars }
       : {}),
   };
@@ -511,7 +545,13 @@ export function buildPromptContextSnapshot(env: AppEnv, request: PromptBuildRequ
   const correctionRequestText = isRepair ? fourthTurnText : null;
   const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema);
   const prettyStructuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
+  const totalChars = getResponseInputChars(input) + structuredOutputContract.length;
   const sections: BuilderPromptContextSection[] = [
+    createStaticPromptContextSection(0, 'GLOBAL', buildGlobalPromptPreview(input, structuredOutputContract), true, {
+      budgetLabel: '-',
+      chars: totalChars,
+      limitLabels: buildGlobalLimitLabels(env),
+    }),
     createStaticPromptContextSection(1, 'system/contract', systemText, true),
     createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true, {
       unminifiedChars: prettyStructuredOutputContract.length,
@@ -647,7 +687,7 @@ export function buildPromptContextSnapshot(env: AppEnv, request: PromptBuildRequ
     droppedSections: metadata.droppedSections,
     mode: request.mode,
     sections,
-    totalChars: getResponseInputChars(input) + structuredOutputContract.length,
+    totalChars,
   };
 }
 

@@ -129,7 +129,9 @@ export interface BudgetDecision {
 }
 
 export interface BuilderPromptContextSection extends BudgetDecisionSection {
+  budgetLabel?: string;
   content: string;
+  limitLabels?: string[];
   priority: number;
   unminifiedChars?: number;
 }

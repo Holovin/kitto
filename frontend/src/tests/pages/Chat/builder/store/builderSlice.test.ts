@@ -281,6 +281,36 @@ describe('builderSlice', () => {
     vi.useRealTimers();
   });
 
+  it('clears the previous prompt context when starting a new request', () => {
+    const requestId = toBuilderRequestId('request-context-first');
+    const committed = builderReducer(
+      builderReducer(
+        createInitialState(),
+        builderActions.beginStreaming({
+          prompt: 'Build the first app',
+          requestId,
+        }),
+      ),
+      builderActions.completeStreaming({
+        promptContext,
+        requestId,
+        snapshot: createBuilderSnapshot(validSource, {}, {}),
+        source: validSource,
+        warnings: [],
+      }),
+    );
+    const nextStarted = builderReducer(
+      committed,
+      builderActions.beginStreaming({
+        prompt: 'Start fresh context',
+        requestId: toBuilderRequestId('request-context-second'),
+      }),
+    );
+
+    expect(committed.lastPromptContext).toEqual(promptContext);
+    expect(nextStarted.lastPromptContext).toBeUndefined();
+  });
+
   it('repairs stale navigation state when a completed stream removes the previous screen id', () => {
     const started = builderReducer(
       createInitialState(),
@@ -585,17 +615,28 @@ describe('builderSlice', () => {
     expect(removed.chatMessages).toHaveLength(0);
   });
 
-  it('clears existing chat history when loading an imported definition', () => {
+  it('clears existing chat history and prompt context when loading an imported definition', () => {
+    const requestId = toBuilderRequestId('request-import-order');
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Keep this context',
-        requestId: toBuilderRequestId('request-import-order'),
+        requestId,
+      }),
+    );
+    const committed = builderReducer(
+      started,
+      builderActions.completeStreaming({
+        promptContext,
+        requestId,
+        snapshot: createBuilderSnapshot(alternateValidSource, {}, {}),
+        source: alternateValidSource,
+        warnings: [],
       }),
     );
     const importedSnapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
     const loaded = builderReducer(
-      started,
+      committed,
       builderActions.loadDefinition({
         history: [importedSnapshot],
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
@@ -606,6 +647,7 @@ describe('builderSlice', () => {
     );
 
     expect(loaded.chatMessages).toHaveLength(1);
+    expect(loaded.lastPromptContext).toBeUndefined();
     expect(loaded.chatMessages.some((message) => message.content === 'Keep this context')).toBe(false);
     expect(loaded.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
@@ -1011,7 +1053,7 @@ describe('builderSlice', () => {
     );
   });
 
-  it('clears existing chat history and app memory when resetting the builder to empty', () => {
+  it('clears existing chat history, app memory, and prompt context when resetting the builder to empty', () => {
     const requestId = toBuilderRequestId('request-reset-context');
     const started = builderReducer(
       createInitialState(),
@@ -1030,6 +1072,7 @@ describe('builderSlice', () => {
           avoid: ['Do not add charts.'],
         },
         changeSummary: 'Stale change.',
+        promptContext,
         requestId,
         snapshot: createBuilderSnapshot(validSource, {}, {}),
         source: validSource,
@@ -1041,20 +1084,32 @@ describe('builderSlice', () => {
     expect(reset.chatMessages).toEqual([]);
     expect(reset.committedSource).toBe('');
     expect(reset.appMemory).toBeUndefined();
+    expect(reset.lastPromptContext).toBeUndefined();
     expect(reset.retryPrompt).toBeNull();
   });
 
-  it('clears existing chat history when loading a demo definition', () => {
+  it('clears existing chat history and prompt context when loading a demo definition', () => {
     const demoSnapshot = createBuilderSnapshot(validSource, {}, {});
+    const requestId = toBuilderRequestId('request-demo-context');
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a stale app',
-        requestId: toBuilderRequestId('request-demo-context'),
+        requestId,
+      }),
+    );
+    const committed = builderReducer(
+      started,
+      builderActions.completeStreaming({
+        promptContext,
+        requestId,
+        snapshot: createBuilderSnapshot(alternateValidSource, {}, {}),
+        source: alternateValidSource,
+        warnings: [],
       }),
     );
     const withFirstDemo = builderReducer(
-      started,
+      committed,
       builderActions.applyDemoDefinition({
         label: 'First demo',
         snapshot: demoSnapshot,
@@ -1069,6 +1124,7 @@ describe('builderSlice', () => {
     );
 
     expect(withSecondDemo.chatMessages.filter((message) => message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.demoLoadSuccess)).toHaveLength(1);
+    expect(withFirstDemo.lastPromptContext).toBeUndefined();
     expect(withFirstDemo.chatMessages.some((message) => message.content === 'Build a stale app')).toBe(false);
     expect(withSecondDemo.chatMessages.at(-1)).toEqual(
       expect.objectContaining({

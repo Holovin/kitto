@@ -130,23 +130,31 @@ function formatContextSectionChars(section: ContextMeterSection) {
   );
 }
 
-function formatContextSectionLimit(section: ContextMeterSection) {
+function getContextSectionLimitLabels(section: ContextMeterSection) {
+  if (section.limitLabels?.length) {
+    return section.limitLabels;
+  }
+
   if (section.softLimitChars === undefined && section.hardLimitChars === undefined) {
-    return '—';
+    return ['—'];
   }
 
   if (section.softLimitChars !== undefined && section.hardLimitChars !== undefined) {
-    return `SOFT ${formatCharCount(section.softLimitChars)} (HARD ${formatCharCount(section.hardLimitChars)})`;
+    return [`SOFT ${formatCharCount(section.softLimitChars)} (HARD ${formatCharCount(section.hardLimitChars)})`];
   }
 
   if (section.softLimitChars !== undefined) {
-    return `SOFT ${formatCharCount(section.softLimitChars)}`;
+    return [`SOFT ${formatCharCount(section.softLimitChars)}`];
   }
 
-  return `HARD ${formatCharCount(section.hardLimitChars ?? 0)}`;
+  return [`HARD ${formatCharCount(section.hardLimitChars ?? 0)}`];
 }
 
 function formatContextSectionBudget(section: ContextMeterSection) {
+  if (section.budgetLabel !== undefined) {
+    return section.budgetLabel;
+  }
+
   return section.protected ? 'Protected' : 'Optional';
 }
 
@@ -166,16 +174,19 @@ function formatContextSectionContent(content: string) {
     return formattedJson;
   }
 
-  const dataBlockMatch = /^<([A-Za-z_][\w-]*)>\n([\s\S]*)\n<\/\1>$/.exec(trimmedContent);
+  let formattedBlockCount = 0;
+  const formattedContent = content.replace(/<([A-Za-z_][\w-]*)>\n([\s\S]*?)\n<\/\1>/g, (block, tagName: string, blockContent: string) => {
+    const formattedBlockJson = tryFormatJson(blockContent.trim());
 
-  if (!dataBlockMatch) {
-    return content;
-  }
+    if (formattedBlockJson === null) {
+      return block;
+    }
 
-  const [, tagName, blockContent = ''] = dataBlockMatch;
-  const formattedBlockJson = tryFormatJson(blockContent.trim());
+    formattedBlockCount += 1;
+    return `<${tagName}>\n${formattedBlockJson}\n</${tagName}>`;
+  });
 
-  return formattedBlockJson === null ? content : `<${tagName}>\n${formattedBlockJson}\n</${tagName}>`;
+  return formattedBlockCount > 0 ? formattedContent : content;
 }
 
 function getContextSectionStatus(section: ContextMeterSection) {
@@ -212,6 +223,8 @@ function ContextPanel({ sections }: ContextPanelProps) {
             <tbody className="divide-y divide-slate-100">
               {sections.map((section) => {
                 const isExpanded = expandedSectionName === section.name;
+                const limitLabels = getContextSectionLimitLabels(section);
+                const hasCustomBudgetLabel = section.budgetLabel !== undefined;
 
                 return (
                   <Fragment key={section.name}>
@@ -233,8 +246,10 @@ function ContextPanel({ sections }: ContextPanelProps) {
                       <td className="px-3 py-3 font-medium text-slate-900">{section.name}</td>
                       <td className="px-3 py-3 tabular-nums text-slate-700">{formatContextSectionChars(section)}</td>
                       <td className="px-3 py-3">
-                        <span className="inline-flex whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                          {formatContextSectionLimit(section)}
+                        <span className="inline-flex flex-col gap-0.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                          {limitLabels.map((label) => (
+                            <span key={label}>{label}</span>
+                          ))}
                         </span>
                       </td>
                       <td
@@ -247,7 +262,9 @@ function ContextPanel({ sections }: ContextPanelProps) {
                       <td className="px-3 py-3">
                         <span
                           className={
-                            section.protected
+                            hasCustomBudgetLabel
+                              ? 'inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
+                              : section.protected
                               ? 'inline-flex rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800'
                               : 'inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
                           }
