@@ -11,7 +11,6 @@ import {
   RUNTIME_CONFIG_LOADING_NOTICE,
   RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
   resolveBackendConnectionNotice,
-  resolveRuntimeConfigNotice,
 } from '@pages/Chat/builder/components/chatNotices';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
@@ -89,14 +88,21 @@ const ChatMessageBubble = memo(function ChatMessageBubble({ message }: { message
   );
 });
 
-function findLatestMessageByKey(messages: BuilderChatMessage[], messageKey: BuilderChatMessage['messageKey']) {
-  if (!messageKey) {
-    return null;
-  }
+const SYSTEM_STATUS_MESSAGE_KEYS = new Set<string>([
+  SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+  SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+]);
 
+function isSystemStatusMessage(message: BuilderChatMessage) {
+  return typeof message.messageKey === 'string' && SYSTEM_STATUS_MESSAGE_KEYS.has(message.messageKey);
+}
+
+function findLatestSystemStatusMessage(messages: BuilderChatMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.messageKey === messageKey) {
-      return messages[index] ?? null;
+    const message = messages[index];
+
+    if (message && isSystemStatusMessage(message)) {
+      return message;
     }
   }
 
@@ -165,35 +171,22 @@ function ChatToolbar({ onSystemNotice }: ChatToolbarProps) {
   );
 }
 
-function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderChatNotice | null) => void }) {
+function ChatHistoryFeed() {
   const chatMessages = useAppSelector(selectChatMessages);
-  const { isError: isBackendDisconnected } = useBackendConnectionState();
-  const previousDisconnectedRef = useRef<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const backendStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus);
-  const lastMessageId = chatMessages.at(-1)?.id ?? null;
-  const showEmptyChatHint = !isBackendDisconnected && chatMessages.length === 0;
+  const latestSystemStatusMessage = findLatestSystemStatusMessage(chatMessages);
+  const displayMessages = latestSystemStatusMessage
+    ? [...chatMessages.filter((message) => !isSystemStatusMessage(message)), latestSystemStatusMessage]
+    : chatMessages;
+  const lastMessageId = displayMessages.at(-1)?.id ?? null;
+  const showEmptyChatHint = displayMessages.length === 0;
   const scrollToLatestMessage = useEffectEvent(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   });
 
   useEffect(() => {
-    const nextNotice = resolveBackendConnectionNotice({
-      backendStatusContent: backendStatusMessage?.content ?? null,
-      isBackendDisconnected,
-      previouslyDisconnected: previousDisconnectedRef.current,
-    });
-
-    previousDisconnectedRef.current = isBackendDisconnected;
-
-    if (nextNotice) {
-      onSystemNotice(nextNotice);
-    }
-  }, [backendStatusMessage?.content, isBackendDisconnected, onSystemNotice]);
-
-  useEffect(() => {
     scrollToLatestMessage();
-  }, [chatMessages.length, lastMessageId]);
+  }, [displayMessages.length, lastMessageId]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
@@ -204,7 +197,7 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
           </article>
         ) : null}
 
-        {chatMessages.map((message) => (
+        {displayMessages.map((message) => (
           <ChatMessageBubble key={message.id} message={message} />
         ))}
         <div ref={messagesEndRef} />
@@ -215,14 +208,16 @@ function ChatHistoryFeed({ onSystemNotice }: { onSystemNotice: (notice: BuilderC
 
 function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   const dispatch = useAppDispatch();
+  const { isError: isBackendDisconnected } = useBackendConnectionState();
+  const previouslyUnavailableRef = useRef<boolean | null>(null);
   const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } =
     useBuilderSubmission({
       onSystemNotice,
     });
   const chatMessages = useAppSelector(selectChatMessages);
   const committedSource = useAppSelector(selectCommittedSource);
-  const runtimeConfigStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus);
-  const runtimeConfigStatusContent = runtimeConfigStatusMessage?.content ?? null;
+  const systemStatusMessage = findLatestSystemStatusMessage(chatMessages);
+  const systemStatusContent = systemStatusMessage?.content ?? null;
   const hasReachedPromptLimit = typeof promptMaxChars === 'number' && draftPrompt.length >= promptMaxChars;
   const submitButtonState = getBuilderComposerSubmitState({
     configStatus,
@@ -247,17 +242,22 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
         : 'text-slate-500';
 
   useEffect(() => {
-    const runtimeConfigNotice = resolveRuntimeConfigNotice({
+    const isUnavailable = isBackendDisconnected || configStatus === 'failed';
+    const backendNotice = resolveBackendConnectionNotice({
       configStatus,
-      runtimeConfigStatusContent,
+      isBackendDisconnected,
+      previouslyUnavailable: previouslyUnavailableRef.current,
+      statusContent: systemStatusContent,
     });
 
-    if (runtimeConfigNotice) {
-      onSystemNotice(runtimeConfigNotice);
+    previouslyUnavailableRef.current = isUnavailable;
+
+    if (backendNotice) {
+      onSystemNotice(backendNotice);
       return;
     }
 
-    if (configStatus !== 'loaded' || runtimeConfigStatusContent === null) {
+    if (configStatus !== 'loaded' || systemStatusMessage?.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus) {
       return;
     }
 
@@ -266,7 +266,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
       }),
     );
-  }, [configStatus, dispatch, onSystemNotice, runtimeConfigStatusContent]);
+  }, [configStatus, dispatch, isBackendDisconnected, onSystemNotice, systemStatusContent, systemStatusMessage?.messageKey]);
 
   return (
     <form className="shrink-0 border-t border-slate-200/70 px-6 py-5" onSubmit={handleSubmit}>
@@ -318,7 +318,7 @@ export function ChatPanel({ onSystemNotice }: ChatPanelProps) {
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-        <ChatHistoryFeed onSystemNotice={onSystemNotice} />
+        <ChatHistoryFeed />
         <ChatComposer onSystemNotice={onSystemNotice} />
       </CardContent>
     </Card>

@@ -15,7 +15,7 @@ import { useValidationRepair } from './useValidationRepair';
 import { runBuilderGeneration } from './builderGenerationService';
 import { buildPreviousChangeSummaries, buildPreviousUserMessages } from './generationContext';
 import { resolveBuilderComposerPrompt } from './submissionPrompt';
-import { resolveRuntimeConfigNotice } from '@pages/Chat/builder/components/chatNotices';
+import { BACKEND_DISCONNECTED_NOTICE } from '@pages/Chat/builder/components/chatNotices';
 import {
   selectChatMessages,
   selectAppMemory,
@@ -28,6 +28,7 @@ import {
   selectRetryPrompt,
 } from '@pages/Chat/builder/store/selectors';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
 import type {
   BuilderChatNotice,
   PromptBuildRequest,
@@ -98,13 +99,12 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       maxRepairAttempts === null ||
       maxRepairValidationIssues === null
     ) {
-      const runtimeConfigNotice = resolveRuntimeConfigNotice({
-        configStatus,
-        runtimeConfigStatusContent: null,
-      });
-
-      if (runtimeConfigNotice) {
-        onSystemNotice(runtimeConfigNotice);
+      if (configStatus === 'failed') {
+        onSystemNotice({
+          content: BACKEND_DISCONNECTED_NOTICE,
+          messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+          tone: 'error',
+        });
       }
 
       return;

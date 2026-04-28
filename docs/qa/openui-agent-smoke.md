@@ -85,7 +85,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` does not show a runtime-config badge in the header.
 - Chat send stays disabled while `/api/config` is unresolved, with a clear composer hint.
-- If `/api/config` fails, Chat shows one red system message: `Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.`
+- If `/api/config` or `/api/health` fails, Chat shows one red backend status message at the end: `Backend services are unavailable. Chat send is disabled until /api/health and /api/config recover.`
 - After config load completes successfully, chat send becomes available without a page reload.
 
 ## Scenario 1 — Simple todo stays simple

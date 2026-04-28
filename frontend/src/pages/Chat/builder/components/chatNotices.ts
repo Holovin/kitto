@@ -3,7 +3,7 @@ import type { BuilderRuntimeConfigStatus } from '@pages/Chat/builder/config';
 import type { BuilderChatNotice } from '@pages/Chat/builder/types';
 
 export const BACKEND_DISCONNECTED_NOTICE =
-  'Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until /api/health recovers.';
+  'Backend services are unavailable. Chat send is disabled until /api/health and /api/config recover.';
 export const BACKEND_RECONNECTED_NOTICE = 'Backend connection recovered. New prompts are available again.';
 export const RUNTIME_CONFIG_UNAVAILABLE_NOTICE =
   'Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.';
@@ -11,26 +11,26 @@ export const RUNTIME_CONFIG_LOADING_NOTICE =
   'Runtime config is still loading. Chat send will unlock after /api/config is ready.';
 
 interface ResolveBackendConnectionNoticeOptions {
-  backendStatusContent: string | null;
-  isBackendDisconnected: boolean;
-  previouslyDisconnected: boolean | null;
-}
-
-interface ResolveRuntimeConfigNoticeOptions {
+  statusContent: string | null;
   configStatus: BuilderRuntimeConfigStatus;
-  runtimeConfigStatusContent: string | null;
+  isBackendDisconnected: boolean;
+  previouslyUnavailable: boolean | null;
 }
 
 export function resolveBackendConnectionNotice({
-  backendStatusContent,
+  statusContent,
+  configStatus,
   isBackendDisconnected,
-  previouslyDisconnected,
+  previouslyUnavailable,
 }: ResolveBackendConnectionNoticeOptions): BuilderChatNotice | null {
-  if (isBackendDisconnected) {
+  const isUnavailable = isBackendDisconnected || configStatus === 'failed';
+  const isReady = !isBackendDisconnected && configStatus === 'loaded';
+
+  if (isUnavailable) {
     if (
-      backendStatusContent === null ||
-      backendStatusContent !== BACKEND_DISCONNECTED_NOTICE ||
-      previouslyDisconnected === false
+      statusContent === null ||
+      statusContent !== BACKEND_DISCONNECTED_NOTICE ||
+      previouslyUnavailable === false
     ) {
       return {
         content: BACKEND_DISCONNECTED_NOTICE,
@@ -43,8 +43,9 @@ export function resolveBackendConnectionNotice({
   }
 
   if (
-    previouslyDisconnected === true ||
-    (backendStatusContent !== null && backendStatusContent !== BACKEND_RECONNECTED_NOTICE)
+    isReady &&
+    (previouslyUnavailable === true ||
+      (statusContent !== null && statusContent !== BACKEND_RECONNECTED_NOTICE))
   ) {
     return {
       content: BACKEND_RECONNECTED_NOTICE,
@@ -54,35 +55,4 @@ export function resolveBackendConnectionNotice({
   }
 
   return null;
-}
-
-export function resolveRuntimeConfigNotice({
-  configStatus,
-  runtimeConfigStatusContent,
-}: ResolveRuntimeConfigNoticeOptions): BuilderChatNotice | null {
-  if (configStatus === 'loading') {
-    if (runtimeConfigStatusContent === RUNTIME_CONFIG_LOADING_NOTICE) {
-      return null;
-    }
-
-    return {
-      content: RUNTIME_CONFIG_LOADING_NOTICE,
-      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
-      tone: 'info',
-    };
-  }
-
-  if (configStatus !== 'failed') {
-    return null;
-  }
-
-  if (runtimeConfigStatusContent === RUNTIME_CONFIG_UNAVAILABLE_NOTICE) {
-    return null;
-  }
-
-  return {
-    content: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
-    messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
-    tone: 'error',
-  };
 }

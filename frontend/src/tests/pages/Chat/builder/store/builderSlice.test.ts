@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BACKEND_RECONNECTED_NOTICE } from '@pages/Chat/builder/components/chatNotices';
+import {
+  BACKEND_DISCONNECTED_NOTICE,
+  BACKEND_RECONNECTED_NOTICE,
+  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+} from '@pages/Chat/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, MAX_UI_MESSAGES, normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
@@ -680,20 +684,26 @@ describe('builderSlice', () => {
     );
   });
 
-  it('updates the existing backend connection status message instead of appending a duplicate', () => {
+  it('updates the existing backend connection status message and moves it to the end', () => {
     const withDisconnectNotice = builderReducer(
       createInitialState(),
       builderActions.appendChatMessage({
-        content:
-          'Backend is disconnected. You can still inspect the last persisted definition, but new prompts will fail until /api/health recovers.',
+        content: BACKEND_DISCONNECTED_NOTICE,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
         role: 'system',
         tone: 'error',
       }),
     );
     const disconnectNoticeId = withDisconnectNotice.chatMessages.at(-1)?.id;
-    const withRecoveryNotice = builderReducer(
+    const withUserMessage = builderReducer(
       withDisconnectNotice,
+      builderActions.appendChatMessage({
+        content: 'Build a todo list.',
+        role: 'user',
+      }),
+    );
+    const withRecoveryNotice = builderReducer(
+      withUserMessage,
       builderActions.appendChatMessage({
         content: BACKEND_RECONNECTED_NOTICE,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
@@ -702,7 +712,7 @@ describe('builderSlice', () => {
       }),
     );
 
-    expect(withRecoveryNotice.chatMessages).toHaveLength(1);
+    expect(withRecoveryNotice.chatMessages).toHaveLength(2);
     expect(withRecoveryNotice.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: BACKEND_RECONNECTED_NOTICE,
@@ -710,6 +720,35 @@ describe('builderSlice', () => {
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
         role: 'system',
         tone: 'success',
+      }),
+    );
+  });
+
+  it('removes the legacy runtime config status message when writing the combined backend status', () => {
+    const withRuntimeConfigNotice = builderReducer(
+      createInitialState(),
+      builderActions.appendChatMessage({
+        content: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+    const withBackendNotice = builderReducer(
+      withRuntimeConfigNotice,
+      builderActions.appendChatMessage({
+        content: BACKEND_DISCONNECTED_NOTICE,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+        role: 'system',
+        tone: 'error',
+      }),
+    );
+
+    expect(withBackendNotice.chatMessages).toHaveLength(1);
+    expect(withBackendNotice.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: BACKEND_DISCONNECTED_NOTICE,
+        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
       }),
     );
   });

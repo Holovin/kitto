@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BACKEND_DISCONNECTED_NOTICE,
   BACKEND_RECONNECTED_NOTICE,
-  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
-  RUNTIME_CONFIG_LOADING_NOTICE,
   resolveBackendConnectionNotice,
-  resolveRuntimeConfigNotice,
 } from '@pages/Chat/builder/components/chatNotices';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
 
@@ -13,9 +10,10 @@ describe('resolveBackendConnectionNotice', () => {
   it('emits a disconnect notice when health is down and no status message exists yet', () => {
     expect(
       resolveBackendConnectionNotice({
-        backendStatusContent: null,
+        configStatus: 'loaded',
         isBackendDisconnected: true,
-        previouslyDisconnected: null,
+        previouslyUnavailable: null,
+        statusContent: null,
       }),
     ).toEqual({
       content: BACKEND_DISCONNECTED_NOTICE,
@@ -27,9 +25,10 @@ describe('resolveBackendConnectionNotice', () => {
   it('emits a recovery notice when the current backend status message is stale on reconnect', () => {
     expect(
       resolveBackendConnectionNotice({
-        backendStatusContent: BACKEND_DISCONNECTED_NOTICE,
+        configStatus: 'loaded',
         isBackendDisconnected: false,
-        previouslyDisconnected: null,
+        previouslyUnavailable: null,
+        statusContent: BACKEND_DISCONNECTED_NOTICE,
       }),
     ).toEqual({
       content: BACKEND_RECONNECTED_NOTICE,
@@ -41,9 +40,10 @@ describe('resolveBackendConnectionNotice', () => {
   it('does not emit a duplicate disconnect notice while the backend is still down and the latest status is already current', () => {
     expect(
       resolveBackendConnectionNotice({
-        backendStatusContent: BACKEND_DISCONNECTED_NOTICE,
+        configStatus: 'loaded',
         isBackendDisconnected: true,
-        previouslyDisconnected: true,
+        previouslyUnavailable: true,
+        statusContent: BACKEND_DISCONNECTED_NOTICE,
       }),
     ).toBeNull();
   });
@@ -51,9 +51,10 @@ describe('resolveBackendConnectionNotice', () => {
   it('re-emits a disconnect notice after chat history was cleared while the backend is still disconnected', () => {
     expect(
       resolveBackendConnectionNotice({
-        backendStatusContent: null,
+        configStatus: 'loaded',
         isBackendDisconnected: true,
-        previouslyDisconnected: true,
+        previouslyUnavailable: true,
+        statusContent: null,
       }),
     ).toEqual({
       content: BACKEND_DISCONNECTED_NOTICE,
@@ -62,52 +63,39 @@ describe('resolveBackendConnectionNotice', () => {
     });
   });
 
-  it('emits a keyed red chat notice when runtime config failed', () => {
+  it('uses the backend status message for runtime config failures', () => {
     expect(
-      resolveRuntimeConfigNotice({
+      resolveBackendConnectionNotice({
         configStatus: 'failed',
-        runtimeConfigStatusContent: null,
+        isBackendDisconnected: false,
+        previouslyUnavailable: null,
+        statusContent: null,
       }),
     ).toEqual({
-      content: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
-      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+      content: BACKEND_DISCONNECTED_NOTICE,
+      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
       tone: 'error',
     });
   });
 
-  it('emits runtime config loading notice while config is loading', () => {
+  it('does not emit a chat notice while runtime config is only loading', () => {
     expect(
-      resolveRuntimeConfigNotice({
+      resolveBackendConnectionNotice({
         configStatus: 'loading',
-        runtimeConfigStatusContent: null,
-      }),
-    ).toEqual({
-      content: RUNTIME_CONFIG_LOADING_NOTICE,
-      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
-      tone: 'info',
-    });
-  });
-
-  it('does not emit runtime config chat notices for non-error non-loading states', () => {
-    expect(
-      resolveRuntimeConfigNotice({
-        configStatus: 'loading',
-        runtimeConfigStatusContent: RUNTIME_CONFIG_LOADING_NOTICE,
-      }),
-    ).toBeNull();
-    expect(
-      resolveRuntimeConfigNotice({
-        configStatus: 'loaded',
-        runtimeConfigStatusContent: null,
+        isBackendDisconnected: false,
+        previouslyUnavailable: null,
+        statusContent: null,
       }),
     ).toBeNull();
   });
 
   it('does not duplicate the current runtime config failure notice', () => {
     expect(
-      resolveRuntimeConfigNotice({
+      resolveBackendConnectionNotice({
         configStatus: 'failed',
-        runtimeConfigStatusContent: RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
+        isBackendDisconnected: false,
+        previouslyUnavailable: true,
+        statusContent: BACKEND_DISCONNECTED_NOTICE,
       }),
     ).toBeNull();
   });

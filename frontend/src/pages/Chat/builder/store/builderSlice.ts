@@ -69,20 +69,25 @@ function cloneRuntimeStateForState(runtimeState: Record<string, unknown>) {
 }
 
 function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
+  const shouldMoveUpdatedMessageToEnd = message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus;
+  const messagesWithoutLegacyStatus =
+    shouldMoveUpdatedMessageToEnd
+      ? messages.filter((entry) => entry.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus)
+      : messages;
+
   if (message.messageKey) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index]?.messageKey !== message.messageKey) {
+    for (let index = messagesWithoutLegacyStatus.length - 1; index >= 0; index -= 1) {
+      if (messagesWithoutLegacyStatus[index]?.messageKey !== message.messageKey) {
         continue;
       }
 
-      const existingMessage = messages[index];
+      const existingMessage = messagesWithoutLegacyStatus[index];
 
       if (!existingMessage) {
         continue;
       }
 
-      const nextMessages = messages.slice();
-      nextMessages[index] = {
+      const updatedMessage = {
         ...existingMessage,
         content: message.content,
         createdAt: message.createdAt,
@@ -92,12 +97,19 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         technicalDetails: message.technicalDetails,
         tone: message.tone,
       };
+      const nextMessages = shouldMoveUpdatedMessageToEnd
+        ? [
+            ...messagesWithoutLegacyStatus.slice(0, index),
+            ...messagesWithoutLegacyStatus.slice(index + 1),
+            updatedMessage,
+          ]
+        : messagesWithoutLegacyStatus.map((entry, entryIndex) => (entryIndex === index ? updatedMessage : entry));
 
       return trimUiMessages(nextMessages);
     }
   }
 
-  return trimUiMessages([...messages, message]);
+  return trimUiMessages([...messagesWithoutLegacyStatus, message]);
 }
 
 function createMessage(
