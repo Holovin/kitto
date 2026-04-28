@@ -10,6 +10,7 @@ import {
 } from '@pages/Chat/builder/openui/runtime/validationLimits';
 import {
   componentSchemaDefinitions,
+  createQualityIssue,
   createParserIssue,
   escapeRegExp,
   extractStringLiteral,
@@ -175,6 +176,56 @@ function validateMutationTools(result: ParseResult): PromptBuildValidationIssue[
   });
 }
 
+function collectScreenIdSet(root: unknown) {
+  const screenIds = new Set<string>();
+
+  visitOpenUiValue(root, (node) => {
+    if (isElementNode(node) && node.typeName === 'Screen' && typeof node.props.id === 'string') {
+      screenIds.add(node.props.id);
+    }
+  });
+
+  return screenIds;
+}
+
+function extractObjectStringLiteralValue(value: unknown, keys: Set<string>) {
+  if (!isAstNode(value) || value.k !== 'Obj') {
+    return null;
+  }
+
+  const entry = value.entries.find(([key]) => keys.has(key));
+  const entryValue = entry?.[1];
+
+  return isAstNode(entryValue) && entryValue.k === 'Str' && typeof entryValue.v === 'string' ? entryValue.v : null;
+}
+
+function validateNavigateScreenTargets(result: ParseResult): PromptBuildValidationIssue[] {
+  const screenIds = collectScreenIdSet(result.root);
+  const targetKeys = new Set(['target', 'screenId', 'id']);
+
+  return result.mutationStatements.flatMap((mutation) => {
+    const toolName = extractStringLiteral(mutation.toolAST);
+
+    if (toolName !== 'navigate_screen') {
+      return [];
+    }
+
+    const target = extractObjectStringLiteralValue(mutation.argsAST, targetKeys);
+
+    if (!target || screenIds.has(target)) {
+      return [];
+    }
+
+    return [
+      createQualityIssue({
+        code: 'navigate-screen-missing-target',
+        message: `navigate_screen target "${target}" does not match any Screen id in this app.`,
+        statementId: mutation.statementId,
+      }),
+    ];
+  });
+}
+
 function isSafeMutationReferenceUse(line: string, referenceIndex: number, statementId: string) {
   const beforeReference = line.slice(0, referenceIndex);
   const afterReference = line.slice(referenceIndex + statementId.length);
@@ -229,6 +280,33 @@ function validateMutationReferenceUsage(source: string, result: ParseResult): Pr
   }
 
   return issues;
+}
+
+function createUnknownReferenceIssues(source: string, result: ParseResult): PromptBuildValidationIssue[] {
+  if (result.meta.incomplete || result.meta.unresolved.length === 0) {
+    return [];
+  }
+
+  const maskedSource = maskStringLiterals(source);
+
+  return result.meta.unresolved.map((statementId) => {
+    const escapedStatementId = escapeRegExp(statementId);
+    const isActionRunReference = new RegExp(`@Run\\s*\\(\\s*${escapedStatementId}\\s*\\)`).test(maskedSource);
+
+    if (isActionRunReference) {
+      return createQualityIssue({
+        code: 'unknown-action-run-reference',
+        message: `@Run(${statementId}) references a Query or Mutation statement that is not defined in the final source.`,
+        statementId,
+      });
+    }
+
+    return createQualityIssue({
+      code: 'unknown-query-reference',
+      message: `Reference "${statementId}" is used before a matching top-level Query, derived value, or component statement is defined.`,
+      statementId,
+    });
+  });
 }
 
 function validateAstNodeSurface(value: unknown, inheritedStatementId?: string): PromptBuildValidationIssue[] {
@@ -354,6 +432,7 @@ export function collectOpenUiParserValidationIssues(source: string, result: Pars
         }),
       ),
     );
+    issues.push(...createUnknownReferenceIssues(source, result));
   }
 
   if (!result.root) {
@@ -376,6 +455,7 @@ export function collectOpenUiParserValidationIssues(source: string, result: Pars
 
   issues.push(...validateQueryTools(result));
   issues.push(...validateMutationTools(result));
+  issues.push(...validateNavigateScreenTargets(result));
   issues.push(...validateMutationReferenceUsage(source, result));
 
   return issues;

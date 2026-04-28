@@ -14,7 +14,7 @@ export function DefinitionPanel({ issues, source, warnings }: DefinitionPanelPro
 
       {issues.length > 0 ? (
         <div className="shrink-0 space-y-2 rounded-[1.5rem] border border-rose-200 bg-rose-50/80 p-4">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-rose-700">Parse and runtime issues</p>
+          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-rose-700">Validation issues</p>
           <div className="space-y-2">
             {issues.map((issue, index) => (
               <div key={`${issue.code}-${issue.statementId ?? 'global'}-${index}`} className="rounded-2xl bg-white px-3 py-2 text-sm text-slate-700">

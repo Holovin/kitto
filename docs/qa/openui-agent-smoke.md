@@ -34,6 +34,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 14. `/api/config` `limits` should include `promptMaxChars`, `chatMessageMaxChars`, `sourceMaxChars`, `chatHistoryMaxItems`, and `requestMaxBytes`; submit-time preflight should block any one field or full serialized payload that exceeds those limits.
 15. The `Context` tab should show a char-based table of prompt context sections with `Prio`, `Section`, `Chars`, `Limits`, `Used`, and `Budget` columns; `Limits` uses backend-provided values from prompt diagnostics/generation metadata and shows `SOFT ...` and/or `(HARD ...)` when configured, `currentSource` is marked protected, and each row expands to show the backend prompt payload for that section.
 16. After undo/redo and browser reload, the current committed source and compact LLM app memory should still come from the same builder revision.
+17. Confirm generated drafts pass parse/structural validation, then semantic validation, then automatic repair before commit/reject. Fatal or blocking semantic issue codes must be present in repair requests.
+18. Confirm a valid multi-section app with more than one visible `Screen(...)` can commit, while a draft where every conditional screen is hidden initially repairs or fails without replacing the previous committed Preview.
 
 ## MCP automation notes
 
@@ -130,7 +132,7 @@ Create a quiz app with intro, three questions on separate screens, and result sc
 ### Expected
 
 - Intro screen appears after commit.
-- If the generated source resolves every `Screen(...)` inactive on the first render, Preview should show: `The generated app currently has no visible content. Try asking Kitto to add a visible starting section.`
+- If the generated source resolves every `Screen(...)` inactive on the first render, the draft should repair or fail before commit while the previous committed Preview remains active.
 - Start/Begin works.
 - Radio selection works.
 - If quiz choices are generated from collection data, committed `RadioGroup(...)` / `Select(...)` options use `{ label, value }` objects rather than bare string arrays; invalid bare-string drafts should repair or stay blocked instead of committing.

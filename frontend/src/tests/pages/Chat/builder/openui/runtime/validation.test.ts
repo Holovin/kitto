@@ -102,6 +102,31 @@ describe('validateOpenUiSource', () => {
     );
   });
 
+  it('adds semantic issue codes for unresolved action and query references', () => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Button("refresh", "Refresh", "default", Action([@Run(missingQuery)]), false),
+    Text(missingValue, "body", "start")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-action-run-reference',
+          source: 'quality',
+          statementId: 'missingQuery',
+        }),
+        expect.objectContaining({
+          code: 'unknown-query-reference',
+          source: 'quality',
+          statementId: 'missingValue',
+        }),
+      ]),
+    );
+  });
+
   it('rejects incomplete or truncated source', () => {
     const result = validateOpenUiSource('root = AppShell([');
 
@@ -699,17 +724,28 @@ root = AppShell([
     );
   });
 
-  it('leaves URL protocol checks to Link and OpenUrl runtime validation', () => {
-    const result = validateOpenUiSource(`root = AppShell([
+  it('leaves semantic URL protocol checks out of structural validation', () => {
+    const source = `root = AppShell([
   Screen("main", "Main", [
     Link("Blocked URL", "javascript:alert(1)")
   ])
-])`);
+])`;
+    const result = validateOpenUiSource(source);
 
     expect(result).toEqual({
       isValid: true,
       issues: [],
     });
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unsafe-url-literal',
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
   });
 
   it('rejects query and mutation tool names outside the allowlist', () => {
@@ -728,6 +764,30 @@ ${validSource}`);
         expect.objectContaining({
           code: 'unknown-tool',
           message: 'Tool "delete_state" is not allowed.',
+        }),
+      ]),
+    );
+  });
+
+  it('adds a semantic target issue for navigate_screen mutations that point nowhere', () => {
+    const result = validateOpenUiSource(`goMissing = Mutation("navigate_screen", { target: "missing" })
+root = AppShell([
+  Screen("main", "Main", [
+    Button("go", "Go", "default", Action([@Run(goMissing)]), false)
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-tool',
+          statementId: 'goMissing',
+        }),
+        expect.objectContaining({
+          code: 'navigate-screen-missing-target',
+          source: 'quality',
+          statementId: 'goMissing',
         }),
       ]),
     );
@@ -819,7 +879,7 @@ describe('detectLocalRuntimeQualityIssues', () => {
     ).toBeUndefined();
   });
 
-  it('warns when all conditional screens are hidden by the initial state', () => {
+  it('blocks repair when all conditional screens are hidden by the initial state', () => {
     const issues = detectLocalRuntimeQualityIssues(`$currentScreen = ""
 root = AppShell([
   Screen("home", "Home", [
@@ -833,8 +893,8 @@ root = AppShell([
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: 'quality-empty-initial-render',
-          severity: 'soft-warning',
+          code: 'all-conditional-screens-hidden-initially',
+          severity: 'blocking-quality',
           source: 'quality',
           statementId: 'root',
         }),
@@ -852,7 +912,7 @@ root = AppShell([
   ])
 ])`);
 
-    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'all-conditional-screens-hidden-initially')).toBeUndefined();
   });
 
   it('does not warn when an initial state matches one conditional screen', () => {
@@ -866,7 +926,135 @@ root = AppShell([
   ], $currentScreen == "details")
 ])`);
 
-    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'all-conditional-screens-hidden-initially')).toBeUndefined();
+  });
+
+  it('accepts valid multi-section apps with more than one visible Screen', () => {
+    const source = `root = AppShell([
+  Screen("overview", "Overview", [
+    Text("Overview", "body", "start")
+  ]),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(detectLocalRuntimeQualityIssues(source)).toEqual([]);
+  });
+
+  it('marks duplicate literal ids as fatal semantic quality issues', () => {
+    const issues = detectLocalRuntimeQualityIssues(`root = AppShell([
+  Screen("main", "Main", [
+    Input("title", "Title", $title, "Title"),
+    TextArea("title", "Notes", $notes, "Notes"),
+    Button("save", "Save", "default", Action([]), false),
+    Button("save", "Save again", "secondary", Action([]), false)
+  ]),
+  Screen("main", "Duplicate main", [
+    Text("Duplicate", "body", "start")
+  ])
+])`);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'duplicate-screen-id',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+        expect.objectContaining({
+          code: 'duplicate-component-id',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+        expect.objectContaining({
+          code: 'duplicate-button-id',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
+
+  it('marks action navigation to a missing Screen target as blocking quality', () => {
+    const issues = detectLocalRuntimeQualityIssues(`$currentScreen = "home"
+root = AppShell([
+  Screen("home", "Home", [
+    Button("next", "Next", "default", Action([@Set($currentScreen, "missing")]), false)
+  ], $currentScreen == "home")
+])`);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'set-current-screen-missing-target',
+          severity: 'blocking-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('marks @Run calls that do not reference Query or Mutation statements as fatal quality', () => {
+    const issues = detectLocalRuntimeQualityIssues(`saveButton = Button("noop", "Noop", "secondary", Action([]), false)
+root = AppShell([
+  Screen("main", "Main", [
+    Button("save", "Save", "default", Action([@Run(saveButton)]), false)
+  ])
+])`);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-action-run-reference',
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('allows safe Link and @OpenUrl literals', () => {
+    const source = `root = AppShell([
+  Screen("main", "Main", [
+    Link("Docs", "https://example.com/docs", true),
+    Button("open", "Open", "default", Action([@OpenUrl("/chat")]), false)
+  ])
+])`;
+
+    expect(validateOpenUiSource(source)).toEqual({
+      isValid: true,
+      issues: [],
+    });
+    expect(detectLocalRuntimeQualityIssues(source).find((issue) => issue.code === 'unsafe-url-literal')).toBeUndefined();
+  });
+
+  it('marks orphan top-level Screen statements as soft warnings', () => {
+    const issues = detectLocalRuntimeQualityIssues(`unused = Screen("unused", "Unused", [
+  Text("Unused", "body", "start")
+])
+root = AppShell([
+  Screen("main", "Main", [
+    Text("Main", "body", "start")
+  ])
+])`);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'orphan-screen',
+          severity: 'soft-warning',
+          source: 'quality',
+          statementId: 'unused',
+        }),
+      ]),
+    );
   });
 
   it('does not mark the canonical todo recipe when its local state is declared', () => {

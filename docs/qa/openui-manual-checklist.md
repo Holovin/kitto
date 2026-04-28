@@ -75,7 +75,7 @@ Guardrails:
 - Valid but over-complex committed drafts may surface non-blocking Definition warnings for unrequested complexity such as extra screens, themes, filters, validation rules, compute tools, or excessive block groups, based on backend prompt-aware quality analysis merged with local source validation.
 - Todo/task-list requests that commit without the minimum todo controls must surface the non-blocking Definition warning `Todo request did not generate required todo controls.` when backend prompt-aware quality validation classifies it as a warning instead of a blocker.
 - Those quality warnings must not trigger auto-repair, reject the draft, or block commit/history updates.
-- Blocking product-quality issues may trigger automatic repair attempts up to `repair.maxRepairAttempts` before commit (default: 2 attempts) even when the draft is syntactically valid.
+- Fatal or blocking product-quality issues must trigger automatic repair attempts up to `repair.maxRepairAttempts` before commit (default: 2 attempts) even when the draft is syntactically valid.
 - When an automatic repair request is in flight, chat should reuse the pending assistant summary card with shimmer and show `Something went wrong and your request was sent again`; if a second repair starts, the same card should update to `Something went wrong and your request was sent again (2)`.
 - Each automatic repair request should append model-visible context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before the corrected-source instruction.
 - The backend model input for automatic repair must be role-based, with recent filtered conversation context in a bounded `<conversation_context>` block when available, the rejected draft in an assistant message, and the issue/hint correction request in the final user message.
@@ -84,7 +84,8 @@ Guardrails:
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
 - `quality-missing-screen-flow` is also a blocking product-quality issue for step-by-step flow requests: conditional flow sections need local state based `isActive` gates and `@Set(...)` navigation before commit, while always-visible helper sections may omit `isActive`.
-- `quality-empty-initial-render` is a soft warning when every `Screen(...)` is conditional and none is obviously visible from the initial state. Multi-section apps with omitted `isActive` must not warn.
+- `all-conditional-screens-hidden-initially` is a blocking product-quality issue when every meaningful `Screen(...)` section is conditional and none is obviously visible from the initial state. Multi-section apps with omitted `isActive` must not warn or repair.
+- Semantic validation should reject/repair duplicate literal screen, component, and button ids; unknown `@Run(...)` refs; unsafe literal `Link(...)` / `@OpenUrl(...)` URLs; and navigation actions that target missing `Screen` ids. `orphan-screen` remains a soft warning and must not block commit.
 - `quality-missing-control-showcase-components` is also a blocking product-quality issue for every-control/component-showcase requests: the visible app must include `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`.
 - Parser-invalid drafts should repair through the backend repair request path or fail cleanly; the builder should not apply browser-only source rewrites before commit.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
@@ -219,7 +220,7 @@ Layout simplicity:
 - Multiple `Screen(...)` components may be visible at once.
 - Omit `isActive` for always-visible sections; use `isActive` only when a section should conditionally render.
 - For step-by-step flows, make sure the initial render has at least one visible `Screen(...)`.
-- If committed Preview has no visible content because all conditional screens are hidden, it shows: `The generated app currently has no visible content. Try asking Kitto to add a visible starting section.`
+- Drafts where all conditional screens are hidden initially should repair or fail before commit; the no-visible-content Preview message is reserved for non-generation/import/runtime edge cases that still produce no visible content.
 - Prefer one `Screen(...)` for simple apps unless the request naturally needs multiple major sections.
 - Use `Group(...)` only for meaningful visual sections.
 - Do not wrap every individual control in its own `Group(...)`.

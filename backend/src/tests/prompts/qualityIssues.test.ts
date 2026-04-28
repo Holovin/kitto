@@ -469,7 +469,7 @@ root = AppShell([
     expect(issues.find((issue) => issue.code === 'quality-missing-screen-flow')).toBeUndefined();
   });
 
-  it('warns when all conditional screens are hidden by the initial state', () => {
+  it('blocks when all conditional screens are hidden by the initial state', () => {
     const issues = detectPromptAwareQualityIssues(
       `$currentScreen = ""
 root = AppShell([
@@ -486,8 +486,8 @@ root = AppShell([
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: 'quality-empty-initial-render',
-          severity: 'soft-warning',
+          code: 'all-conditional-screens-hidden-initially',
+          severity: 'blocking-quality',
           source: 'quality',
           statementId: 'root',
         }),
@@ -495,7 +495,7 @@ root = AppShell([
     );
   });
 
-  it('does not warn about empty initial render when an initial state matches a conditional screen', () => {
+  it('does not block for empty initial render when an initial state matches a conditional screen', () => {
     const issues = detectPromptAwareQualityIssues(
       `$currentScreen = "home"
 root = AppShell([
@@ -509,7 +509,7 @@ root = AppShell([
       'Create a two-screen app.',
     );
 
-    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
+    expect(issues.find((issue) => issue.code === 'all-conditional-screens-hidden-initially')).toBeUndefined();
   });
 
   it('marks incomplete control showcases as blocking', () => {

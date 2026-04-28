@@ -11,6 +11,7 @@ import {
 } from '@pages/Chat/builder/openui/runtime/validation/detectors/lastChoiceOutsideAction';
 import { detectArrayIndexPathMutationIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/mutationIndexPath';
 import { detectChoiceOptionsShapeIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/optionsShape';
+import { detectSemanticValidationIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/semanticValidation';
 import { detectStructuralInvariantIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/structuralInvariants';
 import { detectUndefinedStateReferenceIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/undefinedStateReference';
 import { getOpenUiQualityIssueSeverity } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
@@ -69,6 +70,7 @@ export function detectLocalRuntimeQualityIssues(
   const knownValidationQualityIssues = mapKnownValidationQualityIssues(options.validationIssues);
 
   issues.push(...detectChoiceOptionsShapeIssues(programIndex));
+  issues.push(...detectSemanticValidationIssues(result, programIndex));
   issues.push(...detectPotentialEmptyInitialRenderIssues(result));
   issues.push(...detectControlActionBindingConflicts(result.root));
   issues.push(...detectItemBoundControlsWithoutAction(trimmedSource));

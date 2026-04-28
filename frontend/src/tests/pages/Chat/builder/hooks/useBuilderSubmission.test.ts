@@ -1918,7 +1918,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('fails immediately for fatal structural drafts without sending a repair request', async () => {
+  it('repairs fatal structural drafts before commit', async () => {
     seedCommittedSource();
     setDraftPrompt('Create a small app.');
     const submission = createSubmissionHarness();
@@ -1926,15 +1926,37 @@ describe('useBuilderSubmission', () => {
     testHarness.streamMock.mockResolvedValue({
       source: FATAL_STRUCTURAL_SOURCE,
     });
+    testHarness.generateMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
 
     await submission.result().handleSubmit(createFormEvent());
 
-    expect(testHarness.generateMock).not.toHaveBeenCalled();
-    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
-    expect(getBuilderState().retryPrompt).toBe('Create a small app.');
-    expect(getBuilderState().streamError).toContain('without an automatic repair attempt');
-    expect(getBuilderState().streamError).toContain('screen-inside-screen');
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(1);
+    expect(
+      (
+        testHarness.generateMock.mock.calls[0]?.[0] as {
+          request?: { validationIssues?: Array<{ code: string; severity?: string }> };
+        }
+      ).request?.validationIssues,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'screen-inside-screen',
+          severity: 'fatal-quality',
+        }),
+      ]),
+    );
+    expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
+    expect(getBuilderState().streamError).toBeNull();
     expect(findRepairStatusMessages()).toEqual([]);
+    expect(getBuilderState().chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
+        role: 'assistant',
+        tone: 'success',
+      }),
+    );
 
     submission.unmount();
   });
@@ -2033,7 +2055,7 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
+        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
         role: 'assistant',
         tone: 'success',
       }),
@@ -2079,14 +2101,14 @@ describe('useBuilderSubmission', () => {
       commitSource: 'streaming',
       committed: false,
       requestId: initialRequestId,
-      validationIssues: ['undefined-state-reference'],
+      validationIssues: ['all-conditional-screens-hidden-initially', 'undefined-state-reference'],
     });
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(2, {
       commitSource: 'streaming',
       committed: false,
       repairOutcome: 'fixed',
       requestId: initialRequestId,
-      validationIssues: ['undefined-state-reference'],
+      validationIssues: ['all-conditional-screens-hidden-initially', 'undefined-state-reference'],
     });
     expect(testHarness.commitTelemetryMock).toHaveBeenNthCalledWith(3, {
       commitSource: 'fallback',
@@ -2250,7 +2272,7 @@ describe('useBuilderSubmission', () => {
       expect(findRepairStatusMessages()).toEqual([]);
       expect(getBuilderState().chatMessages.at(-1)).toEqual(
         expect.objectContaining({
-          content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
+          content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
           role: 'assistant',
           tone: 'success',
         }),
@@ -2327,7 +2349,7 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had blocking quality issues, so it was repaired automatically before commit.',
+        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
         role: 'assistant',
         tone: 'success',
       }),

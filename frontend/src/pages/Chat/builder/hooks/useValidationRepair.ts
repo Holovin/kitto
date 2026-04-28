@@ -18,7 +18,6 @@ import type {
 } from '@pages/Chat/builder/types';
 import {
   getOpenUiQualityIssueSeverity,
-  isOpenUiBlockingQualityIssue,
 } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { createValidationFailureMessage } from './validationFailureMessage';
 
@@ -217,7 +216,9 @@ function getRepairValidationIssuePriority(issue: RepairValidationIssue) {
     return 0;
   }
 
-  if (isOpenUiBlockingQualityIssue(issue)) {
+  const qualitySeverity = getOpenUiQualityIssueSeverity(issue);
+
+  if (qualitySeverity === 'fatal-quality' || qualitySeverity === 'blocking-quality') {
     return 1;
   }
 
@@ -379,7 +380,7 @@ export function useValidationRepair({
 
     function buildRepairNote() {
       if (parserRepairCount > 0 && qualityRepairCount > 0) {
-        return 'The first draft had parser issues and blocking quality issues, so it was repaired automatically before commit.';
+        return 'The first draft had parser issues and fatal or blocking quality issues, so it was repaired automatically before commit.';
       }
 
       if (parserRepairCount > 0) {
@@ -387,7 +388,7 @@ export function useValidationRepair({
       }
 
       if (qualityRepairCount > 0) {
-        return 'The first draft had blocking quality issues, so it was repaired automatically before commit.';
+        return 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.';
       }
 
       return undefined;
@@ -523,11 +524,20 @@ export function useValidationRepair({
         );
 
         if (fatalValidationIssues.length > 0) {
-          reportRejectedCandidate(fatalValidationIssues);
-          reportQualityRepairOutcome('failed');
-          throw new OpenUiValidationError(
-            createValidationFailureMessage(fatalValidationIssues, getRepairAttemptCount()),
-          );
+          if (maxRepairAttempts === null) {
+            throw new Error('Chat send is unavailable until the runtime config has loaded.');
+          }
+
+          if (getRepairAttemptCount() >= maxRepairAttempts) {
+            reportRejectedCandidate(fatalValidationIssues);
+            reportQualityRepairOutcome('failed');
+            throw new OpenUiValidationError(
+              createValidationFailureMessage(fatalValidationIssues, getRepairAttemptCount()),
+            );
+          }
+
+          await runRepairRequest(fatalValidationIssues, 'quality');
+          continue;
         }
       }
 
@@ -542,37 +552,27 @@ export function useValidationRepair({
         ]);
         const fatalQualityIssues = qualityIssues.filter((issue) => issue.severity === 'fatal-quality');
         const blockingQualityIssues = qualityIssues.filter((issue) => issue.severity === 'blocking-quality');
+        const repairableQualityIssues = [...fatalQualityIssues, ...blockingQualityIssues];
         const qualityWarnings = qualityIssues.filter((issue) => issue.severity === 'soft-warning').map(stripQualitySeverity);
 
-        if (fatalQualityIssues.length > 0) {
-          reportRejectedCandidate(fatalQualityIssues.map(stripQualitySeverity));
-          reportQualityRepairOutcome('failed');
-          throw new OpenUiValidationError(
-            createValidationFailureMessage(
-              fatalQualityIssues.map(stripQualitySeverity),
-              getRepairAttemptCount(),
-            ),
-          );
-        }
-
-        if (blockingQualityIssues.length > 0) {
+        if (repairableQualityIssues.length > 0) {
           if (maxRepairAttempts === null) {
             throw new Error('Chat send is unavailable until the runtime config has loaded.');
           }
 
           if (getRepairAttemptCount() >= maxRepairAttempts) {
-            reportRejectedCandidate(blockingQualityIssues.map(stripQualitySeverity));
+            reportRejectedCandidate(repairableQualityIssues.map(stripQualitySeverity));
             reportQualityRepairOutcome('failed');
             throw new OpenUiValidationError(
               createValidationFailureMessage(
-                blockingQualityIssues.map(stripQualitySeverity),
+                repairableQualityIssues.map(stripQualitySeverity),
                 getRepairAttemptCount(),
               ),
             );
           }
 
-          queueQualityRepairOutcome(blockingQualityIssues);
-          await runRepairRequest(blockingQualityIssues, 'quality');
+          queueQualityRepairOutcome(repairableQualityIssues);
+          await runRepairRequest(repairableQualityIssues, 'quality');
           continue;
         }
 

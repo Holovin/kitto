@@ -53,7 +53,7 @@ Notes:
 - The frontend OpenUI library is the source of truth, and `shared/openui-component-spec.json` is a generated artifact consumed by the backend prompt.
 - The production SPA fallback route allowlist lives in `shared/frontend-routes.json`. Keep it aligned with `frontend/src/router/siteRoutes.ts`; backend fallback tests and frontend route contract tests both depend on it.
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
-- Generation follows a validation, configurable automatic-repair, and commit pipeline.
+- Generation follows a validation pipeline: parse/structural validation -> semantic validation -> configurable repair retry -> commit or reject.
 - The backend owns all model-visible prompt assembly for both initial generation and repair flows. The visible chat transcript is persisted for UX. Generation does not send the entire transcript; it sends a derived context package built from the latest prompt, committed source, compact app memory, recent user prompts, and recent committed change summaries.
 - The committed OpenUI source is authoritative. Context budgeting applies to optional context. The committed source is protected because it is the authoritative app definition. Kitto does not summarize or replace it during normal follow-up generation; if the committed source itself exceeds the emergency cap, generation is rejected safely.
 - Builder revisions store committed source plus compact LLM app memory. Live preview state is separate and is not part of exported runtime interactions.
@@ -115,7 +115,7 @@ Notes:
 - `AppShell(children, appearance?)` can set the global inherited theme with `appearance.mainColor` and `appearance.contrastColor`.
 - `Screen(id, title, children, isActive?, appearance?)`, `Group(title, direction, children, variant?, appearance?)`, and `Repeater(children, emptyText?, appearance?)` can override the inherited theme for a subtree.
 - `Screen(...)` is a major visible section, not necessarily a route. Omit `isActive` for always-visible sections; multiple `Screen(...)` components may be visible at once.
-- If every `Screen(...)` is conditional and the initial state hides them all, Preview shows a no-visible-content overlay instead of forcing a route-like fallback screen.
+- If every `Screen(...)` is conditional and the initial state hides them all, semantic validation blocks commit and sends the draft through repair instead of forcing a route-like fallback screen.
 - `appearance.mainColor` is the main surface/background color, and `appearance.contrastColor` is the contrasting text/action color.
 - `Text(value, variant?, align?, appearance?)` accepts only `appearance.contrastColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.mainColor` and `appearance.contrastColor`.
 - `Checkbox` supports both local form bindings and explicit action-mode toggles: use a writable `$binding<boolean>` for form state, or a display-only boolean plus `Action([...])` for persisted row updates.

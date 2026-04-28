@@ -326,4 +326,71 @@ describe('useValidationRepair', () => {
     expect(runGenerateRequest).toHaveBeenCalledTimes(1);
     expect(runGenerateRequest.mock.calls[0]?.[1]?.previousSource).toBe(request.previousSource);
   });
+
+  it('sends fatal semantic quality issue codes to automatic repair instead of committing', async () => {
+    const requestLimits: BuilderRequestLimits = {
+      chatMessageMaxChars: 4_096,
+      chatHistoryMaxItems: 40,
+      promptMaxChars: 4_096,
+      requestMaxBytes: 300_000,
+      sourceMaxChars: 12_288,
+    };
+    const request: PromptBuildRequest = {
+      prompt: 'Create a small app.',
+      currentSource: 'root = AppShell([Screen("main", "Main", [])])',
+      chatHistory: [],
+      mode: 'initial',
+    };
+    const runGenerateRequest = vi.fn<
+      (
+        requestId: BuilderRequestId,
+        repairRequest: PromptBuildRequest,
+        options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
+      ) => Promise<BuilderGeneratedDraft>
+    >(async () => ({
+      appMemory: testAppMemory,
+      changeSummary: 'Fixed duplicate ids.',
+      commitSource: 'fallback',
+      requestId: toBuilderRequestId('repair-1'),
+      source: 'root = AppShell([Screen("main", "Main", [Button("save", "Save", "default", Action([]), false)])])',
+      summary: 'Updated the app.',
+      qualityIssues: [],
+    }));
+    const validationRepair = useValidationRepair({
+      maxRepairAttempts: 2,
+      maxRepairValidationIssues: 20,
+      requestLimits,
+      runGenerateRequest,
+      showStreamingSummaryStatus: () => undefined,
+      throwIfInactiveRequest: () => undefined,
+    });
+    const initialResponse: BuilderGeneratedDraft = {
+      appMemory: testAppMemory,
+      changeSummary: 'Initial generation change.',
+      commitSource: 'streaming',
+      requestId: toBuilderRequestId('initial'),
+      source: `root = AppShell([
+  Screen("main", "Main", [
+    Button("save", "Save", "default", Action([]), false),
+    Button("save", "Save again", "secondary", Action([]), false)
+  ])
+])`,
+      summary: 'Updated the app.',
+      qualityIssues: [],
+    };
+
+    const result = await validationRepair.ensureValidGeneratedSource(initialResponse, request, toBuilderRequestId('initial'));
+
+    expect(result.source).toContain('Button("save", "Save"');
+    expect(runGenerateRequest).toHaveBeenCalledTimes(1);
+    expect(runGenerateRequest.mock.calls[0]?.[1]?.validationIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'duplicate-button-id',
+          severity: 'fatal-quality',
+          source: 'quality',
+        }),
+      ]),
+    );
+  });
 });

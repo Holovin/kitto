@@ -109,13 +109,13 @@ export function detectPotentialEmptyInitialRenderIssues(
 
   return [
     {
-      code: 'quality-empty-initial-render',
+      code: 'all-conditional-screens-hidden-initially',
       context: {
         screenCount: screens.length,
       },
       message:
         'All Screen sections are conditional, and none is obviously visible from the initial state. Set the initial step state to a visible section or leave an always-visible Screen without isActive.',
-      severity: 'soft-warning',
+      severity: 'blocking-quality',
       source: 'quality',
       statementId: screens[0]?.statementId ?? 'root',
     },
