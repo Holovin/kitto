@@ -391,7 +391,7 @@ root = AppShell([
     );
   });
 
-  it('marks ungated multi-screen output as blocking when the prompt asks for screens', () => {
+  it('allows multiple always-visible screens when the prompt only asks for sections', () => {
     const issues = detectPromptAwareQualityIssues(
       `root = AppShell([
   Screen("browse", "Browse", [
@@ -404,11 +404,27 @@ root = AppShell([
       'Create a complex app with two screens.',
     );
 
+    expect(issues.find((issue) => issue.code === 'quality-missing-screen-flow')).toBeUndefined();
+  });
+
+  it('marks ungated step-flow output as blocking when the prompt asks for navigation', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `root = AppShell([
+  Screen("browse", "Browse", [
+    Text("Browse items", "title", "start")
+  ]),
+  Screen("form", "Form", [
+    Text("Create an item", "title", "start")
+  ])
+])`,
+      'Create a two-step wizard.',
+    );
+
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'quality-missing-screen-flow',
-          message: 'Multi-screen request generated multiple always-visible screens or omitted $currentScreen navigation.',
+          message: 'Step-by-step flow generated screens without conditional visibility or local step navigation.',
           severity: 'blocking-quality',
           source: 'quality',
         }),
@@ -416,21 +432,84 @@ root = AppShell([
     );
   });
 
-  it('does not mark current-screen navigation as blocking for multi-screen requests', () => {
+  it('does not mark current-screen navigation as blocking for step-flow requests', () => {
     const issues = detectPromptAwareQualityIssues(
-      `$currentScreen = "browse"
+      `$currentStep = "browse"
 root = AppShell([
   Screen("browse", "Browse", [
-    Button("go-form", "Form", "default", Action([@Set($currentScreen, "form")]), false)
-  ], $currentScreen == "browse"),
+    Button("go-form", "Form", "default", Action([@Set($currentStep, "form")]), false)
+  ], $currentStep == "browse"),
   Screen("form", "Form", [
-    Button("go-browse", "Back", "secondary", Action([@Set($currentScreen, "browse")]), false)
-  ], $currentScreen == "form")
+    Button("go-browse", "Back", "secondary", Action([@Set($currentStep, "browse")]), false)
+  ], $currentStep == "form")
 ])`,
-      'Create a complex app with two screens.',
+      'Create a two-step wizard.',
     );
 
     expect(issues.find((issue) => issue.code === 'quality-missing-screen-flow')).toBeUndefined();
+  });
+
+  it('allows always-visible helper screens alongside a gated step-flow', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `$currentStep = "intro"
+root = AppShell([
+  Screen("intro", "Intro", [
+    Button("go-form", "Start", "default", Action([@Set($currentStep, "form")]), false)
+  ], $currentStep == "intro"),
+  Screen("form", "Form", [
+    Text("Fill the form", "body", "start")
+  ], $currentStep == "form"),
+  Screen("help", "Help", [
+    Text("This help section is always visible", "body", "start")
+  ])
+])`,
+      'Create a two-step wizard with help.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-missing-screen-flow')).toBeUndefined();
+  });
+
+  it('warns when all conditional screens are hidden by the initial state', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `$currentScreen = ""
+root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ], $currentScreen == "home"),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ], $currentScreen == "details")
+])`,
+      'Create a two-screen app.',
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-empty-initial-render',
+          severity: 'soft-warning',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('does not warn about empty initial render when an initial state matches a conditional screen', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `$currentScreen = "home"
+root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ], $currentScreen == "home"),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ], $currentScreen == "details")
+])`,
+      'Create a two-screen app.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
   });
 
   it('marks incomplete control showcases as blocking', () => {

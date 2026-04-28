@@ -251,7 +251,7 @@ describe('openui prompts', () => {
     ).toContain('a fresh create request, multi-screen app, expanded scope, control showcase, no explicit validation rules, visual theme/styling');
   });
 
-  it('uses the current Screen and Button signatures and current screen-state navigation guidance', () => {
+  it('uses the current Screen and Button signatures and screen-section guidance', () => {
     const systemPrompt = buildBasePrompt();
     const intentContext = buildMultiScreenPrompt();
 
@@ -260,8 +260,8 @@ describe('openui prompts', () => {
     expect(systemPrompt).toContain(
       'Button(id: string, label: string, variant?: "default" \\| "secondary" \\| "destructive", action?: Action, disabled?: $binding<boolean>, appearance?: {',
     );
-    expect(intentContext).toContain('$currentScreen');
-    expect(intentContext).toContain('@Set($currentScreen');
+    expect(intentContext).toContain('Multiple Screen components may be visible at once');
+    expect(intentContext).toContain('For step-by-step flows');
   });
 
   it('includes compact negative examples for frequent OpenUI mistakes', () => {
@@ -380,7 +380,7 @@ describe('openui prompts', () => {
     );
     expect(prompt).toContain('LAYOUT RULES:');
     expect(prompt).toContain('Use Screen for top-level app sections.');
-    expect(prompt).toContain('Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.');
+    expect(prompt).toContain('Prefer one Screen for simple apps unless the request naturally needs multiple major sections.');
     expect(prompt).toContain('Use Group only for meaningful visual sections.');
     expect(prompt).toContain('Do not wrap every individual control in its own Group.');
     expect(prompt).toContain('Use Group variant "block" for standalone visual sections.');

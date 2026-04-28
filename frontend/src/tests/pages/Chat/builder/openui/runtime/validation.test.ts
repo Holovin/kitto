@@ -819,6 +819,56 @@ describe('detectLocalRuntimeQualityIssues', () => {
     ).toBeUndefined();
   });
 
+  it('warns when all conditional screens are hidden by the initial state', () => {
+    const issues = detectLocalRuntimeQualityIssues(`$currentScreen = ""
+root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ], $currentScreen == "home"),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ], $currentScreen == "details")
+])`);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'quality-empty-initial-render',
+          severity: 'soft-warning',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('does not warn when multiple screens are visible without isActive gates', () => {
+    const issues = detectLocalRuntimeQualityIssues(`root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ]),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ])
+])`);
+
+    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
+  });
+
+  it('does not warn when an initial state matches one conditional screen', () => {
+    const issues = detectLocalRuntimeQualityIssues(`$currentScreen = "home"
+root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ], $currentScreen == "home"),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ], $currentScreen == "details")
+])`);
+
+    expect(issues.find((issue) => issue.code === 'quality-empty-initial-render')).toBeUndefined();
+  });
+
   it('does not mark the canonical todo recipe when its local state is declared', () => {
     const issues = detectLocalRuntimeQualityIssues(`$draft = ""
 items = Query("read_state", { path: "app.items" }, [])

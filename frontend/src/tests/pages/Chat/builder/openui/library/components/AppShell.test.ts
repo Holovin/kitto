@@ -9,14 +9,16 @@ function renderOpenUi(source: string) {
 }
 
 describe('AppShellComponent', () => {
-  it('falls back to the first screen when every screen resolves inactive', () => {
+  it('shows an empty-content overlay when every screen resolves inactive', () => {
     const html = renderOpenUi(`root = AppShell([
   Screen("quiz", "Quiz", [], false),
   Screen("results", "Results", [], false)
 ])`);
 
-    expect(html).toContain('data-screen="quiz"');
-    expect(html).toContain('Quiz');
+    expect(html).toContain('data-empty-initial-render="true"');
+    expect(html).toContain('The generated app currently has no visible content.');
+    expect(html).not.toContain('data-screen="quiz"');
+    expect(html).not.toContain('Quiz');
     expect(html).not.toContain('data-screen="results"');
     expect(html).not.toContain('Results');
   });
@@ -30,5 +32,17 @@ describe('AppShellComponent', () => {
     expect(html).not.toContain('data-screen="quiz"');
     expect(html).toContain('data-screen="results"');
     expect(html).toContain('Results');
+    expect(html).not.toContain('data-empty-initial-render="true"');
+  });
+
+  it('does not show the empty-content overlay when multiple screens are always visible', () => {
+    const html = renderOpenUi(`root = AppShell([
+  Screen("quiz", "Quiz", []),
+  Screen("results", "Results", [])
+])`);
+
+    expect(html).toContain('data-screen="quiz"');
+    expect(html).toContain('data-screen="results"');
+    expect(html).not.toContain('data-empty-initial-render="true"');
   });
 });

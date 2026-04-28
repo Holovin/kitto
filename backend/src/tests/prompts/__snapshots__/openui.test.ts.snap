@@ -230,7 +230,7 @@ Before finishing, walk your output and verify:
 - Do not mutate persisted array rows through numeric paths such as \`app.items.0\`; use \`toggle_item_field\`, \`update_item_field\`, or \`remove_item\` with \`idField\` + \`id\`.
 - LAYOUT RULES:
 - Use Screen for top-level app sections.
-- Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.
+- Prefer one Screen for simple apps unless the request naturally needs multiple major sections.
 - Use Group only for meaningful visual sections.
 - Do not wrap every individual control in its own Group.
 - Use Group variant "inline" only for compact rows of buttons, filters, or controls.
@@ -268,7 +268,8 @@ Before finishing, walk your output and verify:
 - Repeater signature is \`Repeater(children?, emptyText?, appearance?)\`.
 - Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.
 - Button signature is \`Button(id, label, variant?, action?, disabled?, appearance?)\`.
-- Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.
+- Screen is a major visible section, not necessarily a route. Multiple Screen components may be visible at once.
+- Omit isActive for always-visible screens. Pass a boolean expression only when that section should conditionally render.
 - Use write_state, merge_state, append_state, append_item, toggle_item_field, update_item_field, remove_item, remove_state, and write_computed_state for exportable persistent data.
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
 - Each persisted path segment may only use letters, numbers, \`_\`, or \`-\`. Numeric segments are array indexes only.

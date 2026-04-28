@@ -125,7 +125,7 @@ Create a quiz app with intro, three questions on separate screens, and result sc
 ### Expected
 
 - Intro screen appears after commit.
-- The app must not go blank; if the generated source somehow resolves every `Screen(...)` inactive, the first screen should still render as a runtime fallback.
+- If the generated source resolves every `Screen(...)` inactive on the first render, Preview should show: `The generated app currently has no visible content. Try asking Kitto to add a visible starting section.`
 - Start/Begin works.
 - Radio selection works.
 - If quiz choices are generated from collection data, committed `RadioGroup(...)` / `Select(...)` options use `{ label, value }` objects rather than bare string arrays; invalid bare-string drafts should repair or stay blocked instead of committing.
@@ -221,7 +221,7 @@ Create a form with name, email, quantity, due date, description and required agr
 - Freshly committed required controls are not red before the user touches them or presses a primary submit/next button.
 - Required validation is visible.
 - Validation marks invalid controls with error styling and `aria-invalid` without inserting inline error text that shifts layout.
-- In multi-screen flows, a primary submit/next button only lights up invalid controls from the current screen, not hidden or unrelated screens.
+- In step-by-step flows, a primary submit/next button only lights up invalid controls from the current conditional section, not hidden or unrelated sections.
 - Email validation works.
 - Number validation works if min/max is generated.
 - Due date stores a `YYYY-MM-DD` value.
@@ -307,6 +307,7 @@ Show a warning if the name field is empty.
 - The follow-up commit may reset local runtime state instead of migrating screen/form variables across source versions.
 - Undo restores previous committed app.
 - Redo restores redone app.
+- If a committed edit, import, undo, or redo leaves `domain.navigation.currentScreenId` pointing at a removed screen id, the builder repairs that navigation value to an existing screen id instead of leaving Preview blank.
 - While a generation is still running, the chat toolbar previous-version, next-version, and reset buttons are disabled; use `Cancel` before changing builder history.
 - No rejected draft becomes committed after reload.
 - No stale runtime error remains visible after a valid source change.
@@ -353,7 +354,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 ### Expected
 
 - If the first draft is invalid, or valid but fails a blocking product-quality check, repair attempts may run up to `repair.maxRepairAttempts` (default: 2 attempts).
-- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, missing multi-screen flow gating, missing control-showcase controls, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
+- Blocking product-quality issues such as `reserved-last-choice-outside-action-mode`, `control-action-and-binding`, `undefined-state-reference`, stale persisted-query refresh, missing step-flow gating, missing control-showcase controls, or non-persisting row controls should use that repair path instead of failing immediately on the first draft.
 - Parser-invalid drafts should use the same repair path instead of being rewritten locally in the browser.
 - If repair runs, chat keeps one pending assistant summary card with shimmer and changes its text to `Something went wrong and your request was sent again`, or `Something went wrong and your request was sent again (2)` for the second repair attempt.
 - Each automatic repair request should add model context that the previous draft was rejected, with a message like `Previous draft rejected due to: <codes>`, and the backend repair prompt should include that context before asking for the corrected source.

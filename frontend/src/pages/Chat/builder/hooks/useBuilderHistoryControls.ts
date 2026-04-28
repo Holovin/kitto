@@ -9,6 +9,10 @@ import {
   createResetDefinitionExport,
   resolveImportedDefinition,
 } from '@pages/Chat/builder/openui/runtime/persistedState';
+import {
+  recoverStaleNavigationDomainData,
+  recoverStaleNavigationSnapshot,
+} from '@pages/Chat/builder/openui/runtime/navigationRecovery';
 import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';
 import { createStandalonePayload } from '@pages/Chat/builder/standalone/createStandalonePayload';
 import { downloadStandaloneHtml } from '@pages/Chat/builder/standalone/downloadStandaloneHtml';
@@ -228,15 +232,17 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
         validHistory.length > 0
           ? validHistory
           : [createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData)];
+      const recoveredDomainData = recoverStaleNavigationDomainData(importedDefinition.source, importedDefinition.domainData);
+      const recoveredImportedHistory = importedHistory.map((snapshot) => recoverStaleNavigationSnapshot(snapshot));
 
       resetAppStateWithDispatch(dispatch);
-      dispatch(domainActions.replaceData(importedDefinition.domainData));
+      dispatch(domainActions.replaceData(recoveredDomainData.domainData));
       dispatch(builderSessionActions.replaceRuntimeSessionState(importedDefinition.runtimeState));
       dispatch(
         builderActions.loadDefinition({
           source: importedDefinition.source,
           runtimeState: importedDefinition.runtimeState,
-          history: importedHistory,
+          history: recoveredImportedHistory,
           messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,
           note: createImportSuccessMessage(file.name),
         }),
@@ -254,8 +260,10 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       return;
     }
 
-    dispatch(domainActions.replaceData(previousSnapshot.domainData));
-    dispatch(builderSessionActions.replaceRuntimeSessionState(previousSnapshot.runtimeState));
+    const recoveredSnapshot = recoverStaleNavigationSnapshot(previousSnapshot);
+
+    dispatch(domainActions.replaceData(recoveredSnapshot.domainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(recoveredSnapshot.runtimeState));
     dispatch(builderActions.undoLatest());
   }
 
@@ -264,8 +272,10 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       return;
     }
 
-    dispatch(domainActions.replaceData(redoSnapshot.domainData));
-    dispatch(builderSessionActions.replaceRuntimeSessionState(redoSnapshot.runtimeState));
+    const recoveredSnapshot = recoverStaleNavigationSnapshot(redoSnapshot);
+
+    dispatch(domainActions.replaceData(recoveredSnapshot.domainData));
+    dispatch(builderSessionActions.replaceRuntimeSessionState(recoveredSnapshot.runtimeState));
     dispatch(builderActions.redoLatest());
   }
 

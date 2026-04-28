@@ -85,7 +85,8 @@ const REPAIR_APPEARANCE_CRITICAL_RULES = [
 ] as const;
 
 const REPAIR_STATE_CRITICAL_RULES = [
-  'Use $currentScreen + @Set for screen navigation.',
+  'For step-by-step flows, use a local step variable plus @Set for navigation between conditional Screen sections.',
+  'Leave always-visible Screen sections without isActive.',
   'Declare every `$var` that appears anywhere in the program at the top with a literal initial value, even if the draft excerpt below is truncated.',
   buildOpenUiComponentSignatureRule('Button'),
 ] as const;
@@ -120,8 +121,9 @@ function buildRepairPromptCriticalRules() {
     { id: 'button-appearance', text: REPAIR_APPEARANCE_CRITICAL_RULES[2] },
     { id: 'no-arbitrary-styles', text: REPAIR_APPEARANCE_CRITICAL_RULES[3] },
     { id: 'screen-navigation-state', text: REPAIR_STATE_CRITICAL_RULES[0] },
-    { id: 'declare-state', text: REPAIR_STATE_CRITICAL_RULES[1] },
-    { id: 'button-signature', text: REPAIR_STATE_CRITICAL_RULES[2] },
+    { id: 'screen-always-visible', text: REPAIR_STATE_CRITICAL_RULES[1] },
+    { id: 'declare-state', text: REPAIR_STATE_CRITICAL_RULES[2] },
+    { id: 'button-signature', text: REPAIR_STATE_CRITICAL_RULES[3] },
   ] as const;
 }
 
@@ -166,7 +168,7 @@ const ISSUE_TO_REPAIR_CRITICAL_RULE_IDS: Record<string, readonly string[]> = {
   'multiple-app-shells': ['app-shell-single-root'],
   'mutation-uses-array-index-path': ['query-mutation-placement'],
   'quality-missing-control-showcase-components': ['supported-surface'],
-  'quality-missing-screen-flow': ['screen-signature', 'screen-no-nesting', 'screen-navigation-state'],
+  'quality-missing-screen-flow': ['screen-signature', 'screen-no-nesting', 'screen-navigation-state', 'screen-always-visible'],
   'quality-missing-todo-controls': ['query-mutation-placement', 'run-ref-defined'],
   'quality-options-shape': ['options-shape'],
   'quality-random-result-not-visible': ['query-mutation-placement', 'run-ref-defined'],

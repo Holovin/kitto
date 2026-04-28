@@ -111,13 +111,15 @@ Notes:
 
 - `AppShell(children, appearance?)` can set the global inherited theme with `appearance.mainColor` and `appearance.contrastColor`.
 - `Screen(id, title, children, isActive?, appearance?)`, `Group(title, direction, children, variant?, appearance?)`, and `Repeater(children, emptyText?, appearance?)` can override the inherited theme for a subtree.
+- `Screen(...)` is a major visible section, not necessarily a route. Omit `isActive` for always-visible sections; multiple `Screen(...)` components may be visible at once.
+- If every `Screen(...)` is conditional and the initial state hides them all, Preview shows a no-visible-content overlay instead of forcing a route-like fallback screen.
 - `appearance.mainColor` is the main surface/background color, and `appearance.contrastColor` is the contrasting text/action color.
 - `Text(value, variant?, align?, appearance?)` accepts only `appearance.contrastColor`. `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link` accept both `appearance.mainColor` and `appearance.contrastColor`.
 - `Checkbox` supports both local form bindings and explicit action-mode toggles: use a writable `$binding<boolean>` for form state, or a display-only boolean plus `Action([...])` for persisted row updates.
 - For any `Button(..., variant, ..., appearance)`, `appearance.mainColor` sets the button background and `appearance.contrastColor` sets the button text. Variants differ only by fallback styling when no `appearance` is provided.
 - Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
-- Internal screen flow uses local runtime state such as `$currentScreen` with `@Set(...)`, not persisted tools.
+- Step-by-step internal screen flow uses local runtime state such as `$currentStep` with `@Set(...)`, not persisted tools, and should start with at least one visible `Screen(...)`.
 - `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
 - Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
 - Collection filtering should use `@Filter(collection, field, operator, value)` with operators `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; use `contains` for substring search, not predicate-style callbacks or `includes`.

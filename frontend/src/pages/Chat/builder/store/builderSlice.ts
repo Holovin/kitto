@@ -3,6 +3,7 @@ import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContr
 import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@pages/Chat/builder/historyVersionState';
 import { DEFAULT_OPENUI_SOURCE } from '@pages/Chat/builder/openui/runtime/defaultSource';
+import { recoverStaleNavigationSnapshot } from '@pages/Chat/builder/openui/runtime/navigationRecovery';
 import { cloneBuilderSnapshot, createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
@@ -40,7 +41,7 @@ function readStateValue<T>(value: T): T {
 }
 
 function cloneSnapshotForState(snapshot: BuilderSnapshot) {
-  return cloneBuilderSnapshot(readStateValue(snapshot));
+  return recoverStaleNavigationSnapshot(cloneBuilderSnapshot(readStateValue(snapshot)));
 }
 
 function cloneDomainDataForState(domainData: Record<string, unknown>) {
@@ -297,7 +298,7 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
     }
 
     rejectedSource = null;
-    normalizedSnapshots.push(normalizedSnapshot);
+    normalizedSnapshots.push(recoverStaleNavigationSnapshot(normalizedSnapshot));
   }
 
   return {
@@ -641,10 +642,17 @@ export const builderSlice = createSlice({
 
       const currentSnapshot = state.history.at(-1);
       state.history = state.history.slice(0, -1);
-      const previousSnapshot = state.history.at(-1);
+      let previousSnapshot = state.history.at(-1);
 
       if (!previousSnapshot || !currentSnapshot) {
         return;
+      }
+
+      const recoveredPreviousSnapshot = recoverStaleNavigationSnapshot(previousSnapshot);
+
+      if (recoveredPreviousSnapshot !== previousSnapshot) {
+        state.history[state.history.length - 1] = recoveredPreviousSnapshot;
+        previousSnapshot = recoveredPreviousSnapshot;
       }
 
       state.redoHistory = trimHistory([...state.redoHistory, cloneSnapshotForState(currentSnapshot)]);

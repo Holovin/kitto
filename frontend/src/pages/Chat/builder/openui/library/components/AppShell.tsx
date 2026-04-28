@@ -16,6 +16,9 @@ type ScreenElementNode = ElementNode & {
   props: ElementNode['props'] & { isActive?: boolean };
 };
 
+const EMPTY_CONTENT_MESSAGE =
+  'The generated app currently has no visible content. Try asking Kitto to add a visible starting section.';
+
 function isElementNode(value: unknown): value is ElementNode {
   return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'element';
 }
@@ -24,30 +27,12 @@ function isScreenNode(value: unknown): value is ScreenElementNode {
   return isElementNode(value) && value.typeName === 'Screen';
 }
 
-function getRenderableChildren(children: unknown[]) {
-  const firstScreenIndex = children.findIndex(isScreenNode);
-
-  if (firstScreenIndex === -1) {
-    return children;
+function hasNoVisibleContent(children: unknown[]) {
+  if (children.length === 0) {
+    return true;
   }
 
-  const hasVisibleScreen = children.some((child) => isScreenNode(child) && child.props.isActive !== false);
-
-  if (hasVisibleScreen) {
-    return children;
-  }
-
-  return children.map((child, index) =>
-    index === firstScreenIndex && isScreenNode(child)
-      ? {
-          ...child,
-          props: {
-            ...child.props,
-            isActive: true,
-          },
-        }
-      : child,
-  );
+  return children.every((child) => isScreenNode(child) && child.props.isActive === false);
 }
 
 function AppShellRenderer({
@@ -74,7 +59,16 @@ function AppShellRenderer({
           data-app-shell="true"
           style={shellStyle}
         >
-          {renderNode(getRenderableChildren(props.children))}
+          {renderNode(props.children)}
+          {hasNoVisibleContent(props.children) ? (
+            <div
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-6 text-amber-950"
+              data-empty-initial-render="true"
+              role="status"
+            >
+              {EMPTY_CONTENT_MESSAGE}
+            </div>
+          ) : null}
         </div>
       </KittoValidationInteractionProvider>
     </KittoAppearanceProvider>

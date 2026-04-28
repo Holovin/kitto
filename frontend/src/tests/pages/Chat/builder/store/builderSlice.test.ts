@@ -15,6 +15,15 @@ const alternateValidSource = `root = AppShell([
     Text("Hi", "body", "start")
   ])
 ])`;
+const screenFlowSource = `$currentScreen = "home"
+root = AppShell([
+  Screen("home", "Home", [
+    Text("Home", "body", "start")
+  ], $currentScreen == "home"),
+  Screen("details", "Details", [
+    Text("Details", "body", "start")
+  ], $currentScreen == "details")
+])`;
 
 function createInitialState() {
   return builderReducer(undefined, {
@@ -229,6 +238,50 @@ describe('builderSlice', () => {
     );
 
     vi.useRealTimers();
+  });
+
+  it('repairs stale navigation state when a completed stream removes the previous screen id', () => {
+    const started = builderReducer(
+      createInitialState(),
+      builderActions.beginStreaming({
+        prompt: 'Rename the active screen',
+        requestId: toBuilderRequestId('request-navigation'),
+      }),
+    );
+    const snapshot = createBuilderSnapshot(screenFlowSource, {}, { navigation: { currentScreenId: 'deleted' } });
+    const completed = builderReducer(
+      started,
+      builderActions.completeStreaming({
+        requestId: toBuilderRequestId('request-navigation'),
+        snapshot,
+        source: screenFlowSource,
+        warnings: [],
+      }),
+    );
+
+    expect(completed.history.at(-1)?.domainData).toEqual({
+      navigation: {
+        currentScreenId: 'home',
+      },
+    });
+  });
+
+  it('repairs stale navigation state when loading imported history', () => {
+    const snapshot = createBuilderSnapshot(screenFlowSource, {}, { navigation: { currentScreenId: 'deleted' } });
+    const loaded = builderReducer(
+      createInitialState(),
+      builderActions.loadDefinition({
+        history: [snapshot],
+        runtimeState: {},
+        source: screenFlowSource,
+      }),
+    );
+
+    expect(loaded.history.at(-1)?.domainData).toEqual({
+      navigation: {
+        currentScreenId: 'home',
+      },
+    });
   });
 
   it('can skip the default assistant completion note when a streamed summary message already exists', () => {
@@ -802,6 +855,27 @@ describe('builderSlice', () => {
         (message) => message.content.startsWith('Reverted to version ') || message.content.startsWith('Restored version '),
       ).map((message) => message.content),
     ).toEqual(['Reverted to version 0 / 2.']);
+  });
+
+  it('repairs stale navigation state in the restored snapshot during undo', () => {
+    const firstSnapshot = createBuilderSnapshot(screenFlowSource, {}, { navigation: { currentScreenId: 'deleted' } });
+    const secondSnapshot = createBuilderSnapshot(validSource, {}, {});
+    const undone = builderReducer(
+      {
+        ...createInitialState(),
+        committedSource: secondSnapshot.source,
+        history: [firstSnapshot, secondSnapshot],
+        streamedSource: secondSnapshot.source,
+      },
+      builderActions.undoLatest(),
+    );
+
+    expect(undone.committedSource).toBe(screenFlowSource);
+    expect(undone.history.at(-1)?.domainData).toEqual({
+      navigation: {
+        currentScreenId: 'home',
+      },
+    });
   });
 
   it('updates the reset app state message instead of appending duplicates', () => {

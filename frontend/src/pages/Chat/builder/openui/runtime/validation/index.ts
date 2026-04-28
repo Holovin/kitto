@@ -2,6 +2,7 @@ import {
   detectControlActionBindingConflicts,
   detectPersistedMutationRefreshWarnings,
 } from '@kitto-openui/shared/openuiQualityDetectors.js';
+import { detectPotentialEmptyInitialRenderIssues } from '@kitto-openui/shared/openuiInitialVisibility.js';
 import { detectInlineToolCallIssues } from '@pages/Chat/builder/openui/runtime/validation/detectors/inlineToolCall';
 import { detectItemBoundControlsWithoutAction } from '@pages/Chat/builder/openui/runtime/validation/detectors/itemBoundControl';
 import {
@@ -68,6 +69,7 @@ export function detectLocalRuntimeQualityIssues(
   const knownValidationQualityIssues = mapKnownValidationQualityIssues(options.validationIssues);
 
   issues.push(...detectChoiceOptionsShapeIssues(programIndex));
+  issues.push(...detectPotentialEmptyInitialRenderIssues(result));
   issues.push(...detectControlActionBindingConflicts(result.root));
   issues.push(...detectItemBoundControlsWithoutAction(trimmedSource));
   issues.push(...detectReservedLastChoiceRootIssues(result.root));

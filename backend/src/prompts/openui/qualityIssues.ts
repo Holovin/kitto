@@ -3,6 +3,7 @@ import {
   detectControlActionBindingConflicts,
   detectPersistedMutationRefreshWarnings,
 } from '@kitto-openui/shared/openuiQualityDetectors.js';
+import { detectPotentialEmptyInitialRenderIssues } from '@kitto-openui/shared/openuiInitialVisibility.js';
 import { detectRandomResultVisibilityIssues } from '#backend/prompts/openui/quality/detectors/randomResultVisibility.js';
 import { detectThemeAppearanceIssues } from '#backend/prompts/openui/quality/detectors/themeAppearance.js';
 import {
@@ -24,8 +25,8 @@ import {
   promptRequestsCompute,
   promptRequestsControlShowcase,
   promptRequestsFiltering,
-  promptRequestsMultiScreen,
   promptRequestsRandom,
+  promptRequestsStepFlow,
   promptRequestsThemeState,
   promptRequestsTodo,
   promptRequestsValidation,
@@ -33,7 +34,7 @@ import {
 } from './qualitySignals.js';
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
-const CURRENT_SCREEN_NAVIGATION_PATTERN = /@Set\s*\(\s*\$currentScreen\s*,/;
+const STEP_NAVIGATION_PATTERN = /@Set\s*\(\s*\$[A-Za-z_][A-Za-z0-9_]*\s*,/;
 
 type PromptAwareGenerationMode = 'initial' | 'repair';
 
@@ -68,8 +69,8 @@ function collectSourceFeatureFlags(source: string): SourceFeatureFlags | null {
   return collectParsedSourceQualityProfile(parser.parse(source))?.featureFlags ?? null;
 }
 
-function hasEveryScreenConditionallyGated(root: unknown, screenCount: number) {
-  let gatedScreenCount = 0;
+function hasConditionallyGatedScreen(root: unknown) {
+  let hasGatedScreen = false;
 
   visitOpenUiValue(root, (node) => {
     if (!isElementNode(node) || node.typeName !== 'Screen') {
@@ -77,11 +78,11 @@ function hasEveryScreenConditionallyGated(root: unknown, screenCount: number) {
     }
 
     if (node.props.isActive != null) {
-      gatedScreenCount += 1;
+      hasGatedScreen = true;
     }
   });
 
-  return gatedScreenCount === screenCount;
+  return hasGatedScreen;
 }
 
 function hasRequestUnrequestedNewFeature(
@@ -133,6 +134,7 @@ export function detectPromptAwareQualityIssues(
   const currentFeatureFlags = compareAgainstBaseline ? collectSourceFeatureFlags(trimmedCurrentSource) : null;
 
   issues.push(...detectChoiceOptionsShapeIssues(programIndex));
+  issues.push(...detectPotentialEmptyInitialRenderIssues(result));
   issues.push(...detectControlActionBindingConflicts(result.root));
   issues.push(
     ...detectPersistedMutationRefreshWarnings(result, programIndex).map((issue) => ({
@@ -219,14 +221,14 @@ export function detectPromptAwareQualityIssues(
   }
 
   if (
-    promptRequestsMultiScreen(trimmedPrompt) &&
+    promptRequestsStepFlow(trimmedPrompt) &&
     metrics.screenCount > 1 &&
-    (!hasEveryScreenConditionallyGated(result.root, metrics.screenCount) || !CURRENT_SCREEN_NAVIGATION_PATTERN.test(maskedSource))
+    (!hasConditionallyGatedScreen(result.root) || !STEP_NAVIGATION_PATTERN.test(maskedSource))
   ) {
     issues.push(
       createOpenUiQualityIssue('blocking-quality', {
         code: 'quality-missing-screen-flow',
-        message: 'Multi-screen request generated multiple always-visible screens or omitted $currentScreen navigation.',
+        message: 'Step-by-step flow generated screens without conditional visibility or local step navigation.',
       }),
     );
   }

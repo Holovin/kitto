@@ -117,7 +117,8 @@ const REPAIR_HINT_HANDLERS: Record<string, RepairHintHandler> = {
     'For a control showcase, keep the app visible and include at least one Input, TextArea, Checkbox, RadioGroup, Select, Button, and Link.',
   ],
   'quality-missing-screen-flow': () => [
-    'For a multi-screen flow, declare `$currentScreen`, pass `$currentScreen == "screen-id"` as each Screen isActive value, and navigate with button actions that call `@Set($currentScreen, "...")`.',
+    'For a step-by-step flow, declare a local step variable, pass a matching boolean expression only to conditionally visible Screen sections, and navigate with button actions that call `@Set(...)`.',
+    'Leave always-visible helper sections without isActive.',
   ],
   'quality-options-shape': (issue) => {
     const optionsShapeContext = getOptionsShapeIssueContext(issue);

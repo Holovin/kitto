@@ -28,6 +28,8 @@ const CONTROL_SHOWCASE_REQUEST_PATTERN =
   /\b(?:every|all|each)\s+(?:control|component|field|input)s?\b|\b(?:control|component)\s+showcase\b|(?:все\s+(?:контрол[а-яё]*|компонент[а-яё]*|пол[яеи])|кажд[а-яё]*\s+(?:контрол[а-яё]*|компонент[а-яё]*))/i;
 const MULTI_SCREEN_REQUEST_PATTERN =
   /\b(wizard|quiz|onboarding|multi[\s-]?(?:step|screen|page)|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow)\b|\b(?:two|three|four|five|several|multiple)\s+(?:screens?|pages?)\b|\b\d+\s+(?:screens?|pages?)\b|(?:многошаг\w*|нескольк\w*\s+экран\w*|втор\w*\s+экран\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
+const STEP_FLOW_REQUEST_PATTERN =
+  /\b(wizard|quiz|onboarding|multi[\s-]?step|two[\s-]?step|three[\s-]?step|next\s+screen|confirmation\s+screen|result\s+screen|screen\s+flow|step[\s-]?by[\s-]?step)\b|(?:многошаг\w*|экран\s+после|квиз\w*|викторин\w*|онбординг\w*|пошагов\w*)/i;
 const QUALITY_COMPUTE_TOOL_NAMES = new Set(['compute_value', 'write_computed_state']);
 const TODO_TOGGLE_MUTATION_TOOL_NAMES = new Set(['toggle_item_field', 'update_item_field']);
 const REQUIRED_CONTROL_SHOWCASE_COMPONENTS = ['Input', 'TextArea', 'Checkbox', 'RadioGroup', 'Select', 'Button', 'Link'] as const;
@@ -78,6 +80,10 @@ export function promptRequestsControlShowcase(prompt: string) {
 
 export function promptRequestsMultiScreen(prompt: string) {
   return MULTI_SCREEN_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsStepFlow(prompt: string) {
+  return STEP_FLOW_REQUEST_PATTERN.test(prompt);
 }
 
 export function getTodoIssueSeverity(prompt: string): BuilderQualityIssueSeverity {

@@ -169,13 +169,7 @@ Group("Question 12", "vertical", [
 ]),
 Group("Question 13", "vertical", [
   Text("Question 13", "body", "start"),
-  RadioGroup("question-13", "Question 13", $q13, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 14", "vertical", [
-  Text("Question 14", "body"…
+  RadioGroup("question-1…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
@@ -188,8 +182,9 @@ Current critical syntax rules:
 
 Intent-specific rules from original user request:
 - Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
-- For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
-- Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
+- Multiple Screen components may be visible at once; use isActive only for sections that are conditionally visible.
+- For step-by-step flows, declare a local step variable such as \`$currentStep = "intro"\` and switch conditional sections with \`@Set($currentStep, "next-step-id")\`.
+- For step-by-step flows, make sure the initial render has at least one visible Screen.
 - Do not use persisted tools for internal screen navigation. Use tools only…"
 `;
 
@@ -291,13 +286,7 @@ Group("Question 2", "vertical", [
   ])
 ]),
 Group("Question 3", "vertical", [
-  Text("Question 3", "body", "start"),
-  RadioGroup("question-3", "Question 3", $q3, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 4", "vertical…
+  Text("Question 3", "body…
 
 Current critical syntax rules:
 - Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
@@ -310,8 +299,9 @@ Current critical syntax rules:
 
 Intent-specific rules from original user request:
 - Use \`Screen(id, title, children?, isActive?, appearance?)\` when you need screen-level sections.
-- For internal multi-screen flows, declare \`$currentScreen = "screen-id"\` and switch screens with \`@Set($currentScreen, "next-screen-id")\`.
-- Use \`$currentScreen\` + \`@Set(...)\` for screen navigation.
+- Multiple Screen components may be visible at once; use isActive only for sections that are conditionally visible.
+- For step-by-step flows, declare a local step variable such as \`$currentStep = "intro"\` and switch conditional sections with \`@Set($currentStep, "next-step-id")\`.
+- For step-by-step flows, make sure the initial render has at least one visible Screen.
 - Do not use persisted tools for internal screen navigation. Use tools only…"
 `;
 

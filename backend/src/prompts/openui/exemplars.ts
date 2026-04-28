@@ -420,11 +420,12 @@ OK: Link("Docs", "https://example.com")`,
   },
   'quality-missing-screen-flow': {
     key: 'quality-missing-screen-flow',
-    title: 'Current-screen navigation',
-    text: `OK: $currentScreen = "browse"
-OK: Screen("browse", "Browse", [...], $currentScreen == "browse")
-OK: Button("go-form", "Open form", "default", Action([@Set($currentScreen, "form")]), false)
-OK: Screen("form", "Form", [...], $currentScreen == "form")`,
+    title: 'Step-flow navigation',
+    text: `OK: $currentStep = "intro"
+OK: Screen("intro", "Intro", [...], $currentStep == "intro")
+OK: Button("go-form", "Open form", "default", Action([@Set($currentStep, "form")]), false)
+OK: Screen("form", "Form", [...], $currentStep == "form")
+OK: Screen("help", "Help", [...])`,
   },
   'quality-options-shape': {
     key: 'quality-options-shape',

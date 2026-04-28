@@ -22,6 +22,7 @@ export const OPENUI_QUALITY_ISSUE_SEVERITY_BY_CODE = {
   'quality-theme-state-not-applied': 'blocking-quality',
   'reserved-last-choice-outside-action-mode': 'blocking-quality',
   'undefined-state-reference': 'blocking-quality',
+  'quality-empty-initial-render': 'soft-warning',
   'quality-too-many-block-groups': 'soft-warning',
   'quality-too-many-screens': 'soft-warning',
   'quality-unrequested-compute': 'soft-warning',

@@ -137,7 +137,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
     rules: [
       'LAYOUT RULES:',
       'Use Screen for top-level app sections.',
-      'Use at most one Screen unless the user asks for a wizard, quiz, onboarding, or multi-step flow.',
+      'Prefer one Screen for simple apps unless the request naturally needs multiple major sections.',
       'Use Group only for meaningful visual sections.',
       'Do not wrap every individual control in its own Group.',
       'Use Group variant "inline" only for compact rows of buttons, filters, or controls.',
@@ -239,7 +239,8 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       buildOpenUiComponentSignatureRule('Repeater'),
       'Repeater never contains another Repeater at any depth. Flatten nested list ideas or use Group inside the row template instead of nesting Repeaters.',
       buildOpenUiComponentSignatureRule('Button'),
-      'Omit isActive for always-visible single-screen apps. Pass a boolean expression only when a screen should conditionally render.',
+      'Screen is a major visible section, not necessarily a route. Multiple Screen components may be visible at once.',
+      'Omit isActive for always-visible screens. Pass a boolean expression only when that section should conditionally render.',
     ],
   },
   {
@@ -247,8 +248,9 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
     intent: 'multiScreen',
     rules: [
       `Use \`${getOpenUiComponentCompactSignature('Screen')}\` when you need screen-level sections.`,
-      'For internal multi-screen flows, declare `$currentScreen = "screen-id"` and switch screens with `@Set($currentScreen, "next-screen-id")`.',
-      'Use `$currentScreen` + `@Set(...)` for screen navigation.',
+      'Multiple Screen components may be visible at once; use isActive only for sections that are conditionally visible.',
+      'For step-by-step flows, declare a local step variable such as `$currentStep = "intro"` and switch conditional sections with `@Set($currentStep, "next-step-id")`.',
+      'For step-by-step flows, make sure the initial render has at least one visible Screen.',
       'Do not use persisted tools for internal screen navigation. Use tools only for exportable or shared domain data.',
     ],
   },

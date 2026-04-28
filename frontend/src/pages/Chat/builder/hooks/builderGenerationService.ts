@@ -4,9 +4,11 @@ import {
   streamBuilderDefinition,
 } from '@pages/Chat/builder/api/streamGenerate';
 import type { BuilderStreamTimeouts } from '@pages/Chat/builder/config';
+import { recoverStaleNavigationDomainData } from '@pages/Chat/builder/openui/runtime/navigationRecovery';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { builderSessionActions } from '@pages/Chat/builder/store/builderSessionSlice';
+import { domainActions } from '@pages/Chat/builder/store/domainSlice';
 import type {
   BuilderGeneratedDraft,
   PromptBuildRequest,
@@ -165,7 +167,8 @@ async function commitGeneratedSource({
   lifecycle.throwIfInactiveRequest(requestId);
   const validatedResult = await validationRepair.ensureValidGeneratedSource(response, request, requestId);
   lifecycle.throwIfInactiveRequest(requestId);
-  const snapshot = createBuilderSnapshot(validatedResult.source, {}, getDomainData());
+  const recoveredDomainData = recoverStaleNavigationDomainData(validatedResult.source, getDomainData());
+  const snapshot = createBuilderSnapshot(validatedResult.source, {}, recoveredDomainData.domainData);
   const committedSummary = streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
   const committedSummaryExcludeFromLlmContext =
     validatedResult.summary !== undefined
@@ -187,6 +190,9 @@ async function commitGeneratedSource({
     requestId,
   });
   lifecycle.throwIfInactiveRequest(requestId);
+  if (recoveredDomainData.didRecover) {
+    dispatch(domainActions.replaceData(recoveredDomainData.domainData));
+  }
   dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));
   dispatch(
     builderActions.completeStreaming({

@@ -80,7 +80,8 @@ Guardrails:
 - `control-action-and-binding` for `Checkbox`, `RadioGroup`, or `Select` is a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `reserved-last-choice-outside-action-mode` is also a blocking product-quality issue: send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still returns the same issue.
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
-- `quality-missing-screen-flow` is also a blocking product-quality issue for multi-screen requests: multiple screens need `$currentScreen`-based `isActive` gates and `@Set($currentScreen, ...)` navigation before commit.
+- `quality-missing-screen-flow` is also a blocking product-quality issue for step-by-step flow requests: conditional flow sections need local state based `isActive` gates and `@Set(...)` navigation before commit, while always-visible helper sections may omit `isActive`.
+- `quality-empty-initial-render` is a soft warning when every `Screen(...)` is conditional and none is obviously visible from the initial state. Multi-section apps with omitted `isActive` must not warn.
 - `quality-missing-control-showcase-components` is also a blocking product-quality issue for every-control/component-showcase requests: the visible app must include `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`.
 - Parser-invalid drafts should repair through the backend repair request path or fail cleanly; the builder should not apply browser-only source rewrites before commit.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
@@ -113,6 +114,7 @@ Guardrails:
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - New chat-generated commits intentionally reset local runtime state instead of migrating screen/form variables across source versions.
+- After commit, valid import, undo, or redo, a stale `domain.navigation.currentScreenId` that no longer matches any committed `Screen(...)` id is repaired to an existing fallback screen id; this must not impose a single-active-screen model, and always-visible `Screen(...)` sections remain visible.
 - Invalid or legacy persisted `builderSession` / `domain` slice shapes are dropped back to defaults instead of being migrated from older contracts.
 - The chat toolbar shows `Version: N / M` before the previous-version and next-version buttons, where `N` counts committed non-empty versions and may be `0` after undoing back to a blank canvas with history still available.
 - A pristine blank builder with no committed version history shows `—` in the chat toolbar.
@@ -148,7 +150,8 @@ Guardrails:
 - `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
 - `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Source validation must rely on the OpenUI parser AST/component/built-in allowlists for executable surface. Regex checks are only defence-in-depth for executable-looking syntax outside string literals; URL protocol decisions belong only to `safeUrl.ts`.
-- Screen navigation uses local state such as `$currentScreen` with `@Set(...)`.
+- `Screen(...)` is a major visible section, not necessarily a route. Multiple `Screen(...)` components may be visible at once.
+- Omit `isActive` for always-visible `Screen(...)` sections. Use local state such as `$currentScreen` with `@Set(...)` only when a section is conditionally visible.
 - Every `$var` used anywhere in the program must have a top-level literal declaration such as `$draft = ""`, `$accepted = false`, or `$currentScreen = "main"`.
 - Persisted tools are for exportable/shared domain data, not internal screen navigation.
 
@@ -209,7 +212,12 @@ For simple counters, use local state such as `$count = 0` and buttons with `@Set
 Layout simplicity:
 
 - Use `Screen(...)` for top-level app sections.
-- Use at most one `Screen(...)` unless the user asks for a wizard, quiz, onboarding, or multi-step flow.
+- `Screen(...)` is a major visible section, not necessarily a route.
+- Multiple `Screen(...)` components may be visible at once.
+- Omit `isActive` for always-visible sections; use `isActive` only when a section should conditionally render.
+- For step-by-step flows, make sure the initial render has at least one visible `Screen(...)`.
+- If committed Preview has no visible content because all conditional screens are hidden, it shows: `The generated app currently has no visible content. Try asking Kitto to add a visible starting section.`
+- Prefer one `Screen(...)` for simple apps unless the request naturally needs multiple major sections.
 - Use `Group(...)` only for meaningful visual sections.
 - Do not wrap every individual control in its own `Group(...)`.
 - Use `Group(..., "inline")` only for compact rows of buttons, filters, or controls.
@@ -276,11 +284,22 @@ Validation applicability:
 - `RadioGroup`: `required`
 - `Checkbox`: `required` only, and `required` means checked must be `true`
 
-Navigation:
+Screen visibility:
 
 ```txt
-$currentScreen = "intro"
-Button("next-button", "Next", "default", Action([@Set($currentScreen, "next")]), false)
+$currentStep = "intro"
+root = AppShell([
+  Screen("intro", "Intro", [
+    Text("Welcome", "title", "start"),
+    Button("go-form", "Start", "default", Action([@Set($currentStep, "form")]), false)
+  ], $currentStep == "intro"),
+  Screen("form", "Form", [
+    Text("Fill the form", "body", "start")
+  ], $currentStep == "form"),
+  Screen("help", "Help", [
+    Text("This help section is always visible", "body", "start")
+  ])
+])
 ```
 
 Simple todo recipe:

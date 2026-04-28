@@ -49,7 +49,12 @@ export interface PromptBuildMissingControlShowcaseComponentsIssueContext {
   missingComponents: string[];
 }
 
+export interface PromptBuildEmptyInitialRenderIssueContext {
+  screenCount: number;
+}
+
 export type PromptBuildValidationIssueContext =
+  | PromptBuildEmptyInitialRenderIssueContext
   | PromptBuildMissingControlShowcaseComponentsIssueContext
   | PromptBuildOptionsShapeIssueContext
   | PromptBuildStalePersistedQueryIssueContext
