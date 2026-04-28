@@ -69,10 +69,10 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - The `<request_intent>` block inside `<intent_context>` is one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
-- The final user turn contains `<latest_user_request>` plus either `<current_source>` for small/current-source cases or `<current_source_inventory>` for large modify cases where full source is omitted.
+- The final user turn contains `<latest_user_request>` plus the full committed `<current_source>` for normal follow-up generation while source stays under the hard source cap; Kitto does not summarize or replace the authoritative source with inventory, appMemory, or summaries.
 - The final user turn includes `<previous_app_memory>` as compact LLM context shaped `{ version: 1, appSummary, userPreferences, avoid }`; it is not runtime state or exported preview memory.
 - When the backend receives `previousSource`, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
-- The optional `<current_source_inventory>` block summarizes existing statements, screen ids, Query/Mutation tools, action run chains, runtime state names, and persisted domain paths.
+- Source inventory is only a repair/debug context hint when present, not a replacement for authoritative source.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
 - The user prompt template adds a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - The `Repair prompt` section carries the same structured-envelope guidance and always instructs the model to return the corrected program in `source`.
@@ -243,6 +243,7 @@ Create a task list with completed status and a filter with All, Active and Compl
 - Completion is interactive through an explicit persisted mutation plus refresh flow, using an action-mode row `Checkbox` with relay-variable context such as `@Set($targetId, item.id)`, `@Run(toggleItem)`, and `@Run(items)` instead of assuming plain `Checkbox(item.completed)` writes directly into `app.items`.
 - Controls inside `@Each(...)` must not bind directly to `item.<field>` without an explicit `Action([...])`; otherwise the draft should repair or stay blocked instead of committing a non-persisting row editor.
 - If the model drafts `Checkbox`, `RadioGroup`, or `Select` with both `Action([...])` and a writable `$binding`, the builder can send repair requests up to `repair.maxRepairAttempts` before commit (default: 2 attempts); if the repaired draft still has that issue, fail cleanly and leave `Repeat` enabled.
+- Initial prompt rules tell `Select(...)` and `RadioGroup(...)` to use exactly one mode, reserve `$lastChoice` for action-mode flows only, and prefer binding mode for simple local preferences such as theme selectors.
 - Row actions use collection-item tools such as `append_item`, `toggle_item_field`, `update_item_field`, or `remove_item` when the list stores object rows.
 - Persisted rows keep meaningful unique stable ids; blank, whitespace, or duplicate `value.id` drafts should not survive commit as row ids and should be replaced by generated stable ids.
 - The committed source does not mutate persisted array rows by numeric paths such as `app.items.0`; item updates stay id-based through collection-item tools.

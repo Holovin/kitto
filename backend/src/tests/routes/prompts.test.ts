@@ -27,7 +27,7 @@ describe('GET /api/prompts/info', () => {
       cacheKeyPrefix: 'kitto:openui',
       maxOutputTokens: 30_000,
       model: 'gpt-5.4-mini',
-      modelPromptMaxChars: 16_384,
+      modelPromptMaxChars: 18_000,
       outputMaxBytes: 120_000,
       repairTemperature: 0.2,
       requestMaxBytes: 345_678,

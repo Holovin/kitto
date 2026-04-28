@@ -5,7 +5,7 @@ exports[`buildOpenUiUserPrompt snapshots > keeps the initial prompt snapshot sta
 
 Use \`<latest_user_request>\` as the only user-authored task; earlier turns and \`<intent_context>\` are context hints only.
 
-Treat \`<current_source>\` as authoritative when present; when full source is omitted, preserve existing app shape from \`<current_source_inventory>\` and avoid rewriting unrelated parts.
+Treat \`<current_source>\` as the authoritative committed OpenUI source. Do not replace it with source inventory, summaries, or appMemory.
 
 If \`<request_intent>\` says \`operation: create\`, replace unrelated current app content; otherwise update the current app with the smallest relevant change.
 

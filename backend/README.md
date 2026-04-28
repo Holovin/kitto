@@ -36,7 +36,7 @@ The backend loads `backend/.env` relative to its own package path, so PM2 can ke
 ### Request limits and safeguards
 
 - `LLM_USER_PROMPT_MAX_CHARS` - default `4096`, maximum user-authored prompt and individual chat-history message characters accepted by the API and composer
-- `LLM_MODEL_PROMPT_MAX_CHARS` - default `12288`, maximum `currentSource` / `invalidDraft` characters accepted by the API and maximum assembled repair prompt characters sent to the model
+- `LLM_MODEL_PROMPT_MAX_CHARS` - default `18000`, maximum `currentSource` / `invalidDraft` characters accepted by the API and maximum assembled repair prompt characters sent to the model; `currentSource` is also capped by the hard 18000-character source limit
 - `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`
 - `LLM_REQUEST_MAX_BYTES` - default `300000`
 - `LLM_OUTPUT_MAX_BYTES` - default `100000`
@@ -64,12 +64,12 @@ Returns frontend-safe request limits:
     "promptMaxChars": 4096,
     "chatHistoryMaxItems": 40,
     "requestMaxBytes": 300000,
-    "sourceMaxChars": 12288
+    "sourceMaxChars": 18000
   }
 }
 ```
 
-`limits.promptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is backed by `LLM_MODEL_PROMPT_MAX_CHARS`.
+`limits.promptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is the lower of `LLM_MODEL_PROMPT_MAX_CHARS` and the hard 18000-character source cap.
 
 ### `POST /api/llm/generate`
 
@@ -123,7 +123,7 @@ The backend then returns a response payload shaped like:
 }
 ```
 
-`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, source inventory, runtime preview data, or full OpenUI source.
+`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. For normal follow-up generation, the backend sends the full committed `currentSource` while it stays under the hard source cap and rejects larger requests safely instead of substituting inventory-only context. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, source inventory, runtime preview data, or full OpenUI source.
 
 ### `POST /api/llm/generate/stream`
 

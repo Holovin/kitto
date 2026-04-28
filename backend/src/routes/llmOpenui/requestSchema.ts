@@ -10,7 +10,7 @@ import {
 import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError } from '#backend/errors/publicError.js';
 import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
-import { getByteLength } from '#backend/limits.js';
+import { getByteLength, getEffectiveSourceMaxChars } from '#backend/limits.js';
 import {
   compactPromptBuildChatHistory,
   filterPromptBuildChatHistory,
@@ -67,7 +67,7 @@ function createLlmRequestSchema(env: AppEnv) {
   return createBuilderLlmRequestSchema({
     chatMessageMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
     promptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
-    sourceMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
+    sourceMaxChars: getEffectiveSourceMaxChars(env),
   });
 }
 

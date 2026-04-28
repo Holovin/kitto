@@ -63,6 +63,20 @@ describe('createApp', () => {
     });
   });
 
+  it('caps public source limit at the hard current source maximum', async () => {
+    const app = createApp(
+      createTestEnv({
+        LLM_MODEL_PROMPT_MAX_CHARS: 20_000,
+      }),
+    );
+
+    const response = await app.request('/api/config');
+    const payload = (await response.json()) as { limits: { sourceMaxChars: number } };
+
+    expect(response.status).toBe(200);
+    expect(payload.limits.sourceMaxChars).toBe(18_000);
+  });
+
   it('serves model health from /api/health without leaking secrets', async () => {
     const app = createApp(
       createTestEnv({

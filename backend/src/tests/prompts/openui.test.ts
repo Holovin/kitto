@@ -529,6 +529,12 @@ describe('openui prompts', () => {
     expect(systemPrompt).toContain(
       'RadioGroup/Select options must be arrays of `{ label, value }` objects, never bare string or number arrays such as `["Email", "Phone"]`.',
     );
+    expect(systemPrompt).toContain(
+      'For Select and RadioGroup, use exactly one mode: binding mode passes a writable `$state` value and no action; action mode passes a display string value plus `Action([...])`, and only action-mode may use `$lastChoice`.',
+    );
+    expect(systemPrompt).toContain(
+      'For simple local UI preferences like theme, prefer binding mode such as `$theme = "dark"` and `themeSelect = Select("theme", "Theme", $theme, themeOptions, null)` instead of `Action([@Set($theme, $lastChoice)])`.',
+    );
     expect(prompt).toContain(
       'Match validation rules to the component/type: text/password/textarea use required/minLength/maxLength; email can add email; number uses minNumber/maxNumber; date uses dateOnOrAfter/dateOnOrBefore literal `YYYY-MM-DD`; time/select/radio use required; checkbox required means checked.',
     );
@@ -770,7 +776,7 @@ describe('openui prompts', () => {
     expect(prompt).toContain('Bad: "Updated the app."');
   });
 
-  it('uses inventory instead of full current source for large modify prompts', () => {
+  it('keeps full current source for medium follow-up modify prompts', () => {
     const largeSource = [
       '$draft = ""',
       'items = Query("read_state", { path: "app.items" }, [])',
@@ -784,10 +790,10 @@ describe('openui prompts', () => {
       chatHistory: [],
     });
 
-    expect(prompt).toContain('Full `<current_source>` omitted because it is large.');
-    expect(prompt).toContain('<current_source_inventory>');
-    expect(prompt).not.toMatch(/^<current_source>$/m);
-    expect(prompt).not.toContain('row139 = Text("Row 139", "body", "start")');
+    expect(prompt).not.toContain('Full `<current_source>` omitted because it is large.');
+    expect(prompt).not.toContain('<current_source_inventory>');
+    expect(prompt).toMatch(/^<current_source>$/m);
+    expect(prompt).toContain('row139 = Text("Row 139", "body", "start")');
   });
 
   it('includes previous changes for follow-up modifies when previous source is available', () => {

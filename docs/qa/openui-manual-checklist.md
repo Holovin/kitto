@@ -37,9 +37,9 @@ Guardrails:
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - Confirm the `<request_intent>` block appears inside `<intent_context>` as one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Confirm intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
-- Confirm the final user turn contains `<latest_user_request>` plus either `<current_source>` for small/current-source cases or `<current_source_inventory>` for large modify cases where full source is omitted.
+- Confirm the final user turn contains `<latest_user_request>` plus full `<current_source>` for normal follow-up generation while the committed source stays under the hard source cap. It must not replace the authoritative source with inventory, summaries, or `appMemory`.
 - Confirm requests may include optional `previousSource`; when present, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
-- Confirm the optional `<current_source_inventory>` block summarizes existing statements, screen ids, Query/Mutation tools, action run chains, runtime state names, and persisted domain paths.
+- Confirm source inventory is only a debug/context hint, not a replacement for `<current_source>` in normal follow-up generation.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
 - Confirm the user prompt template includes a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - Confirm the repair-prompt block carries the same structured-envelope guidance and always instructs the model to return the corrected program in `source`.
@@ -352,6 +352,8 @@ Control-showcase guardrails:
 - A missing required showcase control is a blocking quality issue and should repair before commit.
 - `RadioGroup(...)` and `Select(...)` also support action mode: use a display-only string plus `Action([...])` when the chosen option should trigger a persisted update instead of local form binding.
 - `RadioGroup(...)` and `Select(...)` must receive `options` as `{ label, value }` objects, not bare strings or numbers.
+- `RadioGroup(...)` and `Select(...)` must use exactly one mode: binding mode passes a writable `$state` value and no action; action mode passes a display string value plus `Action([...])`, and only action mode may use `$lastChoice`.
+- For simple local UI preferences such as a theme selector, prefer binding mode like `$theme = "dark"` plus `Select("theme", "Theme", $theme, themeOptions, null)` instead of action mode.
 - Do not combine `RadioGroup` or `Select` action mode with a writable `$binding<string>` on the same control.
 - When an action-mode `RadioGroup(...)` or `Select(...)` has no validation rules, pass `null` for helper and either `null` or `[]` for validation before `Action([...])`.
 - In `RadioGroup` / `Select` action mode, the runtime writes the newly selected option to reserved `$lastChoice` before the action runs.

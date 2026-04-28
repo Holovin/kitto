@@ -281,6 +281,32 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
+  it('rejects current source above the hard source cap even when the model prompt limit is higher', async () => {
+    const { app } = createRouteApp({
+      LLM_MODEL_PROMPT_MAX_CHARS: 20_000,
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'update',
+        currentSource: 'x'.repeat(18_001),
+        chatHistory: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'validation_error',
+      error: 'Current source is too large. Limit: 18000 characters.',
+      status: 400,
+    });
+    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized invalid drafts before repair generation', async () => {
     const { app } = createRouteApp({
       LLM_MODEL_PROMPT_MAX_CHARS: 8,
