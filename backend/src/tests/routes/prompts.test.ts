@@ -40,7 +40,30 @@ describe('GET /api/prompts/info', () => {
     expect(payload.systemPrompt.hash).toHaveLength(16);
     expect(payload.systemPrompt.cacheKey).toMatch(/^kitto:openui:base:[a-f0-9]{12}$/);
     expect(payload.systemPrompt.text.length).toBeGreaterThan(1_000);
-    expect(payload.systemPromptVariants.map((variant) => variant.id)).toEqual(['base']);
+    expect(payload.systemPromptVariants.map((variant) => variant.id)).toEqual([
+      'base',
+      'todo',
+      'theme',
+      'control-showcase',
+      'filtering',
+      'validation',
+      'compute',
+      'random',
+      'delete',
+      'multi-screen',
+    ]);
+    expect(payload.systemPromptVariants.find((variant) => variant.id === 'todo')).toMatchObject({
+      id: 'todo',
+      intentVector: 't',
+      label: 'Todo',
+      sampleRequest: 'Create a todo list.',
+    });
+    expect(payload.systemPromptVariants.find((variant) => variant.id === 'todo')?.cacheKey).toMatch(
+      /^kitto:openui:t:[a-f0-9]{12}$/,
+    );
+    expect(payload.systemPromptVariants.find((variant) => variant.id === 'theme')?.cacheKey).toMatch(
+      /^kitto:openui:th:[a-f0-9]{12}$/,
+    );
     expect(payload.intentContext).toEqual(payload.intentContextVariants[0]);
     expect(payload.intentContextVariants.map((variant) => variant.id)).toEqual([
       'base',

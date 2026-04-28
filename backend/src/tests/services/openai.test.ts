@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PromptBuildRequest } from '#backend/prompts/openui.js';
+import {
+  detectPromptRequestIntent,
+  getOpenUiSystemPromptHash,
+  type PromptBuildRequest,
+} from '#backend/prompts/openui.js';
 import { UpstreamFailureError } from '#backend/errors/publicError.js';
 import { createTestEnv } from '#backend/tests/createTestEnv.js';
 
@@ -812,6 +816,14 @@ describe('generateOpenUiSource', () => {
       }),
       usage,
     });
+    const expectedSystemPromptHash = getOpenUiSystemPromptHash(
+      detectPromptRequestIntent(request.prompt, {
+        currentSource: request.currentSource,
+        mode: request.mode,
+      }),
+    );
+
+    expect(expectedSystemPromptHash).not.toBe(getOpenUiSystemPromptHash());
 
     await expect(generateOpenUiSource(env, request, undefined, { requestId: 'builder-request-1' })).resolves.toEqual({
       summary: 'Builds a blank app shell.',
@@ -826,7 +838,7 @@ describe('generateOpenUiSource', () => {
         currentSourceLen: 0,
         chatHistoryLen: 0,
         inputShape: 'role-based',
-        systemPromptHash: expect.any(String),
+        systemPromptHash: expectedSystemPromptHash,
         modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
         parsedEnvelope: {
           summary: 'Builds a blank app shell.',

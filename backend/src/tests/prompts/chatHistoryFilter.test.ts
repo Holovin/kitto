@@ -257,7 +257,7 @@ describe('compactPromptBuildChatHistory', () => {
     expect(summaryMessage).toBeTruthy();
     expect(summaryMessage?.content).toContain('User: add filters');
     expect(summaryMessage?.content).toContain('Assistant: added all');
-    expect(result.omittedChatMessages).toBe(6);
+    expect(result.omittedChatMessages).toBe(7);
   });
 
   it('does not include a summary when too few older turns exist', () => {
@@ -320,6 +320,9 @@ describe('compactPromptBuildChatHistory', () => {
     );
 
     expect(summaryMessage).toBeTruthy();
+    if (!summaryMessage) {
+      throw new Error('Expected compacted chat history to include a summary message.');
+    }
     const summaryText = summaryMessage?.content ?? '';
     const firstUserMessage = result.chatHistory.find((message) => message.role === 'user' && message.content === 'Create a planner dashboard');
     const summaryIndex = summaryMessage ? result.chatHistory.indexOf(summaryMessage) : -1;
@@ -331,7 +334,23 @@ describe('compactPromptBuildChatHistory', () => {
     expect(summaryText).not.toContain('User: add feature 2');
     expect(firstUserIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBe(firstUserIndex + 1);
-    expect(result.omittedChatMessages).toBe(17);
+    expect(result.chatHistory).toEqual([
+      { role: 'user', content: 'Create a planner dashboard' },
+      summaryMessage,
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringContaining('Add feature 10'),
+      }),
+    ]);
+    expect(result.chatHistory).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+          content: expect.stringContaining('Added feature 10'),
+        }),
+      ]),
+    );
+    expect(result.omittedChatMessages).toBe(18);
   });
 
   it('falls back to no summary when the requested budget is too small', () => {

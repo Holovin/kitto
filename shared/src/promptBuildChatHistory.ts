@@ -498,30 +498,23 @@ function insertHistorySummary(
   ];
 }
 
-function trimSummarizedHistoryToMaxItems(
+function retainHistoryForSummarySlot(
   messages: PromptBuildChatHistoryMessage[],
-  summaryMessage: PromptBuildChatHistoryMessage,
   maxItems: number | undefined,
 ) {
-  if (maxItems === undefined || messages.length <= maxItems) {
+  if (maxItems === undefined) {
     return messages;
   }
 
-  const trimmedMessages = [...messages];
+  const maxRetainedMessages = maxItems - 1;
 
-  while (trimmedMessages.length > maxItems) {
-    const removableIndex = trimmedMessages.findIndex(
-      (message, index) => index > 0 && message !== summaryMessage,
-    );
-
-    if (removableIndex < 0) {
-      break;
-    }
-
-    trimmedMessages.splice(removableIndex, 1);
+  if (maxRetainedMessages <= 0) {
+    return null;
   }
 
-  return trimmedMessages;
+  return messages.length <= maxRetainedMessages
+    ? messages
+    : retainPromptBuildChatHistory(messages, maxRetainedMessages);
 }
 
 export function retainPromptBuildChatHistoryTail(
@@ -649,15 +642,24 @@ export function compactPromptBuildChatHistory(
     const summaryMessage = buildHistorySummaryMessage(omittedMessagesForSummary, maxSummaryCostBytes);
 
     if (summaryMessage) {
-      const summarizedChatHistory = trimSummarizedHistoryToMaxItems(
-        insertHistorySummary(chatHistory, summaryMessage),
-        summaryMessage,
-        options.maxItems,
-      );
+      const retainedHistoryForSummary = retainHistoryForSummarySlot(chatHistory, options.maxItems);
+
+      if (!retainedHistoryForSummary) {
+        return {
+          chatHistory,
+          compactedByBytes,
+          compactedByItemLimit,
+          omittedChatMessages,
+        };
+      }
+
+      const additionallyOmittedMessages = getOmittedMessages(chatHistory, retainedHistoryForSummary);
+      const summarizedChatHistory = insertHistorySummary(retainedHistoryForSummary, summaryMessage);
       const respectsItemLimit = options.maxItems === undefined || summarizedChatHistory.length <= options.maxItems;
 
       if (respectsItemLimit && options.getSizeBytes(summarizedChatHistory) <= options.maxBytes) {
         chatHistory = summarizedChatHistory;
+        omittedChatMessages += additionallyOmittedMessages.length;
       }
     }
   }

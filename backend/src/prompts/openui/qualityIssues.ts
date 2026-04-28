@@ -174,6 +174,7 @@ export function detectPromptAwareQualityIssues(
 
   if (
     !promptRequestsCompute(trimmedPrompt) &&
+    !promptRequestsRandom(trimmedPrompt) &&
     hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.compute, nextFeatureFlags.compute)
   ) {
     issues.push(

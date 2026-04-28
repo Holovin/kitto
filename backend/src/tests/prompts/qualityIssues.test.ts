@@ -489,6 +489,28 @@ root = AppShell([
     expect(issues.find((issue) => issue.code === 'quality-random-result-not-visible')).toBeUndefined();
   });
 
+  it('does not warn that compute tooling is unrequested for roll and dice prompts', () => {
+    const issues = detectPromptAwareQualityIssues(
+      `rollDice = Mutation("write_computed_state", {
+  path: "app.roll",
+  op: "random_int",
+  options: { min: 1, max: 6 },
+  returnType: "number"
+})
+rollValue = Query("read_state", { path: "app.roll" }, null)
+
+root = AppShell([
+  Screen("main", "Dice", [
+    Button("roll", "Roll", "default", Action([@Run(rollDice), @Run(rollValue)]), false),
+    Text(rollValue == null ? "No roll yet." : "Rolled: " + rollValue, "body", "start")
+  ])
+])`,
+      'Roll a dice.',
+    );
+
+    expect(issues.find((issue) => issue.code === 'quality-unrequested-compute')).toBeUndefined();
+  });
+
   it('marks theme-switch requests as blocking when theme state does not drive container appearance', () => {
     const issues = detectPromptAwareQualityIssues(
       `$currentTheme = "light"

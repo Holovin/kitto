@@ -4,10 +4,11 @@ import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.
 import {
   OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
   buildOpenUiSystemPrompt,
+  buildOpenUiSystemPromptForIntents,
   getOpenUiSystemPromptCacheKey,
   getOpenUiSystemPromptHash,
 } from './systemPrompt.js';
-import { getPromptIntentCacheVector } from './promptIntents.js';
+import { detectPromptRequestIntent, getPromptIntentCacheVector } from './promptIntents.js';
 import { getPromptToolSpecSummaries, type PromptToolSpecSummary } from './toolSpecs.js';
 import { buildOpenUiIntentContextPrompt, buildOpenUiUserPromptTemplate } from './userPrompt.js';
 import { buildOpenUiRepairPromptTemplate } from './repairPrompt.js';
@@ -129,6 +130,29 @@ function buildBaseSystemPromptVariant(): PromptInfoSystemPromptVariant {
   };
 }
 
+function buildSystemPromptVariant(
+  definition: (typeof INTENT_CONTEXT_VARIANT_DEFINITIONS)[number],
+): PromptInfoSystemPromptVariant {
+  if (definition.prompt === null) {
+    return buildBaseSystemPromptVariant();
+  }
+
+  const requestIntent = detectPromptRequestIntent(definition.prompt, {
+    currentSource: '',
+    mode: 'initial',
+  });
+
+  return {
+    cacheKey: getOpenUiSystemPromptCacheKey(requestIntent),
+    hash: getOpenUiSystemPromptHash(requestIntent),
+    id: definition.id,
+    intentVector: getPromptIntentCacheVector(definition.prompt),
+    label: definition.label,
+    sampleRequest: definition.prompt,
+    text: buildOpenUiSystemPromptForIntents(requestIntent),
+  };
+}
+
 function buildIntentContextVariant(
   definition: (typeof INTENT_CONTEXT_VARIANT_DEFINITIONS)[number],
 ): PromptInfoIntentContextVariant {
@@ -156,6 +180,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
   }
 
   const baseSystemPrompt = buildBaseSystemPromptVariant();
+  const systemPromptVariants = INTENT_CONTEXT_VARIANT_DEFINITIONS.map(buildSystemPromptVariant);
   const intentContextVariants = INTENT_CONTEXT_VARIANT_DEFINITIONS.map(buildIntentContextVariant);
   const baseIntentContext = intentContextVariants[0];
 
@@ -180,7 +205,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     intentContextVariants,
     repairPromptTemplate: buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS),
     systemPrompt: baseSystemPrompt,
-    systemPromptVariants: [baseSystemPrompt],
+    systemPromptVariants,
     toolSpecs: [...getPromptToolSpecSummaries()],
     requestPromptTemplate: buildOpenUiUserPromptTemplate(),
   };

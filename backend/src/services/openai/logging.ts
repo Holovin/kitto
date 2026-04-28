@@ -4,7 +4,7 @@ import { toPublicErrorPayload } from '#backend/errors/publicError.js';
 import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '#backend/prompts/openui.js';
 import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '#backend/services/promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
-import { getSystemPromptHash } from './client.js';
+import { getSystemPromptHashForRequest } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
 
 type ResponseInputItem = ResponseInput[number];
@@ -261,7 +261,7 @@ export async function writePromptIoLogSafely(
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
         inputShape: 'role-based',
-        systemPromptHash: getSystemPromptHash(),
+        systemPromptHash: getSystemPromptHashForRequest(request),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
         parsedEnvelope: options.parsedEnvelope,
@@ -315,7 +315,7 @@ export async function writePromptIoFailureSafely(
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
         inputShape: 'role-based',
-        systemPromptHash: getSystemPromptHash(),
+        systemPromptHash: getSystemPromptHashForRequest(request),
         modelInput: buildPromptLogModelInput(responseRequest),
         modelOutputRaw: coerceRawModelOutput(rawModelText),
         parsedEnvelope: options.parsedEnvelope ?? null,

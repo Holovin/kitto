@@ -8,6 +8,7 @@ import {
   buildOpenUiSystemPromptForIntents,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
+  type PromptBuildRequest,
 } from '#backend/prompts/openui.js';
 import {
   detectPromptRequestIntent,
@@ -51,13 +52,12 @@ function buildTodoPrompt() {
 }
 
 function buildLayeredPromptForRequest(prompt: string) {
-  const request = {
-    prompt: 'Create a todo list',
+  const actualRequest: PromptBuildRequest = {
+    prompt,
     currentSource: '',
     mode: 'initial',
     chatHistory: [],
-  } as const;
-  const actualRequest = { ...request, prompt };
+  };
   return [
     buildOpenUiSystemPromptForIntents(detectPromptRequestIntent(prompt, actualRequest)),
     buildOpenUiIntentContextPrompt(actualRequest),

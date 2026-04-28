@@ -188,8 +188,10 @@ function renderComponentSignatures(spec: PromptSpec) {
       }
     }
 
-    if ((group.notes ?? []).length > 0) {
-      lines.push('', ...group.notes.map((note) => `- ${note}`));
+    const groupNotes = group.notes ?? [];
+
+    if (groupNotes.length > 0) {
+      lines.push('', ...groupNotes.map((note) => `- ${note}`));
     }
   }
 

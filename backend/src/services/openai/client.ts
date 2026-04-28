@@ -53,7 +53,10 @@ function isOpenAiStreamRequest(init: Parameters<typeof fetch>[1] | undefined) {
 
   return acceptedStreamContentTypes
     .split(',')
-    .map((headerValue) => headerValue.toLowerCase().split(';', 1)[0].trim())
+    .map((headerValue) => {
+      const [mediaType = ''] = headerValue.toLowerCase().split(';', 1);
+      return mediaType.trim();
+    })
     .includes('text/event-stream');
 }
 
@@ -62,12 +65,21 @@ function isTextEventStreamContentType(contentType: string | null) {
     return false;
   }
 
-  const mediaType = contentType.toLowerCase().split(';', 1)[0];
+  const [mediaType = ''] = contentType.toLowerCase().split(';', 1);
   return mediaType.trim() === 'text/event-stream';
 }
 
 export function getSystemPromptHash() {
   return getOpenUiSystemPromptHash();
+}
+
+export function getSystemPromptHashForRequest(request: PromptBuildRequest) {
+  return getOpenUiSystemPromptHash(
+    detectPromptRequestIntent(request.prompt, {
+      currentSource: request.currentSource,
+      mode: request.mode,
+    }),
+  );
 }
 
 async function captureOpenAiRequestIdFetch(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
