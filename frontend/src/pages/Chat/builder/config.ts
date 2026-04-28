@@ -1,4 +1,5 @@
 import type { BuilderConfigResponse, PromptBuildRequest } from '@pages/Chat/builder/types';
+import { CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
 import { compactPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { serializeBuilderLlmRequest } from '@pages/Chat/builder/api/requestBody';
 
@@ -160,7 +161,7 @@ export function validateBuilderLlmRequest(request: PromptBuildRequest, limits: B
   }
 
   if (request.currentSource.length > limits.sourceMaxChars) {
-    return `Current source is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
+    return CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE;
   }
 
   if ((request.invalidDraft?.length ?? 0) > limits.sourceMaxChars) {

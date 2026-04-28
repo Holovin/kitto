@@ -2,6 +2,7 @@ import type {
   BuilderCommitSource,
   BuilderLlmResponse,
   BuilderRequestId,
+  AppMemory,
   OpenUiPromptInfoToolSpec,
   PromptBuildChatHistoryRole,
 } from '@kitto-openui/shared/builderApiContract.js';
@@ -53,7 +54,12 @@ export interface BuilderChatNotice {
 }
 
 export interface BuilderSnapshot {
+  id: string;
   source: string;
+  summary: string;
+  changeSummary: string;
+  appMemory?: AppMemory;
+  createdAt: string;
   runtimeState: Record<string, unknown>;
   domainData: Record<string, unknown>;
   initialRuntimeState: Record<string, unknown>;
@@ -64,6 +70,7 @@ export interface BuilderSnapshot {
 export interface BuilderDefinitionExport {
   version: 1;
   source: string;
+  appMemory?: AppMemory;
   runtimeState: Record<string, unknown>;
   domainData: Record<string, unknown>;
   history: BuilderSnapshot[];

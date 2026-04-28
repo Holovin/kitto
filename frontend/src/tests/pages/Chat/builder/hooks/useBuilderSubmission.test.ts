@@ -769,6 +769,7 @@ function seedCommittedSource(source = PREVIOUS_SOURCE) {
 
   store.dispatch(
     builderActions.loadDefinition({
+      appMemory: snapshot.appMemory,
       history: [snapshot],
       note: 'Seeded a committed source for the test.',
       runtimeState: snapshot.runtimeState,
@@ -792,6 +793,7 @@ function seedHistorySnapshots(...snapshots: ReturnType<typeof createBuilderSnaps
 
   store.dispatch(
     builderActions.loadDefinition({
+      appMemory: latestSnapshot.appMemory,
       history: snapshots,
       note: 'Seeded builder history for the test.',
       runtimeState: latestSnapshot.runtimeState,
@@ -2671,6 +2673,14 @@ describe('useBuilderSubmission', () => {
           tasks: ['one'],
         },
       },
+      {
+        appMemory: {
+          version: 1,
+          appSummary: 'Undo memory.',
+          userPreferences: ['Undo preference.'],
+          avoid: [],
+        },
+      },
     );
     const redoSnapshot = createBuilderSnapshot(
       REDO_SOURCE,
@@ -2681,6 +2691,14 @@ describe('useBuilderSubmission', () => {
       {
         app: {
           tasks: ['one', 'two'],
+        },
+      },
+      {
+        appMemory: {
+          version: 1,
+          appSummary: 'Redo memory.',
+          userPreferences: ['Redo preference.'],
+          avoid: ['Avoid undo-only controls.'],
         },
       },
     );
@@ -2706,12 +2724,14 @@ describe('useBuilderSubmission', () => {
     historyControls.rerender().handleUndo();
 
     expect(getBuilderState().committedSource).toBe(UNDO_SOURCE);
+    expect(getBuilderState().appMemory).toEqual(undoSnapshot.appMemory);
     expect(getBuilderSessionState()).toEqual(undoSnapshot.runtimeState);
     expect(getDomainState()).toEqual(undoSnapshot.domainData);
 
     historyControls.rerender().handleRedo();
 
     expect(getBuilderState().committedSource).toBe(REDO_SOURCE);
+    expect(getBuilderState().appMemory).toEqual(redoSnapshot.appMemory);
     expect(getBuilderSessionState()).toEqual(latestRuntimeState);
     expect(getDomainState()).toEqual(latestDomainData);
 

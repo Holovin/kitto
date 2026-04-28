@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
-import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from '@store/persistence';
+import {
+  BUILDER_PERSISTENCE_QUOTA_WARNING,
+  createRememberStorage,
+  REMEMBER_KEYS,
+  REMEMBER_PREFIX,
+  unserializeRememberedState,
+} from '@store/persistence';
 
 const validSource = `root = AppShell([
   Screen("main", "Main", [
@@ -64,7 +70,16 @@ describe('store persistence', () => {
   });
 
   it('normalizes persisted builder state before rehydrating it', () => {
-    const snapshot = createBuilderSnapshot(validSource, { $currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+    const snapshot = createBuilderSnapshot(validSource, { $currentScreen: 'main' }, { app: { tasks: [] as string[] } }, {
+      appMemory: {
+        version: 1,
+        appSummary: 'Persisted app memory.',
+        userPreferences: ['Keep persisted memory.'],
+        avoid: [],
+      },
+      changeSummary: 'Restored persisted source.',
+      summary: 'Restores persisted source.',
+    });
 
     const restored = unserializeRememberedState(
       JSON.stringify({
@@ -101,6 +116,12 @@ describe('store persistence', () => {
 
     expect(restored).toEqual(
       expect.objectContaining({
+        appMemory: {
+          version: 1,
+          appSummary: 'Persisted app memory.',
+          userPreferences: ['Keep persisted memory.'],
+          avoid: [],
+        },
         committedSource: validSource,
         currentRequestId: null,
         definitionWarnings: [{ code: 'warning', message: 'Keep me.' }],
@@ -120,6 +141,75 @@ describe('store persistence', () => {
         excludeFromLlmContext: true,
       }),
     ]);
+  });
+
+  it('trims builder history when localStorage quota is exceeded', () => {
+    let shouldThrowQuota = true;
+    const storageData = new Map<string, string>();
+    const setItemSpy = vi.fn((key: string, value: string) => {
+      if (shouldThrowQuota && key === `${REMEMBER_PREFIX}builder`) {
+        shouldThrowQuota = false;
+        throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      }
+
+      storageData.set(key, value);
+    });
+    const dispatchEventSpy = vi.fn();
+    const storage = createRememberStorage({
+      get length() {
+        return storageData.size;
+      },
+      clear: vi.fn(() => storageData.clear()),
+      getItem: vi.fn((key: string) => storageData.get(key) ?? null),
+      key: vi.fn((index: number) => [...storageData.keys()][index] ?? null),
+      removeItem: vi.fn((key: string) => storageData.delete(key)),
+      setItem: setItemSpy,
+    });
+
+    vi.stubGlobal('window', {
+      ...window,
+      dispatchEvent: dispatchEventSpy,
+    });
+    const firstSnapshot = createBuilderSnapshot('root = AppShell([])', {}, {});
+    const currentSnapshot = createBuilderSnapshot(validSource, {}, {}, {
+      appMemory: {
+        version: 1,
+        appSummary: 'Current memory.',
+        userPreferences: [],
+        avoid: [],
+      },
+      changeSummary: 'Current change.',
+      summary: 'Current app.',
+    });
+
+    storage.setItem(
+      `${REMEMBER_PREFIX}builder`,
+      JSON.stringify({
+        committedSource: validSource,
+        history: [firstSnapshot, currentSnapshot],
+        redoHistory: [firstSnapshot],
+        previousChangeSummaries: ['Old change.'],
+      }),
+    );
+
+    const persisted = JSON.parse(storageData.get(`${REMEMBER_PREFIX}builder`) ?? '{}') as {
+      history?: unknown[];
+      redoHistory?: unknown[];
+      previousChangeSummaries?: unknown[];
+    };
+
+    expect(setItemSpy).toHaveBeenCalledTimes(2);
+    expect(persisted.history).toHaveLength(1);
+    expect(persisted.redoHistory).toEqual([]);
+    expect(persisted.previousChangeSummaries).toEqual([]);
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'kitto:persistence-warning',
+        detail: {
+          message: BUILDER_PERSISTENCE_QUOTA_WARNING,
+        },
+      }),
+    );
   });
 
   it('clears only Kitto remembered keys and resets dependent slices when builder JSON is corrupted', () => {

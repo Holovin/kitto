@@ -1,7 +1,7 @@
 export interface RecoveryLogEntry {
-  kind: 'persistence/dropped';
+  kind: 'persistence/dropped' | 'persistence/quota-trimmed';
   reason: string;
-  slice: 'builderSession' | 'domain';
+  slice: 'builder' | 'builderSession' | 'domain';
 }
 
 export function logRecoveryEvent(entry: RecoveryLogEntry) {

@@ -23,6 +23,7 @@ Guardrails:
 - `POST /api/llm/generate` and `POST /api/llm/generate/stream` share one process-local generation rate-limit bucket. This is intentional for the no-auth demo scope and is meant to cap demo traffic, not provide per-user isolation. A non-stream fallback after a pre-activity stream transport/timeout failure must reuse the same `x-kitto-request-id`, send `x-kitto-stream-fallback: 1`, and consume only a recorded one-use fallback exemption; early upstream API/model errors must not grant fallback exemptions. An automatic repair must send `x-kitto-automatic-repair: 1`, `x-kitto-repair-for`, and `x-kitto-repair-attempt`, then consume only the recorded one-use repair exemption for that parent request and attempt. A manual `Repeat` after failure is different: it resubmits the saved prompt as a fresh `mode: initial` generation with a new request id, must not send automatic-repair headers, must count as a normal generation request, and only earns a new repair exemption chain after that repeated generation completes.
 - the model envelope schema is `{ summary, changeSummary, source, appMemory }`, while the backend `POST /api/llm/generate` response and streaming `done` event payload are `{ source, model, temperature, summary, changeSummary, appMemory, summaryWarning?, summaryExcludeFromLlmContext?, qualityIssues, compaction? }`
 - `POST /api/llm/commit-telemetry` must accept fire-and-forget client commit outcomes only for recently completed generation request ids sent in `x-kitto-request-id`, validate that the JSON body request id matches that header including optional `qualityWarnings`, reject unmatched or overused request ids before accepting arbitrary telemetry bodies, and stay separate from import-only local flows
+- Builder revisions must persist committed source together with the matching compact LLM `appMemory`, `summary`, and `changeSummary`; undo/redo/reload must restore the matching source and memory pair.
 
 ## Prompt docs page
 
@@ -37,7 +38,7 @@ Guardrails:
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - Confirm the `<request_intent>` block appears inside `<intent_context>` as one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Confirm intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
-- Confirm the final user turn contains `<latest_user_request>` plus full `<current_source>` for normal follow-up generation while the committed source stays under the hard source cap. It must not replace the authoritative source with inventory, summaries, or `appMemory`.
+- Confirm the final user turn contains `<latest_user_request>` plus full `<current_source>` for normal follow-up generation while the committed source stays at or below the 50,000 character emergency cap. It must not replace the authoritative source with inventory, summaries, or `appMemory`.
 - Confirm requests may include optional `previousSource`; when present, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
 - Confirm source inventory is only a debug/context hint, not a replacement for `<current_source>` in normal follow-up generation.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
@@ -56,6 +57,7 @@ Guardrails:
 ## Runtime invariants
 
 - Preview renders committed source only.
+- Builder undo/redo navigates committed revisions. Each revision carries source plus compact LLM app memory; live preview runtime/domain state remains separate from model context memory and is not part of exported runtime interactions.
 - After the initial health check resolves, the builder shell must stay usable even if `GET /api/config` is still loading or has failed.
 - While `GET /api/config` is unresolved or failed, chat send stays disabled with an explicit composer hint, while import, undo/redo history, committed Preview, and `/elements` remain available.
 - The header does not show a runtime-config status badge. While `GET /api/config` is loading, the composer hint explains that chat send is waiting; when it fails, Chat shows one red system message: `Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.`

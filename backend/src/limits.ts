@@ -2,8 +2,9 @@ import { getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES } from '@kitto-openui/shared/builderApiContract.js';
 
 export const DEFAULT_LLM_USER_PROMPT_MAX_CHARS = 4_096;
-export const CURRENT_SOURCE_ABSOLUTE_MAX_CHARS = 18_000;
-export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = CURRENT_SOURCE_ABSOLUTE_MAX_CHARS;
+export const CURRENT_SOURCE_EMERGENCY_MAX_CHARS = 50_000;
+export const CURRENT_SOURCE_ABSOLUTE_MAX_CHARS = CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
+export const DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS = CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
 export const DEFAULT_LLM_CHAT_HISTORY_MAX_ITEMS = 40;
 export const DEFAULT_LLM_MAX_REPAIR_ATTEMPTS = 2;
 export const DEFAULT_LLM_REQUEST_MAX_BYTES = 300_000;
@@ -47,7 +48,8 @@ export function getRawStructuredOutputMaxBytes(env: LlmOutputLimitSource) {
 }
 
 export function getEffectiveSourceMaxChars(env: RuntimeConfigSource) {
-  return Math.min(env.LLM_MODEL_PROMPT_MAX_CHARS, CURRENT_SOURCE_ABSOLUTE_MAX_CHARS);
+  void env;
+  return CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
 }
 
 export function getPublicRuntimeConfig(env: RuntimeConfigSource) {

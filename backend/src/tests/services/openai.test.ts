@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { APP_MEMORY_MAX_CHARS } from '@kitto-openui/shared/builderApiContract.js';
+import { APP_MEMORY_MAX_CHARS, CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
 import {
   detectPromptRequestIntent,
   getOpenUiSystemPromptHash,
@@ -519,6 +519,100 @@ describe('generateOpenUiSource', () => {
     expect(repairCall?.input?.[3]?.role).toBe('user');
     expect(repairCall?.input?.[3]?.content?.[0]?.text).toContain('<validation_issues>');
     expect(repairCall?.input?.[3]?.content?.[0]?.text).toContain('Return the corrected complete OpenUI Lang program in `source`.');
+  });
+
+  it('protects full current source in follow-up prompts and records source-context metadata', async () => {
+    const env = createTestEnv({
+      LLM_MODEL_PROMPT_MAX_CHARS: 1_200,
+      OPENAI_API_KEY: 'test-key-protected-current-source',
+      PROMPT_IO_LOG: true,
+    });
+    const currentSource = `${'x'.repeat(2_500)}\nEND-OF-CURRENT-SOURCE`;
+    const protectedRequest: PromptBuildRequest = {
+      appMemory: {
+        version: 1,
+        appSummary: 'A compact app summary that can be dropped before current source.',
+        userPreferences: ['Keep the layout compact.'],
+        avoid: ['Do not add charts.'],
+      },
+      chatHistory: [
+        { role: 'user', content: 'Create the first version.' },
+        { role: 'assistant', content: 'Added the first version.' },
+        { role: 'assistant', content: '<history_summary>\nUser: create first version\nAssistant: added shell\n</history_summary>' },
+        { role: 'user', content: 'Add a settings screen.' },
+      ],
+      currentSource,
+      mode: 'initial',
+      previousSource: 'root = AppShell([])',
+      prompt: 'Add a delete button.',
+    };
+    promptLogWriteMock.mockResolvedValue(undefined);
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Adds a delete button.',
+        changeSummary: 'Added delete action.',
+        appMemory: testAppMemory,
+        source: 'root = AppShell([])',
+      }),
+      usage: null,
+    });
+
+    await expect(generateOpenUiSource(env, protectedRequest, undefined, { requestId: 'builder-request-protected-source' })).resolves.toEqual({
+      summary: 'Adds a delete button.',
+      changeSummary: 'Added delete action.',
+      appMemory: testAppMemory,
+      source: 'root = AppShell([])',
+    });
+
+    const requestInput = responsesCreateMock.mock.calls[0]?.[0]?.input;
+    const finalUserText = requestInput?.at(-1)?.content?.[0]?.text ?? '';
+    const allInputText = JSON.stringify(requestInput);
+
+    expect(finalUserText).toContain(`<current_source>\n${currentSource}\n</current_source>`);
+    expect(finalUserText).not.toContain('<current_source_inventory>');
+    expect(allInputText).not.toContain('Create the first version.');
+    expect(allInputText).not.toContain('Added the first version.');
+    expect(allInputText).not.toContain('<history_summary>');
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentSourceChars: currentSource.length,
+        currentSourceIncluded: true,
+        currentSourceItemsIncluded: false,
+        currentSourceLen: currentSource.length,
+        currentSourceProtected: true,
+        droppedSections: expect.arrayContaining([
+          'selectedExamples',
+          'previousChangeSummaries',
+          'previousUserMessages',
+          'historySummary',
+          'currentSourceItems',
+          'appMemory.userPreferences',
+          'appMemory.avoid',
+          'appMemory.appSummary',
+        ]),
+      }),
+      {
+        enabled: true,
+      },
+    );
+  });
+
+  it('rejects current source above the emergency cap before contacting the model', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-source-emergency-cap',
+    });
+
+    await expect(
+      generateOpenUiSource(env, {
+        chatHistory: [],
+        currentSource: 'x'.repeat(50_001),
+        mode: 'initial',
+        prompt: 'Update the app.',
+      }),
+    ).rejects.toMatchObject({
+      publicMessage: CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
+    });
+    expect(responsesCreateMock).not.toHaveBeenCalled();
   });
 
   it('passes filtered conversation context into role-based repair input', async () => {

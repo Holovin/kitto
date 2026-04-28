@@ -9,7 +9,10 @@ import { buildIntentToolExamplesForPrompt, buildStableToolExamples } from './too
 import type { PromptBuildRequest } from './types.js';
 
 interface BuildOpenUiUserPromptOptions {
+  appMemory?: AppMemory;
   chatHistoryMaxItems?: number;
+  includeIntentExamples?: boolean;
+  includePreviousChanges?: boolean;
   maxRepairAttempts?: number;
   modelPromptMaxChars?: number;
 }
@@ -193,10 +196,13 @@ function buildOpenUiLatestUserTurn(
   previousSource: string | undefined,
   userRequest: string,
   isFollowUp: boolean,
+  options: Pick<BuildOpenUiUserPromptOptions, 'includePreviousChanges'> = {},
 ) {
+  const includePreviousChanges = options.includePreviousChanges ?? true;
+
   return [
     ...INITIAL_USER_PROMPT_INTRO_LINES,
-    buildPreviousChangesBlock(previousSource, currentSource),
+    includePreviousChanges ? buildPreviousChangesBlock(previousSource, currentSource) : null,
     buildAppMemoryDataBlock(appMemory),
     buildPromptDataBlock('latest_user_request', userRequest),
     ...buildCurrentSourceSection({
@@ -247,6 +253,7 @@ export function buildOpenUiUserPromptTemplate() {
       undefined,
       '[latest user request text]',
       true,
+      {},
     ),
     '',
     'Repair generation input shape:',
@@ -257,7 +264,7 @@ export function buildOpenUiUserPromptTemplate() {
   ].join('\n\n');
 }
 
-export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
+export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest, options: BuildOpenUiUserPromptOptions = {}) {
   const currentSourceValue = request.currentSource;
   const rawUserRequest = buildOpenUiRawUserRequest(request);
   const intentPrompt = request.prompt;
@@ -266,17 +273,20 @@ export function buildOpenUiIntentContextPrompt(request: PromptBuildRequest) {
     mode: request.mode,
   });
   const requestIntentBlock = formatPromptRequestIntentBlock(requestIntent);
+  const includeExamples = options.includeIntentExamples ?? true;
 
   return buildIntentContextTurn(
     requestIntentBlock,
     [],
-    getRelevantRequestExemplars(rawUserRequest, { operation: requestIntent.operation }),
-    [
-      ...new Set([
-        ...buildStableToolExamples({ operation: requestIntent.operation }),
-        ...buildIntentToolExamplesForPrompt(intentPrompt, { operation: requestIntent.operation }),
-      ]),
-    ],
+    includeExamples ? getRelevantRequestExemplars(rawUserRequest, { operation: requestIntent.operation }) : [],
+    includeExamples
+      ? [
+          ...new Set([
+            ...buildStableToolExamples({ operation: requestIntent.operation }),
+            ...buildIntentToolExamplesForPrompt(intentPrompt, { operation: requestIntent.operation }),
+          ]),
+        ]
+      : [],
   );
 }
 
@@ -304,10 +314,13 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   });
 
   return buildOpenUiLatestUserTurn(
-    request.appMemory,
+    options.appMemory ?? request.appMemory,
     currentSource,
     request.previousSource,
     rawUserRequest,
     currentSourceValue.trim().length > 0 && requestIntent.operation !== 'create',
+    {
+      includePreviousChanges: options.includePreviousChanges,
+    },
   );
 }

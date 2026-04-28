@@ -129,7 +129,9 @@ describe('builder request preflight', () => {
         requestMaxBytes: 64,
         sourceMaxChars: 8,
       }),
-    ).toBe('Current source is too large. Limit: 8 characters.');
+    ).toBe(
+      'The current app definition is too large to safely modify in one request. Export the definition or simplify/reset the app before continuing.',
+    );
   });
 
   it('returns an invalid-draft validation error before checking payload bytes', () => {

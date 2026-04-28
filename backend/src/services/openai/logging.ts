@@ -4,7 +4,7 @@ import { toPublicErrorPayload } from '#backend/errors/publicError.js';
 import { buildOpenUiRawUserRequest, getPromptBuildValidationIssueCodes, type PromptBuildRequest } from '#backend/prompts/openui.js';
 import { promptLog, type PromptIoCommitSource, type PromptIoLogMode, type PromptIoRepairOutcome } from '#backend/services/promptLog.js';
 import type { OpenUiResponseRequest } from './client.js';
-import { getSystemPromptHashForRequest } from './client.js';
+import { getOpenUiResponseRequestPromptContextMetadata, getSystemPromptHashForRequest } from './client.js';
 import type { OpenUiGenerationEnvelope } from './envelope.js';
 
 type ResponseInputItem = ResponseInput[number];
@@ -244,6 +244,7 @@ export async function writePromptIoLogSafely(
   },
 ) {
   const mode = getPromptLogMode(request.mode);
+  const promptContextMetadata = getOpenUiResponseRequestPromptContextMetadata(responseRequest);
 
   try {
     await promptLog.write(
@@ -255,7 +256,12 @@ export async function writePromptIoLogSafely(
         mode,
         phase: null,
         rawUserRequest: getPromptLogRawUserRequest(request),
+        currentSourceChars: promptContextMetadata?.currentSourceChars ?? request.currentSource.length,
+        currentSourceIncluded: promptContextMetadata?.currentSourceIncluded,
+        currentSourceItemsIncluded: promptContextMetadata?.currentSourceItemsIncluded,
         currentSourceLen: request.currentSource.length,
+        currentSourceProtected: promptContextMetadata?.currentSourceProtected,
+        droppedSections: promptContextMetadata?.droppedSections,
         chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
@@ -298,6 +304,7 @@ export async function writePromptIoFailureSafely(
   },
 ) {
   const mode = getPromptLogMode(request.mode);
+  const promptContextMetadata = getOpenUiResponseRequestPromptContextMetadata(responseRequest);
 
   try {
     await promptLog.write(
@@ -309,7 +316,12 @@ export async function writePromptIoFailureSafely(
         mode,
         phase: options.phase,
         rawUserRequest: getPromptLogRawUserRequest(request),
+        currentSourceChars: promptContextMetadata?.currentSourceChars ?? request.currentSource.length,
+        currentSourceIncluded: promptContextMetadata?.currentSourceIncluded,
+        currentSourceItemsIncluded: promptContextMetadata?.currentSourceItemsIncluded,
         currentSourceLen: request.currentSource.length,
+        currentSourceProtected: promptContextMetadata?.currentSourceProtected,
+        droppedSections: promptContextMetadata?.droppedSections,
         chatHistoryLen: request.chatHistory.length,
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,

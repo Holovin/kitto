@@ -9,6 +9,8 @@ export const BUILDER_COMMIT_SOURCES = ['fallback', 'streaming'] as const;
 export const BUILDER_COMMIT_REPAIR_OUTCOMES = ['failed', 'fixed'] as const;
 export const OPENUI_VALIDATION_ISSUE_SOURCES = ['mutation', 'parser', 'quality', 'query', 'runtime'] as const;
 export const BUILDER_QUALITY_ISSUE_SEVERITIES = ['blocking-quality', 'fatal-quality', 'soft-warning'] as const;
+export const CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE =
+  'The current app definition is too large to safely modify in one request. Export the definition or simplify/reset the app before continuing.';
 
 export type PromptBuildChatHistoryRole = (typeof BUILDER_CHAT_MESSAGE_ROLES)[number];
 export type PromptConversationChatHistoryRole = (typeof BUILDER_CONVERSATION_CHAT_MESSAGE_ROLES)[number];
@@ -366,7 +368,7 @@ export function createBuilderLlmRequestSchema({
   const validationIssueSchema = createValidationIssueSchema(maxValidationIssues);
   const currentSourceSchema = z
     .string()
-    .max(sourceMaxChars, `Current source is too large. Limit: ${sourceMaxChars} characters.`);
+    .max(sourceMaxChars, CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE);
   const invalidDraftSchema = z
     .string()
     .max(sourceMaxChars, `Invalid draft is too large. Limit: ${sourceMaxChars} characters.`);

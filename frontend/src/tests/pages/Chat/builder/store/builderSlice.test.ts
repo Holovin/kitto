@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEmptyAppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import { BACKEND_RECONNECTED_NOTICE } from '@pages/Chat/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, MAX_UI_MESSAGES, normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
@@ -209,13 +208,22 @@ describe('builderSlice', () => {
       }),
     );
     const snapshot = createBuilderSnapshot(validSource, { currentScreen: 'main' }, { app: { tasks: [] as string[] } });
+    const appMemory = {
+      version: 1 as const,
+      appSummary: 'Welcome screen app.',
+      userPreferences: [],
+      avoid: [],
+    };
     const completed = builderReducer(
       started,
       builderActions.completeStreaming({
+        appMemory,
+        changeSummary: 'Added a welcome screen.',
         note: 'Committed the streamed definition.',
         requestId: toBuilderRequestId('request-2'),
         snapshot,
         source: validSource,
+        summary: 'Adds a welcome screen.',
         warnings: [],
       }),
     );
@@ -226,6 +234,14 @@ describe('builderSlice', () => {
     expect(completed.committedSource).toBe(validSource);
     expect(completed.streamedSource).toBe(validSource);
     expect(completed.history).toHaveLength(2);
+    expect(completed.appMemory).toEqual(appMemory);
+    expect(completed.history.at(-1)).toEqual(
+      expect.objectContaining({
+        appMemory,
+        changeSummary: 'Added a welcome screen.',
+        summary: 'Adds a welcome screen.',
+      }),
+    );
     expect(completed.redoHistory).toHaveLength(0);
     expect(completed.retryPrompt).toBeNull();
     expect(completed.chatMessages.at(-1)).toEqual(
@@ -777,22 +793,46 @@ describe('builderSlice', () => {
     expect(rejected.hasRejectedDefinition).toBe(true);
   });
 
-  it('keeps history navigation as a single latest system message', () => {
+  it('keeps history navigation as a single latest system message and restores matching app memory', () => {
+    const firstMemory = {
+      version: 1 as const,
+      appSummary: 'First version memory.',
+      userPreferences: ['Keep first.'],
+      avoid: [],
+    };
+    const secondMemory = {
+      version: 1 as const,
+      appSummary: 'Second version memory.',
+      userPreferences: ['Keep second.'],
+      avoid: ['Avoid stale controls.'],
+    };
     const firstSnapshot = createBuilderSnapshot(
       `root = AppShell([
   Screen("main", "First", [])
 ])`,
       {},
       {},
+      {
+        appMemory: firstMemory,
+        changeSummary: 'Created first version.',
+        summary: 'Created the first version.',
+      },
     );
-    const secondSnapshot = createBuilderSnapshot(validSource, {}, {});
+    const secondSnapshot = createBuilderSnapshot(validSource, {}, {}, {
+      appMemory: secondMemory,
+      changeSummary: 'Added second version.',
+      summary: 'Added the second version.',
+    });
 
     const withFirstCommit = builderReducer(
       createInitialState(),
       builderActions.completeStreaming({
+        appMemory: firstMemory,
+        changeSummary: 'Created first version.',
         requestId: null as never,
         snapshot: firstSnapshot,
         source: firstSnapshot.source,
+        summary: 'Created the first version.',
         warnings: [],
       }),
     );
@@ -802,9 +842,12 @@ describe('builderSlice', () => {
         currentRequestId: toBuilderRequestId('request-4'),
       },
       builderActions.completeStreaming({
+        appMemory: secondMemory,
+        changeSummary: 'Added second version.',
         requestId: toBuilderRequestId('request-4'),
         snapshot: secondSnapshot,
         source: secondSnapshot.source,
+        summary: 'Added the second version.',
         warnings: [],
       }),
     );
@@ -813,6 +856,8 @@ describe('builderSlice', () => {
     const undoneToEmpty = builderReducer(undone, builderActions.undoLatest());
 
     expect(undone.committedSource).toBe(firstSnapshot.source);
+    expect(undone.appMemory).toEqual(firstMemory);
+    expect(undone.previousChangeSummaries).toEqual([]);
     expect(undone.redoHistory).toHaveLength(1);
     expect(undone.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
@@ -828,6 +873,8 @@ describe('builderSlice', () => {
         .map((message) => message.content),
     ).toEqual(['Reverted to version 1 / 2.']);
     expect(redone.committedSource).toBe(secondSnapshot.source);
+    expect(redone.appMemory).toEqual(secondMemory);
+    expect(redone.previousChangeSummaries).toEqual(['Created first version.']);
     expect(redone.redoHistory).toHaveLength(0);
     expect(redone.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
@@ -843,6 +890,8 @@ describe('builderSlice', () => {
         .map((message) => message.content),
     ).toEqual(['Restored version 2 / 2.']);
     expect(undoneToEmpty.committedSource).toBe('');
+    expect(undoneToEmpty.appMemory).toBeUndefined();
+    expect(undoneToEmpty.previousChangeSummaries).toEqual([]);
     expect(undoneToEmpty.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'Reverted to version 0 / 2.',
@@ -925,7 +974,7 @@ describe('builderSlice', () => {
 
     expect(reset.chatMessages).toEqual([]);
     expect(reset.committedSource).toBe('');
-    expect(reset.appMemory).toEqual(createEmptyAppMemory());
+    expect(reset.appMemory).toBeUndefined();
     expect(reset.retryPrompt).toBeNull();
   });
 

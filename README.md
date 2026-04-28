@@ -55,7 +55,8 @@ Notes:
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
 - Generation follows a validation, configurable automatic-repair, and commit pipeline.
 - The backend owns all model-visible prompt assembly for both initial generation and repair flows; the frontend sends raw builder inputs only.
-- Kitto does not summarize or replace the authoritative OpenUI source for normal follow-up generation. The full committed source is sent while it stays under the hard source cap; source items are only debug/context hints, not source replacement.
+- The committed OpenUI source is authoritative. Kitto does not summarize or replace it during normal follow-up generation. Optional context is dropped first; if the committed source itself exceeds the emergency cap, generation is rejected safely.
+- Builder revisions store committed source plus compact LLM app memory. Live preview state is separate and is not part of exported runtime interactions.
 - Preview renders committed source only.
 
 ## 5. AI usage note

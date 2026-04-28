@@ -170,12 +170,16 @@ async function commitGeneratedSource({
   const validatedResult = await validationRepair.ensureValidGeneratedSource(response, request, requestId);
   lifecycle.throwIfInactiveRequest(requestId);
   const recoveredDomainData = recoverStaleNavigationDomainData(validatedResult.source, getDomainData());
-  const snapshot = createBuilderSnapshot(validatedResult.source, {}, recoveredDomainData.domainData);
   const committedSummary = streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
   const committedSummaryExcludeFromLlmContext =
     validatedResult.summary !== undefined
       ? validatedResult.summaryExcludeFromLlmContext
       : response.summaryExcludeFromLlmContext;
+  const snapshot = createBuilderSnapshot(validatedResult.source, {}, recoveredDomainData.domainData, {
+    appMemory: validatedResult.appMemory,
+    changeSummary: validatedResult.changeSummary,
+    summary: committedSummary ?? validatedResult.summary ?? response.summary,
+  });
 
   if (committedSummary) {
     streamingSummary.upsertStreamingSummaryMessage(requestId, committedSummary, {
@@ -205,6 +209,7 @@ async function commitGeneratedSource({
       note: validatedResult.note,
       skipDefaultAssistantMessage: Boolean(committedSummary),
       snapshot,
+      summary: committedSummary ?? validatedResult.summary ?? response.summary,
       warnings: validatedResult.warnings,
     }),
   );

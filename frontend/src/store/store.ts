@@ -4,7 +4,7 @@ import { apiSlice } from '@api/apiSlice';
 import { builderReducer } from '@pages/Chat/builder/store/builderSlice';
 import { builderSessionReducer } from '@pages/Chat/builder/store/builderSessionSlice';
 import { domainReducer } from '@pages/Chat/builder/store/domainSlice';
-import { REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from './persistence';
+import { createRememberStorage, REMEMBER_KEYS, REMEMBER_PREFIX, unserializeRememberedState } from './persistence';
 
 const combinedReducer = combineReducers({
   builder: builderReducer,
@@ -20,7 +20,7 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(apiSlice.middleware),
   enhancers: (getDefaultEnhancers) =>
     getDefaultEnhancers().concat(
-      rememberEnhancer(window.localStorage, [...REMEMBER_KEYS], {
+      rememberEnhancer(createRememberStorage(window.localStorage), [...REMEMBER_KEYS], {
         prefix: REMEMBER_PREFIX,
         unserialize: unserializeRememberedState,
       }),

@@ -36,8 +36,16 @@ describe('persistedState', () => {
     };
 
     const snapshot = createBuilderSnapshot(validSource, runtimeState, domainData, {
+      appMemory: {
+        version: 1,
+        appSummary: 'Signup flow.',
+        userPreferences: ['Keep it concise.'],
+        avoid: [],
+      },
+      changeSummary: 'Added signup flow.',
       initialDomainData,
       initialRuntimeState,
+      summary: 'Adds a signup flow.',
     });
 
     runtimeState.form.name = 'Grace';
@@ -65,6 +73,18 @@ describe('persistedState', () => {
         users: [],
       },
     });
+    expect(snapshot).toEqual(
+      expect.objectContaining({
+        appMemory: {
+          version: 1,
+          appSummary: 'Signup flow.',
+          userPreferences: ['Keep it concise.'],
+          avoid: [],
+        },
+        changeSummary: 'Added signup flow.',
+        summary: 'Adds a signup flow.',
+      }),
+    );
   });
 
   it('rejects non-JSON-compatible snapshot state', () => {
@@ -137,14 +157,32 @@ describe('persistedState', () => {
       JSON.stringify({
         version: 1,
         source: validSource,
+        appMemory: {
+          version: 1,
+          appSummary: 'Imported app memory.',
+          userPreferences: ['Keep imported.'],
+          avoid: [],
+        },
         runtimeState: { currentScreen: 'main' },
         domainData: { app: { tasks: [] as string[] } },
       }),
     );
 
+    expect(imported.appMemory).toEqual({
+      version: 1,
+      appSummary: 'Imported app memory.',
+      userPreferences: ['Keep imported.'],
+      avoid: [],
+    });
     expect(imported.history).toHaveLength(1);
     expect(imported.history[0]).toMatchObject({
       source: validSource,
+      appMemory: {
+        version: 1,
+        appSummary: 'Imported app memory.',
+        userPreferences: ['Keep imported.'],
+        avoid: [],
+      },
       runtimeState: { currentScreen: 'main' },
       domainData: { app: { tasks: [] } },
       initialRuntimeState: { currentScreen: 'main' },
@@ -153,6 +191,27 @@ describe('persistedState', () => {
     });
 
     vi.useRealTimers();
+  });
+
+  it('ignores invalid imported app memory without rejecting the source import', () => {
+    const imported = parseImportedDefinition(
+      JSON.stringify({
+        version: 1,
+        source: validSource,
+        appMemory: {
+          version: 1,
+          appSummary: 'x',
+          userPreferences: ['ok'],
+          avoid: 'not an array',
+        },
+        runtimeState: {},
+        domainData: {},
+        history: [],
+      }),
+    );
+
+    expect(imported.appMemory).toBeUndefined();
+    expect(imported.history[0]?.appMemory).toBeUndefined();
   });
 
   it('rejects unsupported import versions', () => {

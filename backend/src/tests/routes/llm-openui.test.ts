@@ -24,6 +24,7 @@ vi.mock(import('#backend/services/openai/logging.js'), () => ({
 
 import { generateOpenUiSource, streamOpenUiSource } from '#backend/services/openai.js';
 import { getRawRequestMaxBytes } from '#backend/limits.js';
+import { CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
 
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
 const streamOpenUiSourceMock = vi.mocked(streamOpenUiSource);
@@ -255,9 +256,15 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
-  it('rejects oversized current source before calling the OpenAI service', async () => {
+  it('keeps current source independent from the model prompt budget before calling the OpenAI service', async () => {
     const { app } = createRouteApp({
       LLM_MODEL_PROMPT_MAX_CHARS: 8,
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      appMemory: testAppMemory,
+      changeSummary: 'Updated safely.',
+      source: 'root = AppShell([])',
+      summary: 'Updated the app safely.',
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -272,18 +279,20 @@ describe('createLlmOpenUiRoutes', () => {
       }),
     });
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      code: 'validation_error',
-      error: 'Current source is too large. Limit: 8 characters.',
-      status: 400,
-    });
-    expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(generateOpenUiSourceMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        currentSource: 'root = AppShell([])',
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it('rejects current source above the hard source cap even when the model prompt limit is higher', async () => {
     const { app } = createRouteApp({
-      LLM_MODEL_PROMPT_MAX_CHARS: 20_000,
+      LLM_MODEL_PROMPT_MAX_CHARS: 60_000,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -293,7 +302,7 @@ describe('createLlmOpenUiRoutes', () => {
       },
       body: JSON.stringify({
         prompt: 'update',
-        currentSource: 'x'.repeat(18_001),
+        currentSource: 'x'.repeat(50_001),
         chatHistory: [],
       }),
     });
@@ -301,16 +310,14 @@ describe('createLlmOpenUiRoutes', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       code: 'validation_error',
-      error: 'Current source is too large. Limit: 18000 characters.',
+      error: CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
   it('rejects oversized invalid drafts before repair generation', async () => {
-    const { app } = createRouteApp({
-      LLM_MODEL_PROMPT_MAX_CHARS: 8,
-    });
+    const { app } = createRouteApp();
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -320,7 +327,7 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'repair it',
         currentSource: '',
-        invalidDraft: 'root = AppShell([])',
+        invalidDraft: 'x'.repeat(50_001),
         mode: 'repair',
         chatHistory: [],
       }),
@@ -329,7 +336,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       code: 'validation_error',
-      error: 'Invalid draft is too large. Limit: 8 characters.',
+      error: 'Invalid draft is too large. Limit: 50000 characters.',
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();

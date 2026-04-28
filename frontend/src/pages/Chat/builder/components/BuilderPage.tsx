@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { BUILDER_PERSISTENCE_QUOTA_WARNING } from '@store/persistence';
 import { BuilderRequestControlsProvider } from '@pages/Chat/builder/context/BuilderRequestControlsProvider';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import type { BuilderChatNotice } from '@pages/Chat/builder/types';
@@ -25,6 +26,28 @@ export function BuilderPage() {
     },
     [dispatch],
   );
+
+  useEffect(() => {
+    function handlePersistenceWarning(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      const content =
+        detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string'
+          ? detail.message
+          : BUILDER_PERSISTENCE_QUOTA_WARNING;
+
+      handleSystemNotice({
+        content,
+        messageKey: 'builder-persistence-warning',
+        tone: 'info',
+      });
+    }
+
+    window.addEventListener('kitto:persistence-warning', handlePersistenceWarning);
+
+    return () => {
+      window.removeEventListener('kitto:persistence-warning', handlePersistenceWarning);
+    };
+  }, [handleSystemNotice]);
 
   return (
     <BuilderRequestControlsProvider>

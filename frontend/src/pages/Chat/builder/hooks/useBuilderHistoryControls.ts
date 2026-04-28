@@ -233,7 +233,11 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       const importedHistory =
         validHistory.length > 0
           ? validHistory
-          : [createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData)];
+          : [
+              createBuilderSnapshot(importedDefinition.source, importedDefinition.runtimeState, importedDefinition.domainData, {
+                appMemory: importedDefinition.appMemory,
+              }),
+            ];
       const recoveredDomainData = recoverStaleNavigationDomainData(importedDefinition.source, importedDefinition.domainData);
       const recoveredImportedHistory = importedHistory.map((snapshot) => recoverStaleNavigationSnapshot(snapshot));
 
@@ -242,6 +246,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       dispatch(
         builderActions.loadDefinition({
           source: importedDefinition.source,
+          appMemory: importedDefinition.appMemory,
           runtimeState: importedDefinition.runtimeState,
           history: recoveredImportedHistory,
           messageKey: SYSTEM_CHAT_MESSAGE_KEYS.definitionImportStatus,

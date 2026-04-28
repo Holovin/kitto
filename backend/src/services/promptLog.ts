@@ -21,7 +21,12 @@ interface PromptIoLogEntryFields {
   mode: PromptIoLogMode;
   phase: PromptIoLogPhase;
   rawUserRequest?: string;
+  currentSourceChars?: number;
+  currentSourceIncluded?: boolean;
+  currentSourceItemsIncluded?: boolean;
   currentSourceLen?: number;
+  currentSourceProtected?: boolean;
+  droppedSections?: string[];
   chatHistoryLen?: number;
   requestBytes?: number | null;
   compactedRequestBytes?: number | null;
