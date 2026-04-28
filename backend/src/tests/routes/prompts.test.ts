@@ -35,6 +35,32 @@ describe('GET /api/prompts/info', () => {
       userPromptMaxChars: 4_096,
     });
     expect(payload.systemPrompt).toEqual(payload.systemPromptVariants[0]);
+    expect(payload.promptContextLimits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          hardLimitChars: 4_096,
+          name: 'latestUserPrompt',
+          protected: true,
+        }),
+        expect.objectContaining({
+          hardLimitChars: 50_000,
+          name: 'currentSource',
+          protected: true,
+        }),
+        expect.objectContaining({
+          hardLimitChars: 20_000,
+          name: 'previousUserMessages',
+          protected: false,
+          softLimitChars: 4_096,
+        }),
+        expect.objectContaining({
+          hardLimitChars: 20_000,
+          name: 'previousChangeSummaries',
+          protected: false,
+          softLimitChars: 1_024,
+        }),
+      ]),
+    );
     expect(payload.systemPrompt.id).toBe('base');
     expect(payload.systemPrompt.intentVector).toBe('base');
     expect(payload.systemPrompt.hash).toHaveLength(16);

@@ -16,6 +16,7 @@ const {
 
 vi.mock(import('#backend/services/openai.js'), () => ({
   buildPromptContextSnapshot: buildPromptContextSnapshotMock,
+  generateHistorySummary: vi.fn(),
   generateOpenUiSource: vi.fn(),
   streamOpenUiSource: vi.fn(),
 }));
@@ -25,11 +26,12 @@ vi.mock(import('#backend/services/openai/logging.js'), () => ({
   writePromptIoIntakeFailureSafely: writePromptIoIntakeFailureSafelyMock,
 }));
 
-import { generateOpenUiSource, streamOpenUiSource } from '#backend/services/openai.js';
+import { generateHistorySummary, generateOpenUiSource, streamOpenUiSource } from '#backend/services/openai.js';
 import { getRawRequestMaxBytes } from '#backend/limits.js';
 import { CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
 
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
+const generateHistorySummaryMock = vi.mocked(generateHistorySummary);
 const streamOpenUiSourceMock = vi.mocked(streamOpenUiSource);
 const textEncoder = new TextEncoder();
 const unresolvedReferenceIssue = {
@@ -119,6 +121,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   afterEach(() => {
     buildPromptContextSnapshotMock.mockReset();
+    generateHistorySummaryMock.mockReset();
     generateOpenUiSourceMock.mockReset();
     streamOpenUiSourceMock.mockReset();
     writePromptIoCommitTelemetrySafelyMock.mockReset();
@@ -364,7 +367,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
-  it('rejects oversized previous user message context', async () => {
+  it('rejects previous user message context above the backend input hard limit', async () => {
     const { app } = createRouteApp({
       LLM_USER_PROMPT_MAX_CHARS: 8,
     });
@@ -377,7 +380,7 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'update',
         currentSource: '',
-        previousUserMessages: ['x'.repeat(4_097)],
+        previousUserMessages: ['x'.repeat(20_001)],
       }),
     });
 
@@ -574,11 +577,86 @@ describe('createLlmOpenUiRoutes', () => {
       previousChangeSummaries: ['Created the app.', 'Added recent changes.'],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
+    expect(generateHistorySummaryMock).not.toHaveBeenCalled();
     expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
       compactedRequestBytes: expect.any(Number),
       omittedChatMessages: 0,
       requestBytes: expect.any(Number),
       requestId: expect.any(String),
+    });
+  });
+
+  it('summarizes only dropped previous context on the backend before non-stream generation', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-test-model',
+    });
+    const previousUserMessages = Array.from({ length: 7 }, (_, index) => `Previous user request ${index + 1}`);
+
+    generateHistorySummaryMock.mockResolvedValue({
+      historySummary: 'Older requests asked for compact filters and no calendar.',
+    });
+    generateOpenUiSourceMock.mockResolvedValue({
+      source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
+    });
+
+    const response = await app.request('/api/llm/generate', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'build a compact app',
+        currentSource: 'root = AppShell([])',
+        historySummary: 'Earlier durable context.',
+        previousChangeSummaries: ['Created the base app.', 'Added sorting.'],
+        previousUserMessages,
+      }),
+    });
+    const payload = await response.json();
+    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(generateHistorySummaryMock).toHaveBeenCalledTimes(1);
+    expect(generateHistorySummaryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        historySummary: 'Earlier durable context.',
+        previousChangeSummaries: [],
+        previousUserMessages: ['Previous user request 1', 'Previous user request 2'],
+      },
+      expect.any(AbortSignal),
+    );
+    expect(calledRequest).toEqual({
+      prompt: 'build a compact app',
+      currentSource: 'root = AppShell([])',
+      historySummary: 'Older requests asked for compact filters and no calendar.',
+      mode: 'initial',
+      previousChangeSummaries: ['Created the base app.', 'Added sorting.'],
+      previousUserMessages: [
+        'Previous user request 3',
+        'Previous user request 4',
+        'Previous user request 5',
+        'Previous user request 6',
+        'Previous user request 7',
+      ],
+    });
+    expect(payload).toEqual({
+      appMemory: testAppMemory,
+      changeSummary: 'Test generation change.',
+      compaction: {
+        compactedByBytes: false,
+        compactedByItemLimit: true,
+        omittedChatMessages: 2,
+      },
+      historySummary: 'Older requests asked for compact filters and no calendar.',
+      model: 'gpt-test-model',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a compact app.',
+      temperature: 0.4,
     });
   });
 
@@ -1126,6 +1204,72 @@ describe('createLlmOpenUiRoutes', () => {
       summary: 'Builds a tiny app.',
       changeSummary: 'Test generation change.',
       appMemory: testAppMemory,
+      temperature: 0.4,
+    });
+  });
+
+  it('emits a status event while compacting history before streaming model chunks', async () => {
+    const { app } = createRouteApp({
+      OPENAI_MODEL: 'gpt-stream-model',
+    });
+    const previousUserMessages = Array.from({ length: 6 }, (_, index) => `Previous request ${index + 1}`);
+
+    generateHistorySummaryMock.mockResolvedValue({
+      historySummary: 'Older stream context was compacted.',
+    });
+    streamOpenUiSourceMock.mockImplementation(async (_env, request, onTextDelta) => {
+      expect(request.historySummary).toBe('Older stream context was compacted.');
+      expect(request.previousUserMessages).toEqual([
+        'Previous request 2',
+        'Previous request 3',
+        'Previous request 4',
+        'Previous request 5',
+        'Previous request 6',
+      ]);
+      await onTextDelta('{"summary":"Builds a tiny app.","source":"root = AppShell([])"}');
+      return {
+        source: 'root = AppShell([])',
+        summary: 'Builds a tiny app.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
+      };
+    });
+
+    const response = await app.request('/api/llm/generate/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: 'stream a tiny app',
+        currentSource: '',
+        previousUserMessages,
+      }),
+    });
+    const events = parseSseEvents(await response.text());
+
+    expect(response.status).toBe(200);
+    expect(events[0]).toEqual({
+      event: 'status',
+      data: '{"message":"Compacting older chat context...","status":"compacting-history"}',
+    });
+    expect(events[1]).toEqual({
+      event: 'chunk',
+      data: '{"summary":"Builds a tiny app.","source":"root = AppShell([])"}',
+    });
+    expect(JSON.parse(events[2]?.data ?? '{}')).toEqual({
+      appMemory: testAppMemory,
+      changeSummary: 'Test generation change.',
+      compaction: {
+        compactedByBytes: false,
+        compactedByItemLimit: true,
+        omittedChatMessages: 1,
+      },
+      historySummary: 'Older stream context was compacted.',
+      model: 'gpt-stream-model',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+      summary: 'Builds a tiny app.',
       temperature: 0.4,
     });
   });

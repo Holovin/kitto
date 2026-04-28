@@ -1,10 +1,4 @@
-import {
-  createEmptyAppMemory,
-  PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS,
-  PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
-  PREVIOUS_USER_MESSAGES_MAX_ITEMS,
-  PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
-} from '@kitto-openui/shared/builderApiContract.js';
+import { createEmptyAppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import type {
   AppMemory,
   BuilderChatMessage,
@@ -15,32 +9,8 @@ import type {
 
 export type ContextMeterSection = BuilderPromptContextSection;
 
-function trimToTotalChars(values: string[], maxTotalChars: number) {
-  const selected: string[] = [];
-  let remainingChars = maxTotalChars;
-
-  for (let index = values.length - 1; index >= 0 && remainingChars > 0; index -= 1) {
-    const value = values[index]?.trim();
-
-    if (!value) {
-      continue;
-    }
-
-    const nextValue = value.length > remainingChars ? value.slice(0, remainingChars).trimEnd() : value;
-
-    if (!nextValue) {
-      continue;
-    }
-
-    selected.unshift(nextValue);
-    remainingChars -= nextValue.length;
-  }
-
-  return selected;
-}
-
-export function buildPreviousUserMessages(messages: BuilderChatMessage[]) {
-  const previousUserMessages = messages.flatMap((message) => {
+function collectPreviousUserMessages(messages: BuilderChatMessage[]) {
+  return messages.flatMap((message) => {
     if (message.role !== 'user' || message.excludeFromLlmContext) {
       return [];
     }
@@ -48,20 +18,26 @@ export function buildPreviousUserMessages(messages: BuilderChatMessage[]) {
     const content = message.content.trim();
     return content ? [content] : [];
   });
-
-  return trimToTotalChars(previousUserMessages.slice(-PREVIOUS_USER_MESSAGES_MAX_ITEMS), PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS);
 }
 
-export function buildPreviousChangeSummaries(changeSummaries: string[]) {
-  const previousChangeSummaries = changeSummaries.flatMap((summary) => {
+function collectPreviousChangeSummaries(changeSummaries: string[]) {
+  return changeSummaries.flatMap((summary) => {
     const content = summary.trim();
     return content ? [content] : [];
   });
+}
 
-  return trimToTotalChars(
-    previousChangeSummaries.slice(-PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS),
-    PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
-  );
+function normalizeHistorySummary(historySummary?: string) {
+  const trimmedSummary = historySummary?.trim();
+  return trimmedSummary || undefined;
+}
+
+export function buildPreviousUserMessages(messages: BuilderChatMessage[]) {
+  return collectPreviousUserMessages(messages);
+}
+
+export function buildPreviousChangeSummaries(changeSummaries: string[]) {
+  return collectPreviousChangeSummaries(changeSummaries);
 }
 
 function getJsonChars(value: unknown) {
@@ -77,6 +53,8 @@ function createMeterSection(
   content: string,
   reason?: string,
   options: {
+    hardLimitChars?: number;
+    softLimitChars?: number;
     unminifiedChars?: number;
   } = {},
 ): ContextMeterSection {
@@ -84,10 +62,12 @@ function createMeterSection(
     name,
     chars,
     content,
+    ...(options.hardLimitChars !== undefined ? { hardLimitChars: options.hardLimitChars } : {}),
     included,
     priority,
     protected: protectedSection,
     ...(reason ? { reason } : {}),
+    ...(options.softLimitChars !== undefined ? { softLimitChars: options.softLimitChars } : {}),
     ...(options.unminifiedChars !== undefined && options.unminifiedChars !== chars
       ? { unminifiedChars: options.unminifiedChars }
       : {}),
@@ -104,9 +84,11 @@ export function buildContextMeterSections({
   latestUserPrompt,
   previousChangeSummaries,
   previousUserMessages,
+  historySummary,
 }: {
   appMemory?: AppMemory;
   currentSource: string;
+  historySummary?: string;
   latestUserPrompt: string;
   previousChangeSummaries: string[];
   previousUserMessages: string[];
@@ -120,6 +102,7 @@ export function buildContextMeterSections({
   const previousChangeSummariesContent = previousChangeSummaries.length > 0
     ? buildPromptDataBlock('previous_change_summaries', JSON.stringify(previousChangeSummaries))
     : '(omitted; no previous change summaries selected)';
+  const normalizedHistorySummary = normalizeHistorySummary(historySummary);
 
   return [
     createMeterSection(
@@ -157,15 +140,18 @@ export function buildContextMeterSections({
       true,
       false,
       buildPromptDataBlock('previous_app_memory', JSON.stringify(normalizedAppMemory)),
+      undefined,
     ),
     createMeterSection(
       5,
       'historySummary',
-      0,
+      normalizedHistorySummary?.length ?? 0,
+      Boolean(normalizedHistorySummary),
       false,
-      false,
-      '(omitted; no compact history summary is currently stored in the browser state)',
-      'omitted',
+      normalizedHistorySummary
+        ? buildPromptDataBlock('history_summary', normalizedHistorySummary)
+        : '(omitted; no compact history summary is currently stored in the browser state)',
+      normalizedHistorySummary ? undefined : 'omitted',
     ),
     createMeterSection(
       6,
@@ -174,6 +160,7 @@ export function buildContextMeterSections({
       previousUserMessages.length > 0,
       false,
       previousUserMessagesContent,
+      undefined,
     ),
     createMeterSection(
       7,
@@ -182,6 +169,7 @@ export function buildContextMeterSections({
       previousChangeSummaries.length > 0,
       false,
       previousChangeSummariesContent,
+      undefined,
     ),
     createMeterSection(
       8,
@@ -204,6 +192,37 @@ export function buildContextMeterSections({
   ];
 }
 
+function getPromptContextLimit(promptInfo: PromptsInfoResponse, name: string) {
+  return promptInfo.promptContextLimits.find((section) => section.name === name);
+}
+
+function applyPromptContextLimit(section: ContextMeterSection, limit?: BudgetDecisionSection): ContextMeterSection {
+  if (!limit) {
+    return section;
+  }
+
+  return {
+    ...section,
+    ...(section.hardLimitChars === undefined && limit.hardLimitChars !== undefined
+      ? { hardLimitChars: limit.hardLimitChars }
+      : {}),
+    ...(section.softLimitChars === undefined && limit.softLimitChars !== undefined
+      ? { softLimitChars: limit.softLimitChars }
+      : {}),
+  };
+}
+
+export function applyPromptContextLimits(
+  sections: ContextMeterSection[],
+  promptInfo?: PromptsInfoResponse,
+): ContextMeterSection[] {
+  if (!promptInfo) {
+    return sections;
+  }
+
+  return sections.map((section) => applyPromptContextLimit(section, getPromptContextLimit(promptInfo, section.name)));
+}
+
 export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoResponse): ContextMeterSection[] {
   if (!promptInfo) {
     return [
@@ -219,7 +238,7 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
     ];
   }
 
-  const staticSections = promptInfo.staticPromptContextSections;
+  const staticSections = applyPromptContextLimits(promptInfo.staticPromptContextSections, promptInfo);
 
   return [
     ...staticSections.filter((section) => section.priority < 4),
@@ -231,6 +250,7 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
       true,
       '(no generation request has been sent yet; this section is populated from the backend response after Send)',
       'waiting for request',
+      getPromptContextLimit(promptInfo, 'latestUserPrompt'),
     ),
     createMeterSection(
       5,
@@ -240,6 +260,7 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
       true,
       '(no generation request has been sent yet; this section is populated from the backend response after Send)',
       'waiting for request',
+      getPromptContextLimit(promptInfo, 'currentSource'),
     ),
     ...staticSections.filter((section) => section.priority >= 6),
   ];

@@ -14,6 +14,7 @@ import { PreviewErrorFallback } from '@pages/Chat/builder/components/PreviewErro
 import { resolvePreviewCanvasState } from '@pages/Chat/builder/components/previewCanvasState';
 import { PreviewUnavailableState } from '@pages/Chat/builder/components/PreviewUnavailableState';
 import {
+  applyPromptContextLimits,
   buildStaticPromptInfoContextSections,
   type ContextMeterSection,
 } from '@pages/Chat/builder/hooks/generationContext';
@@ -42,6 +43,7 @@ import {
   selectPreviewSource,
   selectRuntimeSessionState,
   selectStreamedSource,
+  selectStreamingStatus,
 } from '@pages/Chat/builder/store/selectors';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { builderSessionActions } from '@pages/Chat/builder/store/builderSessionSlice';
@@ -62,6 +64,7 @@ interface PreviewTabsProps {
 interface PreviewStreamingOverlayProps {
   isPreviewEmptyCanvas: boolean;
   lastStreamChunkAt: number | null;
+  streamingStatus: string | null;
   streamedSourceBytes: number;
 }
 
@@ -127,6 +130,26 @@ function formatContextSectionChars(section: ContextMeterSection) {
   );
 }
 
+function formatContextSectionLimit(section: ContextMeterSection) {
+  if (section.softLimitChars === undefined && section.hardLimitChars === undefined) {
+    return '—';
+  }
+
+  if (section.softLimitChars !== undefined && section.hardLimitChars !== undefined) {
+    return `SOFT ${formatCharCount(section.softLimitChars)} (HARD ${formatCharCount(section.hardLimitChars)})`;
+  }
+
+  if (section.softLimitChars !== undefined) {
+    return `SOFT ${formatCharCount(section.softLimitChars)}`;
+  }
+
+  return `HARD ${formatCharCount(section.hardLimitChars ?? 0)}`;
+}
+
+function formatContextSectionBudget(section: ContextMeterSection) {
+  return section.protected ? 'Protected' : 'Optional';
+}
+
 function tryFormatJson(value: string) {
   try {
     return JSON.stringify(JSON.parse(value), null, 2);
@@ -174,14 +197,15 @@ function ContextPanel({ sections }: ContextPanelProps) {
     <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
       <CardContent className="flex h-full min-h-0 flex-col p-6">
         <div className="kitto-context-table-scroll min-h-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
-          <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
+          <table className="w-full min-w-[44rem] border-collapse text-left text-sm">
             <thead className="sticky top-0 bg-slate-50 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
               <tr>
-                <th className="w-20 border-b border-slate-200 px-4 py-3">Prio</th>
-                <th className="border-b border-slate-200 px-4 py-3">Section</th>
-                <th className="border-b border-slate-200 px-4 py-3">Chars</th>
-                <th className="border-b border-slate-200 px-4 py-3">Used</th>
-                <th className="border-b border-slate-200 px-4 py-3">Budget</th>
+                <th className="w-16 border-b border-slate-200 px-3 py-3">Prio</th>
+                <th className="border-b border-slate-200 px-3 py-3">Section</th>
+                <th className="border-b border-slate-200 px-3 py-3">Chars</th>
+                <th className="border-b border-slate-200 px-3 py-3">Limits</th>
+                <th className="border-b border-slate-200 px-3 py-3">Used</th>
+                <th className="border-b border-slate-200 px-3 py-3">Budget</th>
                 <th className="w-10 border-b border-slate-200 px-3 py-3" aria-label="Expand row" />
               </tr>
             </thead>
@@ -205,17 +229,22 @@ function ContextPanel({ sections }: ContextPanelProps) {
                         setExpandedSectionName((currentName) => (currentName === section.name ? null : section.name));
                       }}
                     >
-                      <td className="px-4 py-3 tabular-nums text-slate-600">{section.priority}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{section.name}</td>
-                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatContextSectionChars(section)}</td>
+                      <td className="px-3 py-3 tabular-nums text-slate-600">{section.priority}</td>
+                      <td className="px-3 py-3 font-medium text-slate-900">{section.name}</td>
+                      <td className="px-3 py-3 tabular-nums text-slate-700">{formatContextSectionChars(section)}</td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                          {formatContextSectionLimit(section)}
+                        </span>
+                      </td>
                       <td
-                        className="px-4 py-3 text-lg leading-none"
+                        className="px-3 py-3 text-lg leading-none"
                         aria-label={getContextSectionStatusLabel(section)}
                         title={getContextSectionStatusLabel(section)}
                       >
                         {getContextSectionStatus(section)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <span
                           className={
                             section.protected
@@ -223,7 +252,7 @@ function ContextPanel({ sections }: ContextPanelProps) {
                               : 'inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
                           }
                         >
-                          {section.protected ? 'Protected' : 'Optional'}
+                          {formatContextSectionBudget(section)}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-slate-400">
@@ -232,7 +261,7 @@ function ContextPanel({ sections }: ContextPanelProps) {
                     </tr>
                     {isExpanded ? (
                       <tr key={`${section.name}-details`} className={section.protected ? 'bg-sky-50/80' : 'bg-sky-50/70'}>
-                        <td colSpan={6} className="px-4 pb-4 pt-3">
+                        <td colSpan={7} className="px-4 pb-4 pt-3">
                           <textarea
                             className="h-[25rem] w-full resize-none rounded-lg border border-sky-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800 shadow-inner outline-none"
                             readOnly
@@ -252,7 +281,12 @@ function ContextPanel({ sections }: ContextPanelProps) {
   );
 }
 
-function PreviewStreamingOverlay({ isPreviewEmptyCanvas, lastStreamChunkAt, streamedSourceBytes }: PreviewStreamingOverlayProps) {
+function PreviewStreamingOverlay({
+  isPreviewEmptyCanvas,
+  lastStreamChunkAt,
+  streamingStatus,
+  streamedSourceBytes,
+}: PreviewStreamingOverlayProps) {
   const [timerTick, setTimerTick] = useState<StreamingTimerTick | null>(null);
 
   useEffect(() => {
@@ -274,11 +308,11 @@ function PreviewStreamingOverlay({ isPreviewEmptyCanvas, lastStreamChunkAt, stre
   const previewOverlayTimerLabel = `${elapsedStreamingSeconds}s elapsed`;
   const streamAgeMs = lastStreamChunkAt === null ? null : Math.max(0, (timerTick?.clockMs ?? lastStreamChunkAt) - lastStreamChunkAt);
   const previewOverlayStatusLabel =
-    lastStreamChunkAt === null
+    streamingStatus ?? (lastStreamChunkAt === null
       ? 'Waiting for first chunk'
       : streamAgeMs !== null && streamAgeMs <= STREAM_ACTIVE_WINDOW_MS
         ? 'Stream active'
-        : 'Finalizing response';
+        : 'Finalizing response');
   const previewOverlayPrimaryLabel = `${previewOverlayLabel} · ${previewOverlayTimerLabel}`;
   const previewOverlaySecondaryLabel = `${previewOverlayStatusLabel} · ${formatByteCount(streamedSourceBytes)} draft`;
 
@@ -314,6 +348,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const previewSource = useAppSelector(selectPreviewSource);
   const runtimeSessionState = useAppSelector(selectRuntimeSessionState);
   const streamedSource = useAppSelector(selectStreamedSource);
+  const streamingStatus = useAppSelector(selectStreamingStatus);
   const configState = useConfigQuery(undefined, {
     refetchOnFocus: true,
     refetchOnReconnect: true,
@@ -321,7 +356,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const configStatus = getBuilderRuntimeConfigStatus(configState);
   const isContextTabDisabled = configStatus === 'failed';
   const promptsInfoState = useGetPromptsInfoQuery(undefined, {
-    skip: isContextTabDisabled || lastPromptContext !== undefined || activeTab !== 'context',
+    skip: isContextTabDisabled || activeTab !== 'context',
   });
   const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
     issues: [],
@@ -383,7 +418,9 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   });
   const streamedSourceBytes = getByteLength(streamedSource);
   const contextMeterSections = useMemo(() => {
-    return lastPromptContext?.sections ?? buildStaticPromptInfoContextSections(promptsInfoState.data);
+    return lastPromptContext
+      ? applyPromptContextLimits(lastPromptContext.sections, promptsInfoState.data)
+      : buildStaticPromptInfoContextSections(promptsInfoState.data);
   }, [lastPromptContext, promptsInfoState.data]);
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
@@ -674,6 +711,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
                 <PreviewStreamingOverlay
                   isPreviewEmptyCanvas={isPreviewEmptyCanvas}
                   lastStreamChunkAt={lastStreamChunkAt}
+                  streamingStatus={streamingStatus}
                   streamedSourceBytes={streamedSourceBytes}
                 />
               ) : null}

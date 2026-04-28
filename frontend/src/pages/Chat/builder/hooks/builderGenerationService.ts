@@ -205,6 +205,7 @@ async function commitGeneratedSource({
     builderActions.completeStreaming({
       appMemory: validatedResult.appMemory,
       changeSummary: validatedResult.changeSummary,
+      historySummary: response.historySummary ?? request.historySummary,
       requestId,
       source: validatedResult.source,
       note: validatedResult.note,
@@ -241,6 +242,8 @@ export async function runBuilderGeneration({
   let state = createInitialGenerationState();
 
   try {
+    dispatch(builderActions.setStreamingStatus({ requestId, status: 'Processing request...' }));
+    streamingSummary.upsertStreamingStatusMessage(requestId, 'Processing request...');
     const streamResult = await streamBuilderDefinition({
       apiBaseUrl,
       idleTimeoutMs: streamTimeouts.streamIdleTimeoutMs,
@@ -253,6 +256,14 @@ export async function runBuilderGeneration({
           observedStreamActivity: true,
         });
         dispatch(builderActions.appendStreamChunk({ requestId, chunk }));
+      },
+      onStatus: (status) => {
+        if (!lifecycle.isActiveRequest(requestId)) {
+          return;
+        }
+
+        dispatch(builderActions.setStreamingStatus({ requestId, status }));
+        streamingSummary.upsertStreamingStatusMessage(requestId, status);
       },
       onSummary: (summary) => {
         if (!lifecycle.isActiveRequest(requestId)) {

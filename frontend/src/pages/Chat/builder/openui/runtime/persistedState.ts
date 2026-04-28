@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { nanoid } from '@reduxjs/toolkit';
-import { appMemorySchema, normalizeAppMemory, type AppMemory } from '@kitto-openui/shared/builderApiContract.js';
+import {
+  appMemorySchema,
+  HISTORY_SUMMARY_MAX_CHARS,
+  normalizeAppMemory,
+  type AppMemory,
+} from '@kitto-openui/shared/builderApiContract.js';
 import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import type { BuilderDefinitionExport, PromptBuildValidationIssue, BuilderSnapshot } from '@pages/Chat/builder/types';
 import { DEFAULT_DOMAIN_DATA } from '@pages/Chat/builder/store/defaults';
@@ -18,6 +23,7 @@ const builderSnapshotSchema = z.object({
   changeSummary: z.string().optional(),
   createdAt: z.string().optional(),
   domainData: looseRecordSchema,
+  historySummary: z.string().optional(),
   id: z.string().optional(),
   initialDomainData: looseRecordSchema,
   initialRuntimeState: looseRecordSchema,
@@ -83,6 +89,7 @@ function normalizeSnapshot(snapshot: z.infer<typeof builderSnapshotSchema>) {
     appMemory: normalizeOptionalAppMemory(snapshot.appMemory),
     changeSummary: snapshot.changeSummary ?? '',
     createdAt: snapshot.createdAt,
+    historySummary: snapshot.historySummary,
     id: snapshot.id,
     initialRuntimeState: snapshot.initialRuntimeState,
     initialDomainData: snapshot.initialDomainData,
@@ -96,6 +103,7 @@ export function cloneBuilderSnapshot(snapshot: BuilderSnapshot): BuilderSnapshot
     source: snapshot.source,
     summary: snapshot.summary,
     changeSummary: snapshot.changeSummary,
+    ...(snapshot.historySummary ? { historySummary: snapshot.historySummary } : {}),
     ...(snapshot.appMemory ? { appMemory: normalizeAppMemory(snapshot.appMemory) } : {}),
     createdAt: snapshot.createdAt,
     runtimeState: clonePersistedRuntimeState(snapshot.runtimeState),
@@ -114,6 +122,7 @@ export function createBuilderSnapshot(
     appMemory?: AppMemory;
     changeSummary?: string;
     createdAt?: string;
+    historySummary?: string;
     id?: string;
     initialDomainData?: Record<string, unknown>;
     initialRuntimeState?: Record<string, unknown>;
@@ -128,6 +137,7 @@ export function createBuilderSnapshot(
     source,
     summary: (baseline?.summary ?? '').trim().slice(0, SUMMARY_MAX_CHARS),
     changeSummary: (baseline?.changeSummary ?? '').trim().slice(0, CHANGE_SUMMARY_MAX_CHARS),
+    ...(baseline?.historySummary ? { historySummary: baseline.historySummary.trim().slice(0, HISTORY_SUMMARY_MAX_CHARS) } : {}),
     ...(normalizedAppMemory ? { appMemory: normalizedAppMemory } : {}),
     createdAt,
     runtimeState: clonePersistedRuntimeState(runtimeState),
@@ -173,6 +183,7 @@ export function createResetDefinitionExport(source: string, history: BuilderSnap
   const resetSnapshot = createBuilderSnapshot(source, latestSnapshot.initialRuntimeState, latestSnapshot.initialDomainData, {
     appMemory: latestSnapshot.appMemory,
     changeSummary: latestSnapshot.changeSummary,
+    historySummary: latestSnapshot.historySummary,
     initialRuntimeState: latestSnapshot.initialRuntimeState,
     initialDomainData: latestSnapshot.initialDomainData,
     summary: latestSnapshot.summary,

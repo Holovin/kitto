@@ -9,6 +9,7 @@ export const selectCurrentRequestId = (state: RootState) => state.builder.curren
 export const selectDomainData = (state: RootState) => state.domain.data;
 export const selectDraftPrompt = (state: RootState) => state.builder.draftPrompt;
 export const selectHistory = (state: RootState) => state.builder.history;
+export const selectHistorySummary = (state: RootState) => state.builder.historySummary;
 export const selectPreviousCommittedSource = (state: RootState) => state.builder.history.at(-2)?.source;
 export const selectDefinitionWarnings = (state: RootState) =>
   selectIsStreaming(state) || selectHasRejectedDefinition(state) ? [] : state.builder.definitionWarnings;
@@ -21,6 +22,7 @@ export const selectRedoHistory = (state: RootState) => state.builder.redoHistory
 export const selectRetryPrompt = (state: RootState) => state.builder.retryPrompt;
 export const selectRuntimeSessionState = (state: RootState) => state.builderSession.runtimeSessionState;
 export const selectStreamedSource = (state: RootState) => state.builder.streamedSource;
+export const selectStreamingStatus = (state: RootState) => state.builder.streamingStatus;
 export const selectHasRejectedDefinition = (state: RootState) =>
   !selectIsStreaming(state) &&
   state.builder.streamedSource !== state.builder.committedSource &&

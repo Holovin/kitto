@@ -248,6 +248,40 @@ describe('streamBuilderDefinition', () => {
     });
   });
 
+  it('emits backend status updates and returns compacted history from the done event', async () => {
+    const onStatus = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          createTextStream([
+            'event: status\ndata: {"message":"Compacting older chat context...","status":"compacting-history"}\n\n',
+            'event: chunk\ndata: {"summary":"Updated the app.","source":"root = AppShell([])"}\n\n',
+            createDoneEvent({
+              historySummary: 'Older requests were compacted.',
+              source: 'root = AppShell([])',
+            }),
+          ]),
+          {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await expect(streamBuilderDefinition(createStreamRequestOptions({ onStatus }))).resolves.toMatchObject({
+      historySummary: 'Older requests were compacted.',
+      qualityIssues: [],
+      source: 'root = AppShell([])',
+    });
+
+    expect(onStatus).toHaveBeenCalledWith('Compacting older chat context...');
+  });
+
   it('normalizes CRLF-delimited SSE events before parsing them', async () => {
     const onChunk = vi.fn();
 

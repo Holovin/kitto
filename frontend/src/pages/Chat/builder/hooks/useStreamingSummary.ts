@@ -175,6 +175,7 @@ export function useStreamingSummary() {
     }
 
     const pendingSummaryState = getPendingSummaryState(requestId);
+    const isFirstPendingSummary = !pendingSummaryState.latestSummary;
     pendingSummaryState.excludeFromLlmContext = options?.pending ? true : options?.excludeFromLlmContext;
     pendingSummaryState.latestSummary = trimmedSummary;
 
@@ -187,7 +188,7 @@ export function useStreamingSummary() {
     const elapsedSinceLastFlush =
       pendingSummaryState.lastFlushedAt === null ? PENDING_SUMMARY_THROTTLE_MS : now - pendingSummaryState.lastFlushedAt;
 
-    if (elapsedSinceLastFlush >= PENDING_SUMMARY_THROTTLE_MS) {
+    if (isFirstPendingSummary || elapsedSinceLastFlush >= PENDING_SUMMARY_THROTTLE_MS) {
       flushStreamingSummaryMessage(requestId, { pending: true });
       return;
     }

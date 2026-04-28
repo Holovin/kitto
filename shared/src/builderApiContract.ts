@@ -112,10 +112,12 @@ export interface BuilderLlmRequestCompaction {
 
 export interface BudgetDecisionSection {
   chars: number;
+  hardLimitChars?: number;
   included: boolean;
   name: string;
   protected: boolean;
   reason?: string;
+  softLimitChars?: number;
 }
 
 export interface BudgetDecision {
@@ -152,6 +154,8 @@ export const PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS = 4_096;
 export const PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS = 5;
 export const PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS = 1_024;
 export const HISTORY_SUMMARY_MAX_CHARS = 512;
+export const PREVIOUS_CONTEXT_INPUT_MAX_ITEMS = 200;
+export const PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS = 20_000;
 export const VALIDATION_ISSUES_MAX_CHARS = 4_096;
 export const SELECTED_EXAMPLES_MAX_CHARS = 2_500;
 export const CURRENT_SOURCE_ITEMS_MAX_CHARS = 3_000;
@@ -286,6 +290,7 @@ export interface BuilderLlmResponse {
   model: string;
   promptContext?: BuilderPromptContextSnapshot;
   qualityIssues?: BuilderQualityIssue[];
+  historySummary?: string;
   source: string;
   summary: string;
   summaryExcludeFromLlmContext?: boolean;
@@ -447,13 +452,13 @@ export function createBuilderLlmRequestSchema({
     previousSource: currentSourceSchema.optional(),
     historySummary: z.string().trim().min(1).max(HISTORY_SUMMARY_MAX_CHARS).optional(),
     previousChangeSummaries: createBoundedStringArraySchema(
-      PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS,
-      PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
+      PREVIOUS_CONTEXT_INPUT_MAX_ITEMS,
+      PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
       'Previous change summaries',
     ).default([]),
     previousUserMessages: createBoundedStringArraySchema(
-      PREVIOUS_USER_MESSAGES_MAX_ITEMS,
-      PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
+      PREVIOUS_CONTEXT_INPUT_MAX_ITEMS,
+      PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
       'Previous user messages',
     ).default([]),
   });

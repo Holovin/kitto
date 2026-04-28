@@ -79,6 +79,7 @@ const promptsInfoState = vi.hoisted(() => ({
         signature: 'read_state(path)',
       },
     ],
+    promptContextLimits: [],
     requestPromptTemplate: '<user_request>\n[latest user request text]\n</user_request>',
     staticPromptContextSections: [],
   },

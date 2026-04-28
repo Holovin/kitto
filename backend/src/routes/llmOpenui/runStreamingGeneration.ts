@@ -4,6 +4,7 @@ import { createLinkedAbortController } from '#backend/abortController.js';
 import type { AppEnv } from '#backend/env.js';
 import { streamOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
+import { prepareLlmInvocation, type LlmInvocationStatus } from './prepareInvocation.js';
 import { parseLlmRequest } from './requestSchema.js';
 import { createLlmResponsePayload } from './runGeneration.js';
 import type { LlmOpenUiTelemetry } from './telemetry.js';
@@ -40,6 +41,14 @@ function formatSseEvent(event: string, data: string) {
     .join('\n');
 
   return `event: ${event}\n${payload}\n\n`;
+}
+
+function formatStatusMessage(status: LlmInvocationStatus) {
+  if (status === 'compacting-history') {
+    return 'Compacting older chat context...';
+  }
+
+  return 'Processing request...';
 }
 
 function handleStreamingError(
@@ -107,9 +116,15 @@ function createStreamingResponse(
 
       const streamResponse = async () => {
         try {
+          const preparedInvocation = await prepareLlmInvocation(invocation, env, telemetry, {
+            onStatus: (status) => {
+              writeEvent('status', JSON.stringify({ message: formatStatusMessage(status), status }));
+            },
+            signal: abortController.signal,
+          });
           const responseEnvelope: OpenUiGenerationEnvelope = await streamOpenUiSource(
             env,
-            invocation.request,
+            preparedInvocation.request,
             (delta) => {
               if (!abortController.signal.aborted) {
                 writeEvent('chunk', delta);
@@ -117,10 +132,10 @@ function createStreamingResponse(
             },
             abortController.signal,
             {
-              compactedRequestBytes: invocation.compactedRequestBytes,
-              omittedChatMessages: invocation.omittedChatMessages,
-              requestBytes: invocation.requestBytes,
-              requestId: invocation.requestId,
+              compactedRequestBytes: preparedInvocation.compactedRequestBytes,
+              omittedChatMessages: preparedInvocation.omittedChatMessages,
+              requestBytes: preparedInvocation.requestBytes,
+              requestId: preparedInvocation.requestId,
             },
           );
 
@@ -131,12 +146,12 @@ function createStreamingResponse(
 
           const didWriteDoneEvent = writeEvent(
             'done',
-            JSON.stringify(createLlmResponsePayload(env, invocation, responseEnvelope)),
+            JSON.stringify(createLlmResponsePayload(env, preparedInvocation, responseEnvelope)),
           );
 
           if (didWriteDoneEvent) {
-            telemetry.recordModelResponse(invocation.requestId);
-            options.onCompletedGeneration?.(invocation);
+            telemetry.recordModelResponse(preparedInvocation.requestId);
+            options.onCompletedGeneration?.(preparedInvocation);
           }
 
           closeController();

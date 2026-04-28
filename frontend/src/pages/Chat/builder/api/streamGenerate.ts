@@ -24,6 +24,7 @@ interface StreamBuilderDefinitionOptions {
   idleTimeoutMs: number;
   maxDurationMs: number;
   onChunk: (chunk: string) => void;
+  onStatus?: (message: string) => void;
   onSummary?: (summary: string) => void;
   onTimeout?: (kind: BuilderStreamTimeoutKind) => void;
   requestId?: string;
@@ -35,6 +36,7 @@ interface StreamDonePayload {
   appMemory?: unknown;
   changeSummary?: string;
   compaction?: BuilderLlmRequestCompaction;
+  historySummary?: string;
   model?: string;
   promptContext?: BuilderPromptContextSnapshot;
   qualityIssues?: BuilderQualityIssue[];
@@ -43,6 +45,11 @@ interface StreamDonePayload {
   summaryExcludeFromLlmContext?: boolean;
   summaryWarning?: string;
   temperature?: number;
+}
+
+interface StreamStatusPayload {
+  message?: string;
+  status?: string;
 }
 
 interface StreamDoneEnvelope extends StreamDonePayload {
@@ -56,6 +63,7 @@ interface StreamBuilderDefinitionResult {
   appMemory: AppMemory;
   changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
+  historySummary?: string;
   promptContext?: BuilderPromptContextSnapshot;
   qualityIssues: BuilderQualityIssue[];
   source: string;
@@ -89,6 +97,7 @@ export async function streamBuilderDefinition({
   idleTimeoutMs,
   maxDurationMs,
   onChunk,
+  onStatus,
   onSummary,
   onTimeout,
   requestId,
@@ -208,6 +217,21 @@ export async function streamBuilderDefinition({
           });
         }
 
+        if (parsedEvent.event === 'status') {
+          timeoutManager.restartIdleTimeout();
+
+          try {
+            const statusPayload = JSON.parse(parsedEvent.data) as StreamStatusPayload;
+            if (typeof statusPayload.message === 'string') {
+              onStatus?.(statusPayload.message);
+            }
+          } catch {
+            onStatus?.(parsedEvent.data);
+          }
+
+          continue;
+        }
+
         if (parsedEvent.event === 'done') {
           timeoutManager.restartIdleTimeout();
           try {
@@ -241,6 +265,7 @@ export async function streamBuilderDefinition({
         appMemory: doneEnvelope.appMemory,
         changeSummary: doneEnvelope.changeSummary,
         compaction: doneEnvelope.compaction,
+        historySummary: doneEnvelope.historySummary,
         promptContext: doneEnvelope.promptContext,
         qualityIssues: doneEnvelope.qualityIssues ?? [],
         source: doneEnvelope.source,

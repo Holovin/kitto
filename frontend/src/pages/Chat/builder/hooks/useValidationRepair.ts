@@ -474,7 +474,9 @@ export function useValidationRepair({
         prompt: request.prompt,
         ...(request.appMemory !== undefined ? { appMemory: request.appMemory } : {}),
         currentSource: request.currentSource,
-        ...(request.historySummary !== undefined ? { historySummary: request.historySummary } : {}),
+        ...((candidateResponse.historySummary ?? request.historySummary) !== undefined
+          ? { historySummary: candidateResponse.historySummary ?? request.historySummary }
+          : {}),
         ...(request.previousSource !== undefined ? { previousSource: request.previousSource } : {}),
         previousChangeSummaries: request.previousChangeSummaries ?? [],
         previousUserMessages: request.previousUserMessages ?? [],

@@ -9,6 +9,7 @@ import {
 import { assertModelOutputWithinLimit } from '#backend/services/openai/envelope.js';
 import { buildPromptContextSnapshot, generateOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
+import { prepareLlmInvocation } from './prepareInvocation.js';
 import { parseLlmRequest, type PreparedLlmInvocation } from './requestSchema.js';
 import type { LlmOpenUiTelemetry } from './telemetry.js';
 
@@ -33,6 +34,7 @@ export function createLlmResponsePayload(
     appMemory,
     changeSummary,
     compaction: invocation.compaction,
+    historySummary: invocation.request.historySummary,
     model: env.OPENAI_MODEL,
     ...(promptContext ? { promptContext } : {}),
     qualityIssues: detectPromptAwareQualityIssues(
@@ -56,7 +58,10 @@ export async function runGeneration(
   options: RunGenerationOptions = {},
 ) {
   try {
-    const invocation = await parseLlmRequest(context, env, telemetry);
+    const parsedInvocation = await parseLlmRequest(context, env, telemetry);
+    const invocation = await prepareLlmInvocation(parsedInvocation, env, telemetry, {
+      signal: context.req.raw.signal,
+    });
     const responseEnvelope = await generateOpenUiSource(env, invocation.request, context.req.raw.signal, {
       compactedRequestBytes: invocation.compactedRequestBytes,
       omittedChatMessages: invocation.omittedChatMessages,

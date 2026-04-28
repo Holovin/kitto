@@ -1295,13 +1295,58 @@ describe('useBuilderSubmission', () => {
     }).request;
 
     expect(request).not.toHaveProperty('chatHistory');
-    expect(request.previousUserMessages).toEqual([
-      'Context message 45',
-      'Context message 48',
-      'Context message 51',
-      'Context message 54',
-      'Context message 57',
+    expect(request.previousUserMessages).toEqual(
+      Array.from({ length: 19 }, (_, index) => `Context message ${(index + 1) * 3}`),
+    );
+
+    submission.unmount();
+  });
+
+  it('sends full derived history and lets the backend compact it', async () => {
+    seedHistorySnapshots(
+      createBuilderSnapshot(PREVIOUS_SOURCE, {}, {}, { historySummary: 'Earlier durable summary.' }),
+      createBuilderSnapshot(SECOND_REQUEST_SOURCE, {}, {}, {
+        changeSummary: 'Recent committed change.',
+        historySummary: 'Earlier durable summary.',
+      }),
+    );
+    appendChatMessages(
+      Array.from({ length: 7 }, (_, index) => ({
+        content: `Context request ${index}`,
+        role: 'user',
+      })),
+    );
+    setDraftPrompt('Add a dashboard.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+      historySummary: 'Backend compacted summary.',
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const generationRequest = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: {
+        currentSource: string;
+        historySummary: string;
+        previousChangeSummaries: string[];
+        previousUserMessages: string[];
+      };
+    }).request;
+
+    expect(generationRequest.currentSource).toBe(SECOND_REQUEST_SOURCE);
+    expect(generationRequest.historySummary).toBe('Earlier durable summary.');
+    expect(generationRequest.previousUserMessages).toEqual([
+      'Context request 0',
+      'Context request 1',
+      'Context request 2',
+      'Context request 3',
+      'Context request 4',
+      'Context request 5',
+      'Context request 6',
     ]);
+    expect(getBuilderState().history.at(-1)?.historySummary).toBe('Backend compacted summary.');
 
     submission.unmount();
   });

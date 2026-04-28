@@ -55,11 +55,6 @@ export interface PreparedLlmInvocation {
 
 export type ParsedCommitTelemetryRequest = BuilderCommitTelemetryRequest;
 
-interface CompactedLlmRequest {
-  compaction?: LlmRequestCompaction;
-  request: PromptBuildRequest;
-}
-
 const commitTelemetrySchema = createCommitTelemetrySchema();
 
 function createLlmRequestSchema(env: AppEnv) {
@@ -77,7 +72,7 @@ function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {
   };
 }
 
-function getRequestSizeBytes(request: PromptBuildRequest) {
+export function getLlmRequestSizeBytes(request: PromptBuildRequest) {
   return getByteLength(JSON.stringify(request));
 }
 
@@ -126,13 +121,6 @@ async function validateAutomaticRepairTransportMetadata({
     });
     throw metadataError;
   }
-}
-
-function compactLlmRequest(request: PromptBuildRequest): CompactedLlmRequest {
-  return {
-    compaction: undefined,
-    request,
-  };
 }
 
 export async function parseLlmRequest(
@@ -186,34 +174,11 @@ export async function parseLlmRequest(
     requestId,
   });
 
-  const compactedRequest = compactLlmRequest(request);
-  const compactedRequestBytes = getRequestSizeBytes(compactedRequest.request);
-  const omittedChatMessages = compactedRequest.compaction?.omittedChatMessages ?? 0;
-
-  if (compactedRequestBytes > env.LLM_REQUEST_MAX_BYTES) {
-    const compactionError = new RequestValidationError(
-      `Compacted request still exceeded the safe request limit of ${env.LLM_REQUEST_MAX_BYTES} bytes.`,
-      413,
-      {
-        publicMessage: 'Request body is too large to process safely.',
-      },
-    );
-
-    await intakeRecorder.recordIntake({
-      compactedRequestBytes,
-      omittedChatMessages,
-      error: compactionError,
-      partialBody: parsedBody,
-      requestBytes,
-      requestId,
-    });
-    throw compactionError;
-  }
-
   return {
-    ...compactedRequest,
-    compactedRequestBytes,
-    omittedChatMessages,
+    compaction: undefined,
+    compactedRequestBytes: getLlmRequestSizeBytes(request),
+    omittedChatMessages: 0,
+    request,
     requestBytes,
     requestId,
   };

@@ -2,6 +2,7 @@ import type {
   BuilderCommitSource,
   BuilderLlmResponse,
   BuilderRequestId,
+  BudgetDecisionSection,
   AppMemory,
   OpenUiPromptInfoToolSpec,
   PromptBuildChatHistoryRole,
@@ -62,6 +63,7 @@ export interface BuilderSnapshot {
   source: string;
   summary: string;
   changeSummary: string;
+  historySummary?: string;
   appMemory?: AppMemory;
   createdAt: string;
   runtimeState: Record<string, unknown>;
@@ -86,6 +88,7 @@ export interface BuilderGeneratedDraft
     | 'appMemory'
     | 'changeSummary'
     | 'compaction'
+    | 'historySummary'
     | 'qualityIssues'
     | 'promptContext'
     | 'source'
@@ -159,6 +162,7 @@ export interface PromptsInfoResponse {
   envelopeSchema: Record<string, unknown>;
   intentContext: PromptInfoIntentContextVariant;
   intentContextVariants: PromptInfoIntentContextVariant[];
+  promptContextLimits: BudgetDecisionSection[];
   repairPromptTemplate: string;
   staticPromptContextSections: BuilderPromptContextSection[];
   systemPrompt: PromptInfoSystemPromptVariant;

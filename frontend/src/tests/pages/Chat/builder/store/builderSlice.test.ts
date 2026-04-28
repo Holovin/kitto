@@ -835,12 +835,14 @@ describe('builderSlice', () => {
       {
         appMemory: firstMemory,
         changeSummary: 'Created first version.',
+        historySummary: 'Older first-version context.',
         summary: 'Created the first version.',
       },
     );
     const secondSnapshot = createBuilderSnapshot(validSource, {}, {}, {
       appMemory: secondMemory,
       changeSummary: 'Added second version.',
+      historySummary: 'Older second-version context.',
       summary: 'Added the second version.',
     });
 
@@ -849,6 +851,7 @@ describe('builderSlice', () => {
       builderActions.completeStreaming({
         appMemory: firstMemory,
         changeSummary: 'Created first version.',
+        historySummary: 'Older first-version context.',
         requestId: null as never,
         snapshot: firstSnapshot,
         source: firstSnapshot.source,
@@ -862,9 +865,10 @@ describe('builderSlice', () => {
         currentRequestId: toBuilderRequestId('request-4'),
       },
       builderActions.completeStreaming({
-        appMemory: secondMemory,
-        changeSummary: 'Added second version.',
-        requestId: toBuilderRequestId('request-4'),
+      appMemory: secondMemory,
+      changeSummary: 'Added second version.',
+      historySummary: 'Older second-version context.',
+      requestId: toBuilderRequestId('request-4'),
         snapshot: secondSnapshot,
         source: secondSnapshot.source,
         summary: 'Added the second version.',
@@ -877,6 +881,7 @@ describe('builderSlice', () => {
 
     expect(undone.committedSource).toBe(firstSnapshot.source);
     expect(undone.appMemory).toEqual(firstMemory);
+    expect(undone.historySummary).toBe('Older first-version context.');
     expect(undone.previousChangeSummaries).toEqual([]);
     expect(undone.redoHistory).toHaveLength(1);
     expect(undone.chatMessages.at(-1)).toEqual(
@@ -894,6 +899,7 @@ describe('builderSlice', () => {
     ).toEqual(['Reverted to version 1 / 2.']);
     expect(redone.committedSource).toBe(secondSnapshot.source);
     expect(redone.appMemory).toEqual(secondMemory);
+    expect(redone.historySummary).toBe('Older second-version context.');
     expect(redone.previousChangeSummaries).toEqual(['Created first version.']);
     expect(redone.redoHistory).toHaveLength(0);
     expect(redone.chatMessages.at(-1)).toEqual(
@@ -911,6 +917,7 @@ describe('builderSlice', () => {
     ).toEqual(['Restored version 2 / 2.']);
     expect(undoneToEmpty.committedSource).toBe('');
     expect(undoneToEmpty.appMemory).toBeUndefined();
+    expect(undoneToEmpty.historySummary).toBeUndefined();
     expect(undoneToEmpty.previousChangeSummaries).toEqual([]);
     expect(undoneToEmpty.chatMessages.at(-1)).toEqual(
       expect.objectContaining({

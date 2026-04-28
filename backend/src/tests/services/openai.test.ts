@@ -80,7 +80,7 @@ vi.mock('openai', () => {
   };
 });
 
-import { generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '#backend/services/openai.js';
+import { generateHistorySummary, generateOpenUiSource, parseOpenUiGenerationEnvelope, streamOpenUiSource } from '#backend/services/openai.js';
 import { logResponseUsage } from '#backend/services/openai/logging.js';
 import { consumeOpenAiResponseStream, type OpenAiResponseStreamState } from '#backend/services/openai/streaming.js';
 
@@ -1179,6 +1179,55 @@ describe('generateOpenUiSource', () => {
     await expect(generateOpenUiSource(env, request)).rejects.toBeInstanceOf(UpstreamFailureError);
   });
 
+});
+
+describe('generateHistorySummary', () => {
+  afterEach(() => {
+    responsesCreateMock.mockReset();
+  });
+
+  it('summarizes dropped history without sending current source', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-history-summary',
+    });
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        historySummary: 'Keep the signup form intent and removed email filter constraint.',
+      }),
+    });
+
+    await expect(
+      generateHistorySummary(env, {
+        historySummary: 'Existing older summary.',
+        previousUserMessages: ['Create a signup form.', 'Remove the email filter.'],
+        previousChangeSummaries: ['Built a signup form.', 'Removed the email filter.'],
+      }),
+    ).resolves.toEqual({
+      historySummary: 'Keep the signup form intent and removed email filter constraint.',
+    });
+
+    const call = responsesCreateMock.mock.calls[0]?.[0];
+    const allInputText = JSON.stringify(call?.input);
+
+    expect(responsesCreateMock).toHaveBeenCalledTimes(1);
+    expect(call).toEqual(
+      expect.objectContaining({
+        max_output_tokens: 512,
+        temperature: 0,
+        text: {
+          format: expect.objectContaining({
+            name: 'kitto_history_summary',
+            strict: true,
+          }),
+        },
+      }),
+    );
+    expect(allInputText).toContain('Summarize only older user requests and committed change summaries');
+    expect(allInputText).toContain('Do not include OpenUI source.');
+    expect(allInputText).toContain('Create a signup form.');
+    expect(allInputText).not.toContain('<current_source>');
+    expect(allInputText).not.toContain('root = AppShell');
+  });
 });
 
 describe('streamOpenUiSource', () => {

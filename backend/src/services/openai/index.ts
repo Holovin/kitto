@@ -119,6 +119,8 @@ export async function generateOpenUiSource(
   });
 }
 
+export { generateHistorySummary } from './historySummary.js';
+
 export async function streamOpenUiSource(
   env: AppEnv,
   request: PromptBuildRequest,

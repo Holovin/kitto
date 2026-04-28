@@ -68,7 +68,7 @@ Notes:
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers up to the configured repair limit before commit (default: 2 attempts).
-- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done` payload plus its extracted `source`, visible `summary`, technical `changeSummary`, compact `appMemory`, `qualityIssues`, and optional `summaryExcludeFromLlmContext`.
+- During streaming, optional `status` events report backend preparation such as history compaction, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done` payload plus its extracted `source`, visible `summary`, technical `changeSummary`, compact `appMemory`, `qualityIssues`, and optional `historySummary` / `summaryExcludeFromLlmContext`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt as a fresh generation; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 - Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.
@@ -143,7 +143,7 @@ The supported backend API lives under `/api/*` only.
 - `GET /api/health` returns backend status, configured model, timestamp, and OpenAI key presence.
 - `GET /api/config` returns frontend-safe generation temperatures, request limits, stream timeout policy, and repair-attempt policy.
 - `POST /api/llm/generate` performs non-streaming OpenUI generation.
-- `POST /api/llm/generate/stream` streams `chunk`, `done`, and `error` SSE events. `chunk` can contain raw structured JSON draft text, while `done.source` carries the extracted OpenUI source used for commit.
+- `POST /api/llm/generate/stream` streams `status`, `chunk`, `done`, and `error` SSE events. `status` is informational backend preparation state, `chunk` can contain raw structured JSON draft text, and `done.source` carries the extracted OpenUI source used for commit.
 - `POST /api/llm/commit-telemetry` records client-side validation, soft quality warnings, and commit outcomes for a completed generation request without blocking the UI, rejecting unmatched, header/body-mismatched, or overused request ids.
 
 ## 10. Additional docs

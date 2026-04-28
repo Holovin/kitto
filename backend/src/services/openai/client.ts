@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError, UpstreamFailureError } from '#backend/errors/publicError.js';
-import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
+import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS, getEffectiveSourceMaxChars } from '#backend/limits.js';
 import {
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
@@ -17,8 +17,16 @@ import {
 } from '#backend/prompts/openui.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 import {
+  APP_MEMORY_MAX_CHARS,
   createEmptyAppMemory,
   CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
+  CURRENT_SOURCE_ITEMS_MAX_CHARS,
+  HISTORY_SUMMARY_MAX_CHARS,
+  PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
+  PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
+  PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
+  SELECTED_EXAMPLES_MAX_CHARS,
+  VALIDATION_ISSUES_MAX_CHARS,
   type AppMemory,
   type BudgetDecision,
   type BudgetDecisionSection,
@@ -250,6 +258,7 @@ function assertCurrentSourceWithinEmergencyCap(request: PromptBuildRequest) {
 }
 
 function createPromptContextMetadata(
+  env: AppEnv,
   request: PromptBuildRequest,
   input: ResponseInput,
   droppedSections: DroppedPromptSection[],
@@ -257,7 +266,7 @@ function createPromptContextMetadata(
   const fullText = input.map(getInputMessageText).join('\n');
   const currentSourceIncluded = fullText.includes('<current_source>\n') || fullText.includes('Current committed valid OpenUI source:');
   const currentSourceProtected = request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
-  const budgetDecision = createBudgetDecision(request, fullText, droppedSections);
+  const budgetDecision = createBudgetDecision(env, request, fullText, droppedSections);
 
   return {
     budgetDecision,
@@ -287,17 +296,24 @@ function createBudgetSection(
   included: boolean,
   protectedSection: boolean,
   reason?: string,
+  limits: {
+    hardLimitChars?: number;
+    softLimitChars?: number;
+  } = {},
 ): BudgetDecisionSection {
   return {
     name,
     chars,
+    ...(limits.hardLimitChars !== undefined ? { hardLimitChars: limits.hardLimitChars } : {}),
     included,
     protected: protectedSection,
     ...(reason ? { reason } : {}),
+    ...(limits.softLimitChars !== undefined ? { softLimitChars: limits.softLimitChars } : {}),
   };
 }
 
 function createBudgetDecision(
+  env: AppEnv,
   request: PromptBuildRequest,
   fullText: string,
   droppedSections: DroppedPromptSection[],
@@ -322,13 +338,16 @@ function createBudgetDecision(
     currentSourceProtected: true,
     droppedSections,
     sections: [
-      createBudgetSection('latestUserPrompt', buildOpenUiRawUserRequest(request).length, true, true),
+      createBudgetSection('latestUserPrompt', buildOpenUiRawUserRequest(request).length, true, true, undefined, {
+        hardLimitChars: env.LLM_USER_PROMPT_MAX_CHARS,
+      }),
       createBudgetSection(
         'validationIssues',
         request.mode === 'repair' ? getValidationIssueChars(request) : 0,
         request.mode === 'repair' ? validationIssuesIncluded : false,
         true,
         request.mode === 'repair' ? undefined : 'not repair',
+        { hardLimitChars: VALIDATION_ISSUES_MAX_CHARS },
       ),
       createBudgetSection(
         'currentSource',
@@ -340,6 +359,7 @@ function createBudgetDecision(
             ? undefined
             : 'over emergency cap'
           : 'blank canvas',
+        { hardLimitChars: getEffectiveSourceMaxChars(env) },
       ),
       createBudgetSection(
         'appMemory',
@@ -351,6 +371,7 @@ function createBudgetDecision(
           : droppedSectionSet.has('appMemory.userPreferences') || droppedSectionSet.has('appMemory.avoid')
             ? 'trimmed for optional context budget'
             : undefined,
+        { hardLimitChars: APP_MEMORY_MAX_CHARS },
       ),
       createBudgetSection(
         'historySummary',
@@ -358,6 +379,7 @@ function createBudgetDecision(
         historySummaryIncluded,
         false,
         droppedSectionSet.has('historySummary') ? 'dropped for optional context budget' : undefined,
+        { hardLimitChars: HISTORY_SUMMARY_MAX_CHARS, softLimitChars: HISTORY_SUMMARY_MAX_CHARS },
       ),
       createBudgetSection(
         'previousUserMessages',
@@ -365,6 +387,10 @@ function createBudgetDecision(
         previousUserMessagesIncluded,
         false,
         droppedSectionSet.has('previousUserMessages') ? 'trimmed/dropped for optional context budget' : undefined,
+        {
+          hardLimitChars: PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
+          softLimitChars: PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
+        },
       ),
       createBudgetSection(
         'previousChangeSummaries',
@@ -372,6 +398,10 @@ function createBudgetDecision(
         previousChangeSummariesIncluded,
         false,
         droppedSectionSet.has('previousChangeSummaries') ? 'trimmed/dropped for optional context budget' : undefined,
+        {
+          hardLimitChars: PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
+          softLimitChars: PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
+        },
       ),
       createBudgetSection(
         'selectedExamples',
@@ -379,6 +409,7 @@ function createBudgetDecision(
         selectedExamplesIncluded,
         false,
         droppedSectionSet.has('selectedExamples') ? 'dropped for optional context budget' : undefined,
+        { softLimitChars: SELECTED_EXAMPLES_MAX_CHARS },
       ),
       createBudgetSection(
         'currentSourceItems',
@@ -386,6 +417,7 @@ function createBudgetDecision(
         currentSourceItemsIncluded,
         false,
         droppedSectionSet.has('currentSourceItems') ? 'dropped for optional context budget' : 'omitted',
+        { softLimitChars: CURRENT_SOURCE_ITEMS_MAX_CHARS },
       ),
     ],
   };
@@ -437,10 +469,12 @@ function createPromptContextSection({
     name,
     chars: budgetSection?.chars ?? content?.length ?? 0,
     content: content ?? fallbackReason ?? '(not included in this request)',
+    ...(budgetSection?.hardLimitChars !== undefined ? { hardLimitChars: budgetSection.hardLimitChars } : {}),
     included,
     priority,
     protected: protectedSection,
     ...(reason ? { reason } : {}),
+    ...(budgetSection?.softLimitChars !== undefined ? { softLimitChars: budgetSection.softLimitChars } : {}),
   };
 }
 
@@ -771,7 +805,7 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
 
     return {
       input,
-      metadata: createPromptContextMetadata(request, input, []),
+      metadata: createPromptContextMetadata(env, request, input, []),
     };
   }
 
@@ -779,7 +813,7 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
 
   return {
     input,
-    metadata: createPromptContextMetadata(metadataRequest, input, droppedSections),
+    metadata: createPromptContextMetadata(env, metadataRequest, input, droppedSections),
   };
 }
 

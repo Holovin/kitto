@@ -22,6 +22,7 @@ import {
   selectCommittedSource,
   selectDomainData,
   selectDraftPrompt,
+  selectHistorySummary,
   selectPreviousChangeSummaries,
   selectPreviousCommittedSource,
   selectRetryPrompt,
@@ -45,6 +46,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
   const committedSource = useAppSelector(selectCommittedSource);
   const previousSource = useAppSelector(selectPreviousCommittedSource);
   const previousChangeSummaries = useAppSelector(selectPreviousChangeSummaries);
+  const historySummary = useAppSelector(selectHistorySummary);
   const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
@@ -112,6 +114,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       prompt: nextPrompt,
       appMemory,
       currentSource: committedSource,
+      ...(historySummary ? { historySummary } : {}),
       ...(previousSource !== undefined && previousSource !== committedSource ? { previousSource } : {}),
       previousChangeSummaries: buildPreviousChangeSummaries(previousChangeSummaries),
       previousUserMessages: buildPreviousUserMessages(chatMessages),
