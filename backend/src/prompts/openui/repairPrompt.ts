@@ -1,4 +1,9 @@
-import { DEFAULT_MAX_REPAIR_VALIDATION_ISSUES, createEmptyAppMemory, type AppMemory } from '@kitto-openui/shared/builderApiContract.js';
+import {
+  DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
+  VALIDATION_ISSUES_MAX_CHARS,
+  createEmptyAppMemory,
+  type AppMemory,
+} from '@kitto-openui/shared/builderApiContract.js';
 import { collectTopLevelStatements } from '@kitto-openui/shared/openuiAst.js';
 import { isOpenUiBlockingQualityIssue } from '@kitto-openui/shared/openuiQualityIssueRegistry.js';
 import { buildOpenUiComponentSignatureRule } from './componentSpec.js';
@@ -922,7 +927,7 @@ function buildRoleBasedRepairIntroSection(
   if (mode === 'quality') {
     introLines.push('The failed draft is syntactically valid but fails a product-quality check.');
     introLines.push('Use the assistant failed-draft message as the primary source to repair.');
-    introLines.push('Use the current source inventory only as fallback context for the committed app shape.');
+    introLines.push('Use the current committed source only as fallback context for the committed app shape.');
     introLines.push('Stay close to the failed draft and fix only the listed quality issues with the smallest possible diff.');
     introLines.push('Do not rewrite unrelated parts, change unflagged behavior, or introduce new features.');
 
@@ -931,14 +936,14 @@ function buildRoleBasedRepairIntroSection(
 
   if (mode === 'mixed') {
     introLines.push('The failed draft has validation issues and product-quality issues.');
-    introLines.push('Use the current source inventory as fallback context for the committed app shape.');
+    introLines.push('Use the current committed source as fallback context for the committed app shape.');
     introLines.push('Stay close to the failed draft where possible, and fix only the listed issues.');
     introLines.push('Do not rewrite unrelated parts or introduce new features.');
 
     return introLines.join('\n');
   }
 
-  introLines.push('Use the current source inventory as fallback context for the committed app shape.');
+  introLines.push('Use the current committed source as fallback context for the committed app shape.');
   introLines.push('Carry forward the intended changes from the failed draft only when they can be expressed as valid OpenUI.');
   introLines.push('Fix every issue listed in the final user message.');
 
@@ -979,7 +984,7 @@ function buildOpenUiRepairPromptParts(
   const hasHints = repairHints.length > 0 || repairExemplars.length > 0 || requestExemplars.length > 0;
   const hasConversationContext = conversationContextLines.length > 0;
   const hasStatementExcerpts = statementExcerptLines.length > 0;
-  const shouldIncludeSourceContext = issueMode !== 'quality';
+  const shouldIncludeSourceContext = outputFormat === 'roleMessages' || issueMode !== 'quality';
   const introSection =
     outputFormat === 'roleMessages'
       ? buildRoleBasedRepairIntroSection(
@@ -1025,11 +1030,11 @@ function buildOpenUiRepairPromptParts(
     '- No matching draft statements were found.',
   );
   const sourceContext = outputFormat === 'roleMessages'
-    ? buildCurrentSourceInventory(committedSource) ?? '(blank canvas, no committed OpenUI inventory yet)'
+    ? committedSource
     : buildCommittedSourceContext(committedSource, sanitizedIssues);
   const sourceContextFallback =
     outputFormat === 'roleMessages'
-      ? '(blank canvas, no committed OpenUI inventory yet)'
+      ? '(blank canvas, no committed OpenUI source yet)'
       : '(blank canvas, no committed OpenUI source yet)';
   const sectionSkeleton =
     outputFormat === 'roleMessages'
@@ -1039,7 +1044,7 @@ function buildOpenUiRepairPromptParts(
           buildRepairDataBlock('original_user_request', ''),
           buildRepairDataBlock('previous_app_memory', ''),
           hasConversationContext ? buildRepairDataBlock('conversation_context', '') : null,
-          shouldIncludeSourceContext ? buildRepairDataBlock('current_source_inventory', '') : null,
+          shouldIncludeSourceContext ? buildRepairDataBlock('current_source', '') : null,
           buildRepairDataBlock('model_draft_that_failed', ''),
           buildRepairDataBlock('validation_issues', ''),
           hasHints ? buildRepairDataBlock('hints', '') : null,
@@ -1106,14 +1111,20 @@ function buildOpenUiRepairPromptParts(
         )
       : '';
   const sourceContextSectionContent = shouldIncludeSourceContext
-    ? buildRepairSourceSectionContent(
-        sourceContext,
-        budgets.committedSource,
-        sourceContextFallback,
-        budgetedSectionOptions,
-      )
+    ? outputFormat === 'roleMessages'
+      ? (sourceContext.trim() ? sourceContext : sourceContextFallback)
+      : buildRepairSourceSectionContent(
+          sourceContext,
+          budgets.committedSource,
+          sourceContextFallback,
+          budgetedSectionOptions,
+        )
     : '';
-  const issuesSectionContent = buildRepairIssueSection(sanitizedIssues, budgets.issues, budgetedSectionOptions);
+  const issuesSectionContent = buildRepairIssueSection(
+    sanitizedIssues,
+    outputFormat === 'roleMessages' ? VALIDATION_ISSUES_MAX_CHARS : budgets.issues,
+    budgetedSectionOptions,
+  );
   const hintsSectionContent = hasHints
     ? buildBoundedSectionContent(
         hintLines,
@@ -1170,7 +1181,7 @@ export function buildOpenUiRepairRoleMessages(args: BuildOpenUiRepairPromptArgs)
       buildRepairDataBlock('original_user_request', parts.userRequestSectionContent),
       buildRepairDataBlock('previous_app_memory', parts.appMemorySectionContent),
       parts.conversationContextSectionContent ? buildRepairDataBlock('conversation_context', parts.conversationContextSectionContent) : null,
-      parts.sourceContextSectionContent ? buildRepairDataBlock('current_source_inventory', parts.sourceContextSectionContent) : null,
+      parts.sourceContextSectionContent ? buildRepairDataBlock('current_source', parts.sourceContextSectionContent) : null,
     ]
       .filter(Boolean)
       .join('\n\n'),

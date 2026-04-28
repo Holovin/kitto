@@ -111,8 +111,8 @@ describe('repair prompt assembly', () => {
     });
 
     expect(extractDataBlock(messages.requestContext, 'original_user_request')).toBe('(empty user request)');
-    expect(extractDataBlock(messages.requestContext, 'current_source_inventory')).toBe(
-      '(blank canvas, no committed OpenUI inventory yet)',
+    expect(extractDataBlock(messages.requestContext, 'current_source')).toBe(
+      '(blank canvas, no committed OpenUI source yet)',
     );
     expect(extractDataBlock(messages.failedDraft, 'model_draft_that_failed')).toBe('(the failed draft was empty)');
     expect(extractDataBlock(messages.correctionRequest, 'validation_issues')).toBe(

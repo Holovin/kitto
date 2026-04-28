@@ -214,15 +214,15 @@ function buildOpenUiLatestUserTurn(
 
   return [
     ...INITIAL_USER_PROMPT_INTRO_LINES,
-    includePreviousChanges ? buildPreviousChangesBlock(previousSource, currentSource) : null,
-    buildAppMemoryDataBlock(appMemory),
-    buildOptionalPromptDataBlock('history_summary', historySummary),
-    buildStringArrayDataBlock('previous_user_messages', previousUserMessages),
-    buildStringArrayDataBlock('previous_change_summaries', previousChangeSummaries),
     buildPromptDataBlock('latest_user_request', userRequest),
     ...buildCurrentSourceSection({
       currentSource,
     }),
+    buildAppMemoryDataBlock(appMemory),
+    buildOptionalPromptDataBlock('history_summary', historySummary),
+    buildStringArrayDataBlock('previous_user_messages', previousUserMessages),
+    buildStringArrayDataBlock('previous_change_summaries', previousChangeSummaries),
+    includePreviousChanges ? buildPreviousChangesBlock(previousSource, currentSource) : null,
     isFollowUp ? FOLLOW_UP_OUTPUT_REQUIREMENT_LINES.join('\n') : null,
     STRUCTURED_OUTPUT_INSTRUCTION,
   ]

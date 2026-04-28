@@ -21,6 +21,7 @@ interface PromptIoLogEntryFields {
   mode: PromptIoLogMode;
   phase: PromptIoLogPhase;
   rawUserRequest?: string;
+  budgetDecision?: unknown;
   currentSourceChars?: number;
   currentSourceIncluded?: boolean;
   currentSourceItemsIncluded?: boolean;

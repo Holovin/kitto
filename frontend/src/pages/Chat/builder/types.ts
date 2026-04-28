@@ -18,6 +18,8 @@ export type {
   BuilderLlmRequestCompaction,
   BuilderLlmRequestMode,
   BuilderLlmResponse,
+  BudgetDecision,
+  BudgetDecisionSection,
   PromptBuildOptionsShapeIssueContext,
   PromptBuildValidationIssue,
   PromptBuildValidationIssueContext,

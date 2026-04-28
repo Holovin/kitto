@@ -20,6 +20,8 @@ import {
   createEmptyAppMemory,
   CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
   type AppMemory,
+  type BudgetDecision,
+  type BudgetDecisionSection,
 } from '@kitto-openui/shared/builderApiContract.js';
 import { openUiEnvelopeFormat } from './envelope.js';
 
@@ -36,6 +38,7 @@ type DroppedPromptSection =
   | 'selectedExamples';
 
 export interface PromptContextLogMetadata {
+  budgetDecision: BudgetDecision;
   currentSourceChars: number;
   currentSourceIncluded: boolean;
   currentSourceItemsIncluded: boolean;
@@ -250,13 +253,139 @@ function createPromptContextMetadata(
   droppedSections: DroppedPromptSection[],
 ): PromptContextLogMetadata {
   const fullText = input.map(getInputMessageText).join('\n');
+  const currentSourceIncluded = fullText.includes('<current_source>\n') || fullText.includes('Current committed valid OpenUI source:');
+  const currentSourceProtected = request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
+  const budgetDecision = createBudgetDecision(request, fullText, droppedSections);
+
+  return {
+    budgetDecision,
+    currentSourceChars: request.currentSource.length,
+    currentSourceIncluded,
+    currentSourceItemsIncluded: fullText.includes('<current_source_inventory>'),
+    currentSourceProtected,
+    droppedSections,
+  };
+}
+
+function getJsonChars(value: unknown) {
+  return JSON.stringify(value ?? null).length;
+}
+
+function getStringArrayChars(values?: string[]) {
+  return getJsonChars((values ?? []).map((value) => value.trim()).filter(Boolean));
+}
+
+function getValidationIssueChars(request: PromptBuildRequest) {
+  return getJsonChars(request.validationIssues ?? []);
+}
+
+function createBudgetSection(
+  name: string,
+  chars: number,
+  included: boolean,
+  protectedSection: boolean,
+  reason?: string,
+): BudgetDecisionSection {
+  return {
+    name,
+    chars,
+    included,
+    protected: protectedSection,
+    ...(reason ? { reason } : {}),
+  };
+}
+
+function createBudgetDecision(
+  request: PromptBuildRequest,
+  fullText: string,
+  droppedSections: DroppedPromptSection[],
+): BudgetDecision {
+  const droppedSectionSet = new Set<string>(droppedSections);
+  const hasCurrentSource = request.currentSource.trim().length > 0;
+  const currentSourceIncluded = fullText.includes('<current_source>\n');
+  const validationIssuesIncluded = request.mode !== 'repair' || fullText.includes('<validation_issues>\n');
+  const selectedExamplesIncluded =
+    !droppedSectionSet.has('selectedExamples') &&
+    (fullText.includes('Relevant patterns:') || fullText.includes('Additional OpenUI examples:'));
+  const currentSourceItemsIncluded = fullText.includes('<current_source_inventory>');
+  const appMemoryIncluded = fullText.includes('<previous_app_memory>\n');
+  const historySummaryIncluded = fullText.includes('<history_summary>\n');
+  const previousUserMessagesIncluded = fullText.includes('<previous_user_messages>\n');
+  const previousChangeSummariesIncluded = fullText.includes('<previous_change_summaries>\n');
+  const currentSourceProtected = request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
 
   return {
     currentSourceChars: request.currentSource.length,
-    currentSourceIncluded: fullText.includes('<current_source>\n') || fullText.includes('Current committed valid OpenUI source:'),
-    currentSourceItemsIncluded: fullText.includes('<current_source_inventory>'),
-    currentSourceProtected: request.currentSource.length > 0 && request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS,
+    currentSourceIncluded,
+    currentSourceProtected: true,
     droppedSections,
+    sections: [
+      createBudgetSection('latestUserPrompt', buildOpenUiRawUserRequest(request).length, true, true),
+      createBudgetSection(
+        'validationIssues',
+        request.mode === 'repair' ? getValidationIssueChars(request) : 0,
+        request.mode === 'repair' ? validationIssuesIncluded : false,
+        true,
+        request.mode === 'repair' ? undefined : 'not repair',
+      ),
+      createBudgetSection(
+        'currentSource',
+        request.currentSource.length,
+        currentSourceIncluded,
+        true,
+        hasCurrentSource
+          ? currentSourceProtected
+            ? undefined
+            : 'over emergency cap'
+          : 'blank canvas',
+      ),
+      createBudgetSection(
+        'appMemory',
+        getJsonChars(request.appMemory ?? createEmptyAppMemory()),
+        appMemoryIncluded,
+        false,
+        droppedSectionSet.has('appMemory.appSummary')
+          ? 'trimmed to empty memory'
+          : droppedSectionSet.has('appMemory.userPreferences') || droppedSectionSet.has('appMemory.avoid')
+            ? 'trimmed for optional context budget'
+            : undefined,
+      ),
+      createBudgetSection(
+        'historySummary',
+        request.historySummary?.trim().length ?? 0,
+        historySummaryIncluded,
+        false,
+        droppedSectionSet.has('historySummary') ? 'dropped for optional context budget' : undefined,
+      ),
+      createBudgetSection(
+        'previousUserMessages',
+        getStringArrayChars(request.previousUserMessages),
+        previousUserMessagesIncluded,
+        false,
+        droppedSectionSet.has('previousUserMessages') ? 'trimmed/dropped for optional context budget' : undefined,
+      ),
+      createBudgetSection(
+        'previousChangeSummaries',
+        getStringArrayChars(request.previousChangeSummaries),
+        previousChangeSummariesIncluded,
+        false,
+        droppedSectionSet.has('previousChangeSummaries') ? 'trimmed/dropped for optional context budget' : undefined,
+      ),
+      createBudgetSection(
+        'selectedExamples',
+        selectedExamplesIncluded ? Math.min(fullText.length, 2_500) : 0,
+        selectedExamplesIncluded,
+        false,
+        droppedSectionSet.has('selectedExamples') ? 'dropped for optional context budget' : undefined,
+      ),
+      createBudgetSection(
+        'currentSourceItems',
+        currentSourceItemsIncluded ? Math.min(fullText.length, 3_000) : 0,
+        currentSourceItemsIncluded,
+        false,
+        droppedSectionSet.has('currentSourceItems') ? 'dropped for optional context budget' : 'omitted',
+      ),
+    ],
   };
 }
 
@@ -281,6 +410,16 @@ function cropAppMemorySummary(appMemory: AppMemory | undefined): AppMemory {
     avoid: [],
     userPreferences: [],
   };
+}
+
+function trimOptionalStringArray(values: string[] | undefined) {
+  const normalizedValues = (values ?? []).map((value) => value.trim()).filter(Boolean);
+
+  if (normalizedValues.length <= 1) {
+    return [];
+  }
+
+  return normalizedValues.slice(Math.ceil(normalizedValues.length / 2));
 }
 
 function buildInitialResponseInputVariant(
@@ -309,7 +448,7 @@ function buildBudgetedInitialResponseInput(
   env: AppEnv,
   systemPrompt: string,
   request: PromptBuildRequest,
-): { droppedSections: DroppedPromptSection[]; input: ResponseInput } {
+): { droppedSections: DroppedPromptSection[]; input: ResponseInput; metadataRequest: PromptBuildRequest } {
   let appMemory = request.appMemory;
   let budgetedRequest = request;
   let includeIntentExamples = true;
@@ -334,32 +473,39 @@ function buildBudgetedInitialResponseInput(
     input = buildInput();
   };
 
+  dropIfNeeded('currentSourceItems', () => {
+    // Source inventory is optional hint context. The full current source remains protected.
+  });
   dropIfNeeded('selectedExamples', () => {
     includeIntentExamples = false;
   });
   dropIfNeeded('previousChangeSummaries', () => {
-    budgetedRequest = { ...budgetedRequest, previousChangeSummaries: [] };
+    budgetedRequest = { ...budgetedRequest, previousChangeSummaries: trimOptionalStringArray(budgetedRequest.previousChangeSummaries) };
   });
   dropIfNeeded('previousUserMessages', () => {
-    budgetedRequest = { ...budgetedRequest, previousUserMessages: [] };
+    budgetedRequest = { ...budgetedRequest, previousUserMessages: trimOptionalStringArray(budgetedRequest.previousUserMessages) };
   });
   dropIfNeeded('historySummary', () => {
     budgetedRequest = { ...budgetedRequest, historySummary: undefined };
   });
-  dropIfNeeded('currentSourceItems', () => {
-    // Normal follow-up generation does not include source inventory as source context.
+  dropIfNeeded('appMemory.avoid', () => {
+    appMemory = stripAppMemoryAvoid(appMemory);
   });
   dropIfNeeded('appMemory.userPreferences', () => {
     appMemory = stripAppMemoryUserPreferences(appMemory);
-  });
-  dropIfNeeded('appMemory.avoid', () => {
-    appMemory = stripAppMemoryAvoid(appMemory);
   });
   dropIfNeeded('appMemory.appSummary', () => {
     appMemory = cropAppMemorySummary(appMemory);
   });
 
-  return { droppedSections, input };
+  return {
+    droppedSections,
+    input,
+    metadataRequest: {
+      ...budgetedRequest,
+      appMemory,
+    },
+  };
 }
 
 function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest): {
@@ -401,11 +547,11 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
     };
   }
 
-  const { droppedSections, input } = buildBudgetedInitialResponseInput(env, systemPrompt, request);
+  const { droppedSections, input, metadataRequest } = buildBudgetedInitialResponseInput(env, systemPrompt, request);
 
   return {
     input,
-    metadata: createPromptContextMetadata(request, input, droppedSections),
+    metadata: createPromptContextMetadata(metadataRequest, input, droppedSections),
   };
 }
 

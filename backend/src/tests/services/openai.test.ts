@@ -430,7 +430,7 @@ describe('generateOpenUiSource', () => {
     expect(repairCall?.input?.[0]?.content?.[0]?.text).toContain('Automatic repair attempt 1 of 2.');
     expect(repairCall?.input?.[1]?.role).toBe('user');
     expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('<original_user_request>\nBuild a todo app\n</original_user_request>');
-    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('<current_source_inventory>');
+    expect(repairCall?.input?.[1]?.content?.[0]?.text).toContain('<current_source>');
     expect(repairCall?.input?.[2]?.role).toBe('assistant');
     expect(repairCall?.input?.[2]?.content).toContain('<model_draft_that_failed>');
     expect(repairCall?.input?.[2]?.content).toContain('root = AppShell([Button("broken", "Broken", "default")])');
@@ -498,6 +498,24 @@ describe('generateOpenUiSource', () => {
         currentSourceItemsIncluded: false,
         currentSourceLen: currentSource.length,
         currentSourceProtected: true,
+        budgetDecision: expect.objectContaining({
+          currentSourceChars: currentSource.length,
+          currentSourceIncluded: true,
+          currentSourceProtected: true,
+          sections: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'currentSource',
+              chars: currentSource.length,
+              included: true,
+              protected: true,
+            }),
+            expect.objectContaining({
+              name: 'currentSourceItems',
+              included: false,
+              protected: false,
+            }),
+          ]),
+        }),
         droppedSections: expect.arrayContaining([
           'selectedExamples',
           'previousChangeSummaries',
@@ -584,9 +602,9 @@ describe('generateOpenUiSource', () => {
       - Previous committed change: Built a signup form with an email field.
       </conversation_context>
 
-      <current_source_inventory>
-      (blank canvas, no committed OpenUI inventory yet)
-      </current_source_inventory>",
+      <current_source>
+      (blank canvas, no committed OpenUI source yet)
+      </current_source>",
               "type": "input_text",
             },
           ],

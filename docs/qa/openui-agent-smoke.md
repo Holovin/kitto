@@ -32,7 +32,8 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 12. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent for the current app context together with the newest surviving context instead of collapsing to a newest-only tail. After reset, valid import, or demo load, older pre-change user requests should not be sent as LLM chat history.
 13. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
 14. `/api/config` `limits` should include `promptMaxChars`, `chatMessageMaxChars`, `sourceMaxChars`, `chatHistoryMaxItems`, and `requestMaxBytes`; submit-time preflight should block any one field or full serialized payload that exceeds those limits.
-15. After undo/redo and browser reload, the current committed source and compact LLM app memory should still come from the same builder revision.
+15. The composer context tooltip should show char-based sections and mark `currentSource` as protected.
+16. After undo/redo and browser reload, the current committed source and compact LLM app memory should still come from the same builder revision.
 
 ## MCP automation notes
 
@@ -67,19 +68,19 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
 - The user prompt template shows the initial input shape: earlier transcript turns are not sent as separate role-based messages; the final user turn starts with `<intent_context>`, then derived context blocks, and the latest request/current source blocks.
-- The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
+- The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / protected `<current_source>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - The `<request_intent>` block inside `<intent_context>` is one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
 - The final user turn contains `<latest_user_request>` plus the full committed `<current_source>` for normal follow-up generation while source stays at or below the 50,000 character emergency cap; Kitto does not summarize or replace the authoritative source with inventory, appMemory, or summaries.
 - The final user turn includes `<previous_app_memory>` as compact LLM context shaped `{ version: 1, appSummary, userPreferences, avoid }`; it is not runtime state or exported preview memory.
 - Generation requests do not send the full visible chat transcript as `chatHistory`; they send derived context with the latest `prompt`, at most 5 `previousUserMessages`, at most 5 committed `previousChangeSummaries`, optional `historySummary`, compact `appMemory`, and the authoritative current source.
 - Builder revisions store committed source plus compact LLM app memory, while live preview runtime/domain state remains separate from model context memory.
-- When the backend receives `previousSource`, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
+- When the backend receives `previousSource`, the final user turn may include `<previous_changes>` with a short source-delta summary after protected request/source blocks.
 - Source inventory is only a repair/debug context hint when present, not a replacement for authoritative source.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
 - The user prompt template adds a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
 - The `Repair prompt` section carries the same structured-envelope guidance and always instructs the model to return the corrected program in `source`.
-- Quality-only repair prompts use the failed draft plus issues/hints and do not include committed source or current-source inventory as fallback context.
+- Repair prompts use the failed draft plus issues/hints and keep validation issues present; committed source is sent as protected `<current_source>` context rather than replaced with inventory.
 - `Output envelope schema` documents the model envelope only: `summary`, `changeSummary`, `source`, and compact `appMemory`.
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` does not show a runtime-config badge in the header.

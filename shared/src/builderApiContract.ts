@@ -110,6 +110,22 @@ export interface BuilderLlmRequestCompaction {
   omittedChatMessages: number;
 }
 
+export interface BudgetDecisionSection {
+  chars: number;
+  included: boolean;
+  name: string;
+  protected: boolean;
+  reason?: string;
+}
+
+export interface BudgetDecision {
+  currentSourceChars: number;
+  currentSourceIncluded: boolean;
+  currentSourceProtected: true;
+  droppedSections: string[];
+  sections: BudgetDecisionSection[];
+}
+
 export const APP_MEMORY_VERSION = 1;
 export const APP_MEMORY_MAX_CHARS = 4_096;
 export const APP_MEMORY_ARRAY_MAX_ITEMS = 8;
@@ -119,7 +135,10 @@ export const PREVIOUS_USER_MESSAGES_MAX_ITEMS = 5;
 export const PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS = 4_096;
 export const PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS = 5;
 export const PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS = 1_024;
-export const HISTORY_SUMMARY_MAX_CHARS = 4_096;
+export const HISTORY_SUMMARY_MAX_CHARS = 512;
+export const VALIDATION_ISSUES_MAX_CHARS = 4_096;
+export const SELECTED_EXAMPLES_MAX_CHARS = 2_500;
+export const CURRENT_SOURCE_ITEMS_MAX_CHARS = 3_000;
 
 export const appMemorySchema = z
   .object({
@@ -245,6 +264,7 @@ export function normalizeAppMemory(value: unknown): AppMemory {
 
 export interface BuilderLlmResponse {
   appMemory: AppMemory;
+  budgetDecision?: BudgetDecision;
   changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
   model: string;
