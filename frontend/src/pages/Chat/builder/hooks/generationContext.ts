@@ -76,6 +76,9 @@ function createMeterSection(
   protectedSection: boolean,
   content: string,
   reason?: string,
+  options: {
+    unminifiedChars?: number;
+  } = {},
 ): ContextMeterSection {
   return {
     name,
@@ -85,6 +88,9 @@ function createMeterSection(
     priority,
     protected: protectedSection,
     ...(reason ? { reason } : {}),
+    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== chars
+      ? { unminifiedChars: options.unminifiedChars }
+      : {}),
   };
 }
 
@@ -213,7 +219,8 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
     ];
   }
 
-  const structuredOutputContract = JSON.stringify(promptInfo.envelopeSchema, null, 2);
+  const structuredOutputContract = JSON.stringify(promptInfo.envelopeSchema);
+  const prettyStructuredOutputContract = JSON.stringify(promptInfo.envelopeSchema, null, 2);
 
   return [
     createMeterSection(1, 'system/contract', promptInfo.systemPrompt.text.length, true, true, promptInfo.systemPrompt.text),
@@ -224,6 +231,10 @@ export function buildStaticPromptInfoContextSections(promptInfo?: PromptsInfoRes
       true,
       true,
       structuredOutputContract,
+      undefined,
+      {
+        unminifiedChars: prettyStructuredOutputContract.length,
+      },
     ),
     createMeterSection(3, 'intentContext', promptInfo.intentContext.text.length, true, false, promptInfo.intentContext.text),
     createMeterSection(

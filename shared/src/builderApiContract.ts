@@ -129,6 +129,7 @@ export interface BudgetDecision {
 export interface BuilderPromptContextSection extends BudgetDecisionSection {
   content: string;
   priority: number;
+  unminifiedChars?: number;
 }
 
 export interface BuilderPromptContextSnapshot {

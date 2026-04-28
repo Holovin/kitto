@@ -449,6 +449,9 @@ function createStaticPromptContextSection(
   name: string,
   content: string,
   protectedSection: boolean,
+  options: {
+    unminifiedChars?: number;
+  } = {},
 ): BuilderPromptContextSection {
   return {
     name,
@@ -457,6 +460,9 @@ function createStaticPromptContextSection(
     included: true,
     priority,
     protected: protectedSection,
+    ...(options.unminifiedChars !== undefined && options.unminifiedChars !== content.length
+      ? { unminifiedChars: options.unminifiedChars }
+      : {}),
   };
 }
 
@@ -469,10 +475,13 @@ export function buildPromptContextSnapshot(env: AppEnv, request: PromptBuildRequ
   const latestUserTurnText = isRepair ? secondTurnText : thirdTurnText;
   const failedDraftText = isRepair ? thirdTurnText : null;
   const correctionRequestText = isRepair ? fourthTurnText : null;
-  const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
+  const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema);
+  const prettyStructuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
   const sections: BuilderPromptContextSection[] = [
     createStaticPromptContextSection(1, 'system/contract', systemText, true),
-    createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true),
+    createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true, {
+      unminifiedChars: prettyStructuredOutputContract.length,
+    }),
   ];
 
   if (intentContextText !== null) {

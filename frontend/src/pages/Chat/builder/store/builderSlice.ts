@@ -262,6 +262,7 @@ function normalizePromptContextSection(value: unknown): BuilderPromptContextSect
     priority: value.priority,
     protected: value.protected,
     ...(typeof value.reason === 'string' ? { reason: value.reason } : {}),
+    ...(typeof value.unminifiedChars === 'number' ? { unminifiedChars: value.unminifiedChars } : {}),
   };
 }
 

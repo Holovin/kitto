@@ -109,7 +109,45 @@ function formatByteCount(bytes: number) {
 }
 
 function formatCharCount(chars: number) {
-  return new Intl.NumberFormat().format(chars);
+  return String(chars);
+}
+
+function formatContextSectionChars(section: ContextMeterSection) {
+  const baseChars = formatCharCount(section.chars);
+
+  if (section.unminifiedChars === undefined || section.unminifiedChars === section.chars) {
+    return baseChars;
+  }
+
+  return `${baseChars} (${formatCharCount(section.unminifiedChars)})`;
+}
+
+function tryFormatJson(value: string) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return null;
+  }
+}
+
+function formatContextSectionContent(content: string) {
+  const trimmedContent = content.trim();
+  const formattedJson = tryFormatJson(trimmedContent);
+
+  if (formattedJson !== null) {
+    return formattedJson;
+  }
+
+  const dataBlockMatch = /^<([A-Za-z_][\w-]*)>\n([\s\S]*)\n<\/\1>$/.exec(trimmedContent);
+
+  if (!dataBlockMatch) {
+    return content;
+  }
+
+  const [, tagName, blockContent = ''] = dataBlockMatch;
+  const formattedBlockJson = tryFormatJson(blockContent.trim());
+
+  return formattedBlockJson === null ? content : `<${tagName}>\n${formattedBlockJson}\n</${tagName}>`;
 }
 
 function getContextSectionStatus(section: ContextMeterSection) {
@@ -164,7 +202,7 @@ function ContextPanel({ sections }: ContextPanelProps) {
                     >
                       <td className="px-4 py-3 tabular-nums text-slate-600">{section.priority}</td>
                       <td className="px-4 py-3 font-medium text-slate-900">{section.name}</td>
-                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatCharCount(section.chars)}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatContextSectionChars(section)}</td>
                       <td
                         className="px-4 py-3 text-lg leading-none"
                         aria-label={getContextSectionStatusLabel(section)}
@@ -193,7 +231,7 @@ function ContextPanel({ sections }: ContextPanelProps) {
                           <textarea
                             className="h-[25rem] w-full resize-none rounded-lg border border-sky-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800 shadow-inner outline-none"
                             readOnly
-                            value={section.content}
+                            value={formatContextSectionContent(section.content)}
                           />
                         </td>
                       </tr>
