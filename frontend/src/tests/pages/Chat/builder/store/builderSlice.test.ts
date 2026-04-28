@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   BACKEND_DISCONNECTED_NOTICE,
-  BACKEND_RECONNECTED_NOTICE,
   RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
 } from '@pages/Chat/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
@@ -545,7 +544,7 @@ describe('builderSlice', () => {
     );
   });
 
-  it('updates keyed streaming messages in place without moving later messages', () => {
+  it('moves updated keyed streaming messages to the end of chat', () => {
     const withPendingSummary = builderReducer(
       createInitialState(),
       builderActions.appendChatMessage({
@@ -575,22 +574,23 @@ describe('builderSlice', () => {
     );
 
     expect(withUpdatedSummary.chatMessages.map((message) => message.content)).toEqual([
-      'Building: updated chunk',
       'A later tool status message.',
+      'Building: updated chunk',
     ]);
     expect(withUpdatedSummary.chatMessages[0]).toEqual(
-      expect.objectContaining({
-        id: summaryMessageId,
-        isStreaming: true,
-        messageKey: 'generation-summary:request-order',
-        role: 'assistant',
-      }),
-    );
-    expect(withUpdatedSummary.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
         content: 'A later tool status message.',
         role: 'system',
         tone: 'info',
+      }),
+    );
+    expect(withUpdatedSummary.chatMessages.at(-1)).toEqual(
+      expect.objectContaining({
+        content: 'Building: updated chunk',
+        id: summaryMessageId,
+        isStreaming: true,
+        messageKey: 'generation-summary:request-order',
+        role: 'assistant',
       }),
     );
   });
@@ -747,21 +747,21 @@ describe('builderSlice', () => {
     const withRecoveryNotice = builderReducer(
       withUserMessage,
       builderActions.appendChatMessage({
-        content: BACKEND_RECONNECTED_NOTICE,
+        content: BACKEND_DISCONNECTED_NOTICE,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
         role: 'system',
-        tone: 'success',
+        tone: 'error',
       }),
     );
 
     expect(withRecoveryNotice.chatMessages).toHaveLength(2);
     expect(withRecoveryNotice.chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: BACKEND_RECONNECTED_NOTICE,
+        content: BACKEND_DISCONNECTED_NOTICE,
         id: disconnectNoticeId,
         messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
         role: 'system',
-        tone: 'success',
+        tone: 'error',
       }),
     );
   });

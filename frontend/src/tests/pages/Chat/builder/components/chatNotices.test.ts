@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   BACKEND_DISCONNECTED_NOTICE,
-  BACKEND_RECONNECTED_NOTICE,
   resolveBackendConnectionNotice,
 } from '@pages/Chat/builder/components/chatNotices';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
@@ -22,7 +21,7 @@ describe('resolveBackendConnectionNotice', () => {
     });
   });
 
-  it('emits a recovery notice when the current backend status message is stale on reconnect', () => {
+  it('does not emit a recovery notice when the backend reconnects', () => {
     expect(
       resolveBackendConnectionNotice({
         configStatus: 'loaded',
@@ -30,11 +29,7 @@ describe('resolveBackendConnectionNotice', () => {
         previouslyUnavailable: null,
         statusContent: BACKEND_DISCONNECTED_NOTICE,
       }),
-    ).toEqual({
-      content: BACKEND_RECONNECTED_NOTICE,
-      messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
-      tone: 'success',
-    });
+    ).toBeNull();
   });
 
   it('does not emit a duplicate disconnect notice while the backend is still down and the latest status is already current', () => {

@@ -1,50 +1,59 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildContextMeterSections,
+  applyBackendPromptContextDisplayMetadata,
+  buildPreviousChangeSummaries,
+  buildPreviousUserMessages,
   buildStaticPromptInfoContextSections,
-  formatContextMeterTooltip,
 } from '@pages/Chat/builder/hooks/generationContext';
 import type { PromptsInfoResponse } from '@pages/Chat/builder/types';
 
 describe('generationContext', () => {
-  it('marks current source as protected in the context meter', () => {
-    const currentSource = 'root = AppShell([])';
-    const sections = buildContextMeterSections({
-      appMemory: {
-        version: 1,
-        appSummary: 'Test app',
-        userPreferences: [],
-        avoid: [],
-      },
-      currentSource,
-      historySummary: 'Older context summary.',
-      latestUserPrompt: 'Add a settings screen.',
-      previousChangeSummaries: ['Created the app.'],
-      previousUserMessages: ['Create an app.'],
-    });
-
-    expect(sections).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          chars: currentSource.length,
-          included: true,
-          name: 'currentSource',
-          priority: 3,
-          protected: true,
-          reason: 'protected',
-        }),
+  it('derives previous user messages from visible user chat without rebuilding context sections', () => {
+    expect(
+      buildPreviousUserMessages([
+        {
+          id: 'user-1',
+          content: ' Create an app. ',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          role: 'user',
+        },
+        {
+          id: 'user-2',
+          content: 'Hidden retry context',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          excludeFromLlmContext: true,
+          role: 'user',
+        },
+        {
+          id: 'assistant-1',
+          content: 'Done.',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          role: 'assistant',
+        },
       ]),
-    );
-    expect(sections.find((section) => section.name === 'currentSource')?.content).toContain(
-      `<current_source>\n${currentSource}\n</current_source>`,
-    );
-    expect(formatContextMeterTooltip(sections)).toContain(`- currentSource: ${currentSource.length} chars protected`);
-    expect(sections.find((section) => section.name === 'historySummary')?.content).toContain(
-      '<history_summary>\nOlder context summary.\n</history_summary>',
-    );
+    ).toEqual(['Create an app.']);
   });
 
-  it('uses backend-provided prompt context limits for initial context rows', () => {
+  it('trims previous change summaries for request payloads', () => {
+    expect(buildPreviousChangeSummaries([' Created a todo list. ', '', '  Added filters.'])).toEqual([
+      'Created a todo list.',
+      'Added filters.',
+    ]);
+  });
+
+  it('uses backend-provided static context sections without rebuilding limits or placeholders', () => {
+    const staticPromptContextSections: PromptsInfoResponse['staticPromptContextSections'] = [
+      {
+        chars: 0,
+        content: '(populated by backend after Send)',
+        hardLimitChars: 50_000,
+        included: false,
+        name: 'currentSource',
+        priority: 6,
+        protected: true,
+        reason: 'waiting for request',
+      },
+    ];
     const promptInfo: PromptsInfoResponse = {
       config: {
         cacheKeyPrefix: 'kitto:openui',
@@ -66,25 +75,10 @@ describe('generationContext', () => {
         text: '',
       },
       intentContextVariants: [],
-      promptContextLimits: [
-        {
-          chars: 0,
-          hardLimitChars: 4_096,
-          included: false,
-          name: 'latestUserPrompt',
-          protected: true,
-        },
-        {
-          chars: 0,
-          hardLimitChars: 50_000,
-          included: false,
-          name: 'currentSource',
-          protected: true,
-        },
-      ],
+      promptContextLimits: [],
       repairPromptTemplate: '',
       requestPromptTemplate: '',
-      staticPromptContextSections: [],
+      staticPromptContextSections,
       systemPrompt: {
         cacheKey: 'kitto:openui:base:test',
         hash: '1234567890abcdef',
@@ -98,13 +92,73 @@ describe('generationContext', () => {
       toolSpecs: [],
     };
 
-    const sections = buildStaticPromptInfoContextSections(promptInfo);
+    expect(buildStaticPromptInfoContextSections(promptInfo)).toBe(staticPromptContextSections);
+  });
 
-    expect(sections.find((section) => section.name === 'latestUserPrompt')).toMatchObject({
-      hardLimitChars: 4_096,
-    });
-    expect(sections.find((section) => section.name === 'currentSource')).toMatchObject({
-      hardLimitChars: 50_000,
-    });
+  it('hydrates missing display metadata from backend prompt info without deriving limit labels', () => {
+    const sections = applyBackendPromptContextDisplayMetadata(
+      [
+        {
+          chars: 42,
+          content: '<current_source>...</current_source>',
+          hardLimitChars: 50_000,
+          included: true,
+          name: 'currentSource',
+          priority: 6,
+          protected: true,
+        },
+      ],
+      {
+        config: {
+          cacheKeyPrefix: 'kitto:openui',
+          maxOutputTokens: 30_000,
+          model: 'gpt-test',
+          modelPromptMaxChars: 50_000,
+          outputMaxBytes: 100_000,
+          repairTemperature: 0.2,
+          requestMaxBytes: 300_000,
+          temperature: 0.4,
+          userPromptMaxChars: 4_096,
+        },
+        envelopeSchema: {},
+        intentContext: {
+          id: 'base',
+          intentVector: 'base',
+          label: 'Base',
+          sampleRequest: null,
+          text: '',
+        },
+        intentContextVariants: [],
+        promptContextLimits: [],
+        repairPromptTemplate: '',
+        requestPromptTemplate: '',
+        staticPromptContextSections: [
+          {
+            chars: 0,
+            content: '(populated by backend after Send)',
+            hardLimitChars: 50_000,
+            included: false,
+            limitLabels: ['HARD 50000'],
+            name: 'currentSource',
+            priority: 6,
+            protected: true,
+            reason: 'waiting for request',
+          },
+        ],
+        systemPrompt: {
+          cacheKey: 'kitto:openui:base:test',
+          hash: '1234567890abcdef',
+          id: 'base',
+          intentVector: 'base',
+          label: 'Base',
+          sampleRequest: null,
+          text: '',
+        },
+        systemPromptVariants: [],
+        toolSpecs: [],
+      },
+    );
+
+    expect(sections[0]?.limitLabels).toEqual(['HARD 50000']);
   });
 });

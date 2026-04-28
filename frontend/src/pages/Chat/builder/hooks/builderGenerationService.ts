@@ -82,6 +82,7 @@ interface BuilderGenerationLifecyclePort {
 interface BuilderStreamingSummaryPort {
   clearStreamingSummaryMessage: (requestId: BuilderRequestId) => void;
   getCommittedSummary: (requestId: BuilderRequestId, fallbackSummary?: string) => string | undefined;
+  upsertStreamingStatusMessage: (requestId: BuilderRequestId, status: string) => void;
   upsertStreamingSummaryMessage: (
     requestId: BuilderRequestId,
     summary: string,

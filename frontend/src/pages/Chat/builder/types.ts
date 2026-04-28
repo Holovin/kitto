@@ -1,6 +1,7 @@
 import type {
   BuilderCommitSource,
   BuilderLlmResponse,
+  BuilderPromptContextSection,
   BuilderRequestId,
   BudgetDecisionSection,
   AppMemory,

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
-import { ChevronDown, ChevronUp, Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { ChevronDown, Download, FileUp, Info, LoaderCircle, MoreHorizontal, RotateCcw, X } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useConfigQuery, useGetPromptsInfoQuery } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
@@ -14,7 +14,7 @@ import { PreviewErrorFallback } from '@pages/Chat/builder/components/PreviewErro
 import { resolvePreviewCanvasState } from '@pages/Chat/builder/components/previewCanvasState';
 import { PreviewUnavailableState } from '@pages/Chat/builder/components/PreviewUnavailableState';
 import {
-  applyPromptContextLimits,
+  applyBackendPromptContextDisplayMetadata,
   buildStaticPromptInfoContextSections,
   type ContextMeterSection,
 } from '@pages/Chat/builder/hooks/generationContext';
@@ -69,6 +69,7 @@ interface PreviewStreamingOverlayProps {
 }
 
 interface ContextPanelProps {
+  incompleteNotice?: string;
   sections: ContextMeterSection[];
 }
 
@@ -135,19 +136,52 @@ function getContextSectionLimitLabels(section: ContextMeterSection) {
     return section.limitLabels;
   }
 
-  if (section.softLimitChars === undefined && section.hardLimitChars === undefined) {
-    return ['—'];
+  return ['-'];
+}
+
+function formatContextLimitLabel(label: string) {
+  const normalizedLabel = label.replace(/^optional context target\s+/, '').replace(/^global\s+/, '');
+
+  return normalizedLabel.replace(/^LLM_MODEL_PROMPT_/, '').replace(/^LLM_/, '').replace('_BYTES', '');
+}
+
+function formatContextLimitLabelParts(label: string) {
+  const formattedLabel = formatContextLimitLabel(label);
+  const match = /^(.*?)(\d+)$/.exec(formattedLabel);
+
+  if (!match) {
+    return {
+      name: formattedLabel,
+      value: '',
+    };
   }
 
-  if (section.softLimitChars !== undefined && section.hardLimitChars !== undefined) {
-    return [`SOFT ${formatCharCount(section.softLimitChars)} (HARD ${formatCharCount(section.hardLimitChars)})`];
+  return {
+    name: match[1]?.trimEnd() ?? formattedLabel,
+    value: match[2] ?? '',
+  };
+}
+
+function formatFullContextLimitLabel(label: string) {
+  return label.replace(/^optional context target\s+/, '').replace(/^global\s+/, '');
+}
+
+function getContextLimitDescription(label: string) {
+  const normalizedLabel = formatFullContextLimitLabel(label);
+
+  if (normalizedLabel.startsWith('LLM_MODEL_PROMPT_MAX_CHARS ')) {
+    return 'Target character budget used to trim optional prompt context. Protected prompt sections can make the full request larger.';
   }
 
-  if (section.softLimitChars !== undefined) {
-    return [`SOFT ${formatCharCount(section.softLimitChars)}`];
+  if (normalizedLabel.startsWith('LLM_REQUEST_MAX_BYTES ')) {
+    return 'Maximum backend API request body size accepted for a generation request.';
   }
 
-  return [`HARD ${formatCharCount(section.hardLimitChars ?? 0)}`];
+  if (normalizedLabel.startsWith('LLM_OUTPUT_MAX_BYTES ')) {
+    return 'Maximum model response size the backend will accept and return.';
+  }
+
+  return null;
 }
 
 function formatContextSectionBudget(section: ContextMeterSection) {
@@ -201,36 +235,49 @@ function getContextSectionStatusLabel(section: ContextMeterSection) {
   return section.reason ?? 'Not included';
 }
 
-function ContextPanel({ sections }: ContextPanelProps) {
+function ContextPanel({ incompleteNotice, sections }: ContextPanelProps) {
   const [expandedSectionName, setExpandedSectionName] = useState<string | null>(null);
+  const expandedSection = expandedSectionName ? sections.find((section) => section.name === expandedSectionName) : null;
+  const visibleSections = expandedSection ? [expandedSection] : sections;
 
   return (
-    <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
-      <CardContent className="flex h-full min-h-0 flex-col p-6">
-        <div className="kitto-context-table-scroll min-h-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
-          <table className="w-full min-w-[44rem] border-collapse text-left text-sm">
-            <thead className="sticky top-0 bg-slate-50 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+    <Card className="h-full min-h-0 min-w-0 overflow-hidden border-white/70 bg-white/92">
+      <CardContent className="flex h-full min-h-0 min-w-0 flex-col gap-4 p-6">
+        <div className="kitto-context-table-scroll min-h-0 min-w-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
+          <table className={`w-full min-w-[44rem] table-fixed border-collapse text-left text-sm ${expandedSection ? 'h-full' : ''}`}>
+            <colgroup>
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '27%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '13%' }} />
+              <col style={{ width: '6%' }} />
+            </colgroup>
+            <thead className="sticky top-0 bg-slate-50 font-mono text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
               <tr>
-                <th className="w-16 border-b border-slate-200 px-3 py-3">Prio</th>
-                <th className="border-b border-slate-200 px-3 py-3">Section</th>
-                <th className="border-b border-slate-200 px-3 py-3">Chars</th>
-                <th className="border-b border-slate-200 px-3 py-3">Limits</th>
-                <th className="border-b border-slate-200 px-3 py-3">Used</th>
-                <th className="border-b border-slate-200 px-3 py-3">Budget</th>
-                <th className="w-10 border-b border-slate-200 px-3 py-3" aria-label="Expand row" />
+                <th className="w-16 whitespace-nowrap border-b border-slate-200 py-3 pl-3 pr-2">Prio</th>
+                <th className="whitespace-nowrap border-b border-slate-200 px-2 py-3">Section</th>
+                <th className="whitespace-nowrap border-b border-slate-200 px-2 py-3">Chars</th>
+                <th className="whitespace-nowrap border-b border-slate-200 px-2 py-3">Limits</th>
+                <th className="whitespace-nowrap border-b border-slate-200 px-2 py-3">Used</th>
+                <th className="whitespace-nowrap border-b border-slate-200 px-2 py-3">Budget</th>
+                <th className="border-b border-slate-200 px-3 py-3" aria-label="Expand row" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sections.map((section) => {
+              {visibleSections.map((section) => {
                 const isExpanded = expandedSectionName === section.name;
                 const limitLabels = getContextSectionLimitLabels(section);
+                const hasLimitDescriptions = limitLabels.some((label) => getContextLimitDescription(label) !== null);
+                const hasLimitValues = limitLabels.some((label) => formatContextLimitLabelParts(label).value !== '');
                 const hasCustomBudgetLabel = section.budgetLabel !== undefined;
 
                 return (
                   <Fragment key={section.name}>
                     <tr
                       aria-expanded={isExpanded}
-                      className={`${section.protected ? 'bg-emerald-50/45' : 'bg-white'} cursor-pointer hover:bg-slate-50`}
+                      className={`${section.protected ? 'bg-emerald-50/45' : 'bg-white'} ${section.name === 'GLOBAL' ? 'border-b-2 border-slate-300' : ''} cursor-pointer hover:bg-slate-50`}
                       tabIndex={0}
                       onClick={() => setExpandedSectionName((currentName) => (currentName === section.name ? null : section.name))}
                       onKeyDown={(event) => {
@@ -242,24 +289,67 @@ function ContextPanel({ sections }: ContextPanelProps) {
                         setExpandedSectionName((currentName) => (currentName === section.name ? null : section.name));
                       }}
                     >
-                      <td className="px-3 py-3 tabular-nums text-slate-600">{section.priority}</td>
-                      <td className="px-3 py-3 font-medium text-slate-900">{section.name}</td>
-                      <td className="px-3 py-3 tabular-nums text-slate-700">{formatContextSectionChars(section)}</td>
-                      <td className="px-3 py-3">
-                        <span className="inline-flex flex-col gap-0.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                          {limitLabels.map((label) => (
-                            <span key={label}>{label}</span>
-                          ))}
+                      <td className="overflow-hidden py-3 pl-3 pr-2 tabular-nums text-slate-600">{section.priority}</td>
+                      <td className="truncate px-2 py-3 font-medium text-slate-900" title={section.name}>
+                        {section.name}
+                      </td>
+                      <td className="truncate px-2 py-3 font-mono tabular-nums text-slate-700" title={formatContextSectionChars(section)}>
+                        {formatContextSectionChars(section)}
+                      </td>
+                      <td className="overflow-visible px-2 py-3 font-mono">
+                        <span
+                          className={
+                            hasLimitDescriptions
+                              ? 'inline-grid max-w-full min-w-0 grid-cols-[minmax(0,1fr)_6ch_auto] items-center gap-x-1.5 gap-y-0.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
+                              : hasLimitValues
+                                ? 'inline-grid max-w-full min-w-0 grid-cols-[max-content_auto] items-center gap-x-1.5 gap-y-0.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
+                                : 'inline-flex max-w-full min-w-0 whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
+                          }
+                        >
+                          {limitLabels.map((label) => {
+                            const description = getContextLimitDescription(label);
+                            const labelParts = formatContextLimitLabelParts(label);
+
+                            if (!hasLimitValues) {
+                              return (
+                                <span key={label} className="min-w-0 truncate" title={formatFullContextLimitLabel(label)}>
+                                  {labelParts.name}
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <Fragment key={label}>
+                                <span className="min-w-0 truncate" title={formatFullContextLimitLabel(label)}>
+                                  {labelParts.name}
+                                </span>
+                                <span className="text-left tabular-nums">{labelParts.value}</span>
+                                {hasLimitDescriptions ? (
+                                  description ? (
+                                    <span className="group relative inline-flex">
+                                      <Info className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                                      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-80 -translate-x-1/2 whitespace-normal rounded-lg border border-slate-200 bg-slate-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg group-hover:block">
+                                        <span className="block font-semibold">{formatFullContextLimitLabel(label)}</span>
+                                        <span className="mt-1 block">{description}</span>
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span aria-hidden="true" />
+                                  )
+                                ) : null}
+                              </Fragment>
+                            );
+                          })}
                         </span>
                       </td>
                       <td
-                        className="px-3 py-3 text-lg leading-none"
+                        className="px-2 py-3 text-lg leading-none"
                         aria-label={getContextSectionStatusLabel(section)}
                         title={getContextSectionStatusLabel(section)}
                       >
                         {getContextSectionStatus(section)}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="overflow-hidden px-2 py-3">
                         <span
                           className={
                             hasCustomBudgetLabel
@@ -268,22 +358,30 @@ function ContextPanel({ sections }: ContextPanelProps) {
                               ? 'inline-flex rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800'
                               : 'inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
                           }
+                          title={formatContextSectionBudget(section)}
                         >
                           {formatContextSectionBudget(section)}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-slate-400">
-                        {isExpanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                      <td className="px-3 py-3 text-center text-slate-400">
+                        {isExpanded ? (
+                          <X className="mx-auto h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronDown className="mx-auto h-4 w-4" aria-hidden="true" />
+                        )}
                       </td>
                     </tr>
                     {isExpanded ? (
-                      <tr key={`${section.name}-details`} className={section.protected ? 'bg-sky-50/80' : 'bg-sky-50/70'}>
-                        <td colSpan={7} className="px-4 pb-4 pt-3">
-                          <textarea
-                            className="h-[25rem] w-full resize-none rounded-lg border border-sky-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800 shadow-inner outline-none"
-                            readOnly
-                            value={formatContextSectionContent(section.content)}
-                          />
+                      <tr key={`${section.name}-details`} className={`${section.protected ? 'bg-sky-50/80' : 'bg-sky-50/70'} h-full`}>
+                        <td colSpan={7} className="h-full max-w-0 px-4 pb-4 pt-3 align-top">
+                          <div className="h-full min-w-0 max-w-full overflow-hidden">
+                            <textarea
+                              className="box-border block h-full min-h-[25rem] w-full min-w-0 max-w-full resize-none overflow-x-auto overflow-y-auto whitespace-pre rounded-lg border border-sky-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800 shadow-inner outline-none"
+                              readOnly
+                              wrap="off"
+                              value={formatContextSectionContent(section.content)}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ) : null}
@@ -293,6 +391,12 @@ function ContextPanel({ sections }: ContextPanelProps) {
             </tbody>
           </table>
         </div>
+        {incompleteNotice ? (
+          <div className="shrink-0 space-y-2 rounded-[1.5rem] border border-amber-200 bg-amber-50/80 p-4">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-amber-700">Context data incomplete</p>
+            <div className="rounded-2xl bg-white px-3 py-2 text-sm text-slate-700">{incompleteNotice}</div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -371,10 +475,6 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     refetchOnReconnect: true,
   });
   const configStatus = getBuilderRuntimeConfigStatus(configState);
-  const isContextTabDisabled = configStatus === 'failed';
-  const promptsInfoState = useGetPromptsInfoQuery(undefined, {
-    skip: isContextTabDisabled || activeTab !== 'context',
-  });
   const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
     issues: [],
     scope: '',
@@ -403,6 +503,10 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const isPreviewEmptyCanvas = previewCanvasState !== 'preview';
   const isPreviewUnavailable = previewCanvasState === 'unavailable';
   const isEmptyCanvas = previewCanvasState === 'empty';
+  const isContextTabDisabled = configStatus === 'failed' || isEmptyCanvas;
+  const promptsInfoState = useGetPromptsInfoQuery(undefined, {
+    skip: isContextTabDisabled || activeTab !== 'context',
+  });
   const resolvedActiveTab =
     (isEmptyCanvas && (activeTab === 'definition' || activeTab === 'app-state')) ||
     (isContextTabDisabled && activeTab === 'context')
@@ -436,9 +540,15 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const streamedSourceBytes = getByteLength(streamedSource);
   const contextMeterSections = useMemo(() => {
     return lastPromptContext
-      ? applyPromptContextLimits(lastPromptContext.sections, promptsInfoState.data)
+      ? applyBackendPromptContextDisplayMetadata(lastPromptContext.sections, promptsInfoState.data)
       : buildStaticPromptInfoContextSections(promptsInfoState.data);
   }, [lastPromptContext, promptsInfoState.data]);
+  const contextIncompleteNotice =
+    promptsInfoState.isLoading || promptsInfoState.isFetching || promptsInfoState.isUninitialized
+      ? 'Prompt config is still loading, so the table may only contain temporary placeholders.'
+      : !lastPromptContext
+        ? 'No generation request has completed yet. The table shows static prompt config and waiting placeholders, not the full last LLM request.'
+        : undefined;
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
     previewSource: string;
@@ -777,7 +887,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
       </TabsContent>
 
       <TabsContent value="context" className="mt-0 flex-1 min-h-0">
-        <ContextPanel sections={contextMeterSections} />
+        <ContextPanel incompleteNotice={contextIncompleteNotice} sections={contextMeterSections} />
       </TabsContent>
     </Tabs>
   );

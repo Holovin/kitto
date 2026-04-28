@@ -122,7 +122,7 @@ function collectScreenIds(root: unknown) {
   return screenIds;
 }
 
-function isCurrentScreenStateRef(value: unknown) {
+function isCurrentScreenStateRef(value: unknown): value is { k: 'StateRef'; n: string } {
   return isAstNode(value) && value.k === 'StateRef' && typeof value.n === 'string' && CURRENT_SCREEN_REF_PATTERN.test(value.n);
 }
 

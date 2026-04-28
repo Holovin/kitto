@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { BUILDER_PERSISTENCE_QUOTA_WARNING } from '@store/persistence';
 import { BuilderRequestControlsProvider } from '@pages/Chat/builder/context/BuilderRequestControlsProvider';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
+import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
 import type { BuilderChatNotice } from '@pages/Chat/builder/types';
 import { useAppDispatch } from '@store/hooks';
 import { ChatPanel } from './ChatPanel';
@@ -12,7 +13,20 @@ export function BuilderPage() {
   const handleSystemNotice = useCallback(
     (notice: BuilderChatNotice | null) => {
       if (!notice) {
+        dispatch(
+          builderActions.removeChatMessageByKey({
+            messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+          }),
+        );
         return;
+      }
+
+      if (notice.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus) {
+        dispatch(
+          builderActions.removeChatMessageByKey({
+            messageKey: SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus,
+          }),
+        );
       }
 
       dispatch(

@@ -342,9 +342,9 @@ describe('buildPromptContextSnapshot', () => {
       chars: snapshot.totalChars,
       included: true,
       limitLabels: [
-        'LLM_MODEL_PROMPT_MAX_CHARS 12345',
-        'LLM_REQUEST_MAX_BYTES 23456',
-        'LLM_OUTPUT_MAX_BYTES 67890',
+        'optional context target LLM_MODEL_PROMPT_MAX_CHARS 12345',
+        'global LLM_REQUEST_MAX_BYTES 23456',
+        'global LLM_OUTPUT_MAX_BYTES 67890',
       ],
       name: 'GLOBAL',
       priority: 0,

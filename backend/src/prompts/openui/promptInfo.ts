@@ -1,19 +1,12 @@
 import type { AppEnv } from '#backend/env.js';
-import { getEffectiveSourceMaxChars } from '#backend/limits.js';
 import { openUiEnvelopeFormat } from '#backend/services/openai/envelope.js';
 import {
-  APP_MEMORY_MAX_CHARS,
-  CURRENT_SOURCE_ITEMS_MAX_CHARS,
-  HISTORY_SUMMARY_MAX_CHARS,
-  PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
-  PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
-  PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
-  SELECTED_EXAMPLES_MAX_CHARS,
-  VALIDATION_ISSUES_MAX_CHARS,
   type BudgetDecisionSection,
   type BuilderPromptContextSection,
 } from '@kitto-openui/shared/builderApiContract.js';
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from './requestConfig.js';
+import { buildGlobalLimitLabels, buildPromptSectionLimitLabels } from './promptContextLabels.js';
+import { buildPromptContextLimitSections, getPromptContextLimitSection } from './promptContextLimits.js';
 import {
   OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
   buildOpenUiSystemPrompt,
@@ -194,31 +187,32 @@ function createStaticPromptContextSection(
   options: {
     budgetLabel?: string;
     chars?: number;
+    hardLimitChars?: number;
+    included?: boolean;
     limitLabels?: string[];
+    reason?: string;
+    softLimitChars?: number;
     unminifiedChars?: number;
   } = {},
 ): BuilderPromptContextSection {
+  const included = options.included ?? true;
+
   return {
     name,
     chars: options.chars ?? content.length,
     ...(options.budgetLabel !== undefined ? { budgetLabel: options.budgetLabel } : {}),
     content,
-    included: true,
+    ...(options.hardLimitChars !== undefined ? { hardLimitChars: options.hardLimitChars } : {}),
+    included,
     ...(options.limitLabels !== undefined ? { limitLabels: options.limitLabels } : {}),
     priority,
     protected: protectedSection,
+    ...(options.reason ? { reason: options.reason } : {}),
+    ...(options.softLimitChars !== undefined ? { softLimitChars: options.softLimitChars } : {}),
     ...(options.unminifiedChars !== undefined && options.unminifiedChars !== (options.chars ?? content.length)
       ? { unminifiedChars: options.unminifiedChars }
       : {}),
   };
-}
-
-function buildGlobalLimitLabels(env: AppEnv) {
-  return [
-    `LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}`,
-    `LLM_REQUEST_MAX_BYTES ${env.LLM_REQUEST_MAX_BYTES}`,
-    `LLM_OUTPUT_MAX_BYTES ${env.LLM_OUTPUT_MAX_BYTES}`,
-  ];
 }
 
 function buildStaticGlobalPromptPreview(sections: BuilderPromptContextSection[]) {
@@ -230,89 +224,134 @@ function buildStaticGlobalPromptPreview(sections: BuilderPromptContextSection[])
     .join('\n\n');
 }
 
-function createPromptContextLimitSection(
+function createWaitingPromptContextSection(
+  priority: number,
   name: string,
+  content: string,
   protectedSection: boolean,
-  options: {
-    hardLimitChars?: number;
-    softLimitChars?: number;
-  } = {},
-): BudgetDecisionSection {
-  return {
-    name,
-    chars: 0,
-    included: false,
-    protected: protectedSection,
-    ...(options.hardLimitChars !== undefined ? { hardLimitChars: options.hardLimitChars } : {}),
-    ...(options.softLimitChars !== undefined ? { softLimitChars: options.softLimitChars } : {}),
-  };
-}
+  limitSections: BudgetDecisionSection[],
+  reason = 'waiting for request',
+) {
+  const limitSection = getPromptContextLimitSection(limitSections, name);
 
-function buildPromptContextLimitSections(env: AppEnv): BudgetDecisionSection[] {
-  return [
-    createPromptContextLimitSection('latestUserPrompt', true, {
-      hardLimitChars: env.LLM_USER_PROMPT_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('validationIssues', true, {
-      hardLimitChars: VALIDATION_ISSUES_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('currentSource', true, {
-      hardLimitChars: getEffectiveSourceMaxChars(env),
-    }),
-    createPromptContextLimitSection('appMemory', false, {
-      hardLimitChars: APP_MEMORY_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('historySummary', false, {
-      hardLimitChars: HISTORY_SUMMARY_MAX_CHARS,
-      softLimitChars: HISTORY_SUMMARY_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('previousUserMessages', false, {
-      hardLimitChars: PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
-      softLimitChars: PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
-    }),
-    createPromptContextLimitSection('previousChangeSummaries', false, {
-      hardLimitChars: PREVIOUS_CONTEXT_INPUT_MAX_TOTAL_CHARS,
-      softLimitChars: PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
-    }),
-    createPromptContextLimitSection('selectedExamples', false, {
-      softLimitChars: SELECTED_EXAMPLES_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('examples', false, {
-      softLimitChars: SELECTED_EXAMPLES_MAX_CHARS,
-    }),
-    createPromptContextLimitSection('currentSourceItems', false, {
-      softLimitChars: CURRENT_SOURCE_ITEMS_MAX_CHARS,
-    }),
-  ];
+  return createStaticPromptContextSection(priority, name, content, protectedSection, {
+    chars: 0,
+    ...(limitSection?.hardLimitChars !== undefined ? { hardLimitChars: limitSection.hardLimitChars } : {}),
+    included: false,
+    ...(buildPromptSectionLimitLabels(limitSection ?? {}) ? { limitLabels: buildPromptSectionLimitLabels(limitSection ?? {}) } : {}),
+    reason,
+    ...(limitSection?.softLimitChars !== undefined ? { softLimitChars: limitSection.softLimitChars } : {}),
+  });
 }
 
 function buildStaticPromptContextSections(args: {
   baseIntentContext: PromptInfoIntentContextVariant;
   baseSystemPrompt: PromptInfoSystemPromptVariant;
   env: AppEnv;
+  limitSections: BudgetDecisionSection[];
   repairPromptTemplate: string;
   requestPromptTemplate: string;
 }) {
   const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema);
   const unminifiedStructuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
 
-  const sections = [
+  const staticPrefixSections = [
     createStaticPromptContextSection(1, 'system/contract', args.baseSystemPrompt.text, true),
     createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true, {
       unminifiedChars: unminifiedStructuredOutputContract.length,
     }),
     createStaticPromptContextSection(3, 'intentContext', args.baseIntentContext.text, false),
-    createStaticPromptContextSection(6, 'requestPromptTemplate', args.requestPromptTemplate, false),
-    createStaticPromptContextSection(7, 'repairPromptTemplate', args.repairPromptTemplate, false),
+  ];
+  const waitingSections = [
+    createWaitingPromptContextSection(
+      4,
+      'latestUserPrompt',
+      '(populated from the last backend generation response after Send)',
+      true,
+      args.limitSections,
+    ),
+    createWaitingPromptContextSection(
+      5,
+      'validationIssues',
+      '(populated for repair requests only)',
+      true,
+      args.limitSections,
+      'not repair',
+    ),
+    createWaitingPromptContextSection(
+      6,
+      'currentSource',
+      '(populated from the protected source sent to the backend after Send)',
+      true,
+      args.limitSections,
+    ),
+    createWaitingPromptContextSection(
+      7,
+      'appMemory',
+      '(populated from the last backend generation response after Send)',
+      false,
+      args.limitSections,
+    ),
+    createWaitingPromptContextSection(
+      8,
+      'historySummary',
+      '(populated from browser state in generation requests when available)',
+      false,
+      args.limitSections,
+      'omitted',
+    ),
+    createWaitingPromptContextSection(
+      9,
+      'previousUserMessages',
+      '(populated from compact browser chat context in generation requests)',
+      false,
+      args.limitSections,
+      'omitted',
+    ),
+    createWaitingPromptContextSection(
+      10,
+      'previousChangeSummaries',
+      '(populated from committed change summaries in generation requests)',
+      false,
+      args.limitSections,
+      'omitted',
+    ),
+    createStaticPromptContextSection(11, 'previousChanges', '(not part of static prompt config)', false, {
+      chars: 0,
+      included: false,
+      reason: 'waiting for request',
+    }),
+    createWaitingPromptContextSection(
+      12,
+      'selectedExamples',
+      '(selected by backend request intent and omitted first when optional context is tight)',
+      false,
+      args.limitSections,
+      'backend optional',
+    ),
+    createWaitingPromptContextSection(
+      13,
+      'currentSourceItems',
+      '(optional source inventory; never replaces protected currentSource)',
+      false,
+      args.limitSections,
+      'omitted',
+    ),
+  ];
+  const templateSections = [
+    createStaticPromptContextSection(14, 'requestPromptTemplate', args.requestPromptTemplate, false),
+    createStaticPromptContextSection(15, 'repairPromptTemplate', args.repairPromptTemplate, false),
   ];
 
   return [
-    createStaticPromptContextSection(0, 'GLOBAL', buildStaticGlobalPromptPreview(sections), true, {
+    createStaticPromptContextSection(0, 'GLOBAL', buildStaticGlobalPromptPreview([...staticPrefixSections, ...templateSections]), true, {
       budgetLabel: '-',
-      chars: sections.reduce((total, section) => total + section.chars, 0),
+      chars: [...staticPrefixSections, ...templateSections].reduce((total, section) => total + section.chars, 0),
       limitLabels: buildGlobalLimitLabels(args.env),
     }),
-    ...sections,
+    ...staticPrefixSections,
+    ...waitingSections,
+    ...templateSections,
   ];
 }
 
@@ -334,6 +373,7 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
 
   const requestPromptTemplate = buildOpenUiUserPromptTemplate();
   const repairPromptTemplate = buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS);
+  const promptContextLimits = buildPromptContextLimitSections(env);
   const snapshot: PromptInfoSnapshot = {
     config: {
       cacheKeyPrefix: OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
@@ -349,12 +389,13 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
     intentContext: baseIntentContext,
     intentContextVariants,
-    promptContextLimits: buildPromptContextLimitSections(env),
+    promptContextLimits,
     repairPromptTemplate,
     staticPromptContextSections: buildStaticPromptContextSections({
       baseIntentContext,
       baseSystemPrompt,
       env,
+      limitSections: promptContextLimits,
       repairPromptTemplate,
       requestPromptTemplate,
     }),

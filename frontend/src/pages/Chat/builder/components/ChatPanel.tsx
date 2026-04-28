@@ -254,13 +254,17 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       return;
     }
 
-    if (configStatus !== 'loaded' || systemStatusMessage?.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus) {
+    if (
+      configStatus !== 'loaded' ||
+      (systemStatusMessage?.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus &&
+        systemStatusMessage?.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus)
+    ) {
       return;
     }
 
     dispatch(
       builderActions.removeChatMessageByKey({
-        messageKey: SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus,
+        messageKey: systemStatusMessage.messageKey,
       }),
     );
   }, [configStatus, dispatch, isBackendDisconnected, onSystemNotice, systemStatusContent, systemStatusMessage?.messageKey]);
@@ -294,7 +298,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
               Cancel
             </Button>
           ) : null}
-          <span title={configStatus === 'loading' ? composerHint : undefined}>
+          <span title={configStatus === 'loading' ? composerHint ?? undefined : undefined}>
             <Button disabled={submitButtonState.disabled} type="submit">
               <Send className="h-4 w-4" />
               {submitButtonState.label}

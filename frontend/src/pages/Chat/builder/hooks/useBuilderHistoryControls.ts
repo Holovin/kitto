@@ -266,6 +266,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       return;
     }
 
+    onSystemNotice(null);
     const recoveredSnapshot = recoverStaleNavigationSnapshot(previousSnapshot);
 
     dispatch(domainActions.replaceData(recoveredSnapshot.domainData));
@@ -278,6 +279,7 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
       return;
     }
 
+    onSystemNotice(null);
     const recoveredSnapshot = recoverStaleNavigationSnapshot(redoSnapshot);
 
     dispatch(domainActions.replaceData(recoveredSnapshot.domainData));

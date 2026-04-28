@@ -131,6 +131,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       return;
     }
 
+    onSystemNotice(null);
     const { abortController, requestId } = generationLifecycle.beginGeneration(nextPrompt);
 
     await runBuilderGeneration({

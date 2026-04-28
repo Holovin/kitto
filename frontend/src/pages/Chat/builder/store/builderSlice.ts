@@ -69,9 +69,8 @@ function cloneRuntimeStateForState(runtimeState: Record<string, unknown>) {
 }
 
 function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage) {
-  const shouldMoveUpdatedMessageToEnd = message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus;
   const messagesWithoutLegacyStatus =
-    shouldMoveUpdatedMessageToEnd
+    message.messageKey === SYSTEM_CHAT_MESSAGE_KEYS.backendConnectionStatus
       ? messages.filter((entry) => entry.messageKey !== SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus)
       : messages;
 
@@ -97,13 +96,11 @@ function pushMessage(messages: BuilderChatMessage[], message: BuilderChatMessage
         technicalDetails: message.technicalDetails,
         tone: message.tone,
       };
-      const nextMessages = shouldMoveUpdatedMessageToEnd
-        ? [
-            ...messagesWithoutLegacyStatus.slice(0, index),
-            ...messagesWithoutLegacyStatus.slice(index + 1),
-            updatedMessage,
-          ]
-        : messagesWithoutLegacyStatus.map((entry, entryIndex) => (entryIndex === index ? updatedMessage : entry));
+      const nextMessages = [
+        ...messagesWithoutLegacyStatus.slice(0, index),
+        ...messagesWithoutLegacyStatus.slice(index + 1),
+        updatedMessage,
+      ];
 
       return trimUiMessages(nextMessages);
     }
