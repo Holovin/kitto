@@ -13,6 +13,7 @@ export const selectPreviousCommittedSource = (state: RootState) => state.builder
 export const selectDefinitionWarnings = (state: RootState) =>
   selectIsStreaming(state) || selectHasRejectedDefinition(state) ? [] : state.builder.definitionWarnings;
 export const selectIsStreaming = (state: RootState) => selectCurrentRequestId(state) !== null;
+export const selectLastPromptContext = (state: RootState) => state.builder.lastPromptContext;
 export const selectLastStreamChunkAt = (state: RootState) => state.builder.lastStreamChunkAt;
 export const selectParseIssues = (state: RootState) => state.builder.parseIssues;
 export const selectPreviousChangeSummaries = (state: RootState) => state.builder.previousChangeSummaries;

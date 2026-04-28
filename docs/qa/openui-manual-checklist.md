@@ -61,7 +61,7 @@ Guardrails:
 - After the initial health check resolves, the builder shell must stay usable even if `GET /api/config` is still loading or has failed.
 - While `GET /api/config` is unresolved or failed, chat send stays disabled with an explicit composer hint, while import, undo/redo history, committed Preview, and `/elements` remain available.
 - The header does not show a runtime-config status badge. While `GET /api/config` is loading, the composer hint explains that chat send is waiting; when it fails, Chat shows one red system message: `Runtime config is unavailable. Chat send is disabled until /api/config can be loaded.`
-- The composer context tooltip shows char-based debug sections and labels committed `currentSource` as protected; optional context may be omitted or trimmed before source is affected.
+- The `Context` tab shows a char-based table of prompt context sections with `Prio`, `Section`, `Chars`, `Used`, and `Budget` columns; it labels committed `currentSource` as protected, and each row expands to show the backend prompt payload for that section.
 - While generation is in progress, Preview keeps that committed source (or empty state) visible behind a semi-transparent blocking overlay with a spinner and contextual status label: `Generating...` for the first prompt, `Updating...` for follow-up edits.
 - Every generation ends in exactly one terminal state: committed, failed, or cancelled. The builder must never remain stuck in `Generating...` or `Updating...` indefinitely.
 - Structural nesting is hard-invalid: keep exactly one `root = AppShell([...])` statement, never nest `AppShell(...)`, never put `Screen(...)` inside another `Screen(...)`, and never put `Repeater(...)` inside another `Repeater(...)`.

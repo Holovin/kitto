@@ -1,5 +1,11 @@
 import { appMemorySchema, normalizeAppMemory } from '@kitto-openui/shared/builderApiContract.js';
-import type { AppMemory, PromptBuildRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@pages/Chat/builder/types';
+import type {
+  AppMemory,
+  PromptBuildRequest,
+  BuilderLlmRequestCompaction,
+  BuilderPromptContextSnapshot,
+  BuilderQualityIssue,
+} from '@pages/Chat/builder/types';
 import { createPartialOpenUiEnvelopeParser, isMalformedStructuredChunk } from './partialOpenUiEnvelope';
 import { createBuilderRequestError, createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
@@ -30,6 +36,7 @@ interface StreamDonePayload {
   changeSummary?: string;
   compaction?: BuilderLlmRequestCompaction;
   model?: string;
+  promptContext?: BuilderPromptContextSnapshot;
   qualityIssues?: BuilderQualityIssue[];
   source?: string;
   summary?: string;
@@ -49,6 +56,7 @@ interface StreamBuilderDefinitionResult {
   appMemory: AppMemory;
   changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
+  promptContext?: BuilderPromptContextSnapshot;
   qualityIssues: BuilderQualityIssue[];
   source: string;
   summary: string;
@@ -233,6 +241,7 @@ export async function streamBuilderDefinition({
         appMemory: doneEnvelope.appMemory,
         changeSummary: doneEnvelope.changeSummary,
         compaction: doneEnvelope.compaction,
+        promptContext: doneEnvelope.promptContext,
         qualityIssues: doneEnvelope.qualityIssues ?? [],
         source: doneEnvelope.source,
         summary: doneEnvelope.summary,

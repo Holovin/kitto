@@ -580,6 +580,7 @@ export function useValidationRepair({
           changeSummary: candidateResponse.changeSummary,
           commitSource: candidateResponse.commitSource,
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
+          promptContext: candidateResponse.promptContext,
           requestId: candidateResponse.requestId,
           source: candidateResponse.source,
           summary: candidateResponse.summary,

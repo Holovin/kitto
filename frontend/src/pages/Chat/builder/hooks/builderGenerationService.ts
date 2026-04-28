@@ -99,6 +99,7 @@ interface BuilderValidationRepairPort {
     changeSummary: BuilderGeneratedDraft['changeSummary'];
     commitSource: BuilderGeneratedDraft['commitSource'];
     note?: string;
+    promptContext?: BuilderGeneratedDraft['promptContext'];
     requestId: BuilderRequestId;
     source: string;
     summary?: string;
@@ -207,6 +208,7 @@ async function commitGeneratedSource({
       requestId,
       source: validatedResult.source,
       note: validatedResult.note,
+      promptContext: validatedResult.promptContext,
       skipDefaultAssistantMessage: Boolean(committedSummary),
       snapshot,
       summary: committedSummary ?? validatedResult.summary ?? response.summary,

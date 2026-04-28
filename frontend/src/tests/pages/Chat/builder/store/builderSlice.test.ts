@@ -24,6 +24,24 @@ root = AppShell([
     Text("Details", "body", "start")
   ], $currentScreen == "details")
 ])`;
+const promptContext = {
+  currentSourceChars: 0,
+  currentSourceIncluded: true,
+  currentSourceProtected: true as const,
+  droppedSections: [] as string[],
+  mode: 'initial' as const,
+  sections: [
+    {
+      name: 'latestUserPrompt',
+      chars: 20,
+      content: '<latest_user_request>\nAdd a welcome screen\n</latest_user_request>',
+      included: true,
+      priority: 4,
+      protected: true,
+    },
+  ],
+  totalChars: 20,
+};
 
 function createInitialState() {
   return builderReducer(undefined, {
@@ -220,6 +238,7 @@ describe('builderSlice', () => {
         appMemory,
         changeSummary: 'Added a welcome screen.',
         note: 'Committed the streamed definition.',
+        promptContext,
         requestId: toBuilderRequestId('request-2'),
         snapshot,
         source: validSource,
@@ -233,6 +252,7 @@ describe('builderSlice', () => {
     expect(completed.lastStreamChunkAt).toBeNull();
     expect(completed.committedSource).toBe(validSource);
     expect(completed.streamedSource).toBe(validSource);
+    expect(completed.lastPromptContext).toEqual(promptContext);
     expect(completed.history).toHaveLength(2);
     expect(completed.appMemory).toEqual(appMemory);
     expect(completed.history.at(-1)).toEqual(

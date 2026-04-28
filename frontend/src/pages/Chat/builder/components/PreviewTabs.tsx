@@ -1,16 +1,22 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Renderer } from '@openuidev/react-lang';
 import { escapeStringLiteralBackticksForParser } from '@kitto-openui/shared/openuiAst.js';
-import { Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, FileUp, LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { useConfigQuery, useGetPromptsInfoQuery } from '@api/apiSlice';
 import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
+import { getBuilderRuntimeConfigStatus } from '@pages/Chat/builder/config';
 import { DefinitionPanel } from '@pages/Chat/builder/components/DefinitionPanel';
 import { PreviewEmptyState } from '@pages/Chat/builder/components/PreviewEmptyState';
 import { PreviewErrorFallback } from '@pages/Chat/builder/components/PreviewErrorFallback';
 import { resolvePreviewCanvasState } from '@pages/Chat/builder/components/previewCanvasState';
 import { PreviewUnavailableState } from '@pages/Chat/builder/components/PreviewUnavailableState';
+import {
+  buildStaticPromptInfoContextSections,
+  type ContextMeterSection,
+} from '@pages/Chat/builder/hooks/generationContext';
 import { useBuilderHistoryControls } from '@pages/Chat/builder/hooks/useBuilderHistoryControls';
 import { builderOpenUiLibrary } from '@pages/Chat/builder/openui/library';
 import { handleOpenUiActionEvent } from '@pages/Chat/builder/openui/runtime/actionEvents';
@@ -30,6 +36,7 @@ import {
   selectHasRejectedDefinition,
   selectHistory,
   selectIsStreaming,
+  selectLastPromptContext,
   selectLastStreamChunkAt,
   selectParseIssues,
   selectPreviewSource,
@@ -56,6 +63,10 @@ interface PreviewStreamingOverlayProps {
   isPreviewEmptyCanvas: boolean;
   lastStreamChunkAt: number | null;
   streamedSourceBytes: number;
+}
+
+interface ContextPanelProps {
+  sections: ContextMeterSection[];
 }
 
 type StreamingTimerTick = {
@@ -95,6 +106,107 @@ function formatByteCount(bytes: number) {
   }
 
   return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1_048_576)} MB`;
+}
+
+function formatCharCount(chars: number) {
+  return new Intl.NumberFormat().format(chars);
+}
+
+function getContextSectionStatus(section: ContextMeterSection) {
+  return section.included ? '✅' : '➖';
+}
+
+function getContextSectionStatusLabel(section: ContextMeterSection) {
+  if (section.included) {
+    return section.reason ? `Included: ${section.reason}` : 'Included';
+  }
+
+  return section.reason ?? 'Not included';
+}
+
+function ContextPanel({ sections }: ContextPanelProps) {
+  const [expandedSectionName, setExpandedSectionName] = useState<string | null>(null);
+
+  return (
+    <Card className="h-full min-h-0 overflow-hidden border-white/70 bg-white/92">
+      <CardContent className="flex h-full min-h-0 flex-col p-6">
+        <div className="min-h-0 flex-1 overflow-auto rounded-[1.25rem] border border-slate-200">
+          <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
+            <thead className="sticky top-0 bg-slate-50 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <tr>
+                <th className="w-20 border-b border-slate-200 px-4 py-3">Prio</th>
+                <th className="border-b border-slate-200 px-4 py-3">Section</th>
+                <th className="border-b border-slate-200 px-4 py-3">Chars</th>
+                <th className="border-b border-slate-200 px-4 py-3">Used</th>
+                <th className="border-b border-slate-200 px-4 py-3">Budget</th>
+                <th className="w-10 border-b border-slate-200 px-3 py-3" aria-label="Expand row" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sections.map((section) => {
+                const isExpanded = expandedSectionName === section.name;
+
+                return (
+                  <Fragment key={section.name}>
+                    <tr
+                      aria-expanded={isExpanded}
+                      className={`${section.protected ? 'bg-emerald-50/45' : 'bg-white'} cursor-pointer hover:bg-slate-50`}
+                      tabIndex={0}
+                      onClick={() => setExpandedSectionName((currentName) => (currentName === section.name ? null : section.name))}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        setExpandedSectionName((currentName) => (currentName === section.name ? null : section.name));
+                      }}
+                    >
+                      <td className="px-4 py-3 tabular-nums text-slate-600">{section.priority}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{section.name}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatCharCount(section.chars)}</td>
+                      <td
+                        className="px-4 py-3 text-lg leading-none"
+                        aria-label={getContextSectionStatusLabel(section)}
+                        title={getContextSectionStatusLabel(section)}
+                      >
+                        {getContextSectionStatus(section)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            section.protected
+                              ? 'inline-flex rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800'
+                              : 'inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600'
+                          }
+                        >
+                          {section.protected ? 'Protected' : 'Optional'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-slate-400">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr key={`${section.name}-details`} className={section.protected ? 'bg-sky-50/80' : 'bg-sky-50/70'}>
+                        <td colSpan={6} className="px-4 pb-4 pt-3">
+                          <textarea
+                            className="h-[25rem] w-full resize-none rounded-lg border border-sky-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800 shadow-inner outline-none"
+                            readOnly
+                            value={section.content}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function PreviewStreamingOverlay({ isPreviewEmptyCanvas, lastStreamChunkAt, streamedSourceBytes }: PreviewStreamingOverlayProps) {
@@ -153,11 +265,21 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const history = useAppSelector(selectHistory);
   const isShowingRejectedDefinition = useAppSelector(selectHasRejectedDefinition);
   const isStreaming = useAppSelector(selectIsStreaming);
+  const lastPromptContext = useAppSelector(selectLastPromptContext);
   const lastStreamChunkAt = useAppSelector(selectLastStreamChunkAt);
   const parseIssues = useAppSelector(selectParseIssues);
   const previewSource = useAppSelector(selectPreviewSource);
   const runtimeSessionState = useAppSelector(selectRuntimeSessionState);
   const streamedSource = useAppSelector(selectStreamedSource);
+  const configState = useConfigQuery(undefined, {
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
+  const configStatus = getBuilderRuntimeConfigStatus(configState);
+  const isContextTabDisabled = configStatus === 'failed';
+  const promptsInfoState = useGetPromptsInfoQuery(undefined, {
+    skip: isContextTabDisabled || lastPromptContext !== undefined || activeTab !== 'context',
+  });
   const [scopedRuntimeIssues, setScopedRuntimeIssues] = useState<ScopedRuntimeIssues>({
     issues: [],
     scope: '',
@@ -186,7 +308,11 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
   const isPreviewEmptyCanvas = previewCanvasState !== 'preview';
   const isPreviewUnavailable = previewCanvasState === 'unavailable';
   const isEmptyCanvas = previewCanvasState === 'empty';
-  const resolvedActiveTab = isEmptyCanvas && activeTab !== 'preview' ? 'preview' : activeTab;
+  const resolvedActiveTab =
+    (isEmptyCanvas && (activeTab === 'definition' || activeTab === 'app-state')) ||
+    (isContextTabDisabled && activeTab === 'context')
+      ? 'preview'
+      : activeTab;
   const runtimeIssueScope = `${history.length}:${currentSnapshot?.committedAt ?? ''}:${previewSource}:${isShowingRejectedDefinition ? 'rejected' : 'preview'}:${rendererResetVersion}`;
   const runtimeIssues = scopedRuntimeIssues.scope === runtimeIssueScope ? scopedRuntimeIssues.issues : [];
   const toolProvider = useMemo(
@@ -213,6 +339,9 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     runtimeIssues,
   });
   const streamedSourceBytes = getByteLength(streamedSource);
+  const contextMeterSections = useMemo(() => {
+    return lastPromptContext?.sections ?? buildStaticPromptInfoContextSections(promptsInfoState.data);
+  }, [lastPromptContext, promptsInfoState.data]);
   const previousPreviewRef = useRef<{
     isShowingRejectedDefinition: boolean;
     previewSource: string;
@@ -331,7 +460,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
     <Tabs
       value={resolvedActiveTab}
       onValueChange={(value: string) => {
-        if (isEmptyCanvas && value !== 'preview') {
+        if (isEmptyCanvas && (value === 'definition' || value === 'app-state')) {
           return;
         }
 
@@ -348,6 +477,7 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
           <TabsTrigger value="app-state" disabled={isPreviewEmptyCanvas}>
             App State
           </TabsTrigger>
+          <TabsTrigger value="context" disabled={isContextTabDisabled}>Context</TabsTrigger>
         </TabsList>
         <div ref={fileMenuRef} className="relative">
           <Button
@@ -546,6 +676,10 @@ export function PreviewTabs({ onSystemNotice }: PreviewTabsProps) {
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="context" className="mt-0 flex-1 min-h-0">
+        <ContextPanel sections={contextMeterSections} />
       </TabsContent>
     </Tabs>
   );

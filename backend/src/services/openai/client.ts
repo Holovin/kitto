@@ -22,6 +22,8 @@ import {
   type AppMemory,
   type BudgetDecision,
   type BudgetDecisionSection,
+  type BuilderPromptContextSection,
+  type BuilderPromptContextSnapshot,
 } from '@kitto-openui/shared/builderApiContract.js';
 import { openUiEnvelopeFormat } from './envelope.js';
 
@@ -386,6 +388,223 @@ function createBudgetDecision(
         droppedSectionSet.has('currentSourceItems') ? 'dropped for optional context budget' : 'omitted',
       ),
     ],
+  };
+}
+
+function getBudgetDecisionSection(budgetDecision: BudgetDecision, name: string) {
+  return budgetDecision.sections.find((section) => section.name === name);
+}
+
+function extractPromptDataBlock(text: string, tagName: string) {
+  return new RegExp(`<${tagName}>\\n[\\s\\S]*?\\n</${tagName}>`).exec(text)?.[0] ?? null;
+}
+
+function extractSelectedExamples(intentContextText: string) {
+  const startIndexes = ['Relevant patterns:', 'Additional OpenUI examples:']
+    .map((label) => intentContextText.indexOf(label))
+    .filter((index) => index >= 0);
+
+  if (startIndexes.length === 0) {
+    return null;
+  }
+
+  const startIndex = Math.min(...startIndexes);
+  const endIndex = intentContextText.lastIndexOf('\n</intent_context>');
+  const content = intentContextText.slice(startIndex, endIndex >= 0 ? endIndex : undefined).trim();
+  return content || null;
+}
+
+function createPromptContextSection({
+  budgetDecision,
+  content,
+  fallbackReason,
+  name,
+  priority,
+  protectedSection,
+}: {
+  budgetDecision: BudgetDecision;
+  content: string | null;
+  fallbackReason?: string;
+  name: string;
+  priority: number;
+  protectedSection: boolean;
+}): BuilderPromptContextSection {
+  const budgetSection = getBudgetDecisionSection(budgetDecision, name);
+  const included = content !== null;
+  const reason = included ? budgetSection?.reason : budgetSection?.reason ?? fallbackReason;
+
+  return {
+    name,
+    chars: budgetSection?.chars ?? content?.length ?? 0,
+    content: content ?? fallbackReason ?? '(not included in this request)',
+    included,
+    priority,
+    protected: protectedSection,
+    ...(reason ? { reason } : {}),
+  };
+}
+
+function createStaticPromptContextSection(
+  priority: number,
+  name: string,
+  content: string,
+  protectedSection: boolean,
+): BuilderPromptContextSection {
+  return {
+    name,
+    chars: content.length,
+    content,
+    included: true,
+    priority,
+    protected: protectedSection,
+  };
+}
+
+export function buildPromptContextSnapshot(env: AppEnv, request: PromptBuildRequest): BuilderPromptContextSnapshot {
+  const { input, metadata } = buildResponseInputWithMetadata(env, request);
+  const inputTexts = input.map(getInputMessageText);
+  const [systemText = '', secondTurnText = '', thirdTurnText = '', fourthTurnText = ''] = inputTexts;
+  const isRepair = request.mode === 'repair';
+  const intentContextText = isRepair ? null : secondTurnText;
+  const latestUserTurnText = isRepair ? secondTurnText : thirdTurnText;
+  const failedDraftText = isRepair ? thirdTurnText : null;
+  const correctionRequestText = isRepair ? fourthTurnText : null;
+  const structuredOutputContract = JSON.stringify(openUiEnvelopeFormat.schema, null, 2);
+  const sections: BuilderPromptContextSection[] = [
+    createStaticPromptContextSection(1, 'system/contract', systemText, true),
+    createStaticPromptContextSection(2, 'structuredOutputContract', structuredOutputContract, true),
+  ];
+
+  if (intentContextText !== null) {
+    sections.push(createStaticPromptContextSection(3, 'intentContext', intentContextText, false));
+  }
+
+  sections.push(
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content:
+        extractPromptDataBlock(latestUserTurnText, isRepair ? 'original_user_request' : 'latest_user_request') ??
+        extractPromptDataBlock(latestUserTurnText, 'latest_user_request'),
+      fallbackReason: 'not included',
+      name: 'latestUserPrompt',
+      priority: 4,
+      protectedSection: true,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: correctionRequestText ? extractPromptDataBlock(correctionRequestText, 'validation_issues') : null,
+      fallbackReason: request.mode === 'repair' ? 'missing validation issues' : 'not repair',
+      name: 'validationIssues',
+      priority: 5,
+      protectedSection: true,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: extractPromptDataBlock(latestUserTurnText, 'current_source'),
+      fallbackReason: 'not included',
+      name: 'currentSource',
+      priority: 6,
+      protectedSection: true,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: extractPromptDataBlock(latestUserTurnText, 'previous_app_memory'),
+      fallbackReason: 'not included',
+      name: 'appMemory',
+      priority: 7,
+      protectedSection: false,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: extractPromptDataBlock(latestUserTurnText, 'history_summary'),
+      fallbackReason: 'not included',
+      name: 'historySummary',
+      priority: 8,
+      protectedSection: false,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: extractPromptDataBlock(latestUserTurnText, 'previous_user_messages'),
+      fallbackReason: 'not included',
+      name: 'previousUserMessages',
+      priority: 9,
+      protectedSection: false,
+    }),
+    createPromptContextSection({
+      budgetDecision: metadata.budgetDecision,
+      content: extractPromptDataBlock(latestUserTurnText, 'previous_change_summaries'),
+      fallbackReason: 'not included',
+      name: 'previousChangeSummaries',
+      priority: 10,
+      protectedSection: false,
+    }),
+  );
+
+  if (isRepair) {
+    sections.push(
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: extractPromptDataBlock(latestUserTurnText, 'conversation_context'),
+        fallbackReason: 'not included',
+        name: 'conversationContext',
+        priority: 11,
+        protectedSection: false,
+      }),
+      createStaticPromptContextSection(12, 'invalidDraft', failedDraftText ?? '(missing failed draft turn)', false),
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: correctionRequestText ? extractPromptDataBlock(correctionRequestText, 'hints') : null,
+        fallbackReason: 'not included',
+        name: 'repairHints',
+        priority: 13,
+        protectedSection: false,
+      }),
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: correctionRequestText ? extractPromptDataBlock(correctionRequestText, 'relevant_draft_statement_excerpts') : null,
+        fallbackReason: 'not included',
+        name: 'draftStatementExcerpts',
+        priority: 14,
+        protectedSection: false,
+      }),
+    );
+  } else {
+    sections.push(
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: extractPromptDataBlock(latestUserTurnText, 'previous_changes'),
+        fallbackReason: 'not included',
+        name: 'previousChanges',
+        priority: 11,
+        protectedSection: false,
+      }),
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: intentContextText ? extractSelectedExamples(intentContextText) : null,
+        fallbackReason: 'not included',
+        name: 'selectedExamples',
+        priority: 12,
+        protectedSection: false,
+      }),
+      createPromptContextSection({
+        budgetDecision: metadata.budgetDecision,
+        content: null,
+        fallbackReason: 'not sent; currentSource is the protected source of truth',
+        name: 'currentSourceItems',
+        priority: 13,
+        protectedSection: false,
+      }),
+    );
+  }
+
+  return {
+    currentSourceChars: metadata.currentSourceChars,
+    currentSourceIncluded: metadata.currentSourceIncluded,
+    currentSourceProtected: true,
+    droppedSections: metadata.droppedSections,
+    mode: request.mode,
+    sections,
+    totalChars: getResponseInputChars(input) + structuredOutputContract.length,
   };
 }
 

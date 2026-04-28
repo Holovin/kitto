@@ -13,7 +13,16 @@ import {
 } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
-import type { AppMemory, BuilderChatMessage, PromptBuildValidationIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@pages/Chat/builder/types';
+import type {
+  AppMemory,
+  BuilderChatMessage,
+  BuilderPromptContextSection,
+  BuilderPromptContextSnapshot,
+  PromptBuildValidationIssue,
+  BuilderRequestId,
+  BuilderSnapshot,
+  BuilderTabId,
+} from '@pages/Chat/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from './path';
 
@@ -232,6 +241,64 @@ function normalizeOptionalAppMemory(value: unknown): AppMemory | undefined {
   return appMemorySchema.safeParse(value).success ? normalizeAppMemory(value) : undefined;
 }
 
+function normalizePromptContextSection(value: unknown): BuilderPromptContextSection | null {
+  if (
+    !isRecord(value) ||
+    typeof value.name !== 'string' ||
+    typeof value.content !== 'string' ||
+    typeof value.chars !== 'number' ||
+    typeof value.included !== 'boolean' ||
+    typeof value.priority !== 'number' ||
+    typeof value.protected !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    chars: value.chars,
+    content: value.content,
+    included: value.included,
+    priority: value.priority,
+    protected: value.protected,
+    ...(typeof value.reason === 'string' ? { reason: value.reason } : {}),
+  };
+}
+
+function normalizePromptContextSnapshot(value: unknown): BuilderPromptContextSnapshot | undefined {
+  if (
+    !isRecord(value) ||
+    (value.mode !== 'initial' && value.mode !== 'repair') ||
+    typeof value.currentSourceChars !== 'number' ||
+    typeof value.currentSourceIncluded !== 'boolean' ||
+    value.currentSourceProtected !== true ||
+    !Array.isArray(value.droppedSections) ||
+    !Array.isArray(value.sections) ||
+    typeof value.totalChars !== 'number'
+  ) {
+    return undefined;
+  }
+
+  const sections = value.sections.flatMap((section) => {
+    const normalizedSection = normalizePromptContextSection(section);
+    return normalizedSection ? [normalizedSection] : [];
+  });
+
+  if (sections.length === 0) {
+    return undefined;
+  }
+
+  return {
+    currentSourceChars: value.currentSourceChars,
+    currentSourceIncluded: value.currentSourceIncluded,
+    currentSourceProtected: true,
+    droppedSections: value.droppedSections.flatMap((section) => (typeof section === 'string' ? [section] : [])),
+    mode: value.mode,
+    sections,
+    totalChars: value.totalChars,
+  };
+}
+
 function getSnapshotAppMemory(snapshot: BuilderSnapshot | undefined) {
   return snapshot?.appMemory ? normalizeAppMemory(snapshot.appMemory) : undefined;
 }
@@ -346,6 +413,7 @@ interface BuilderState {
   draftPrompt: string;
   hasRejectedDefinition: boolean;
   history: BuilderSnapshot[];
+  lastPromptContext?: BuilderPromptContextSnapshot;
   lastStreamChunkAt: number | null;
   parseIssues: PromptBuildValidationIssue[];
   previousChangeSummaries: string[];
@@ -386,6 +454,7 @@ const initialState: BuilderState = {
   draftPrompt: '',
   hasRejectedDefinition: false,
   history: [initialSnapshot],
+  lastPromptContext: undefined,
   lastStreamChunkAt: null,
   parseIssues: [],
   previousChangeSummaries: [],
@@ -402,6 +471,7 @@ function createInitialState(): BuilderState {
     chatMessages: createInitialChatMessages(),
     definitionWarnings: [],
     history: [cloneBuilderSnapshot(initialSnapshot)],
+    lastPromptContext: undefined,
     parseIssues: [],
     redoHistory: [],
   };
@@ -429,7 +499,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     activeTab:
       rejectedSource
         ? 'definition'
-        : value.activeTab === 'definition' || value.activeTab === 'app-state'
+        : value.activeTab === 'definition' || value.activeTab === 'app-state' || value.activeTab === 'context'
           ? value.activeTab
           : 'preview',
     appMemory: currentAppMemory,
@@ -440,6 +510,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     draftPrompt: typeof value.draftPrompt === 'string' ? value.draftPrompt : '',
     hasRejectedDefinition: Boolean(rejectedSource),
     history,
+    lastPromptContext: normalizePromptContextSnapshot(value.lastPromptContext),
     lastStreamChunkAt: null,
     parseIssues: rejectedSource ? rejectedSource.issues : [],
     previousChangeSummaries: getRevisionChangeSummariesBeforeCurrent(history),
@@ -498,6 +569,7 @@ export const builderSlice = createSlice({
         appMemory?: AppMemory;
         changeSummary?: string;
         note?: string;
+        promptContext?: BuilderPromptContextSnapshot;
         requestId: BuilderRequestId;
         skipDefaultAssistantMessage?: boolean;
         snapshot: BuilderSnapshot;
@@ -516,6 +588,7 @@ export const builderSlice = createSlice({
       state.retryPrompt = null;
       state.streamError = null;
       state.hasRejectedDefinition = false;
+      state.lastPromptContext = action.payload.promptContext;
       state.committedSource = action.payload.source;
       state.definitionWarnings = action.payload.warnings;
       state.streamedSource = action.payload.source;

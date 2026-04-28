@@ -26,10 +26,14 @@ describe('generationContext', () => {
           chars: currentSource.length,
           included: true,
           name: 'currentSource',
+          priority: 3,
           protected: true,
           reason: 'protected',
         }),
       ]),
+    );
+    expect(sections.find((section) => section.name === 'currentSource')?.content).toContain(
+      `<current_source>\n${currentSource}\n</current_source>`,
     );
     expect(formatContextMeterTooltip(sections)).toContain(`- currentSource: ${currentSource.length} chars protected`);
   });

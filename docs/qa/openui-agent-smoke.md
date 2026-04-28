@@ -32,7 +32,7 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 12. If you intentionally trigger chat-history compaction during an iterative edit flow, confirm the next request still keeps the original first user intent for the current app context together with the newest surviving context instead of collapsing to a newest-only tail. After reset, valid import, or demo load, older pre-change user requests should not be sent as LLM chat history.
 13. For trivial validation problems such as misordered `Group(...)` args or legacy appearance keys, confirm the draft stays invalid until the normal repair path runs or the request fails cleanly; no browser-only auto-fix patching should happen.
 14. `/api/config` `limits` should include `promptMaxChars`, `chatMessageMaxChars`, `sourceMaxChars`, `chatHistoryMaxItems`, and `requestMaxBytes`; submit-time preflight should block any one field or full serialized payload that exceeds those limits.
-15. The composer context tooltip should show char-based sections and mark `currentSource` as protected.
+15. The `Context` tab should show a char-based table of prompt context sections with `Prio`, `Section`, `Chars`, `Used`, and `Budget` columns; `currentSource` is marked protected and each row expands to show the backend prompt payload for that section.
 16. After undo/redo and browser reload, the current committed source and compact LLM app memory should still come from the same builder revision.
 
 ## MCP automation notes

@@ -5,14 +5,17 @@ import { UpstreamFailureError } from '#backend/errors/publicError.js';
 import { createTestEnv } from '#backend/tests/createTestEnv.js';
 
 const {
+  buildPromptContextSnapshotMock,
   writePromptIoCommitTelemetrySafelyMock,
   writePromptIoIntakeFailureSafelyMock,
 } = vi.hoisted(() => ({
+  buildPromptContextSnapshotMock: vi.fn(),
   writePromptIoCommitTelemetrySafelyMock: vi.fn(),
   writePromptIoIntakeFailureSafelyMock: vi.fn(),
 }));
 
 vi.mock(import('#backend/services/openai.js'), () => ({
+  buildPromptContextSnapshot: buildPromptContextSnapshotMock,
   generateOpenUiSource: vi.fn(),
   streamOpenUiSource: vi.fn(),
 }));
@@ -57,6 +60,24 @@ const testAppMemory = {
   userPreferences: ['Keep the test UI compact.'],
   avoid: [],
 };
+const testPromptContext = {
+  currentSourceChars: 0,
+  currentSourceIncluded: true,
+  currentSourceProtected: true as const,
+  droppedSections: [] as string[],
+  mode: 'initial' as const,
+  sections: [
+    {
+      name: 'latestUserPrompt',
+      chars: 19,
+      content: '<latest_user_request>\nbuild a compact app\n</latest_user_request>',
+      included: true,
+      priority: 4,
+      protected: true,
+    },
+  ],
+  totalChars: 19,
+};
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
@@ -97,6 +118,7 @@ describe('createLlmOpenUiRoutes', () => {
   });
 
   afterEach(() => {
+    buildPromptContextSnapshotMock.mockReset();
     generateOpenUiSourceMock.mockReset();
     streamOpenUiSourceMock.mockReset();
     writePromptIoCommitTelemetrySafelyMock.mockReset();
@@ -515,6 +537,7 @@ describe('createLlmOpenUiRoutes', () => {
       changeSummary: 'Test generation change.',
       appMemory: testAppMemory,
     });
+    buildPromptContextSnapshotMock.mockReturnValue(testPromptContext);
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -539,6 +562,7 @@ describe('createLlmOpenUiRoutes', () => {
       summary: 'Builds a compact app.',
       changeSummary: 'Test generation change.',
       appMemory: testAppMemory,
+      promptContext: testPromptContext,
       temperature: 0.4,
     });
     expect(calledEnv).toBe(env);

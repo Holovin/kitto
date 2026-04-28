@@ -126,6 +126,21 @@ export interface BudgetDecision {
   sections: BudgetDecisionSection[];
 }
 
+export interface BuilderPromptContextSection extends BudgetDecisionSection {
+  content: string;
+  priority: number;
+}
+
+export interface BuilderPromptContextSnapshot {
+  currentSourceChars: number;
+  currentSourceIncluded: boolean;
+  currentSourceProtected: true;
+  droppedSections: string[];
+  mode: BuilderLlmRequestMode;
+  sections: BuilderPromptContextSection[];
+  totalChars: number;
+}
+
 export const APP_MEMORY_VERSION = 1;
 export const APP_MEMORY_MAX_CHARS = 4_096;
 export const APP_MEMORY_ARRAY_MAX_ITEMS = 8;
@@ -268,6 +283,7 @@ export interface BuilderLlmResponse {
   changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
   model: string;
+  promptContext?: BuilderPromptContextSnapshot;
   qualityIssues?: BuilderQualityIssue[];
   source: string;
   summary: string;

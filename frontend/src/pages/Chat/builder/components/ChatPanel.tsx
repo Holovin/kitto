@@ -1,15 +1,9 @@
-import { memo, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Info, RotateCcw, Send, Square } from 'lucide-react';
+import { memo, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, RotateCcw, Send, Square } from 'lucide-react';
 import { Button } from '@components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/card';
 import { Textarea } from '@components/ui/textarea';
 import { getBuilderComposerSubmitState } from '@pages/Chat/builder/hooks/submissionPrompt';
-import {
-  buildContextMeterSections,
-  buildPreviousChangeSummaries,
-  buildPreviousUserMessages,
-  formatContextMeterTooltip,
-} from '@pages/Chat/builder/hooks/generationContext';
 import { useBackendConnectionState } from '@pages/Chat/builder/hooks/useBuilderBootstrap';
 import { useBuilderHistoryControls } from '@pages/Chat/builder/hooks/useBuilderHistoryControls';
 import { useBuilderSubmission } from '@pages/Chat/builder/hooks/useBuilderSubmission';
@@ -21,12 +15,7 @@ import {
 } from '@pages/Chat/builder/components/chatNotices';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
-import {
-  selectAppMemory,
-  selectChatMessages,
-  selectCommittedSource,
-  selectPreviousChangeSummaries,
-} from '@pages/Chat/builder/store/selectors';
+import { selectChatMessages, selectCommittedSource } from '@pages/Chat/builder/store/selectors';
 import type { BuilderChatMessage, BuilderChatNotice } from '@pages/Chat/builder/types';
 import { cn } from '@helpers/utils';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
@@ -231,9 +220,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       onSystemNotice,
     });
   const chatMessages = useAppSelector(selectChatMessages);
-  const appMemory = useAppSelector(selectAppMemory);
   const committedSource = useAppSelector(selectCommittedSource);
-  const previousChangeSummaries = useAppSelector(selectPreviousChangeSummaries);
   const runtimeConfigStatusMessage = findLatestMessageByKey(chatMessages, SYSTEM_CHAT_MESSAGE_KEYS.runtimeConfigStatus);
   const runtimeConfigStatusContent = runtimeConfigStatusMessage?.content ?? null;
   const hasReachedPromptLimit = typeof promptMaxChars === 'number' && draftPrompt.length >= promptMaxChars;
@@ -258,19 +245,6 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       : configStatus === 'loading' || hasReachedPromptLimit
         ? 'text-amber-700'
         : 'text-slate-500';
-  const contextMeterTooltip = useMemo(() => {
-    const latestUserPrompt = retryPrompt && !draftPrompt.trim() ? retryPrompt : draftPrompt;
-
-    return formatContextMeterTooltip(
-      buildContextMeterSections({
-        appMemory,
-        currentSource: committedSource,
-        latestUserPrompt,
-        previousChangeSummaries: buildPreviousChangeSummaries(previousChangeSummaries),
-        previousUserMessages: buildPreviousUserMessages(chatMessages),
-      }),
-    );
-  }, [appMemory, chatMessages, committedSource, draftPrompt, previousChangeSummaries, retryPrompt]);
 
   useEffect(() => {
     const runtimeConfigNotice = resolveRuntimeConfigNotice({
@@ -313,18 +287,9 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
         }}
       />
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <p aria-live="polite" className={cn('text-xs', composerHintToneClassName)}>
-            {composerHint}
-          </p>
-          <span
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-500"
-            title={contextMeterTooltip}
-          >
-            <Info className="h-3.5 w-3.5" />
-            Context
-          </span>
-        </div>
+        <p aria-live="polite" className={cn('text-xs', composerHintToneClassName)}>
+          {composerHint}
+        </p>
         <div className="flex items-center gap-2">
           {isSubmitting ? (
             <Button type="button" variant="ghost" onClick={handleCancel}>

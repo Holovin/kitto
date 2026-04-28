@@ -1,6 +1,7 @@
 import type { AppEnv } from '#backend/env.js';
 import type { PromptBuildRequest } from '#backend/prompts/openui.js';
 import {
+  buildPromptContextSnapshot,
   buildResponseRequest,
   captureOpenAiRequestId,
   getClient,
@@ -199,6 +200,7 @@ export async function streamOpenUiSource(
 
 export {
   OpenUiGenerationEnvelopeSchema,
+  buildPromptContextSnapshot,
   parseOpenUiGenerationEnvelope,
   resetOpenAiClientForTesting,
   setOpenAiClientFactoryForTesting,

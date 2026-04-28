@@ -18,6 +18,8 @@ export type {
   BuilderLlmRequestCompaction,
   BuilderLlmRequestMode,
   BuilderLlmResponse,
+  BuilderPromptContextSection,
+  BuilderPromptContextSnapshot,
   BudgetDecision,
   BudgetDecisionSection,
   PromptBuildOptionsShapeIssueContext,
@@ -33,7 +35,7 @@ export type {
 } from '@kitto-openui/shared/builderApiContract.js';
 
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
-export type BuilderTabId = 'preview' | 'definition' | 'app-state';
+export type BuilderTabId = 'preview' | 'definition' | 'app-state' | 'context';
 type BuilderMessageRole = PromptBuildChatHistoryRole;
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 
@@ -85,6 +87,7 @@ export interface BuilderGeneratedDraft
     | 'changeSummary'
     | 'compaction'
     | 'qualityIssues'
+    | 'promptContext'
     | 'source'
     | 'summary'
     | 'summaryExcludeFromLlmContext'

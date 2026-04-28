@@ -7,7 +7,7 @@ import {
   shouldExcludeSummaryFromLlmContext,
 } from '#backend/prompts/openui.js';
 import { assertModelOutputWithinLimit } from '#backend/services/openai/envelope.js';
-import { generateOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
+import { buildPromptContextSnapshot, generateOpenUiSource, type OpenUiGenerationEnvelope } from '#backend/services/openai.js';
 import { mapToPublicError } from './mapToPublicError.js';
 import { parseLlmRequest, type PreparedLlmInvocation } from './requestSchema.js';
 import type { LlmOpenUiTelemetry } from './telemetry.js';
@@ -25,6 +25,7 @@ export function createLlmResponsePayload(
 ) {
   const { appMemory, changeSummary, source, summary } = responseEnvelope;
   const summaryWarning = getSummaryQualityWarning(summary);
+  const promptContext = buildPromptContextSnapshot(env, invocation.request);
 
   assertModelOutputWithinLimit(source, env);
 
@@ -33,6 +34,7 @@ export function createLlmResponsePayload(
     changeSummary,
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
+    ...(promptContext ? { promptContext } : {}),
     qualityIssues: detectPromptAwareQualityIssues(
       source,
       invocation.request.prompt,
