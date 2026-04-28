@@ -12,6 +12,9 @@ Return a complete corrected program.
 Original user request:
 Build a 20-question quiz.
 
+Previous app memory:
+{"version":1,"appSummary":"","userPreferences":[],"avoid":[]}
+
 Quality issues:
 - undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
 - undefined-state-reference in root: State reference \`$q2\` is missing a top-level declaration with a literal initial value. For example, add \`$q2 = ""\`.
@@ -161,18 +164,10 @@ Group("Question 11", "vertical", [
   ])
 ]),
 Group("Question 12", "vertical", [
-  Text("Question 12", "body", "start"),
-  RadioGroup("question-12", "Question 12", $q12, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 13", "vertical", [
-  Text("Question 13", "body", "start"),
-  RadioGroup("question-1…
+  Text("Question 12…
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Return summary, changeSummary, source, and appMemory. Make \`summary\` one user-facing sentence under 200 characters, \`changeSummary\` one technical sentence under 300 characters, and return a full updated \`appMemory\` object under 4096 characters with version, appSummary, userPreferences, and avoid only.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -199,6 +194,9 @@ Return a complete corrected program.
 
 Original user request:
 Build a 20-question quiz.
+
+Previous app memory:
+{"version":1,"appSummary":"","userPreferences":[],"avoid":[]}
 
 Quality issues:
 - undefined-state-reference in root: State reference \`$q1\` is missing a top-level declaration with a literal initial value. For example, add \`$q1 = ""\`.
@@ -278,18 +276,10 @@ Group("Question 1", "vertical", [
     { label: "No", value: "no" }
   ])
 ]),
-Group("Question 2", "vertical", [
-  Text("Question 2", "body", "start"),
-  RadioGroup("question-2", "Question 2", $q2, [
-    { label: "Yes", value: "yes" },
-    { label: "No", value: "no" }
-  ])
-]),
-Group("Question 3", "vertical", [
-  Text("Question 3", "body…
+Group("Que…
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Return summary, changeSummary, source, and appMemory. Make \`summary\` one user-facing sentence under 200 characters, \`changeSummary\` one technical sentence under 300 characters, and return a full updated \`appMemory\` object under 4096 characters with version, appSummary, userPreferences, and avoid only.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -316,6 +306,9 @@ Return a complete corrected program.
 Original user request:
 Create a todo list.
 
+Previous app memory:
+{"version":1,"appSummary":"","userPreferences":[],"avoid":[]}
+
 Quality issues:
 - quality-missing-todo-controls in root: Todo request did not generate required todo controls.
 
@@ -336,15 +329,13 @@ Targeted repair hints:
 - Example for todo list rows fragment:
   $targetItemId = ""
   toggleItem = Mutation("toggle_item_field", { path: "app.items", idField: "id", id: $targetItemId, field: "completed" })
-  rows = @Each(items, "item", Group(null, "horizontal", [
-    Text(item.title, "body", "start"),
-    Checkbox("toggle-" +…
+  rows = @Each(items, "item", Group(n…
 
 Model draft to repair:
 root = AppShell([])
 
 Current critical syntax rules:
-- Place the full corrected OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.
+- Place the full corrected OpenUI Lang program in \`source\`. Return summary, changeSummary, source, and appMemory. Make \`summary\` one user-facing sentence under 200 characters, \`changeSummary\` one technical sentence under 300 characters, and return a full updated \`appMemory\` object under 4096 characters with version, appSummary, userPreferences, and avoid only.
 - Use only supported components and tools.
 - Every @Run(ref) must reference a defined Query or Mutation.
 - AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.
@@ -360,6 +351,5 @@ Intent-specific rules from original user request:
 - Toggle completion with \`toggle_item_field\` using \`idField: "id"\`, \`id: $targetItemId\`, and \`field: "completed"\`.
 - Render rows as \`rows = @Each(visibleItemsOrItems, "item", Group(...))\`; keep the row template inline so \`item\` is in scope.
 - Inside each row, use action-mode Checkbox with \`item.completed\` plus \`Action([@Set($targetItemId, item.id), @Run(toggleItem), @Run(items)])\`; do not bind controls directly to \`item.completed\`.
-- Pass built rows to \`Repeater(rows, "No tasks yet")\`; never pass raw Query data directly to Repeater.
-- Display-only \`Checkbox(item.completed)\` does not write back to persisted collections by i…"
+- Pass built rows to \`Repeate…"
 `;

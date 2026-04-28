@@ -60,12 +60,13 @@ Notes:
 ## 5. AI usage note
 
 - The LLM is used only to generate or update OpenUI source from chat requests.
-- By default, the backend requests a structured model envelope shaped like `{"summary":"...","source":"..."}` from the OpenAI Responses API.
-- The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","summaryExcludeFromLlmContext"?:true,"qualityIssues":[...],"compaction"?:{...}}`.
+- By default, the backend requests a structured model envelope shaped like `{"summary":"...","changeSummary":"...","source":"...","appMemory":{"version":1,"appSummary":"...","userPreferences":[],"avoid":[]}}` from the OpenAI Responses API.
+- The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","changeSummary":"...","appMemory":{...},"summaryExcludeFromLlmContext"?:true,"qualityIssues":[...],"compaction"?:{...}}`.
+- `appMemory` is a compact LLM context artifact only. It is not runtime state, not exported preview memory, and must not duplicate the OpenUI source, source inventory, runtime preview data, or previous change summaries.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers up to the configured repair limit before commit (default: 2 attempts).
-- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done` payload plus its extracted `source`, `qualityIssues`, and optional `summaryExcludeFromLlmContext`.
+- During streaming, `chunk` events carry incremental model-envelope text, the frontend derives partial `summary` / `source` from that stream, and commit still happens only from the final backend `done` payload plus its extracted `source`, visible `summary`, technical `changeSummary`, compact `appMemory`, `qualityIssues`, and optional `summaryExcludeFromLlmContext`.
 - If generation fails, the builder keeps the last committed preview and enables `Repeat` in an empty composer to resend the last failed prompt as a fresh generation; typing a new prompt switches that action back to `Send`.
 - `OPENAI_API_KEY` stays on the backend; the browser does not receive it.
 - Prompt I/O logging is local-only, append-only, and disabled by default. When enabled, the backend writes model inputs/outputs to `backend/logs/prompt-io.jsonl`.

@@ -1,5 +1,6 @@
 import type { ResponseFormatTextJSONSchemaConfig } from 'openai/resources/responses/responses';
 import { z } from 'zod';
+import { appMemoryInputSchema, appMemorySchema, normalizeAppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import type { AppEnv } from '#backend/env.js';
 import { UpstreamFailureError } from '#backend/errors/publicError.js';
 import { getByteLength, getRawStructuredOutputMaxBytes } from '#backend/limits.js';
@@ -7,11 +8,17 @@ import { getByteLength, getRawStructuredOutputMaxBytes } from '#backend/limits.j
 export const OpenUiGenerationEnvelopeSchema = z
   .object({
     summary: z.string().max(200),
+    changeSummary: z.string().max(300),
     source: z.string().min(1),
+    appMemory: appMemorySchema,
   })
   .strict();
 
 export type OpenUiGenerationEnvelope = z.infer<typeof OpenUiGenerationEnvelopeSchema>;
+
+const OpenUiGenerationEnvelopeParseSchema = OpenUiGenerationEnvelopeSchema.extend({
+  appMemory: appMemoryInputSchema,
+});
 
 function createOpenUiEnvelopeJsonSchema() {
   const jsonSchema = z.toJSONSchema(OpenUiGenerationEnvelopeSchema);
@@ -65,13 +72,16 @@ export function parseOpenUiGenerationEnvelope(rawModelText: unknown, env?: AppEn
     throw new UpstreamFailureError('The model returned malformed structured output.');
   }
 
-  const envelopeResult = OpenUiGenerationEnvelopeSchema.safeParse(parsedEnvelope);
+  const envelopeResult = OpenUiGenerationEnvelopeParseSchema.safeParse(parsedEnvelope);
 
   if (!envelopeResult.success) {
     throw new UpstreamFailureError('The model returned an invalid OpenUI response envelope.');
   }
 
-  return envelopeResult.data;
+  return {
+    ...envelopeResult.data,
+    appMemory: normalizeAppMemory(envelopeResult.data.appMemory),
+  };
 }
 
 export function assertModelOutputWithinLimit(source: string, env: AppEnv) {

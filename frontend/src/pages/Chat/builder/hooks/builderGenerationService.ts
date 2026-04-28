@@ -95,6 +95,8 @@ interface BuilderValidationRepairPort {
     request: PromptBuildRequest,
     requestId: BuilderRequestId,
   ) => Promise<{
+    appMemory: BuilderGeneratedDraft['appMemory'];
+    changeSummary: BuilderGeneratedDraft['changeSummary'];
     commitSource: BuilderGeneratedDraft['commitSource'];
     note?: string;
     requestId: BuilderRequestId;
@@ -196,6 +198,8 @@ async function commitGeneratedSource({
   dispatch(builderSessionActions.replaceRuntimeSessionState(snapshot.runtimeState));
   dispatch(
     builderActions.completeStreaming({
+      appMemory: validatedResult.appMemory,
+      changeSummary: validatedResult.changeSummary,
       requestId,
       source: validatedResult.source,
       note: validatedResult.note,

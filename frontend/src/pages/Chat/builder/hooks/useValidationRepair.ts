@@ -498,6 +498,7 @@ export function useValidationRepair({
 
       const repairRequest: PromptBuildRequest = {
         prompt: request.prompt,
+        ...(request.appMemory !== undefined ? { appMemory: request.appMemory } : {}),
         currentSource: request.currentSource,
         ...(request.previousSource !== undefined ? { previousSource: request.previousSource } : {}),
         chatHistory: buildRepairChatHistoryWithRejectedDraftNotice(request.chatHistory, validationIssues),
@@ -599,6 +600,8 @@ export function useValidationRepair({
 
         reportQualityRepairOutcome('fixed');
         return {
+          appMemory: candidateResponse.appMemory,
+          changeSummary: candidateResponse.changeSummary,
           commitSource: candidateResponse.commitSource,
           note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
           requestId: candidateResponse.requestId,

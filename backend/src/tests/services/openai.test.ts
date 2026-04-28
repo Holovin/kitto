@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { APP_MEMORY_MAX_CHARS } from '@kitto-openui/shared/builderApiContract.js';
 import {
   detectPromptRequestIntent,
   getOpenUiSystemPromptHash,
@@ -193,6 +194,21 @@ const repairRequest: PromptBuildRequest = {
     },
   ],
 };
+const testAppMemory = {
+  version: 1 as const,
+  appSummary: 'Test app',
+  userPreferences: ['Keep the test UI compact.'],
+  avoid: [] as string[],
+};
+
+function createEnvelopeText(summary: string, source: string) {
+  return JSON.stringify({
+    summary,
+    changeSummary: 'Test generation change.',
+    appMemory: testAppMemory,
+    source,
+  });
+}
 
 function createMockResponseStream(
   events: Array<{ delta?: string; type?: string }>,
@@ -230,15 +246,44 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
           schema: {
             type: 'object',
             additionalProperties: false,
-            required: ['summary', 'source'],
+            required: ['summary', 'changeSummary', 'source', 'appMemory'],
             properties: {
               summary: {
                 type: 'string',
                 maxLength: 200,
               },
+              changeSummary: {
+                type: 'string',
+                maxLength: 300,
+              },
               source: {
                 type: 'string',
                 minLength: 1,
+              },
+              appMemory: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['version', 'appSummary', 'userPreferences', 'avoid'],
+                properties: {
+                  version: {
+                    type: 'number',
+                    const: 1,
+                  },
+                  appSummary: {
+                    type: 'string',
+                    maxLength: 1800,
+                  },
+                  userPreferences: {
+                    type: 'array',
+                    maxItems: 8,
+                    items: { type: 'string', maxLength: 180 },
+                  },
+                  avoid: {
+                    type: 'array',
+                    maxItems: 8,
+                    items: { type: 'string', maxLength: 180 },
+                  },
+                },
               },
             },
           },
@@ -255,11 +300,15 @@ describe('parseOpenUiGenerationEnvelope', () => {
         JSON.stringify({
           source: 'root = AppShell([])',
           summary: 'Builds a simple one-screen app.',
+          changeSummary: 'Test generation change.',
+          appMemory: testAppMemory,
         }),
       ),
     ).toEqual({
       source: 'root = AppShell([])',
       summary: 'Builds a simple one-screen app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
   });
 
@@ -276,6 +325,8 @@ describe('parseOpenUiGenerationEnvelope', () => {
       parseOpenUiGenerationEnvelope(
         JSON.stringify({
           summary: 'Builds a simple one-screen app.',
+          changeSummary: 'Test generation change.',
+          appMemory: testAppMemory,
         }),
       ),
     ).toThrow(UpstreamFailureError);
@@ -291,10 +342,36 @@ describe('parseOpenUiGenerationEnvelope', () => {
         JSON.stringify({
           source: 'root = AppShell([])',
           summary: 'Builds a simple one-screen app.',
+          changeSummary: 'Test generation change.',
+          appMemory: testAppMemory,
         }),
         env,
       ),
     ).toThrow(UpstreamFailureError);
+  });
+
+  it('normalizes appMemory strings and keeps serialized memory under the app memory limit', () => {
+    const longText = 'x'.repeat(180);
+    const parsedEnvelope = parseOpenUiGenerationEnvelope(
+      JSON.stringify({
+        source: 'root = AppShell([])',
+        summary: 'Builds a simple one-screen app.',
+        changeSummary: 'Test generation change.',
+        appMemory: {
+          version: 1,
+          appSummary: `  ${'A'.repeat(1800)}  `,
+          userPreferences: [' Keep the UI compact. ', '', 'Keep the UI compact.', ...Array.from({ length: 5 }, () => longText)],
+          avoid: Array.from({ length: 8 }, () => longText),
+        },
+      }),
+    );
+
+    expect(parsedEnvelope.appMemory.version).toBe(1);
+    expect(parsedEnvelope.appMemory.appSummary).toBe('A'.repeat(1800));
+    expect(parsedEnvelope.appMemory.userPreferences[0]).toBe('Keep the UI compact.');
+    expect(parsedEnvelope.appMemory.userPreferences).toEqual([...new Set(parsedEnvelope.appMemory.userPreferences)]);
+    expect(parsedEnvelope.appMemory.userPreferences).not.toContain('');
+    expect(JSON.stringify(parsedEnvelope.appMemory).length).toBeLessThanOrEqual(APP_MEMORY_MAX_CHARS);
   });
 });
 
@@ -312,12 +389,16 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -332,12 +413,16 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Repairs the OpenUI document.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
       summary: 'Repairs the OpenUI document.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -353,16 +438,22 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, requestWithHistory)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
     await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -464,12 +555,16 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Repairs the OpenUI document.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, repairRequestWithHistory)).resolves.toEqual({
       summary: 'Repairs the OpenUI document.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -487,6 +582,10 @@ describe('generateOpenUiSource', () => {
       <original_user_request>
       Build a todo app
       </original_user_request>
+
+      <previous_app_memory>
+      {"version":1,"appSummary":"","userPreferences":[],"avoid":[]}
+      </previous_app_memory>
 
       <conversation_context>
       - User: Add email validation.
@@ -534,7 +633,7 @@ describe('generateOpenUiSource', () => {
         Repeater(rows, "No tasks yet.")
       </hints>
 
-      Return the corrected complete OpenUI Lang program in \`source\`. Make \`summary\` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.",
+      Return the corrected complete OpenUI Lang program in \`source\`. Return summary, changeSummary, source, and appMemory. Make \`summary\` one user-facing sentence under 200 characters, \`changeSummary\` one technical sentence under 300 characters, and return a full updated \`appMemory\` object under 4096 characters with version, appSummary, userPreferences, and avoid only.",
               "type": "input_text",
             },
           ],
@@ -551,12 +650,16 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, requestWithLongHistory)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -616,12 +719,16 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Keeps the Continue button disabled until the email is valid.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, requestWithSignupIterationHistory)).resolves.toEqual({
       summary: 'Keeps the Continue button disabled until the email is valid.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -690,16 +797,22 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
     await expect(generateOpenUiSource(env, repairRequest)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -733,20 +846,28 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
     await expect(generateOpenUiSource(env, todoAliasRequest)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
     await expect(generateOpenUiSource(env, themeRequest)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -773,6 +894,8 @@ describe('generateOpenUiSource', () => {
       _request_id: 'req_usage_log',
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
       usage: {
@@ -790,6 +913,8 @@ describe('generateOpenUiSource', () => {
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -812,6 +937,8 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
       usage,
@@ -827,6 +954,8 @@ describe('generateOpenUiSource', () => {
 
     await expect(generateOpenUiSource(env, request, undefined, { requestId: 'builder-request-1' })).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -839,9 +968,11 @@ describe('generateOpenUiSource', () => {
         chatHistoryLen: 0,
         inputShape: 'role-based',
         systemPromptHash: expectedSystemPromptHash,
-        modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        modelOutputRaw: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
         parsedEnvelope: {
           summary: 'Builds a blank app shell.',
+          changeSummary: 'Test generation change.',
+          appMemory: testAppMemory,
           source: 'root = AppShell([])',
         },
         usage,
@@ -868,6 +999,8 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Repairs the app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
       }),
       usage: null,
@@ -877,6 +1010,8 @@ describe('generateOpenUiSource', () => {
       generateOpenUiSource(env, repairRequestWithAttempt, undefined, { requestId: 'builder-request-repair-2' }),
     ).resolves.toEqual({
       summary: 'Repairs the app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -994,6 +1129,8 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         notSource: 'root = AppShell([])',
       }),
     });
@@ -1008,6 +1145,8 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: '',
       }),
     });
@@ -1022,6 +1161,8 @@ describe('generateOpenUiSource', () => {
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
         summary: 'Builds a blank app shell.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
         source: 'root = AppShell([])',
         extra: true,
       }),
@@ -1038,12 +1179,16 @@ describe('generateOpenUiSource', () => {
       output_text: JSON.stringify({
         source: 'root = AppShell([])',
         summary: 'Builds a simple one-screen app.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       }),
     });
 
     await expect(generateOpenUiSource(env, request)).resolves.toEqual({
       source: 'root = AppShell([])',
       summary: 'Builds a simple one-screen app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
   });
 
@@ -1056,6 +1201,8 @@ describe('generateOpenUiSource', () => {
       output_text: JSON.stringify({
         source: '1234567890',
         summary: '',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       }),
     });
 
@@ -1071,6 +1218,8 @@ describe('generateOpenUiSource', () => {
       output_text: JSON.stringify({
         source: 'x'.repeat(51),
         summary: '',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       }),
     });
 
@@ -1101,7 +1250,7 @@ describe('streamOpenUiSource', () => {
         { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
         { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
       ],
-      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
+      { output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])') },
     );
 
     responsesStreamMock.mockReturnValue(stream);
@@ -1130,7 +1279,7 @@ describe('streamOpenUiSource', () => {
       },
     };
     const stream = createMockResponseStream([abortingEvent], {
-      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+      output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
     });
 
     responsesStreamMock.mockReturnValue(stream);
@@ -1160,7 +1309,7 @@ describe('streamOpenUiSource', () => {
         { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
         { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
       ],
-      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
+      { output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])') },
     );
 
     promptLogWriteMock.mockResolvedValue(undefined);
@@ -1193,13 +1342,15 @@ describe('streamOpenUiSource', () => {
         { type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = ' },
         { type: 'response.output_text.delta', delta: 'AppShell([])"}' },
       ],
-      { output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' },
+      { output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])') },
     );
 
     responsesStreamMock.mockReturnValue(stream);
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -1292,12 +1443,14 @@ describe('streamOpenUiSource', () => {
   it('rejects streamed structured output when the extracted source exceeds the final source limit', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-16b',
-      LLM_OUTPUT_MAX_BYTES: 50,
+      LLM_OUTPUT_MAX_BYTES: 500,
     });
     const onTextDelta = vi.fn();
-    const oversizedSource = 'x'.repeat(51);
+    const oversizedSource = 'x'.repeat(501);
     const rawEnvelope = JSON.stringify({
       summary: '',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: oversizedSource,
     });
     const midpoint = Math.floor(rawEnvelope.length / 2);
@@ -1336,7 +1489,7 @@ describe('streamOpenUiSource', () => {
     ];
     const finalResponse = {
       _request_id: 'req_stream_usage',
-      output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+      output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
       usage: {
         input_tokens: 2000,
         input_tokens_details: {
@@ -1355,6 +1508,8 @@ describe('streamOpenUiSource', () => {
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -1372,7 +1527,7 @@ describe('streamOpenUiSource', () => {
     const stream = createMockResponseStream(
       [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' }],
       {
-        output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
         usage: {
           input_tokens: 2000,
           input_tokens_details: {
@@ -1392,7 +1547,7 @@ describe('streamOpenUiSource', () => {
       consumeOpenAiResponseStream(env, stream, vi.fn(), undefined, streamState, {
         getRequestId: () => 'req_stream_header',
       }),
-    ).resolves.toBe('{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}');
+    ).resolves.toBe(createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'));
 
     expect((streamState.finalResponse as { _request_id?: unknown } | null)?._request_id).toBe('req_stream_header');
     logResponseUsage(env, 'stream', streamState.finalResponse);
@@ -1412,7 +1567,7 @@ describe('streamOpenUiSource', () => {
       [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' }],
       {
         _request_id: 'req_stream_mismatch',
-        output_text: '{"summary":"Builds a different app shell.","source":"root = AppShell([Text(\\"Changed\\", \\"body\\", \\"start\\")])"}',
+        output_text: createEnvelopeText('Builds a different app shell.', 'root = AppShell([Text("Changed", "body", "start")])'),
       },
     );
 
@@ -1420,6 +1575,8 @@ describe('streamOpenUiSource', () => {
 
     await expect(streamOpenUiSource(env, request, onTextDelta)).resolves.toEqual({
       summary: 'Builds a different app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([Text("Changed", "body", "start")])',
     });
 
@@ -1442,7 +1599,7 @@ describe('streamOpenUiSource', () => {
     const stream = createMockResponseStream(
       [{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}' }],
       {
-        output_text: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        output_text: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
         usage,
       },
     );
@@ -1451,6 +1608,8 @@ describe('streamOpenUiSource', () => {
 
     await expect(streamOpenUiSource(env, request, onTextDelta, undefined, { requestId: 'builder-request-stream' })).resolves.toEqual({
       summary: 'Builds a blank app shell.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       source: 'root = AppShell([])',
     });
 
@@ -1459,9 +1618,11 @@ describe('streamOpenUiSource', () => {
         requestId: 'builder-request-stream',
         rawUserRequest: 'Build a todo app',
         inputShape: 'role-based',
-        modelOutputRaw: '{"summary":"Builds a blank app shell.","source":"root = AppShell([])"}',
+        modelOutputRaw: createEnvelopeText('Builds a blank app shell.', 'root = AppShell([])'),
         parsedEnvelope: {
           summary: 'Builds a blank app shell.',
+          changeSummary: 'Test generation change.',
+          appMemory: testAppMemory,
           source: 'root = AppShell([])',
         },
         usage,

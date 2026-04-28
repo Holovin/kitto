@@ -8,6 +8,12 @@ const request: PromptBuildRequest = {
   chatHistory: [],
   mode: 'initial',
 };
+const testAppMemory = {
+  version: 1 as const,
+  appSummary: 'Test app',
+  userPreferences: ['Keep the test UI compact.'],
+  avoid: [] as string[],
+};
 
 function createPendingAbortableResponse(signal: AbortSignal) {
   return new Promise<Response>((_resolve, reject) => {
@@ -145,6 +151,9 @@ describe('generateBuilderDefinition', () => {
     resolveLateResponse(
       new Response(
         JSON.stringify({
+          appMemory: testAppMemory,
+          changeSummary: 'Test generation change.',
+          summary: 'Updated the app.',
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
           temperature: 0.4,
@@ -165,6 +174,9 @@ describe('generateBuilderDefinition', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          appMemory: testAppMemory,
+          changeSummary: 'Test generation change.',
+          summary: 'Updated the app.',
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
           temperature: 0.4,
@@ -186,9 +198,12 @@ describe('generateBuilderDefinition', () => {
         }),
       ),
     ).resolves.toEqual({
+      appMemory: testAppMemory,
+      changeSummary: 'Test generation change.',
       model: 'gpt-5.4-mini',
       qualityIssues: [],
       source: 'root = AppShell([])',
+      summary: 'Updated the app.',
       temperature: 0.4,
     });
 
@@ -206,11 +221,13 @@ describe('generateBuilderDefinition', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            model: 'gpt-5.4-mini',
-            source: 'root = AppShell([])',
-            summary: 'Updated the app.',
+          new Response(
+            JSON.stringify({
+              appMemory: testAppMemory,
+              changeSummary: 'Test generation change.',
+              model: 'gpt-5.4-mini',
+              source: 'root = AppShell([])',
+              summary: 'Updated the app.',
             summaryExcludeFromLlmContext: true,
             temperature: 0.4,
           } satisfies BuilderLlmResponse),
@@ -225,6 +242,8 @@ describe('generateBuilderDefinition', () => {
     );
 
     await expect(generateBuilderDefinition(createGenerateRequestOptions())).resolves.toEqual({
+      appMemory: testAppMemory,
+      changeSummary: 'Test generation change.',
       model: 'gpt-5.4-mini',
       qualityIssues: [],
       source: 'root = AppShell([])',
@@ -238,6 +257,9 @@ describe('generateBuilderDefinition', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          appMemory: testAppMemory,
+          changeSummary: 'Test generation change.',
+          summary: 'Updated the app.',
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
           temperature: 0.2,
@@ -282,6 +304,9 @@ describe('generateBuilderDefinition', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          appMemory: testAppMemory,
+          changeSummary: 'Test generation change.',
+          summary: 'Updated the app.',
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
           temperature: 0.4,
@@ -337,6 +362,9 @@ describe('generateBuilderDefinition', () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          appMemory: testAppMemory,
+          changeSummary: 'Test generation change.',
+          summary: 'Updated the app.',
           model: 'gpt-5.4-mini',
           source: 'root = AppShell([])',
           temperature: 0.2,
@@ -389,19 +417,22 @@ describe('generateBuilderDefinition', () => {
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
-        JSON.stringify({
-          model: 'gpt-5.4-mini',
-          qualityIssues: [
-            {
+          JSON.stringify({
+            appMemory: testAppMemory,
+            changeSummary: 'Test generation change.',
+            summary: 'Updated the app.',
+            model: 'gpt-5.4-mini',
+            qualityIssues: [
+              {
                 code: 'quality-missing-todo-controls',
                 message: 'Todo request did not generate required todo controls.',
                 severity: 'blocking-quality',
                 source: 'quality',
-            },
-          ],
-          source: 'root = AppShell([])',
-          temperature: 0.4,
-        } satisfies BuilderLlmResponse),
+              },
+            ],
+            source: 'root = AppShell([])',
+            temperature: 0.4,
+          } satisfies BuilderLlmResponse),
           {
             headers: {
               'content-type': 'application/json',
@@ -413,6 +444,8 @@ describe('generateBuilderDefinition', () => {
     );
 
     await expect(generateBuilderDefinition(createGenerateRequestOptions())).resolves.toEqual({
+      appMemory: testAppMemory,
+      changeSummary: 'Test generation change.',
       model: 'gpt-5.4-mini',
       qualityIssues: [
         {
@@ -423,6 +456,7 @@ describe('generateBuilderDefinition', () => {
         },
       ],
       source: 'root = AppShell([])',
+      summary: 'Updated the app.',
       temperature: 0.4,
     });
   });

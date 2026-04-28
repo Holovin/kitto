@@ -90,6 +90,13 @@ The model first returns a structured envelope shaped like:
 ```json
 {
   "summary": "Builds a todo app.",
+  "changeSummary": "Created a persisted todo list with add and completion controls.",
+  "appMemory": {
+    "version": 1,
+    "appSummary": "A browser-only todo tracker with persisted tasks, completion toggles, and a compact main-screen task flow.",
+    "userPreferences": ["Keep the UI compact."],
+    "avoid": []
+  },
   "source": "root = AppShell([])"
 }
 ```
@@ -101,6 +108,13 @@ The backend then returns a response payload shaped like:
   "source": "root = AppShell([])",
   "model": "gpt-5.4-mini",
   "summary": "Builds a todo app.",
+  "changeSummary": "Created a persisted todo list with add and completion controls.",
+  "appMemory": {
+    "version": 1,
+    "appSummary": "A browser-only todo tracker with persisted tasks, completion toggles, and a compact main-screen task flow.",
+    "userPreferences": ["Keep the UI compact."],
+    "avoid": []
+  },
   "compaction": {
     "compactedByBytes": false,
     "compactedByItemLimit": true,
@@ -109,14 +123,14 @@ The backend then returns a response payload shaped like:
 }
 ```
 
-`summary` is always present.
+`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, source inventory, runtime preview data, or full OpenUI source.
 
 ### `POST /api/llm/generate/stream`
 
 Accepts the same request shape and streams Server-Sent Events:
 
 - `chunk` - incremental raw model text; this is a partial model envelope carrying `summary` / `source`
-- `done` - final backend response payload with `source`, `model`, `summary`, and optional `compaction`
+- `done` - final backend response payload with `source`, `model`, `summary`, `changeSummary`, `appMemory`, and optional `compaction`
 - `error` - terminal public error payload
 
 ## Current behavior

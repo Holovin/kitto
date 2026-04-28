@@ -7,9 +7,20 @@ export const STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT_LINES = [
 ] as const;
 
 export const COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT =
-  'Make `summary` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.';
+  'Return summary, changeSummary, source, and appMemory. Make `summary` one user-facing sentence under 200 characters, `changeSummary` one technical sentence under 300 characters, and return a full updated `appMemory` object under 4096 characters with version, appSummary, userPreferences, and avoid only.';
 
 export const STRUCTURED_OUTPUT_SUMMARY_INSTRUCTION = [
-  'Always include a concise human-readable `summary`.',
+  'Return a strict JSON object with:',
+  '- summary: one concise user-facing sentence under 200 chars.',
+  '- changeSummary: one compact technical sentence under 300 chars describing only this generation/change.',
+  '- source: the complete updated OpenUI Lang program.',
+  '- appMemory: the full updated compact memory of the committed app, shaped as { "version": 1, "appSummary": "...", "userPreferences": [], "avoid": [] } and under 4096 chars.',
+  'Update appMemory from the previous appMemory, latest user request, and generated source.',
+  'Use appSummary only for a brief description of the current app and what must be preserved.',
+  'Use userPreferences only for durable user preferences.',
+  'Use avoid only for things the user removed or prohibited reintroducing.',
+  'Do not include recentChanges, stateModel, visibleStructure, runtime preview data, full OpenUI source text, or system prompt text in appMemory.',
+  'Do not include runtime preview data in appMemory.',
+  'Do not include the system prompt or OpenUI source text inside appMemory.',
   ...STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT_LINES,
 ].join(' ');

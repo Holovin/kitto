@@ -3,6 +3,8 @@ import { ZodError } from 'zod';
 import {
   createBuilderLlmRequestSchema,
   createCommitTelemetrySchema,
+  normalizeAppMemory,
+  type AppMemory,
   type BuilderCommitTelemetryRequest,
 } from '@kitto-openui/shared/builderApiContract.js';
 import type { AppEnv } from '#backend/env.js';
@@ -31,6 +33,7 @@ export interface LlmRequestCompaction {
 }
 
 interface RawParsedLlmRequest {
+  appMemory?: AppMemory;
   chatHistory: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
   invalidDraft?: string;
@@ -71,6 +74,7 @@ function createLlmRequestSchema(env: AppEnv) {
 function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {
   return {
     ...request,
+    ...(request.appMemory ? { appMemory: normalizeAppMemory(request.appMemory) } : {}),
     chatHistory: filterPromptBuildChatHistory(request.chatHistory),
   };
 }

@@ -57,9 +57,8 @@ describe('buildOpenUiRepairPrompt', () => {
 
     expect(prompt).toContain('Place the full corrected OpenUI Lang program in `source`.');
     expect(prompt).not.toContain('Return only raw OpenUI Lang.');
-    expect(prompt).toContain(
-      'Make `summary` one complete user-facing sentence under 200 characters with concrete features/screens, not generic "Updated the app" text.',
-    );
+    expect(prompt).toContain('Make `summary` one user-facing sentence under 200 characters');
+    expect(prompt).toContain('return a full updated `appMemory` object under 4096 characters');
     expect(prompt).toContain(`AppShell signature is \`${getOpenUiComponentCompactSignature('AppShell')}\`.`);
     expect(prompt).toContain(
       'AppShell must be the single root statement; never nest AppShell and never define a second AppShell anywhere else in the source.',

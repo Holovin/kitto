@@ -1,6 +1,7 @@
 import type { RootState } from '@store/store';
 
 export const selectActiveTab = (state: RootState) => state.builder.activeTab;
+export const selectAppMemory = (state: RootState) => state.builder.appMemory;
 export const selectHasChatMessages = (state: RootState) => state.builder.chatMessages.length > 0;
 export const selectChatMessages = (state: RootState) => state.builder.chatMessages;
 export const selectCommittedSource = (state: RootState) => state.builder.committedSource;
@@ -14,6 +15,7 @@ export const selectDefinitionWarnings = (state: RootState) =>
 export const selectIsStreaming = (state: RootState) => selectCurrentRequestId(state) !== null;
 export const selectLastStreamChunkAt = (state: RootState) => state.builder.lastStreamChunkAt;
 export const selectParseIssues = (state: RootState) => state.builder.parseIssues;
+export const selectPreviousChangeSummaries = (state: RootState) => state.builder.previousChangeSummaries;
 export const selectRedoHistory = (state: RootState) => state.builder.redoHistory;
 export const selectRetryPrompt = (state: RootState) => state.builder.retryPrompt;
 export const selectRuntimeSessionState = (state: RootState) => state.builderSession.runtimeSessionState;

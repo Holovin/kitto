@@ -187,6 +187,7 @@ function buildResponseInput(env: AppEnv, request: PromptBuildRequest): ResponseI
   if (request.mode === 'repair') {
     const repairMessages = buildOpenUiRepairRoleMessages({
       attemptNumber: request.repairAttemptNumber ?? 1,
+      appMemory: request.appMemory,
       chatHistory: filterPromptBuildChatHistory(request.chatHistory),
       committedSource: request.currentSource,
       invalidSource: request.invalidDraft ?? '',

@@ -1,5 +1,5 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
-import { BUILDER_CHAT_MESSAGE_ROLES } from '@kitto-openui/shared/builderApiContract.js';
+import { BUILDER_CHAT_MESSAGE_ROLES, createEmptyAppMemory, normalizeAppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import { isRecord } from '@kitto-openui/shared/objectGuards.js';
 import { countCommittedVersions, formatHistoryVersionChatMessage, getBuilderHistoryVersionState } from '@pages/Chat/builder/historyVersionState';
 import { DEFAULT_OPENUI_SOURCE } from '@pages/Chat/builder/openui/runtime/defaultSource';
@@ -7,11 +7,12 @@ import { recoverStaleNavigationSnapshot } from '@pages/Chat/builder/openui/runti
 import { cloneBuilderSnapshot, createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { validateOpenUiSource } from '@pages/Chat/builder/openui/runtime/validation';
 import { SYSTEM_CHAT_MESSAGE_KEYS } from '@pages/Chat/builder/store/chatMessageKeys';
-import type { BuilderChatMessage, PromptBuildValidationIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@pages/Chat/builder/types';
+import type { AppMemory, BuilderChatMessage, PromptBuildValidationIssue, BuilderRequestId, BuilderSnapshot, BuilderTabId } from '@pages/Chat/builder/types';
 import { DEFAULT_DOMAIN_DATA } from './defaults';
 import { clonePersistedDomainData, clonePersistedRuntimeState } from './path';
 
 const MAX_HISTORY_ITEMS = 25;
+const MAX_PREVIOUS_CHANGE_SUMMARIES = 25;
 // UI-only retention budget for rendered chat history. Backend owns LLM context filtering.
 export const MAX_UI_MESSAGES = 200;
 const BUILDER_CHAT_TONES = new Set<NonNullable<BuilderChatMessage['tone']>>(['default', 'error', 'info', 'success']);
@@ -216,6 +217,16 @@ function normalizeParseIssues(value: unknown): PromptBuildValidationIssue[] {
   });
 }
 
+function normalizePreviousChangeSummaries(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .flatMap((summary) => (typeof summary === 'string' && summary.trim() ? [summary.trim().slice(0, 300)] : []))
+    .slice(-MAX_PREVIOUS_CHANGE_SUMMARIES);
+}
+
 function validateRestoredSource(source: string) {
   if (!source.trim()) {
     return {
@@ -309,6 +320,7 @@ function normalizeSnapshots(value: unknown, fallback: BuilderSnapshot[]) {
 
 interface BuilderState {
   activeTab: BuilderTabId;
+  appMemory: AppMemory;
   chatMessages: BuilderChatMessage[];
   committedSource: string;
   currentRequestId: BuilderRequestId | null;
@@ -318,6 +330,7 @@ interface BuilderState {
   history: BuilderSnapshot[];
   lastStreamChunkAt: number | null;
   parseIssues: PromptBuildValidationIssue[];
+  previousChangeSummaries: string[];
   redoHistory: BuilderSnapshot[];
   retryPrompt: string | null;
   streamError: string | null;
@@ -347,6 +360,7 @@ const initialSnapshot = createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT
 
 const initialState: BuilderState = {
   activeTab: 'preview',
+  appMemory: createEmptyAppMemory(),
   chatMessages: createInitialChatMessages(),
   committedSource: DEFAULT_OPENUI_SOURCE,
   currentRequestId: null,
@@ -356,6 +370,7 @@ const initialState: BuilderState = {
   history: [initialSnapshot],
   lastStreamChunkAt: null,
   parseIssues: [],
+  previousChangeSummaries: [],
   redoHistory: [],
   retryPrompt: null,
   streamError: null,
@@ -365,6 +380,7 @@ const initialState: BuilderState = {
 function createInitialState(): BuilderState {
   return {
     ...initialState,
+    appMemory: createEmptyAppMemory(),
     chatMessages: createInitialChatMessages(),
     definitionWarnings: [],
     history: [cloneBuilderSnapshot(initialSnapshot)],
@@ -396,6 +412,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
         : value.activeTab === 'definition' || value.activeTab === 'app-state'
           ? value.activeTab
           : 'preview',
+    appMemory: normalizeAppMemory(value.appMemory),
     chatMessages: normalizeChatMessages(value.chatMessages),
     committedSource,
     currentRequestId: null,
@@ -405,6 +422,7 @@ export function normalizeBuilderState(value: unknown): BuilderState {
     history,
     lastStreamChunkAt: null,
     parseIssues: rejectedSource ? rejectedSource.issues : [],
+    previousChangeSummaries: normalizePreviousChangeSummaries(value.previousChangeSummaries),
     redoHistory: normalizeSnapshots(value.redoHistory, []).snapshots,
     retryPrompt: null,
     streamError: null,
@@ -457,6 +475,8 @@ export const builderSlice = createSlice({
     completeStreaming(
       state,
       action: PayloadAction<{
+        appMemory?: AppMemory;
+        changeSummary?: string;
         note?: string;
         requestId: BuilderRequestId;
         skipDefaultAssistantMessage?: boolean;
@@ -470,6 +490,9 @@ export const builderSlice = createSlice({
       }
 
       state.currentRequestId = null;
+      if (action.payload.appMemory) {
+        state.appMemory = action.payload.appMemory;
+      }
       state.lastStreamChunkAt = null;
       state.retryPrompt = null;
       state.streamError = null;
@@ -478,6 +501,12 @@ export const builderSlice = createSlice({
       state.definitionWarnings = action.payload.warnings;
       state.streamedSource = action.payload.source;
       state.history = trimHistory([...state.history, cloneSnapshotForState(action.payload.snapshot)]);
+      if (action.payload.changeSummary) {
+        state.previousChangeSummaries = normalizePreviousChangeSummaries([
+          ...state.previousChangeSummaries,
+          action.payload.changeSummary,
+        ]);
+      }
       state.redoHistory = [];
 
       if (action.payload.note) {
@@ -704,6 +733,7 @@ export const builderSlice = createSlice({
       }>,
     ) {
       state.chatMessages = createInitialChatMessages();
+      state.appMemory = createEmptyAppMemory();
       state.committedSource = action.payload.source;
       state.streamedSource = action.payload.source;
       state.currentRequestId = null;
@@ -712,6 +742,7 @@ export const builderSlice = createSlice({
       state.hasRejectedDefinition = false;
       state.history = trimHistory(action.payload.history.map((snapshot) => cloneSnapshotForState(snapshot)));
       state.parseIssues = [];
+      state.previousChangeSummaries = [];
       state.redoHistory = [];
       state.retryPrompt = null;
       state.streamError = null;
@@ -729,6 +760,7 @@ export const builderSlice = createSlice({
       }>,
     ) {
       state.activeTab = 'preview';
+      state.appMemory = createEmptyAppMemory();
       state.chatMessages = createInitialChatMessages();
       state.committedSource = action.payload.snapshot.source;
       state.currentRequestId = null;
@@ -738,6 +770,7 @@ export const builderSlice = createSlice({
       state.draftPrompt = '';
       state.history = trimHistory([...state.history, cloneSnapshotForState(action.payload.snapshot)]);
       state.parseIssues = [];
+      state.previousChangeSummaries = [];
       state.redoHistory = [];
       state.retryPrompt = null;
       state.streamError = null;
@@ -754,6 +787,7 @@ export const builderSlice = createSlice({
     },
     resetToEmpty(state) {
       state.activeTab = 'preview';
+      state.appMemory = createEmptyAppMemory();
       state.chatMessages = createInitialChatMessages();
       state.committedSource = DEFAULT_OPENUI_SOURCE;
       state.currentRequestId = null;
@@ -764,6 +798,7 @@ export const builderSlice = createSlice({
       state.history = [createBuilderSnapshot(DEFAULT_OPENUI_SOURCE, {}, DEFAULT_DOMAIN_DATA)];
       state.lastStreamChunkAt = null;
       state.parseIssues = [];
+      state.previousChangeSummaries = [];
       state.redoHistory = [];
       state.retryPrompt = null;
       state.streamError = null;

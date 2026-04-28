@@ -1,4 +1,5 @@
-import type { PromptBuildRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@pages/Chat/builder/types';
+import { appMemorySchema, normalizeAppMemory } from '@kitto-openui/shared/builderApiContract.js';
+import type { AppMemory, PromptBuildRequest, BuilderLlmRequestCompaction, BuilderQualityIssue } from '@pages/Chat/builder/types';
 import { createPartialOpenUiEnvelopeParser, isMalformedStructuredChunk } from './partialOpenUiEnvelope';
 import { createBuilderRequestError, createBuilderResponseError } from './requestErrors';
 import { serializeBuilderLlmRequest } from './requestBody';
@@ -25,6 +26,8 @@ interface StreamBuilderDefinitionOptions {
 }
 
 interface StreamDonePayload {
+  appMemory?: unknown;
+  changeSummary?: string;
   compaction?: BuilderLlmRequestCompaction;
   model?: string;
   qualityIssues?: BuilderQualityIssue[];
@@ -35,17 +38,42 @@ interface StreamDonePayload {
   temperature?: number;
 }
 
+interface StreamDoneEnvelope extends StreamDonePayload {
+  appMemory: AppMemory;
+  changeSummary: string;
+  source: string;
+  summary: string;
+}
+
 interface StreamBuilderDefinitionResult {
+  appMemory: AppMemory;
+  changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
   qualityIssues: BuilderQualityIssue[];
   source: string;
-  summary?: string;
+  summary: string;
   summaryExcludeFromLlmContext?: boolean;
   summaryWarning?: string;
 }
 
-function hasDoneSource(payload: StreamDonePayload): payload is StreamDonePayload & { source: string } {
-  return typeof payload.source === 'string' && payload.source.length > 0;
+function parseDoneEnvelope(payload: StreamDonePayload): StreamDoneEnvelope | null {
+  if (
+    typeof payload.source !== 'string' ||
+    payload.source.length === 0 ||
+    typeof payload.summary !== 'string' ||
+    typeof payload.changeSummary !== 'string' ||
+    !appMemorySchema.safeParse(payload.appMemory).success
+  ) {
+    return null;
+  }
+
+  return {
+    ...payload,
+    appMemory: normalizeAppMemory(payload.appMemory),
+    changeSummary: payload.changeSummary,
+    source: payload.source,
+    summary: payload.summary,
+  };
 }
 
 export async function streamBuilderDefinition({
@@ -195,17 +223,21 @@ export async function streamBuilderDefinition({
     }
 
     if (receivedDone && donePayload) {
-      if (!hasDoneSource(donePayload)) {
+      const doneEnvelope = parseDoneEnvelope(donePayload);
+
+      if (!doneEnvelope) {
         throw new Error('Received an invalid "done" event from the backend stream.');
       }
 
       return {
-        compaction: donePayload.compaction,
-        qualityIssues: donePayload.qualityIssues ?? [],
-        source: donePayload.source,
-        summary: donePayload.summary,
-        summaryExcludeFromLlmContext: donePayload.summaryExcludeFromLlmContext,
-        summaryWarning: donePayload.summaryWarning,
+        appMemory: doneEnvelope.appMemory,
+        changeSummary: doneEnvelope.changeSummary,
+        compaction: doneEnvelope.compaction,
+        qualityIssues: doneEnvelope.qualityIssues ?? [],
+        source: doneEnvelope.source,
+        summary: doneEnvelope.summary,
+        summaryExcludeFromLlmContext: doneEnvelope.summaryExcludeFromLlmContext,
+        summaryWarning: doneEnvelope.summaryWarning,
       };
     }
 

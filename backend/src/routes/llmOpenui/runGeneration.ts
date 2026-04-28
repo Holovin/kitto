@@ -23,12 +23,14 @@ export function createLlmResponsePayload(
   invocation: PreparedLlmInvocation,
   responseEnvelope: OpenUiGenerationEnvelope,
 ) {
-  const { source, summary } = responseEnvelope;
+  const { appMemory, changeSummary, source, summary } = responseEnvelope;
   const summaryWarning = getSummaryQualityWarning(summary);
 
   assertModelOutputWithinLimit(source, env);
 
   return {
+    appMemory,
+    changeSummary,
     compaction: invocation.compaction,
     model: env.OPENAI_MODEL,
     qualityIssues: detectPromptAwareQualityIssues(

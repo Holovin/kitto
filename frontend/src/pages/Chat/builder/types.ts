@@ -9,6 +9,7 @@ import type {
 export { toBuilderRequestId } from '@kitto-openui/shared/builderApiContract.js';
 
 export type {
+  AppMemory,
   BuilderCommitRepairOutcome,
   BuilderCommitSource,
   RawPromptBuildChatHistoryMessage,
@@ -69,7 +70,17 @@ export interface BuilderDefinitionExport {
 }
 
 export interface BuilderGeneratedDraft
-  extends Pick<BuilderLlmResponse, 'compaction' | 'qualityIssues' | 'source' | 'summary' | 'summaryExcludeFromLlmContext' | 'summaryWarning'> {
+  extends Pick<
+    BuilderLlmResponse,
+    | 'appMemory'
+    | 'changeSummary'
+    | 'compaction'
+    | 'qualityIssues'
+    | 'source'
+    | 'summary'
+    | 'summaryExcludeFromLlmContext'
+    | 'summaryWarning'
+  > {
   commitSource: BuilderCommitSource;
   requestId: BuilderRequestId;
 }

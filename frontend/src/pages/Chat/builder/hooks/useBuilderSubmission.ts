@@ -1,4 +1,4 @@
-import { useRef, type FormEvent } from 'react';
+import { useEffect, useRef, type FormEvent } from 'react';
 import { useConfigQuery } from '@api/apiSlice';
 import {
   getBuilderMaxRepairAttempts,
@@ -17,6 +17,7 @@ import { resolveBuilderComposerPrompt } from './submissionPrompt';
 import { resolveRuntimeConfigNotice } from '@pages/Chat/builder/components/chatNotices';
 import {
   selectChatMessages,
+  selectAppMemory,
   selectCommittedSource,
   selectDomainData,
   selectDraftPrompt,
@@ -38,13 +39,16 @@ interface UseBuilderSubmissionOptions {
 export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOptions) {
   const dispatch = useAppDispatch();
   const chatMessages = useAppSelector(selectChatMessages);
+  const appMemory = useAppSelector(selectAppMemory);
   const committedSource = useAppSelector(selectCommittedSource);
   const previousSource = useAppSelector(selectPreviousCommittedSource);
   const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
   const domainDataRef = useRef(domainData);
-  domainDataRef.current = domainData;
+  useEffect(() => {
+    domainDataRef.current = domainData;
+  }, [domainData]);
   const configState = useConfigQuery(undefined, {
     selectFromResult: ({ data, isError }) => ({
       data,
@@ -103,6 +107,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
 
     const request: PromptBuildRequest = {
       prompt: nextPrompt,
+      appMemory,
       currentSource: committedSource,
       ...(previousSource !== undefined && previousSource !== committedSource ? { previousSource } : {}),
       chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({

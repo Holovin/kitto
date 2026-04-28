@@ -127,6 +127,26 @@ const testHarness = vi.hoisted(() => {
 
       return this.hookValues[index] as { current: Value };
     }
+
+    useState<Value>(initialValue: Value | (() => Value)) {
+      const index = this.cursor;
+      this.cursor += 1;
+
+      if (!(index in this.hookValues)) {
+        this.hookValues[index] =
+          typeof initialValue === 'function' ? (initialValue as () => Value)() : initialValue;
+      }
+
+      const setState = (nextValue: Value | ((previousValue: Value) => Value)) => {
+        const previousValue = this.hookValues[index] as Value;
+        this.hookValues[index] =
+          typeof nextValue === 'function'
+            ? (nextValue as (previousValue: Value) => Value)(previousValue)
+            : nextValue;
+      };
+
+      return [this.hookValues[index] as Value, setState] as const;
+    }
   }
 
   return {
@@ -180,6 +200,7 @@ vi.mock('react', async () => {
       return getRuntime().useEffectEvent(callback);
     },
     useRef: <Value>(initialValue: Value) => getRuntime().useRef(initialValue),
+    useState: <Value>(initialValue: Value | (() => Value)) => getRuntime().useState(initialValue),
   };
 });
 

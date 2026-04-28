@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createEmptyAppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import { BACKEND_RECONNECTED_NOTICE } from '@pages/Chat/builder/components/chatNotices';
 import { createBuilderSnapshot } from '@pages/Chat/builder/openui/runtime/persistedState';
 import { builderActions, builderReducer, MAX_UI_MESSAGES, normalizeBuilderState } from '@pages/Chat/builder/store/builderSlice';
@@ -895,18 +896,36 @@ describe('builderSlice', () => {
     );
   });
 
-  it('clears existing chat history when resetting the builder to empty', () => {
+  it('clears existing chat history and app memory when resetting the builder to empty', () => {
+    const requestId = toBuilderRequestId('request-reset-context');
     const started = builderReducer(
       createInitialState(),
       builderActions.beginStreaming({
         prompt: 'Build a stale app',
-        requestId: toBuilderRequestId('request-reset-context'),
+        requestId,
       }),
     );
-    const reset = builderReducer(started, builderActions.resetToEmpty());
+    const committed = builderReducer(
+      started,
+      builderActions.completeStreaming({
+        appMemory: {
+          version: 1,
+          appSummary: 'A stale app memory.',
+          userPreferences: ['Keep it compact.'],
+          avoid: ['Do not add charts.'],
+        },
+        changeSummary: 'Stale change.',
+        requestId,
+        snapshot: createBuilderSnapshot(validSource, {}, {}),
+        source: validSource,
+        warnings: [],
+      }),
+    );
+    const reset = builderReducer(committed, builderActions.resetToEmpty());
 
     expect(reset.chatMessages).toEqual([]);
     expect(reset.committedSource).toBe('');
+    expect(reset.appMemory).toEqual(createEmptyAppMemory());
     expect(reset.retryPrompt).toBeNull();
   });
 

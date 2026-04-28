@@ -82,6 +82,7 @@ export interface PromptBuildValidationIssue {
 }
 
 export interface PromptBuildRequest {
+  appMemory?: AppMemory;
   chatHistory: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
   invalidDraft?: string;
@@ -104,12 +105,122 @@ export interface BuilderLlmRequestCompaction {
   omittedChatMessages: number;
 }
 
+export const APP_MEMORY_VERSION = 1;
+export const APP_MEMORY_MAX_CHARS = 4_096;
+export const APP_MEMORY_ARRAY_MAX_ITEMS = 8;
+export const APP_MEMORY_ITEM_MAX_CHARS = 180;
+export const APP_MEMORY_SUMMARY_MAX_CHARS = 1_800;
+
+export const appMemorySchema = z
+  .object({
+    version: z.literal(APP_MEMORY_VERSION),
+    appSummary: z.string().max(APP_MEMORY_SUMMARY_MAX_CHARS),
+    userPreferences: z.array(z.string().max(APP_MEMORY_ITEM_MAX_CHARS)).max(APP_MEMORY_ARRAY_MAX_ITEMS),
+    avoid: z.array(z.string().max(APP_MEMORY_ITEM_MAX_CHARS)).max(APP_MEMORY_ARRAY_MAX_ITEMS),
+  })
+  .strict();
+
+export type AppMemory = z.infer<typeof appMemorySchema>;
+
+export const appMemoryInputSchema = z
+  .object({
+    version: z.literal(APP_MEMORY_VERSION),
+    appSummary: z.string(),
+    userPreferences: z.array(z.string()),
+    avoid: z.array(z.string()),
+  })
+  .strict();
+
+export function createEmptyAppMemory(): AppMemory {
+  return {
+    version: APP_MEMORY_VERSION,
+    appSummary: '',
+    userPreferences: [],
+    avoid: [],
+  };
+}
+
+function trimToMaxLength(value: string, maxLength: number) {
+  return value.trim().slice(0, maxLength).trim();
+}
+
+function normalizeAppMemoryArray(values: string[]) {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const trimmedValue = trimToMaxLength(value, APP_MEMORY_ITEM_MAX_CHARS);
+
+    if (!trimmedValue || seen.has(trimmedValue)) {
+      continue;
+    }
+
+    seen.add(trimmedValue);
+    normalized.push(trimmedValue);
+
+    if (normalized.length >= APP_MEMORY_ARRAY_MAX_ITEMS) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+function getAppMemorySerializedChars(appMemory: AppMemory) {
+  return JSON.stringify(appMemory).length;
+}
+
+export function normalizeAppMemory(value: unknown): AppMemory {
+  const result = appMemoryInputSchema.safeParse(value);
+
+  if (!result.success) {
+    return createEmptyAppMemory();
+  }
+
+  const normalizedMemory: AppMemory = {
+    version: APP_MEMORY_VERSION,
+    appSummary: trimToMaxLength(result.data.appSummary, APP_MEMORY_SUMMARY_MAX_CHARS),
+    userPreferences: normalizeAppMemoryArray(result.data.userPreferences).slice(0, APP_MEMORY_ARRAY_MAX_ITEMS),
+    avoid: normalizeAppMemoryArray(result.data.avoid).slice(0, APP_MEMORY_ARRAY_MAX_ITEMS),
+  };
+  const arrayKeys = ['userPreferences', 'avoid'] as const;
+  let arrayTrimIndex = 0;
+
+  while (getAppMemorySerializedChars(normalizedMemory) > APP_MEMORY_MAX_CHARS) {
+    const key = arrayKeys[arrayTrimIndex % arrayKeys.length] ?? 'avoid';
+    const array = normalizedMemory[key];
+
+    if (array.length === 0 && normalizedMemory.userPreferences.length === 0 && normalizedMemory.avoid.length === 0) {
+      break;
+    }
+
+    if (array.length > 0) {
+      array.pop();
+    }
+
+    arrayTrimIndex += 1;
+  }
+
+  const extraChars = getAppMemorySerializedChars(normalizedMemory) - APP_MEMORY_MAX_CHARS;
+
+  if (extraChars > 0 && normalizedMemory.appSummary.length > 0) {
+    normalizedMemory.appSummary = trimToMaxLength(
+      normalizedMemory.appSummary.slice(0, Math.max(0, normalizedMemory.appSummary.length - extraChars - 16)),
+      APP_MEMORY_SUMMARY_MAX_CHARS,
+    );
+  }
+
+  return normalizedMemory;
+}
+
 export interface BuilderLlmResponse {
+  appMemory: AppMemory;
+  changeSummary: string;
   compaction?: BuilderLlmRequestCompaction;
   model: string;
   qualityIssues?: BuilderQualityIssue[];
   source: string;
-  summary?: string;
+  summary: string;
   summaryExcludeFromLlmContext?: boolean;
   summaryWarning?: string;
   temperature: number;
@@ -264,6 +375,7 @@ export function createBuilderLlmRequestSchema({
       .string()
       .min(1, 'Prompt must not be empty.')
       .max(promptMaxChars, `Prompt is too large. Limit: ${promptMaxChars} characters.`),
+    appMemory: appMemorySchema.optional(),
     currentSource: currentSourceSchema.default(''),
     previousSource: currentSourceSchema.optional(),
     chatHistory: z

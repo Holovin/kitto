@@ -1,4 +1,5 @@
 import { DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '#backend/limits.js';
+import { createEmptyAppMemory, type AppMemory } from '@kitto-openui/shared/builderApiContract.js';
 import { filterPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { buildOpenUiRepairPrompt } from './repairPrompt.js';
 import { getRelevantRequestExemplars } from './exemplars.js';
@@ -190,6 +191,10 @@ export function buildOpenUiInitialUserPrompt(request: PromptBuildRequest, option
   ].join('\n\n');
 }
 
+function buildAppMemoryDataBlock(appMemory: AppMemory | undefined) {
+  return buildPromptDataBlock('previous_app_memory', JSON.stringify(appMemory ?? createEmptyAppMemory()));
+}
+
 function buildCurrentSourceSection({
   currentSource,
   currentSourceInventory,
@@ -220,6 +225,7 @@ function buildCurrentSourceSection({
 }
 
 function buildOpenUiLatestUserTurn(
+  appMemory: AppMemory | undefined,
   currentSource: string,
   previousSource: string | undefined,
   userRequest: string,
@@ -230,6 +236,7 @@ function buildOpenUiLatestUserTurn(
   return [
     ...INITIAL_USER_PROMPT_INTRO_LINES,
     buildPreviousChangesBlock(previousSource, currentSource),
+    buildAppMemoryDataBlock(appMemory),
     buildPromptDataBlock('latest_user_request', userRequest),
     ...buildCurrentSourceSection({
       currentSource,
@@ -277,6 +284,7 @@ export function buildOpenUiUserPromptTemplate() {
     '',
     'Final user turn request/source block sent after the intent-context separator:',
     buildOpenUiLatestUserTurn(
+      createEmptyAppMemory(),
       '[current committed OpenUI source, or the blank-canvas placeholder when empty]',
       undefined,
       '[latest user request text]',
@@ -287,7 +295,7 @@ export function buildOpenUiUserPromptTemplate() {
     '',
     'Repair generation input shape:',
     '1. Stable system prompt plus a repair-mode instruction and current critical syntax rules.',
-    '2. User turn containing `<original_user_request>`, optional `<conversation_context>`, and `<current_source_inventory>`.',
+    '2. User turn containing `<original_user_request>`, `<previous_app_memory>`, optional `<conversation_context>`, and `<current_source_inventory>`.',
     '3. Assistant turn containing `<model_draft_that_failed>` with the rejected draft source.',
     '4. Final user turn containing `<validation_issues>`, optional `<hints>` / `<relevant_draft_statement_excerpts>`, and the corrected-source instruction.',
   ].join('\n\n');
@@ -320,6 +328,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   if (request.mode === 'repair') {
     return buildOpenUiRepairPrompt({
       attemptNumber: request.repairAttemptNumber ?? 1,
+      appMemory: request.appMemory,
       chatHistory: filterPromptBuildChatHistory(request.chatHistory, options.chatHistoryMaxItems),
       committedSource: request.currentSource,
       invalidSource: request.invalidDraft ?? '',
@@ -340,6 +349,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
   });
 
   return buildOpenUiLatestUserTurn(
+    request.appMemory,
     currentSource,
     request.previousSource,
     rawUserRequest,

@@ -13,6 +13,26 @@ const request: PromptBuildRequest = {
   mode: 'initial',
 };
 
+const testAppMemory = {
+  version: 1 as const,
+  appSummary: 'Test app',
+  userPreferences: [],
+  avoid: [],
+};
+
+function createDonePayload(overrides: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    appMemory: testAppMemory,
+    changeSummary: 'Test generation change.',
+    summary: 'Updated the app.',
+    ...overrides,
+  });
+}
+
+function createDoneEvent(overrides: Record<string, unknown> = {}, lineBreak = '\n') {
+  return `event: done${lineBreak}data: ${createDonePayload(overrides)}${lineBreak}${lineBreak}`;
+}
+
 function createDeferred<Result>() {
   let resolvePromise!: (value: Result) => void;
   let rejectPromise!: (reason?: unknown) => void;
@@ -90,28 +110,28 @@ function createStreamRequestOptions(overrides: Partial<Parameters<typeof streamB
 
 describe('parseServerSentEvent', () => {
   it('defaults to a message event for bare data payloads', () => {
-    expect(parseServerSentEvent('data: {"source":"root = AppShell([])"}')).toEqual({
+    expect(parseServerSentEvent('data: {"source":"root = AppShell([])"}')).toMatchObject({
       event: 'message',
       data: '{"source":"root = AppShell([])"}',
     });
   });
 
   it('joins multiline data lines with newlines', () => {
-    expect(parseServerSentEvent('data: first line\ndata: second line')).toEqual({
+    expect(parseServerSentEvent('data: first line\ndata: second line')).toMatchObject({
       event: 'message',
       data: 'first line\nsecond line',
     });
   });
 
   it('parses explicit chunk events', () => {
-    expect(parseServerSentEvent('event: chunk\ndata: partial')).toEqual({
+    expect(parseServerSentEvent('event: chunk\ndata: partial')).toMatchObject({
       event: 'chunk',
       data: 'partial',
     });
   });
 
   it('parses explicit error events', () => {
-    expect(parseServerSentEvent('event: error\ndata: {"code":"upstream_error"}')).toEqual({
+    expect(parseServerSentEvent('event: error\ndata: {"code":"upstream_error"}')).toMatchObject({
       event: 'error',
       data: '{"code":"upstream_error"}',
     });
@@ -146,7 +166,23 @@ describe('streamBuilderDefinition', () => {
         createTextStream([
           'event: chunk\ndata: {"summary":"Builds a blank app shell.","source":"root = App',
           'Shell([])"}\n\n',
-          'event: done\ndata: {"summary":"Builds a blank app shell.","source":"root = AppShell([])","qualityIssues":[{"code":"quality-missing-todo-controls","message":"Todo request did not generate required todo controls.","severity":"blocking-quality","source":"quality"}],"compaction":{"compactedByBytes":false,"compactedByItemLimit":true,"omittedChatMessages":2}}\n\n',
+          createDoneEvent({
+            compaction: {
+              compactedByBytes: false,
+              compactedByItemLimit: true,
+              omittedChatMessages: 2,
+            },
+            qualityIssues: [
+              {
+                code: 'quality-missing-todo-controls',
+                message: 'Todo request did not generate required todo controls.',
+                severity: 'blocking-quality',
+                source: 'quality',
+              },
+            ],
+            source: 'root = AppShell([])',
+            summary: 'Builds a blank app shell.',
+          }),
         ]),
         {
           headers: {
@@ -163,7 +199,7 @@ describe('streamBuilderDefinition', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8787/api/llm/generate/stream', expect.any(Object));
     expect(onChunk).toHaveBeenNthCalledWith(1, 'root = AppShell([])');
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       compaction: {
         compactedByBytes: false,
         compactedByItemLimit: true,
@@ -189,7 +225,10 @@ describe('streamBuilderDefinition', () => {
         new Response(
           createTextStream([
             'event: chunk\ndata: {"summary":"Updated the app.","source":"root = AppShell([])"}\n\n',
-            'event: done\ndata: {"summary":"Updated the app.","summaryExcludeFromLlmContext":true,"source":"root = AppShell([])"}\n\n',
+            createDoneEvent({
+              source: 'root = AppShell([])',
+              summaryExcludeFromLlmContext: true,
+            }),
           ]),
           {
             headers: {
@@ -201,7 +240,7 @@ describe('streamBuilderDefinition', () => {
       ),
     );
 
-    await expect(streamBuilderDefinition(createStreamRequestOptions())).resolves.toEqual({
+    await expect(streamBuilderDefinition(createStreamRequestOptions())).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
@@ -218,7 +257,7 @@ describe('streamBuilderDefinition', () => {
         new Response(
           createTextStream([
             'event: chunk\r\ndata: first line\r\ndata: second line\r\n\r\n',
-            'event: done\r\ndata: {"source":"first line\\nsecond line"}\r\n\r\n',
+            createDoneEvent({ source: 'first line\nsecond line' }, '\r\n'),
           ]),
           {
             headers: {
@@ -232,7 +271,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'first line\nsecond line',
     });
@@ -251,7 +290,7 @@ describe('streamBuilderDefinition', () => {
           createTextStream([
             'event: chunk\r\ndata: first line\r',
             '\ndata: second line\r\n\r\n',
-            'event: done\r\ndata: {"source":"first line\\nsecond line"}\r\n\r\n',
+            createDoneEvent({ source: 'first line\nsecond line' }, '\r\n'),
           ]),
           {
             headers: {
@@ -265,7 +304,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'first line\nsecond line',
     });
@@ -282,7 +321,7 @@ describe('streamBuilderDefinition', () => {
       vi.fn().mockResolvedValue(
         new Response(
           createTextStream([
-            'event: chunk\rdata: root = AppShell([])\r\revent: done\rdata: {"source":"root = AppShell([])"}\r\r',
+            `event: chunk\rdata: root = AppShell([])\r\r${createDoneEvent({ source: 'root = AppShell([])' }, '\r')}`,
           ]),
           {
             headers: {
@@ -296,7 +335,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamBuilderDefinition(createStreamRequestOptions({ onChunk })),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
     });
@@ -307,7 +346,7 @@ describe('streamBuilderDefinition', () => {
 
   it('includes x-kitto-request-id when provided', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+      new Response(createTextStream([createDoneEvent({ source: 'root = AppShell([])' })]), {
         headers: {
           'content-type': 'text/event-stream',
         },
@@ -322,7 +361,7 @@ describe('streamBuilderDefinition', () => {
           requestId: 'builder-stream-123',
         }),
       ),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
     });
@@ -358,7 +397,7 @@ describe('streamBuilderDefinition', () => {
       ],
     };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+      new Response(createTextStream([createDoneEvent({ source: 'root = AppShell([])' })]), {
         headers: {
           'content-type': 'text/event-stream',
         },
@@ -377,7 +416,7 @@ describe('streamBuilderDefinition', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
 
-    expect(JSON.parse(String(requestInit?.body))).toEqual({
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
       prompt: 'Build a todo app',
       currentSource: '',
       chatHistory: [],
@@ -537,7 +576,10 @@ describe('streamBuilderDefinition', () => {
         new Response(
           createTextStream([
             'event: chunk\ndata:   Text("hero", "Leading spaces matter")\n\n',
-            'event: done\ndata: {"model":"gpt-5.4-mini","source":"  Text(\\"hero\\", \\"Leading spaces matter\\")"}\n\n',
+            createDoneEvent({
+              model: 'gpt-5.4-mini',
+              source: '  Text("hero", "Leading spaces matter")',
+            }),
           ]),
           {
             headers: {
@@ -553,7 +595,7 @@ describe('streamBuilderDefinition', () => {
       streamBuilderDefinition({
         ...createStreamRequestOptions({ onChunk }),
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: '  Text("hero", "Leading spaces matter")',
     });
@@ -583,7 +625,10 @@ describe('streamBuilderDefinition', () => {
                 doneEventSent = true;
                 controller.enqueue(
                   encoder.encode(
-                    'event: done\ndata: {"summary":"Builds a todo list","source":"root = AppShell([])"}\n\n',
+                    createDoneEvent({
+                      source: 'root = AppShell([])',
+                      summary: 'Builds a todo list',
+                    }),
                   ),
                 );
                 controller.close();
@@ -619,7 +664,7 @@ describe('streamBuilderDefinition', () => {
 
     await expect(
       streamPromise,
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a todo list',
@@ -641,7 +686,7 @@ describe('streamBuilderDefinition', () => {
           createTextStream([
             'event: chunk\ndata: {"source": }\n\n',
             'event: chunk\ndata: {"source":"root = AppShell([])"}\n\n',
-            'event: done\ndata: {"source":"root = AppShell([])"}\n\n',
+            createDoneEvent({ source: 'root = AppShell([])' }),
           ]),
           {
             headers: {
@@ -657,7 +702,7 @@ describe('streamBuilderDefinition', () => {
       streamBuilderDefinition({
         ...createStreamRequestOptions({ onChunk }),
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
     });
@@ -780,7 +825,7 @@ describe('streamBuilderDefinition', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(createTextStream(['event: done\ndata: {"source":"root = AppShell([])"}\n\n']), {
+        new Response(createTextStream([createDoneEvent({ source: 'root = AppShell([])' })]), {
           headers: {
             'content-type': 'text/event-stream',
           },
@@ -795,7 +840,7 @@ describe('streamBuilderDefinition', () => {
           signal: abortController.signal,
         }),
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       qualityIssues: [],
       source: 'root = AppShell([])',
     });

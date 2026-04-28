@@ -50,6 +50,12 @@ const dynamicBlockingQualityIssue = {
   severity: 'blocking-quality' as const,
   source: 'quality' as const,
 };
+const testAppMemory = {
+  version: 1 as const,
+  appSummary: 'Test app',
+  userPreferences: ['Keep the test UI compact.'],
+  avoid: [],
+};
 
 function createRouteApp(envOverrides: Parameters<typeof createTestEnv>[0] = {}) {
   const env = createTestEnv(envOverrides);
@@ -397,7 +403,7 @@ describe('createLlmOpenUiRoutes', () => {
     const { app } = createRouteApp({
       LLM_OUTPUT_MAX_BYTES: 12,
     });
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -479,6 +485,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -506,6 +514,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
     expect(calledEnv).toBe(env);
@@ -532,6 +542,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -565,6 +577,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
     expect(calledRequest).toEqual({
@@ -582,7 +596,7 @@ describe('createLlmOpenUiRoutes', () => {
     const { app } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 5,
     });
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -622,6 +636,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -642,6 +658,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       summaryExcludeFromLlmContext: true,
       summaryWarning: 'The model returned a generic summary; it was kept visible but excluded from future model context.',
       temperature: 0.4,
@@ -650,7 +668,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes through explicit repair mode to the OpenAI service request', async () => {
     const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -673,6 +691,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: '',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.2,
     });
     expect(calledRequest).toEqual({
@@ -900,7 +920,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes parentRequestId and validationIssues through to the OpenAI service request', async () => {
     const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -933,7 +953,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes x-kitto-request-id through to the non-stream OpenAI service call', async () => {
     const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -966,7 +986,7 @@ describe('createLlmOpenUiRoutes', () => {
       { role: 'assistant' as const, content: 'b'.repeat(120) },
       { role: 'user' as const, content: 'c'.repeat(120) },
     ];
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '' });
+    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
@@ -1003,6 +1023,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: '',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
   });
@@ -1017,6 +1039,8 @@ describe('createLlmOpenUiRoutes', () => {
       return {
         source: 'root = AppShell([])',
         summary: 'Builds a tiny app.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       };
     });
 
@@ -1063,6 +1087,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
   });
@@ -1077,6 +1103,8 @@ describe('createLlmOpenUiRoutes', () => {
       return {
         source: 'root = AppShell([])',
         summary: 'Updated the app.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       };
     });
 
@@ -1099,6 +1127,8 @@ describe('createLlmOpenUiRoutes', () => {
       qualityIssues: [],
       source: 'root = AppShell([])',
       summary: 'Updated the app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       summaryExcludeFromLlmContext: true,
       summaryWarning: 'The model returned a generic summary; it was kept visible but excluded from future model context.',
       temperature: 0.4,
@@ -1115,6 +1145,8 @@ describe('createLlmOpenUiRoutes', () => {
       return {
         source: 'root = AppShell([])',
         summary: 'Builds a tiny app.',
+        changeSummary: 'Test generation change.',
+        appMemory: testAppMemory,
       };
     });
 
@@ -1153,6 +1185,15 @@ describe('createLlmOpenUiRoutes', () => {
           },
           {
             "data": {
+              "appMemory": {
+                "appSummary": "Test app",
+                "avoid": [],
+                "userPreferences": [
+                  "Keep the test UI compact.",
+                ],
+                "version": 1,
+              },
+              "changeSummary": "Test generation change.",
               "model": "gpt-stream-model",
               "qualityIssues": [],
               "source": "root = AppShell([])",
@@ -1180,6 +1221,8 @@ describe('createLlmOpenUiRoutes', () => {
   ])
 ])`,
       summary: 'Builds a todo draft.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -1212,6 +1255,8 @@ describe('createLlmOpenUiRoutes', () => {
   ])
 ])`,
       summary: 'Builds a todo draft.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
   });
@@ -1221,6 +1266,8 @@ describe('createLlmOpenUiRoutes', () => {
     streamOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate/stream', {
@@ -1255,7 +1302,9 @@ describe('createLlmOpenUiRoutes', () => {
     streamOpenUiSourceMock.mockRejectedValue(timeoutError);
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
-      summary: 'Builds a tiny app.',
+      summary: 'Adds a welcome screen.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1365,6 +1414,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1410,6 +1461,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1469,6 +1522,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1516,6 +1571,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1572,6 +1629,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1633,6 +1692,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1701,7 +1762,9 @@ describe('createLlmOpenUiRoutes', () => {
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
-      summary: 'Adds a welcome screen.',
+      summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -1721,7 +1784,9 @@ describe('createLlmOpenUiRoutes', () => {
       model: 'gpt-test-model',
       qualityIssues: [],
       source: 'root = AppShell([])',
-      summary: 'Adds a welcome screen.',
+      summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
       temperature: 0.4,
     });
   });
@@ -1732,7 +1797,9 @@ describe('createLlmOpenUiRoutes', () => {
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
-      summary: 'Adds a welcome screen.',
+      summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -1753,10 +1820,19 @@ describe('createLlmOpenUiRoutes', () => {
     }).toMatchInlineSnapshot(`
       {
         "payload": {
+          "appMemory": {
+            "appSummary": "Test app",
+            "avoid": [],
+            "userPreferences": [
+              "Keep the test UI compact.",
+            ],
+            "version": 1,
+          },
+          "changeSummary": "Test generation change.",
           "model": "gpt-test-model",
           "qualityIssues": [],
           "source": "root = AppShell([])",
-          "summary": "Adds a welcome screen.",
+          "summary": "Builds a tiny app.",
           "temperature": 0.4,
         },
         "status": 200,
@@ -1863,6 +1939,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {
@@ -1916,6 +1994,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {
@@ -2016,6 +2096,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {
@@ -2065,6 +2147,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {
@@ -2109,6 +2193,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {
@@ -2205,6 +2291,8 @@ describe('createLlmOpenUiRoutes', () => {
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a tiny app.',
+      changeSummary: 'Test generation change.',
+      appMemory: testAppMemory,
     });
 
     const generationResponse = await app.request('/api/llm/generate', {

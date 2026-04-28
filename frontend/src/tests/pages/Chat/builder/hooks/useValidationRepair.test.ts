@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   BuilderGeneratedDraft,
   BuilderQualityIssue,
+  BuilderRequestId,
   PromptBuildRequest,
+  PromptBuildValidationIssue,
   RawPromptBuildChatHistoryMessage,
 } from '@pages/Chat/builder/types';
+import { toBuilderRequestId } from '@pages/Chat/builder/types';
 import type { BuilderRequestLimits } from '@pages/Chat/builder/config';
 import {
   buildRepairChatHistoryWithRejectedDraftNotice,
@@ -12,6 +15,13 @@ import {
   sanitizeRepairValidationIssues,
   useValidationRepair,
 } from '@pages/Chat/builder/hooks/useValidationRepair';
+
+const testAppMemory = {
+  version: 1 as const,
+  appSummary: 'Test app',
+  userPreferences: ['Keep the test UI compact.'],
+  avoid: [] as string[],
+};
 
 describe('dedupeQualityIssues', () => {
   it('keeps the first matching quality issue by severity, source, code, statement, and message', () => {
@@ -301,15 +311,18 @@ describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
     };
     const runGenerateRequest = vi.fn<
       (
-        requestId: string,
+        requestId: BuilderRequestId,
         repairRequest: PromptBuildRequest,
-        options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: string },
+        options?: { requestKind?: 'automatic-repair' | 'stream-fallback'; transportRequestId?: BuilderRequestId },
       ) => Promise<BuilderGeneratedDraft>
-    >(async (_requestId, repairRequest) => {
+    >(async () => {
       return {
+        appMemory: testAppMemory,
+        changeSummary: 'Test generation change.',
         commitSource: 'fallback',
-        requestId: 'repair-1',
+        requestId: toBuilderRequestId('repair-1'),
         source: 'root = AppShell([Screen("main", "Main", [])])',
+        summary: 'Updated the app.',
         qualityIssues: [],
       };
     });
@@ -322,13 +335,16 @@ describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
       throwIfInactiveRequest: () => undefined,
     });
     const initialResponse: BuilderGeneratedDraft = {
+      appMemory: testAppMemory,
+      changeSummary: 'Initial generation change.',
       commitSource: 'streaming',
-      requestId: 'initial',
+      requestId: toBuilderRequestId('initial'),
       source: 'root = AppShell([',
+      summary: 'Updated the app.',
       qualityIssues: [],
     };
 
-    await validationRepair.ensureValidGeneratedSource(initialResponse, request, 'initial');
+    await validationRepair.ensureValidGeneratedSource(initialResponse, request, toBuilderRequestId('initial'));
 
     expect(runGenerateRequest).toHaveBeenCalledTimes(1);
     expect(runGenerateRequest.mock.calls[0]?.[1]?.previousSource).toBe(request.previousSource);

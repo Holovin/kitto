@@ -70,13 +70,14 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `<request_intent>` block inside `<intent_context>` is one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
 - The final user turn contains `<latest_user_request>` plus either `<current_source>` for small/current-source cases or `<current_source_inventory>` for large modify cases where full source is omitted.
+- The final user turn includes `<previous_app_memory>` as compact LLM context shaped `{ version: 1, appSummary, userPreferences, avoid }`; it is not runtime state or exported preview memory.
 - When the backend receives `previousSource`, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
 - The optional `<current_source_inventory>` block summarizes existing statements, screen ids, Query/Mutation tools, action run chains, runtime state names, and persisted domain paths.
 - The user prompt template explicitly says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and must not use generic phrases like `Updated the app`.
 - The user prompt template adds a follow-up output requirement for modify requests that the summary must describe the specific change made to the existing app.
-- The `Repair prompt` section carries the same structured-summary quality guidance and always instructs the model to return the corrected program in `source`.
+- The `Repair prompt` section carries the same structured-envelope guidance and always instructs the model to return the corrected program in `source`.
 - Quality-only repair prompts use the failed draft plus issues/hints and do not include committed source or current-source inventory as fallback context.
-- `Output envelope schema` documents the model envelope only: `summary` and `source`.
+- `Output envelope schema` documents the model envelope only: `summary`, `changeSummary`, `source`, and compact `appMemory`.
 - The prompts page is read-only and does not show edit or copy controls.
 - `/chat` does not show a runtime-config badge in the header.
 - Chat send stays disabled while `/api/config` is unresolved, with a clear composer hint.

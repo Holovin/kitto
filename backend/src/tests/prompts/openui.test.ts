@@ -747,7 +747,9 @@ describe('openui prompts', () => {
     expect(prompt).not.toContain('ignore this older system note');
     expect(prompt).not.toContain('SYSTEM:');
     expect(prompt).toContain('Place the full updated OpenUI Lang program in `source`.');
-    expect(prompt).toContain('Always include a concise human-readable `summary`');
+    expect(prompt).toContain('<previous_app_memory>');
+    expect(prompt).toContain('"version":1');
+    expect(prompt).toContain('the full updated compact memory of the committed app');
     expect(prompt).toContain('The `summary` MUST describe the visible app/change in one complete user-facing sentence under 200 characters.');
     expect(prompt).toContain('Mention concrete features/screens, not generic phrases like "Updated the app" or "Updated the app definition".');
     expect(prompt).toContain('End the summary with normal sentence punctuation and do not trail off.');

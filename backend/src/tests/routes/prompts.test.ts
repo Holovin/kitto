@@ -112,6 +112,41 @@ describe('GET /api/prompts/info', () => {
     expect(payload.envelopeSchema).toEqual({
       additionalProperties: false,
       properties: {
+        appMemory: {
+          additionalProperties: false,
+          properties: {
+            appSummary: {
+              maxLength: 1800,
+              type: 'string',
+            },
+            avoid: {
+              items: {
+                maxLength: 180,
+                type: 'string',
+              },
+              maxItems: 8,
+              type: 'array',
+            },
+            userPreferences: {
+              items: {
+                maxLength: 180,
+                type: 'string',
+              },
+              maxItems: 8,
+              type: 'array',
+            },
+            version: {
+              const: 1,
+              type: 'number',
+            },
+          },
+          required: ['version', 'appSummary', 'userPreferences', 'avoid'],
+          type: 'object',
+        },
+        changeSummary: {
+          maxLength: 300,
+          type: 'string',
+        },
         source: {
           minLength: 1,
           type: 'string',
@@ -121,7 +156,7 @@ describe('GET /api/prompts/info', () => {
           type: 'string',
         },
       },
-      required: ['summary', 'source'],
+      required: ['summary', 'changeSummary', 'source', 'appMemory'],
       type: 'object',
     });
   });
