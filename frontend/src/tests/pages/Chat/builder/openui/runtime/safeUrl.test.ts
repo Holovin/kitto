@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openSafeUrl, parseSafeUrl } from '@pages/Chat/builder/openui/runtime/safeUrl';
+import { openSafeUrl, parseSafeSourceUrlLiteral, parseSafeUrl } from '@pages/Chat/builder/openui/runtime/safeUrl';
 import {
   allowedUrlCases,
   fileRuntimeRejectedUrlCases,
@@ -25,6 +25,12 @@ describe('safeUrl', () => {
       vi.stubGlobal('location', { protocol: 'file:' });
 
       expect(parseSafeUrl(value)).toBeNull();
+    });
+
+    it.each(fileRuntimeRejectedUrlCases)('rejects $label for source-level validation too', ({ value }) => {
+      vi.stubGlobal('location', { protocol: 'file:' });
+
+      expect(parseSafeSourceUrlLiteral(value)).toBeNull();
     });
   });
 

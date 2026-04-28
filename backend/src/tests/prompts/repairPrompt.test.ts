@@ -52,7 +52,7 @@ describe('buildOpenUiRepairPrompt', () => {
       issues: [],
       attemptNumber: 1,
       maxRepairAttempts: 1,
-      promptMaxChars: 4_000,
+      promptMaxChars: 6_000,
     });
 
     expect(prompt).toContain('Place the full corrected OpenUI Lang program in `source`.');
@@ -137,6 +137,37 @@ describe('buildOpenUiRepairPrompt', () => {
     expect(prompt).toContain('For any `Button` variant with appearance, background uses mainColor and text uses contrastColor.');
     expect(prompt).toContain('Do not use named colors, rgb(), hsl(), var(), url(), CSS objects, or className/style props.');
     expect(prompt).toContain('invalid-prop in root: Text.appearance.contrastColor must be a #RRGGBB hex color.');
+  });
+
+  it('adds concrete unsafe URL feedback to repair prompts', () => {
+    const issues: PromptBuildValidationIssue[] = [
+      {
+        code: 'unsafe-url-literal',
+        message: 'Link URL "javascript:alert(1)" is not allowed. Use a full https:// or http:// URL.',
+        severity: 'fatal-quality',
+        source: 'quality',
+        statementId: 'root',
+      },
+    ];
+
+    const prompt = buildOpenUiRepairPrompt({
+      userPrompt: 'Create a docs link.',
+      committedSource: 'root = AppShell([])',
+      invalidSource: 'root = AppShell([Screen("main", "Main", [Link("Bad", "javascript:alert(1)")])])',
+      issues,
+      attemptNumber: 1,
+      maxRepairAttempts: 1,
+      promptMaxChars: 4_000,
+    });
+
+    expect(prompt).toContain('Targeted repair hints:');
+    expect(prompt).toContain(
+      'Use only full absolute URL literals for Link(...) and @OpenUrl(...): https://... or http://....',
+    );
+    expect(prompt).toContain(
+      'Never use javascript:, data:, file:, blob:, mailto:, tel:, protocol-relative // URLs, relative paths, hash anchors, whitespace-padded URLs, or URLs containing spaces.',
+    );
+    expect(prompt).toContain('unsafe-url-literal in root: Link URL "javascript:alert(1)" is not allowed.');
   });
 
   it('adds targeted hints for stale persisted query refresh warnings', () => {

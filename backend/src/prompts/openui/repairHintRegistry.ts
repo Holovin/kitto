@@ -170,6 +170,10 @@ const REPAIR_HINT_HANDLERS: Record<string, RepairHintHandler> = {
   'screen-inside-screen': () => [
     'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
   ],
+  'unsafe-url-literal': () => [
+    'Use only full absolute URL literals for Link(...) and @OpenUrl(...): https://... or http://....',
+    'Never use javascript:, data:, file:, blob:, mailto:, tel:, protocol-relative // URLs, relative paths, hash anchors, whitespace-padded URLs, or URLs containing spaces.',
+  ],
 };
 
 export function getRepairHintsForIssue(issue: PromptBuildValidationIssue, context: RepairHintContext) {

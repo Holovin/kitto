@@ -1,5 +1,5 @@
 import type { ParseResult } from '@openuidev/react-lang';
-import { parseSafeUrl } from '@pages/Chat/builder/openui/runtime/safeUrl';
+import { parseSafeSourceUrlLiteral } from '@pages/Chat/builder/openui/runtime/safeUrl';
 import {
   createOpenUiQualityIssue,
   extractStringLiteral,
@@ -189,11 +189,11 @@ function collectActionSemanticIssues(root: unknown): BuilderQualityIssue[] {
     if (node.name === 'OpenUrl') {
       const url = Array.isArray(node.args) ? extractAstStringLiteral(node.args[0]) : null;
 
-      if (url && !parseSafeUrl(url)) {
+      if (url && !parseSafeSourceUrlLiteral(url)) {
         pushUniqueIssue(
           createOpenUiQualityIssue('fatal-quality', {
             code: 'unsafe-url-literal',
-            message: `@OpenUrl("${url}") uses a URL that is not allowed. Use http, https, mailto, tel, app-relative / paths, or # anchors.`,
+            message: `@OpenUrl("${url}") uses a URL that is not allowed. Use a full https:// or http:// URL.`,
             statementId: context.statementId ?? 'root',
           }),
         );
@@ -246,14 +246,14 @@ function collectLinkUrlIssues(root: unknown): BuilderQualityIssue[] {
 
     const url = node.props.url;
 
-    if (typeof url !== 'string' || parseSafeUrl(url)) {
+    if (typeof url !== 'string' || parseSafeSourceUrlLiteral(url)) {
       return;
     }
 
     issues.push(
       createOpenUiQualityIssue('fatal-quality', {
         code: 'unsafe-url-literal',
-        message: `Link URL "${url}" is not allowed. Use http, https, mailto, tel, app-relative / paths, or # anchors.`,
+        message: `Link URL "${url}" is not allowed. Use a full https:// or http:// URL.`,
         statementId: context.statementId ?? 'root',
       }),
     );

@@ -1,5 +1,6 @@
 import type { ParseResult } from '@openuidev/react-lang';
 import { HEX_COLOR_PATTERN, inspectValidationConfig } from '@pages/Chat/builder/openui/library/components/shared';
+import { parseSafeSourceUrlLiteral } from '@pages/Chat/builder/openui/runtime/safeUrl';
 import type { PromptBuildValidationIssue } from '@pages/Chat/builder/types';
 import {
   ALLOWED_AST_NODE_KINDS,
@@ -197,6 +198,83 @@ function extractObjectStringLiteralValue(value: unknown, keys: Set<string>) {
   const entryValue = entry?.[1];
 
   return isAstNode(entryValue) && entryValue.k === 'Str' && typeof entryValue.v === 'string' ? entryValue.v : null;
+}
+
+function createUnsafeUrlLiteralIssue({
+  owner,
+  statementId,
+  url,
+}: {
+  owner: string;
+  statementId?: string;
+  url: string;
+}): PromptBuildValidationIssue {
+  return createQualityIssue({
+    code: 'unsafe-url-literal',
+    message: `${owner} URL "${url}" is not allowed. Use a full https:// or http:// URL.`,
+    severity: 'fatal-quality',
+    statementId,
+  });
+}
+
+function validateSourceUrlLiterals(result: ParseResult): PromptBuildValidationIssue[] {
+  const issues: PromptBuildValidationIssue[] = [];
+
+  visitOpenUiValue(result.root, (node, context) => {
+    if (isElementNode(node) && node.typeName === 'Link') {
+      const url = node.props.url;
+
+      if (typeof url === 'string' && !parseSafeSourceUrlLiteral(url)) {
+        issues.push(
+          createUnsafeUrlLiteralIssue({
+            owner: 'Link',
+            statementId: context.statementId ?? 'root',
+            url,
+          }),
+        );
+      }
+
+      return;
+    }
+
+    if (!isAstNode(node) || node.k !== 'Comp' || node.name !== 'OpenUrl') {
+      return;
+    }
+
+    const url = Array.isArray(node.args) ? node.args[0] : null;
+
+    if (isAstNode(url) && url.k === 'Str' && typeof url.v === 'string' && !parseSafeSourceUrlLiteral(url.v)) {
+      issues.push(
+        createUnsafeUrlLiteralIssue({
+          owner: '@OpenUrl',
+          statementId: context.statementId ?? 'root',
+          url: url.v,
+        }),
+      );
+    }
+  });
+
+  for (const mutation of result.mutationStatements) {
+    const toolName = extractStringLiteral(mutation.toolAST);
+
+    if (toolName !== 'open_url') {
+      continue;
+    }
+
+    const url = extractObjectStringLiteralValue(mutation.argsAST, new Set(['url']));
+
+    if (url && !parseSafeSourceUrlLiteral(url)) {
+      issues.push(
+        createUnsafeUrlLiteralIssue({
+          owner: 'Mutation("open_url", ...)',
+          statementId: mutation.statementId,
+          url,
+        }),
+      );
+    }
+  }
+
+  return issues;
 }
 
 function validateNavigateScreenTargets(result: ParseResult): PromptBuildValidationIssue[] {
@@ -455,6 +533,7 @@ export function collectOpenUiParserValidationIssues(source: string, result: Pars
 
   issues.push(...validateQueryTools(result));
   issues.push(...validateMutationTools(result));
+  issues.push(...validateSourceUrlLiterals(result));
   issues.push(...validateNavigateScreenTargets(result));
   issues.push(...validateMutationReferenceUsage(source, result));
 

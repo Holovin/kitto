@@ -85,7 +85,7 @@ Guardrails:
 - `undefined-state-reference` is also a blocking product-quality issue: every `$var` used anywhere in the source must have a top-level literal declaration such as `$draft = ""` or `$currentScreen = "main"` before commit; send repair attempts first, then fail cleanly with `Repeat` if the repaired draft still leaves it unresolved.
 - `quality-missing-screen-flow` is also a blocking product-quality issue for step-by-step flow requests: conditional flow sections need local state based `isActive` gates and `@Set(...)` navigation before commit, while always-visible helper sections may omit `isActive`.
 - `all-conditional-screens-hidden-initially` is a blocking product-quality issue when every meaningful `Screen(...)` section is conditional and none is obviously visible from the initial state. Multi-section apps with omitted `isActive` must not warn or repair.
-- Semantic validation should reject/repair duplicate literal screen, component, and button ids; unknown `@Run(...)` refs; unsafe literal `Link(...)` / `@OpenUrl(...)` URLs; and navigation actions that target missing `Screen` ids. `orphan-screen` remains a soft warning and must not block commit.
+- Source validation should reject/repair duplicate literal screen, component, and button ids; unknown `@Run(...)` refs; unsafe literal `Link(...)` / `@OpenUrl(...)` URLs; unsafe literal `Mutation("open_url", { url: ... })` drafts; and navigation actions that target missing `Screen` ids. URL validation issues must include the concrete rejected URL. `orphan-screen` remains a soft warning and must not block commit.
 - `quality-missing-control-showcase-components` is also a blocking product-quality issue for every-control/component-showcase requests: the visible app must include `Input`, `TextArea`, `Checkbox`, `RadioGroup`, `Select`, `Button`, and `Link`.
 - Parser-invalid drafts should repair through the backend repair request path or fail cleanly; the builder should not apply browser-only source rewrites before commit.
 - If a generation fails because the model keeps returning invalid OpenUI, both Preview and Definition must snap back to the last committed valid source as if the failed run never committed.
@@ -132,7 +132,7 @@ Guardrails:
 - Standalone HTML files run without the Kitto shell, backend, OpenAI config, or `/api/*` requests.
 - Standalone HTML files persist their own runtime/domain state in localStorage and can reset back to the embedded baseline state.
 - Each standalone HTML export gets its own localStorage namespace, even when two downloads use the same committed source.
-- When a standalone HTML file is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` must be treated as invalid/inert instead of attempting local filesystem navigation.
+- Root-relative app paths such as `/chat`, hash/self links such as `#details`, `mailto:`, and `tel:` must be treated as invalid/inert in every runtime.
 - `toolProvider` is only used by `Query(...)` and `Mutation(...)`.
 - Allowed tool names are `read_state`, `compute_value`, `write_state`, `merge_state`, `append_state`, `append_item`, `toggle_item_field`, `update_item_field`, `remove_item`, `remove_state`, and `write_computed_state`.
 - Persisted tool paths must be non-empty dot-paths no deeper than 10 segments.
@@ -150,7 +150,7 @@ Guardrails:
 - `random_int` uses integer `min` / `max` options only and must stay inside the clamped safe range.
 - Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
 - `@OpenUrl` is handled through the OpenUI built-in action event bridge, not through persisted tools.
-- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash links `#...`; when running from `file://` standalone export, app-relative and hash/self links must become inert.
+- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: full absolute `https://...` and `http://...` URLs only. `mailto:`, `tel:`, app-relative `/...`, hash links `#...`, and protocol-relative `//...` URLs must be invalid at source validation and inert at runtime.
 - `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
 - `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Source validation must rely on the OpenUI parser AST/component/built-in allowlists for executable surface. Regex checks are only defence-in-depth for executable-looking syntax outside string literals; URL protocol decisions belong only to `safeUrl.ts`.

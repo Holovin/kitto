@@ -72,12 +72,12 @@ describe('handleOpenUiActionEvent', () => {
     expect(open).not.toHaveBeenCalled();
   });
 
-  it('opens safe relative URLs', () => {
+  it('rejects relative app URLs', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });
 
-    expect(handleOpenUiActionEvent(createOpenUrlEvent('/chat'))).toBe(true);
-    expect(open).toHaveBeenCalledWith('/chat', '_blank', 'noopener,noreferrer');
+    expect(handleOpenUiActionEvent(createOpenUrlEvent('/chat'))).toBe(false);
+    expect(open).not.toHaveBeenCalled();
   });
 
   it('rejects relative app URLs when running from file protocol', () => {

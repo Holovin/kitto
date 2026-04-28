@@ -276,7 +276,7 @@ Available steps:
 - @Set($variable, value) - Set a $variable to a specific value
 - @Reset($var1, $var2, ...) - Reset $variables to their declared defaults
 - @ToAssistant("message") - Send a message to the assistant
-- @OpenUrl("https://...") - Navigate to a safe URL
+- @OpenUrl("https://...") - Navigate to a safe URL. Allowed URL literals are full absolute https://... or http://... URLs only.
 
 Example - mutation + refresh + reset:
 \`\`\`

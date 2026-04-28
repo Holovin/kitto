@@ -724,7 +724,7 @@ root = AppShell([
     );
   });
 
-  it('leaves semantic URL protocol checks out of structural validation', () => {
+  it('rejects unsafe Link URL literals during source validation', () => {
     const source = `root = AppShell([
   Screen("main", "Main", [
     Link("Blocked URL", "javascript:alert(1)")
@@ -732,17 +732,37 @@ root = AppShell([
 ])`;
     const result = validateOpenUiSource(source);
 
-    expect(result).toEqual({
-      isValid: true,
-      issues: [],
-    });
-    expect(detectLocalRuntimeQualityIssues(source)).toEqual(
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'unsafe-url-literal',
           severity: 'fatal-quality',
           source: 'quality',
           statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it('reports a concrete unsafe URL issue for literal open_url mutations', () => {
+    const source = `openBad = Mutation("open_url", { url: "data:text/html;base64,PGgxPkJhZDwvaDE+" })
+root = AppShell([
+  Screen("main", "Main", [
+    Button("bad", "Open", "default", Action([@Run(openBad)]), false)
+  ])
+])`;
+    const result = validateOpenUiSource(source);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unsafe-url-literal',
+          message: expect.stringContaining('data:text/html;base64,PGgxPkJhZDwvaDE+'),
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'openBad',
         }),
       ]),
     );
@@ -1020,11 +1040,12 @@ root = AppShell([
     );
   });
 
-  it('allows safe Link and @OpenUrl literals', () => {
+  it('allows absolute http and https Link and @OpenUrl literals', () => {
     const source = `root = AppShell([
   Screen("main", "Main", [
     Link("Docs", "https://example.com/docs", true),
-    Button("open", "Open", "default", Action([@OpenUrl("/chat")]), false)
+    Link("HTTP", "http://example.com", true),
+    Button("open", "Open", "default", Action([@OpenUrl("https://example.com/chat"), @OpenUrl("http://example.com/section")]), false)
   ])
 ])`;
 
@@ -1033,6 +1054,32 @@ root = AppShell([
       issues: [],
     });
     expect(detectLocalRuntimeQualityIssues(source).find((issue) => issue.code === 'unsafe-url-literal')).toBeUndefined();
+  });
+
+  it.each([
+    ['mailto:test@example.com'],
+    ['tel:+491234'],
+    ['/about'],
+    ['#section'],
+  ])('rejects non-http URL literal %s during source validation', (url) => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Link("Blocked", "${url}")
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unsafe-url-literal',
+          message: expect.stringContaining(url),
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
   });
 
   it('marks orphan top-level Screen statements as soft warnings', () => {

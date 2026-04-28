@@ -131,7 +131,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       'CONTROL SHOWCASE RULE:',
       'When the user asks for every control, all controls, or a component showcase, include at least one Input, TextArea, Checkbox, RadioGroup, Select, Button, and Link in the visible app.',
       'Use normal binding-mode controls for the showcase unless the user asks for persistence.',
-      'For Link, provide a safe app-relative or https URL and a visible label.',
+      'For Link, provide a full absolute https:// or http:// URL and a visible label.',
     ],
   },
   {

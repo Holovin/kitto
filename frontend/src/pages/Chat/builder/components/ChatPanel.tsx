@@ -9,7 +9,6 @@ import { useBuilderHistoryControls } from '@pages/Chat/builder/hooks/useBuilderH
 import { useBuilderSubmission } from '@pages/Chat/builder/hooks/useBuilderSubmission';
 import {
   RUNTIME_CONFIG_LOADING_NOTICE,
-  RUNTIME_CONFIG_UNAVAILABLE_NOTICE,
   resolveBackendConnectionNotice,
 } from '@pages/Chat/builder/components/chatNotices';
 import { builderActions } from '@pages/Chat/builder/store/builderSlice';
@@ -230,14 +229,12 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
     configStatus === 'loading'
       ? RUNTIME_CONFIG_LOADING_NOTICE
       : configStatus === 'failed'
-        ? RUNTIME_CONFIG_UNAVAILABLE_NOTICE
+        ? null
         : hasReachedPromptLimit
           ? `Prompt is at the ${new Intl.NumberFormat().format(promptMaxChars)} character limit.`
         : 'Press Cmd/Ctrl+Enter to send.';
   const composerHintToneClassName =
-    configStatus === 'failed'
-      ? 'text-rose-600'
-      : configStatus === 'loading' || hasReachedPromptLimit
+    configStatus === 'loading' || hasReachedPromptLimit
         ? 'text-amber-700'
         : 'text-slate-500';
 
@@ -287,7 +284,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
         }}
       />
       <div className="mt-4 flex items-center justify-between gap-3">
-        <p aria-live="polite" className={cn('text-xs', composerHintToneClassName)}>
+        <p aria-live="polite" className={cn('min-h-4 text-xs', composerHintToneClassName)}>
           {composerHint}
         </p>
         <div className="flex items-center gap-2">
@@ -297,7 +294,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
               Cancel
             </Button>
           ) : null}
-          <span title={configStatus === 'loaded' ? undefined : composerHint}>
+          <span title={configStatus === 'loading' ? composerHint : undefined}>
             <Button disabled={submitButtonState.disabled} type="submit">
               <Send className="h-4 w-4" />
               {submitButtonState.label}

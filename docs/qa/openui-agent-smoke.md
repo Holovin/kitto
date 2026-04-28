@@ -371,6 +371,7 @@ Create a complex app with two screens, filtering, a random number button, valida
 - For `undefined-state-reference`, the repair request must carry structured issue context for the missing ref name and optional initializer example; the backend repair hint should not rely on parsing the issue message text.
 - For `quality-stale-persisted-query`, the repair request must carry structured issue context as `context.statementId` plus `context.suggestedQueryRefs`; the backend repair hint should not rely on parsing the issue message text.
 - For `quality-options-shape`, the repair request must carry structured issue context as `context.groupId` plus `context.invalidValues`; the backend repair hint should not rely on parsing the issue message text.
+- For `unsafe-url-literal`, source validation must include the concrete rejected URL in the issue message so repair can replace it with a full absolute `https://...` or `http://...` URL.
 - If repair succeeds, the final app is valid and usable.
 - If repair fails, the pending summary card is removed, the previous Preview remains visible, `Repeat` stays available, and a red error card shows `Something went wrong and your request couldn’t be completed. The previous valid app was kept. Please retry.` with expandable `Details` for the technical validation/error text. Repair request failures may include technical code/status/message metadata in `Details`.
 - If repair fails because the repair request itself times out, the error text should explicitly mention the automatic repair timing out rather than a generic initial-generation timeout.
@@ -401,7 +402,7 @@ Skip if standalone export is intentionally disabled.
 - Local interactions work.
 - Standalone state persists after reload.
 - Reset local data restores embedded baseline.
-- If the file is opened from `file://`, root-relative app links and hash/self links stay inert instead of navigating the local filesystem.
+- Relative app links and hash/self links stay inert in every runtime; only full absolute `https://...` and `http://...` links can navigate.
 - If MCP tooling cannot open the local `file://` runtime, at minimum verify that the download succeeds and the HTML contains the embedded app payload for later manual opening.
 
 ## Scenario 12 — Cancel and stale request recovery

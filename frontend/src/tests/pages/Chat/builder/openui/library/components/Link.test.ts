@@ -94,21 +94,7 @@ describe('LinkComponent', () => {
     expect(html).toContain('rel="noopener noreferrer"');
   });
 
-  it('accepts relative app paths', () => {
-    const html = renderLink({
-      label: 'Chat',
-      newTab: false,
-      url: '/chat',
-    });
-
-    expect(html).toContain('<a');
-    expect(html).toContain('href="/chat"');
-    expect(html).not.toContain('target="_blank"');
-  });
-
-  it('renders relative app paths as inert text when opened from file protocol', () => {
-    vi.stubGlobal('location', { protocol: 'file:' });
-
+  it('rejects relative app paths', () => {
     const html = renderLink({
       label: 'Chat',
       newTab: false,
@@ -120,9 +106,7 @@ describe('LinkComponent', () => {
     expect(html).toContain('Chat');
   });
 
-  it('renders hash links as inert text when opened from file protocol', () => {
-    vi.stubGlobal('location', { protocol: 'file:' });
-
+  it('rejects hash links', () => {
     const html = renderLink({
       label: 'Section',
       newTab: true,

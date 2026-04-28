@@ -80,7 +80,7 @@ Notes:
 - The generated HTML stores its embedded app payload in an inert `<script type="application/json">` block before the inline player bundle; it does not rely on a `window` payload global.
 - The exported app opens without the Kitto builder shell, backend, OpenAI configuration, or `/api/*` requests.
 - Standalone apps persist their own runtime and domain data in localStorage under a per-app storage key and can reset back to the embedded baseline state.
-- When a standalone export is opened from `file://`, root-relative app paths such as `/chat` and hash/self links such as `#details` are intentionally treated as invalid and rendered inert because there is no builder router or stable hosted origin behind the file.
+- Links and `@OpenUrl(...)` actions accept only full absolute `https://...` or `http://...` URLs; relative paths, hash links, `mailto:`, and `tel:` are intentionally invalid and render inert.
 - The export includes only the standalone app definition payload and does not include chat history, undo/redo or builder version history, rejected drafts, or React source code.
 
 ## 7. Trade-offs / scope
@@ -123,7 +123,7 @@ Notes:
 - Use one shared parent `appearance` for app-wide theme changes; children inherit those colors automatically unless they set a local override.
 - Use existing variants first when they are enough; do not generate raw CSS, `style`, `className`, named colors, `rgb()`, `hsl()`, `var()`, or layout styling props.
 - Step-by-step internal screen flow uses local runtime state such as `$currentStep` with `@Set(...)`, not persisted tools, and should start with at least one visible `Screen(...)`.
-- `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`.
+- `@OpenUrl(...)` is a built-in OpenUI action event and shares the same safe URL policy as `Link(...)`: allowed URL literals are full absolute `https://...` or `http://...` URLs only. Unsafe literals such as `javascript:`, `data:`, `file:`, `mailto:`, `tel:`, protocol-relative `//...`, relative paths, hash anchors, or URLs containing spaces fail source validation before commit.
 - Prefer built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and property access before using the generic compute tools.
 - Collection filtering should use `@Filter(collection, field, operator, value)` with operators `==`, `!=`, `>`, `<`, `>=`, `<=`, or `contains`; use `contains` for substring search, not predicate-style callbacks or `includes`.
 - Keep ephemeral filter selection in local `$variables` such as `$filter`; switching filters should stay local and must not hit `/api/llm/*`.

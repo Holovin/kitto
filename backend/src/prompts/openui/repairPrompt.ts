@@ -78,6 +78,7 @@ const REPAIR_LAYOUT_CRITICAL_RULES = [
 
 const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
+  'Safe URL literals for Link(...) and @OpenUrl(...) are limited to full absolute https://... or http://... URLs.',
   RADIO_SELECT_OPTIONS_SHAPE_RULE,
   'Validation rules must be literal arrays. To skip validation before `action` or `appearance`, use `null` or `[]`.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,
@@ -117,8 +118,9 @@ function buildRepairPromptCriticalRules() {
     { id: 'group-variant-not-direction', text: REPAIR_LAYOUT_CRITICAL_RULES[6] },
     { id: 'repeater-no-nesting', text: REPAIR_LAYOUT_CRITICAL_RULES[7] },
     { id: 'query-mutation-placement', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[0] },
-    { id: 'options-shape', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[1] },
-    { id: 'validation-rules', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[2] },
+    { id: 'safe-url-literals', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[1] },
+    { id: 'options-shape', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[2] },
+    { id: 'validation-rules', text: REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES[3] },
     { id: 'last-choice-runtime-write', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[0] },
     { id: 'last-choice-scope', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[1] },
     { id: 'last-choice-no-direct-read', text: RESERVED_LAST_CHOICE_CRITICAL_RULES[2] },
@@ -184,6 +186,7 @@ const ISSUE_TO_REPAIR_CRITICAL_RULE_IDS: Record<string, readonly string[]> = {
   'reserved-last-choice-outside-action-mode': LAST_CHOICE_REPAIR_CRITICAL_RULE_IDS,
   'screen-inside-screen': ['screen-signature', 'screen-no-nesting'],
   'undefined-state-reference': ['declare-state'],
+  'unsafe-url-literal': ['safe-url-literals'],
   'unresolved-reference': ['run-ref-defined', 'top-level-statements'],
 };
 
