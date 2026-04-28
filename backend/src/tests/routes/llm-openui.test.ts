@@ -342,7 +342,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
   });
 
-  it('rejects oversized individual chat history messages before compaction', async () => {
+  it('rejects oversized previous user message context', async () => {
     const { app } = createRouteApp({
       LLM_USER_PROMPT_MAX_CHARS: 8,
     });
@@ -355,14 +355,14 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'update',
         currentSource: '',
-        chatHistory: [{ role: 'user', content: 'this message is too long' }],
+        previousUserMessages: ['x'.repeat(4_097)],
       }),
     });
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       code: 'validation_error',
-      error: 'Chat history is too large.',
+      error: 'Request body is too large to process safely.',
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();
@@ -504,17 +504,11 @@ describe('createLlmOpenUiRoutes', () => {
     expect(JSON.stringify(payload)).not.toContain(fakeApiKey);
   });
 
-  it('compacts chat history by item limit while preserving the first user request without orphaning an assistant summary', async () => {
+  it('passes derived context through without raw chat history', async () => {
     const { app, env } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 2,
       OPENAI_MODEL: 'gpt-test-model',
     });
-    const chatHistory = [
-      { role: 'user' as const, content: 'oldest user message' },
-      { role: 'assistant' as const, content: 'oldest assistant reply' },
-      { role: 'user' as const, content: 'recent user message' },
-      { role: 'assistant' as const, content: 'most recent assistant reply' },
-    ];
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
       summary: 'Builds a compact app.',
@@ -530,7 +524,8 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'build a compact app',
         currentSource: '',
-        chatHistory,
+        previousUserMessages: ['oldest user message', 'recent user message'],
+        previousChangeSummaries: ['Created the app.', 'Added recent changes.'],
       }),
     });
     const payload = await response.json();
@@ -538,11 +533,6 @@ describe('createLlmOpenUiRoutes', () => {
 
     expect(response.status).toBe(200);
     expect(payload).toEqual({
-      compaction: {
-        compactedByBytes: false,
-        compactedByItemLimit: true,
-        omittedChatMessages: 2,
-      },
       model: 'gpt-test-model',
       qualityIssues: [],
       source: 'root = AppShell([])',
@@ -556,18 +546,19 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'build a compact app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: [chatHistory[0], chatHistory[2]],
+      previousUserMessages: ['oldest user message', 'recent user message'],
+      previousChangeSummaries: ['Created the app.', 'Added recent changes.'],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(generateOpenUiSourceMock.mock.calls[0]?.[3]).toEqual({
       compactedRequestBytes: expect.any(Number),
-      omittedChatMessages: 2,
+      omittedChatMessages: 0,
       requestBytes: expect.any(Number),
       requestId: expect.any(String),
     });
   });
 
-  it('drops system chat messages before compaction and generation', async () => {
+  it('ignores legacy chatHistory when deriving generation context server-side', async () => {
     const { app } = createRouteApp({
       LLM_CHAT_HISTORY_MAX_ITEMS: 2,
       OPENAI_MODEL: 'gpt-test-model',
@@ -601,11 +592,6 @@ describe('createLlmOpenUiRoutes', () => {
 
     expect(response.status).toBe(200);
     expect(payload).toEqual({
-      compaction: {
-        compactedByBytes: false,
-        compactedByItemLimit: true,
-        omittedChatMessages: 1,
-      },
       model: 'gpt-test-model',
       qualityIssues: [],
       source: 'root = AppShell([])',
@@ -618,10 +604,8 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'build a compact app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: [
-        { role: 'user', content: 'oldest user message' },
-        { role: 'user', content: 'most recent user message' },
-      ],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
     });
   });
 
@@ -655,10 +639,8 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'build a compact app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: [
-        { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
-        { role: 'user', content: 'Add sorting controls.' },
-      ],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
     });
   });
 
@@ -733,7 +715,8 @@ describe('createLlmOpenUiRoutes', () => {
       currentSource: 'root = AppShell([])',
       mode: 'repair',
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
-      chatHistory: [],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
     });
   });
 
@@ -980,7 +963,8 @@ describe('createLlmOpenUiRoutes', () => {
       mode: 'repair',
       parentRequestId: 'builder-request-parent',
       validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue, dynamicBlockingQualityIssue],
-      chatHistory: [],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
     });
   });
 
@@ -1043,15 +1027,10 @@ describe('createLlmOpenUiRoutes', () => {
 
     const [, calledRequest] = generateCall;
 
-    expect(calledRequest.chatHistory.length).toBeLessThan(chatHistory.length);
-    expect(calledRequest.chatHistory[0]).toEqual(chatHistory[0]);
-    expect(calledRequest.chatHistory).toEqual([chatHistory[0]]);
+    expect(calledRequest).not.toHaveProperty('chatHistory');
+    expect(calledRequest.previousUserMessages).toEqual([]);
+    expect(calledRequest.previousChangeSummaries).toEqual([]);
     expect(payload).toEqual({
-      compaction: {
-        compactedByBytes: true,
-        compactedByItemLimit: false,
-        omittedChatMessages: 2,
-      },
       model: 'gpt-5.4-mini',
       qualityIssues: [],
       source: 'root = AppShell([])',
@@ -1100,7 +1079,8 @@ describe('createLlmOpenUiRoutes', () => {
       prompt: 'stream a tiny app',
       currentSource: '',
       mode: 'initial',
-      chatHistory: [],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
     });
     expect(calledSignal).toBeInstanceOf(AbortSignal);
     expect(calledTelemetry).toEqual(

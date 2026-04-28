@@ -1273,11 +1273,11 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('sends backend-compatible chat history to the backend after prefiltering', async () => {
+  it('sends derived previous user prompts to the backend without raw chat history', async () => {
     appendChatMessages(
       Array.from({ length: 60 }, (_, index) => ({
         content: `Context message ${index}`,
-        role: index % 2 === 0 ? 'assistant' : 'system',
+        role: index % 3 === 0 ? 'user' : index % 3 === 1 ? 'assistant' : 'system',
         excludeFromLlmContext: index === 0 ? true : undefined,
       })),
     );
@@ -1291,18 +1291,22 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory: Array<{ content: string; role: string }> };
+      request: { chatHistory?: unknown; previousUserMessages: string[] };
     }).request;
 
-    expect(request.chatHistory).toHaveLength(29);
-    expect(request.chatHistory[0]?.content).toBe('Context message 2');
-    expect(request.chatHistory.at(-1)?.content).toBe('Context message 58');
-    expect(request.chatHistory.every((message) => message.role === 'assistant')).toBe(true);
+    expect(request).not.toHaveProperty('chatHistory');
+    expect(request.previousUserMessages).toEqual([
+      'Context message 45',
+      'Context message 48',
+      'Context message 51',
+      'Context message 54',
+      'Context message 57',
+    ]);
 
     submission.unmount();
   });
 
-  it('does not send stale chat history after a successful import', async () => {
+  it('does not send stale previous user prompts after a successful import', async () => {
     appendChatMessages([
       { content: 'Build a stale CRM app.', role: 'user' },
       { content: 'Built the stale CRM app.', role: 'assistant' },
@@ -1326,10 +1330,10 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory: Array<{ content: string; role: string }> };
+      request: { previousUserMessages: string[] };
     }).request;
 
-    expect(request.chatHistory).toEqual([]);
+    expect(request.previousUserMessages).toEqual([]);
 
     historyControls.unmount();
     submission.unmount();
@@ -1437,7 +1441,7 @@ describe('useBuilderSubmission', () => {
     historyControls.unmount();
   });
 
-  it('does not send stale chat history after loading a demo definition', async () => {
+  it('does not send stale previous user prompts after loading a demo definition', async () => {
     appendChatMessages([
       { content: 'Build a stale CRM app.', role: 'user' },
       { content: 'Built the stale CRM app.', role: 'assistant' },
@@ -1462,15 +1466,15 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory: Array<{ content: string; role: string }> };
+      request: { previousUserMessages: string[] };
     }).request;
 
-    expect(request.chatHistory).toEqual([]);
+    expect(request.previousUserMessages).toEqual([]);
 
     submission.unmount();
   });
 
-  it('does not send stale chat history after resetting the builder to empty', async () => {
+  it('does not send stale previous user prompts after resetting the builder to empty', async () => {
     appendChatMessages([
       { content: 'Build a stale CRM app.', role: 'user' },
       { content: 'Built the stale CRM app.', role: 'assistant' },
@@ -1487,10 +1491,10 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory: Array<{ content: string; role: string }> };
+      request: { previousUserMessages: string[] };
     }).request;
 
-    expect(request.chatHistory).toEqual([]);
+    expect(request.previousUserMessages).toEqual([]);
 
     submission.unmount();
   });
@@ -1516,6 +1520,39 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
+  it('sends recent committed change summaries for the current revision branch', async () => {
+    const snapshots = Array.from({ length: 7 }, (_, index) =>
+      createBuilderSnapshot(`root = AppShell([Screen("s-${index}", "Screen ${index}", [])])`, {}, {}, {
+        changeSummary: `Committed change ${index}`,
+      }),
+    );
+    seedHistorySnapshots(...snapshots);
+    testHarness.storeRef.current?.dispatch(builderActions.undoLatest());
+    setDraftPrompt('Continue from the undone version.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: VALID_STREAM_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
+      request: { currentSource: string; previousChangeSummaries: string[] };
+    }).request;
+
+    expect(request.currentSource).toBe(snapshots[5]?.source);
+    expect(request.previousChangeSummaries).toEqual([
+      'Committed change 0',
+      'Committed change 1',
+      'Committed change 2',
+      'Committed change 3',
+      'Committed change 4',
+    ]);
+
+    submission.unmount();
+  });
+
   it('does not send previousSource for the initial committed snapshot', async () => {
     seedCommittedSource(PREVIOUS_SOURCE);
     setDraftPrompt('Add sorting.');
@@ -1536,7 +1573,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('keeps the failed prompt in chat history when Repeat resubmits it', async () => {
+  it('keeps the failed prompt in previous user context when Repeat resubmits it', async () => {
     setDraftPrompt('Create a settings app.');
     const submission = createSubmissionHarness();
 
@@ -1556,16 +1593,11 @@ describe('useBuilderSubmission', () => {
     await submission.rerender().handleSubmit(createFormEvent());
 
     const repeatRequest = (testHarness.streamMock.mock.calls[1]?.[0] as {
-      request: { chatHistory: Array<{ content: string; role: string }>; prompt: string };
+      request: { previousUserMessages: string[]; prompt: string };
     }).request;
 
     expect(repeatRequest.prompt).toBe('Create a settings app.');
-    expect(repeatRequest.chatHistory).toEqual([
-      {
-        content: 'Create a settings app.',
-        role: 'user',
-      },
-    ]);
+    expect(repeatRequest.previousUserMessages).toEqual(['Create a settings app.']);
 
     submission.unmount();
   });
@@ -2067,10 +2099,11 @@ describe('useBuilderSubmission', () => {
 
     const repairRequest = (testHarness.generateMock.mock.calls[0]?.[0] as {
       request: {
-        chatHistory?: Array<{ content: string; role: string }>;
         invalidDraft?: string;
         mode?: string;
         parentRequestId?: string;
+        previousChangeSummaries?: string[];
+        previousUserMessages?: string[];
         prompt: string;
         validationIssues?: Array<{ code: string }>;
       };
@@ -2086,12 +2119,8 @@ describe('useBuilderSubmission', () => {
         expect.objectContaining({ code: 'mutation-uses-array-index-path' }),
       ]),
     );
-    const repairNotice = repairRequest.chatHistory?.at(-1);
-
-    expect(repairNotice?.role).toBe('assistant');
-    expect(repairNotice?.content).toContain('Previous draft rejected due to:');
-    expect(repairNotice?.content).toContain('`item-bound-control-without-action`');
-    expect(repairNotice?.content).toContain('`mutation-uses-array-index-path`');
+    expect(repairRequest.previousUserMessages).toEqual([]);
+    expect(repairRequest.previousChangeSummaries).toEqual([]);
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
 
     submission.unmount();

@@ -11,7 +11,6 @@ import {
 } from '@pages/Chat/builder/openui/runtime/validation';
 import type {
   BuilderGeneratedDraft,
-  RawPromptBuildChatHistoryMessage,
   PromptBuildRequest,
   PromptBuildValidationIssue,
   BuilderQualityIssue,
@@ -345,31 +344,6 @@ export function sanitizeRepairValidationIssues(
     });
 }
 
-export function buildRepairChatHistoryWithRejectedDraftNotice(
-  chatHistory: RawPromptBuildChatHistoryMessage[],
-  issues: PromptBuildValidationIssue[],
-): RawPromptBuildChatHistoryMessage[] {
-  const issueCodes = [
-    ...new Set(
-      issues
-        .map((issue) => issue.code.trim())
-        .filter((code) => code.length > 0),
-    ),
-  ];
-  const codeSummary =
-    issueCodes.length > 0
-      ? issueCodes.map((code) => `\`${code}\``).join(', ')
-      : 'validation issues';
-
-  return [
-    ...chatHistory,
-    {
-      role: 'assistant',
-      content: `Previous draft rejected due to: ${codeSummary}.`,
-    },
-  ];
-}
-
 export function useValidationRepair({
   maxRepairAttempts,
   maxRepairValidationIssues,
@@ -500,15 +474,17 @@ export function useValidationRepair({
         prompt: request.prompt,
         ...(request.appMemory !== undefined ? { appMemory: request.appMemory } : {}),
         currentSource: request.currentSource,
+        ...(request.historySummary !== undefined ? { historySummary: request.historySummary } : {}),
         ...(request.previousSource !== undefined ? { previousSource: request.previousSource } : {}),
-        chatHistory: buildRepairChatHistoryWithRejectedDraftNotice(request.chatHistory, validationIssues),
+        previousChangeSummaries: request.previousChangeSummaries ?? [],
+        previousUserMessages: request.previousUserMessages ?? [],
         invalidDraft: candidateResponse.source,
         mode: 'repair',
         parentRequestId: requestId,
         repairAttemptNumber,
         validationIssues,
       };
-      const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest, requestLimits);
+      const transportRequest = getBuilderSanitizedLlmRequestForTransport(repairRequest);
       const repairRequestValidationError = validateBuilderLlmRequest(transportRequest, requestLimits);
 
       if (repairRequestValidationError) {

@@ -120,19 +120,15 @@ describe('repair prompt assembly', () => {
     );
   });
 
-  it('includes filtered repair chat history in the repair prompt with newest context first', () => {
+  it('includes derived repair context in the repair prompt with newest context first', () => {
     const prompt = buildOpenUiUserPrompt({
       prompt: 'Create a todo app.',
       currentSource: 'root = AppShell([])',
       invalidDraft: 'root = AppShell([missing])',
       mode: 'repair',
-      chatHistory: [
-        { role: 'system', content: 'Internal UI notice.' },
-        { role: 'user', content: 'Earlier user request.' },
-        { role: 'assistant', content: 'Previous assistant summary.' },
-        { role: 'assistant', content: 'Excluded assistant summary.', excludeFromLlmContext: true },
-        { role: 'assistant', content: 'Previous draft rejected due to: `undefined-state-reference`.' },
-      ],
+      historySummary: 'Older transcript summary.',
+      previousUserMessages: ['Earlier user request.', 'Latest previous user request.'],
+      previousChangeSummaries: ['Created the todo app.', 'Added filters.'],
       validationIssues: [
         {
           code: 'undefined-state-reference',
@@ -149,28 +145,18 @@ describe('repair prompt assembly', () => {
       'Current committed valid OpenUI source',
     ]);
 
-    expect(contextSection.split('\n')[0]).toBe(
-      '- Assistant: Previous draft rejected due to: `undefined-state-reference`.',
-    );
-    expect(contextSection).toContain('- Assistant: Previous assistant summary.');
-    expect(contextSection).toContain('- User: Earlier user request.');
-    expect(contextSection).not.toContain('Internal UI notice.');
-    expect(contextSection).not.toContain('Excluded assistant summary.');
+    expect(contextSection.split('\n')[0]).toBe('- History summary: Older transcript summary.');
+    expect(contextSection).toContain('- Previous user prompt: Latest previous user request.');
+    expect(contextSection).toContain('- Previous user prompt: Earlier user request.');
+    expect(contextSection).toContain('- Previous committed change: Added filters.');
+    expect(contextSection).toContain('- Previous committed change: Created the todo app.');
   });
 
-  it('bounds role-based repair conversation context', () => {
+  it('bounds role-based repair derived context', () => {
     const messages = buildOpenUiRepairRoleMessages({
       attemptNumber: 1,
-      chatHistory: [
-        {
-          role: 'user',
-          content: `Earlier context ${'x '.repeat(2_000)}tail-marker`,
-        },
-        {
-          role: 'assistant',
-          content: 'Previous assistant summary.',
-        },
-      ],
+      previousUserMessages: [`Earlier context ${'x '.repeat(2_000)}tail-marker`],
+      previousChangeSummaries: ['Previous committed summary.'],
       committedSource: 'root = AppShell([])',
       invalidSource: 'root = AppShell([missing])',
       issues: [
@@ -187,8 +173,7 @@ describe('repair prompt assembly', () => {
     });
     const contextBlock = extractDataBlock(messages.requestContext, 'conversation_context');
 
-    expect(contextBlock).toContain('- Assistant: Previous assistant summary.');
-    expect(contextBlock).toContain('- User: Earlier context');
+    expect(contextBlock).toContain('- Previous user prompt: Earlier context');
     expect(contextBlock).toContain('…');
     expect(contextBlock).not.toContain('tail-marker');
   });

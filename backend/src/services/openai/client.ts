@@ -5,13 +5,11 @@ import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError, UpstreamFailureError } from '#backend/errors/publicError.js';
 import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
 import {
-  buildOpenUiAssistantSummaryMessage,
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
   buildOpenUiRepairRoleMessages,
   buildOpenUiSystemPromptForIntents,
   detectPromptRequestIntent,
-  filterPromptBuildChatHistory,
   getOpenUiSystemPromptHash,
   buildOpenUiUserPrompt,
   getOpenUiSystemPromptCacheKey,
@@ -22,7 +20,6 @@ import {
   createEmptyAppMemory,
   CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
   type AppMemory,
-  type PromptBuildChatHistoryMessage,
 } from '@kitto-openui/shared/builderApiContract.js';
 import { openUiEnvelopeFormat } from './envelope.js';
 
@@ -286,35 +283,17 @@ function cropAppMemorySummary(appMemory: AppMemory | undefined): AppMemory {
   };
 }
 
-function removePreviousUserMessages(messages: PromptBuildChatHistoryMessage[]) {
-  return messages.filter((message) => message.role !== 'user');
-}
-
-function removePreviousAssistantChangeSummaries(messages: PromptBuildChatHistoryMessage[]) {
-  return messages.filter((message) => message.role !== 'assistant' || message.content.includes('<history_summary>'));
-}
-
-function removeHistorySummaryMessages(messages: PromptBuildChatHistoryMessage[]) {
-  return messages.filter((message) => !message.content.includes('<history_summary>'));
-}
-
 function buildInitialResponseInputVariant(
   systemPrompt: string,
   request: PromptBuildRequest,
   options: {
     appMemory?: AppMemory;
-    chatHistory: PromptBuildChatHistoryMessage[];
     includeIntentExamples: boolean;
     includePreviousChanges: boolean;
   },
 ): ResponseInput {
   return [
     createTextInputMessage('system', systemPrompt),
-    ...options.chatHistory.map((message) =>
-      message.role === 'assistant'
-        ? createTextInputMessage('assistant', buildOpenUiAssistantSummaryMessage(message.content))
-        : createTextInputMessage('user', message.content),
-    ),
     createTextInputMessage('user', buildOpenUiIntentContextPrompt(request, { includeIntentExamples: options.includeIntentExamples })),
     createTextInputMessage(
       'user',
@@ -332,15 +311,14 @@ function buildBudgetedInitialResponseInput(
   request: PromptBuildRequest,
 ): { droppedSections: DroppedPromptSection[]; input: ResponseInput } {
   let appMemory = request.appMemory;
-  let chatHistory = filterPromptBuildChatHistory(request.chatHistory);
+  let budgetedRequest = request;
   let includeIntentExamples = true;
-  let includePreviousChanges = true;
+  const includePreviousChanges = true;
   const droppedSections: DroppedPromptSection[] = [];
   const isOverBudget = (input: ResponseInput) => getResponseInputChars(input) > env.LLM_MODEL_PROMPT_MAX_CHARS;
   const buildInput = () =>
-    buildInitialResponseInputVariant(systemPrompt, request, {
+    buildInitialResponseInputVariant(systemPrompt, budgetedRequest, {
       appMemory,
-      chatHistory,
       includeIntentExamples,
       includePreviousChanges,
     });
@@ -360,14 +338,13 @@ function buildBudgetedInitialResponseInput(
     includeIntentExamples = false;
   });
   dropIfNeeded('previousChangeSummaries', () => {
-    includePreviousChanges = false;
-    chatHistory = removePreviousAssistantChangeSummaries(chatHistory);
+    budgetedRequest = { ...budgetedRequest, previousChangeSummaries: [] };
   });
   dropIfNeeded('previousUserMessages', () => {
-    chatHistory = removePreviousUserMessages(chatHistory);
+    budgetedRequest = { ...budgetedRequest, previousUserMessages: [] };
   });
   dropIfNeeded('historySummary', () => {
-    chatHistory = removeHistorySummaryMessages(chatHistory);
+    budgetedRequest = { ...budgetedRequest, historySummary: undefined };
   });
   dropIfNeeded('currentSourceItems', () => {
     // Normal follow-up generation does not include source inventory as source context.
@@ -400,12 +377,14 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
     const repairMessages = buildOpenUiRepairRoleMessages({
       attemptNumber: request.repairAttemptNumber ?? 1,
       appMemory: request.appMemory,
-      chatHistory: filterPromptBuildChatHistory(request.chatHistory),
       committedSource: request.currentSource,
+      historySummary: request.historySummary,
       invalidSource: request.invalidDraft ?? '',
       issues: request.validationIssues ?? [],
       maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
       promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
+      previousChangeSummaries: request.previousChangeSummaries ?? [],
+      previousUserMessages: request.previousUserMessages ?? [],
       userPrompt: buildOpenUiRawUserRequest(request),
     });
 

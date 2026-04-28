@@ -1,6 +1,5 @@
 import type { BuilderConfigResponse, PromptBuildRequest } from '@pages/Chat/builder/types';
 import { CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
-import { compactPromptBuildChatHistory } from '@kitto-openui/shared/promptBuildChatHistory.js';
 import { serializeBuilderLlmRequest } from '@pages/Chat/builder/api/requestBody';
 
 const textEncoder = new TextEncoder();
@@ -41,25 +40,8 @@ export interface BuilderGenerationConfig {
   temperature: number;
 }
 
-function compactBuilderLlmRequestForTransport(request: PromptBuildRequest, limits: BuilderRequestLimits): PromptBuildRequest {
-  const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
-    getSizeBytes: (chatHistory) =>
-      getApproximateBuilderRequestSizeBytes({
-        ...request,
-        chatHistory,
-      }),
-    maxBytes: limits.requestMaxBytes,
-    maxItems: limits.chatHistoryMaxItems,
-  });
-
-  return {
-    ...request,
-    chatHistory: compactedHistory.chatHistory,
-  };
-}
-
-export function getBuilderSanitizedLlmRequestForTransport(request: PromptBuildRequest, limits: BuilderRequestLimits): PromptBuildRequest {
-  return compactBuilderLlmRequestForTransport(request, limits);
+export function getBuilderSanitizedLlmRequestForTransport(request: PromptBuildRequest): PromptBuildRequest {
+  return request;
 }
 
 export function getBuilderMaxRepairAttempts(config?: BuilderConfigResponse) {
@@ -168,11 +150,7 @@ export function validateBuilderLlmRequest(request: PromptBuildRequest, limits: B
     return `Invalid draft is too large. Limit: ${formatLimitValue(limits.sourceMaxChars)} characters.`;
   }
 
-  if (request.chatHistory.some((message) => message.content.length > limits.chatMessageMaxChars)) {
-    return `Chat history message is too large. Limit: ${formatLimitValue(limits.chatMessageMaxChars)} characters.`;
-  }
-
-  const sanitizedRequest = getBuilderSanitizedLlmRequestForTransport(request, limits);
+  const sanitizedRequest = getBuilderSanitizedLlmRequestForTransport(request);
   const approximateRequestSizeBytes = getApproximateBuilderRequestSizeBytes(sanitizedRequest);
 
   if (approximateRequestSizeBytes > limits.requestMaxBytes) {

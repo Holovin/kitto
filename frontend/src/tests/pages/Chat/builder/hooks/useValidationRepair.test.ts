@@ -5,12 +5,10 @@ import type {
   BuilderRequestId,
   PromptBuildRequest,
   PromptBuildValidationIssue,
-  RawPromptBuildChatHistoryMessage,
 } from '@pages/Chat/builder/types';
 import { toBuilderRequestId } from '@pages/Chat/builder/types';
 import type { BuilderRequestLimits } from '@pages/Chat/builder/config';
 import {
-  buildRepairChatHistoryWithRejectedDraftNotice,
   dedupeQualityIssues,
   sanitizeRepairValidationIssues,
   useValidationRepair,
@@ -272,28 +270,7 @@ describe('sanitizeRepairValidationIssues', () => {
   });
 });
 
-describe('buildRepairChatHistoryWithRejectedDraftNotice', () => {
-  it('appends an assistant repair-memory notice with unique issue codes', () => {
-    const chatHistory: RawPromptBuildChatHistoryMessage[] = [
-      { role: 'user', content: 'Build a todo app.' },
-      { role: 'assistant', content: 'Built a todo app.' },
-    ];
-    const issues: PromptBuildValidationIssue[] = [
-      { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here.' },
-      { code: 'reserved-last-choice-outside-action-mode', message: 'Do not read $lastChoice here either.' },
-      { code: 'undefined-state-reference', message: 'Declare $filter first.' },
-    ];
-
-    expect(buildRepairChatHistoryWithRejectedDraftNotice(chatHistory, issues)).toEqual([
-      ...chatHistory,
-      {
-        role: 'assistant',
-        content: 'Previous draft rejected due to: `reserved-last-choice-outside-action-mode`, `undefined-state-reference`.',
-      },
-    ]);
-    expect(chatHistory).toHaveLength(2);
-  });
-
+describe('useValidationRepair', () => {
   it('passes previousSource into generated repair requests when present on the original request', async () => {
     const requestLimits: BuilderRequestLimits = {
       chatMessageMaxChars: 4_096,

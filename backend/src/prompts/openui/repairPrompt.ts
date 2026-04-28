@@ -12,7 +12,7 @@ import {
 import { BUTTON_APPEARANCE_RULE, RADIO_SELECT_OPTIONS_SHAPE_RULE, buildIntentSpecificRulesForPrompt } from './rules.js';
 import { buildCurrentSourceInventory } from './sourceInventory.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
-import type { PromptBuildChatHistoryMessage, PromptBuildValidationIssue } from './types.js';
+import type { PromptBuildValidationIssue } from './types.js';
 
 type RepairIssueMode = 'mixed' | 'parser' | 'quality';
 type RepairSectionKey =
@@ -409,23 +409,43 @@ function buildBoundedSectionContent(
   return selectedLines.length ? selectedLines.join('\n') : truncateText(lines[0] ?? fallback, maxChars);
 }
 
-function normalizeRepairConversationContextContent(content: string) {
+function normalizeRepairContextContent(content: string) {
   return content.trim().replace(/\s+/g, ' ');
 }
 
-function buildRepairConversationContextLines(chatHistory: PromptBuildChatHistoryMessage[] = []) {
-  return [...chatHistory]
-    .reverse()
-    .map((message) => {
-      const content = normalizeRepairConversationContextContent(message.content);
+function buildRepairDerivedContextLines({
+  historySummary,
+  previousChangeSummaries = [],
+  previousUserMessages = [],
+}: {
+  historySummary?: string;
+  previousChangeSummaries?: string[];
+  previousUserMessages?: string[];
+}) {
+  const lines: string[] = [];
+  const normalizedHistorySummary = historySummary ? normalizeRepairContextContent(historySummary) : '';
 
-      if (!content) {
-        return null;
-      }
+  if (normalizedHistorySummary) {
+    lines.push(`- History summary: ${normalizedHistorySummary}`);
+  }
 
-      return `- ${message.role === 'assistant' ? 'Assistant' : 'User'}: ${content}`;
-    })
-    .filter((line): line is string => line !== null);
+  for (const message of [...previousUserMessages].reverse()) {
+    const content = normalizeRepairContextContent(message);
+
+    if (content) {
+      lines.push(`- Previous user prompt: ${content}`);
+    }
+  }
+
+  for (const summary of [...previousChangeSummaries].reverse()) {
+    const content = normalizeRepairContextContent(summary);
+
+    if (content) {
+      lines.push(`- Previous committed change: ${content}`);
+    }
+  }
+
+  return lines;
 }
 
 function getUndefinedStateReferenceIssueContext(issue: PromptBuildValidationIssue) {
@@ -837,12 +857,15 @@ function buildAppMemorySectionContent(appMemory: AppMemory | undefined) {
 interface BuildOpenUiRepairPromptArgs {
   attemptNumber: number;
   appMemory?: AppMemory;
-  chatHistory?: PromptBuildChatHistoryMessage[];
+  chatHistory?: unknown;
   committedSource: string;
+  historySummary?: string;
   invalidSource: string;
   issues: PromptBuildValidationIssue[];
   maxRepairAttempts: number;
   promptMaxChars: number;
+  previousChangeSummaries?: string[];
+  previousUserMessages?: string[];
   userPrompt: string;
 }
 
@@ -926,7 +949,19 @@ function buildOpenUiRepairPromptParts(
   args: BuildOpenUiRepairPromptArgs,
   outputFormat: RepairPromptOutputFormat,
 ): OpenUiRepairPromptParts {
-  const { appMemory, attemptNumber, chatHistory = [], committedSource, invalidSource, issues, maxRepairAttempts, promptMaxChars, userPrompt } = args;
+  const {
+    appMemory,
+    attemptNumber,
+    committedSource,
+    historySummary,
+    invalidSource,
+    issues,
+    maxRepairAttempts,
+    previousChangeSummaries = [],
+    previousUserMessages = [],
+    promptMaxChars,
+    userPrompt,
+  } = args;
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
@@ -934,7 +969,11 @@ function buildOpenUiRepairPromptParts(
   const requestExemplars = getRelevantRequestExemplars(userPrompt, { operation: 'repair' }).filter(
     (requestExemplar) => !repairExemplars.some((repairExemplar) => repairExemplar.key === requestExemplar.key),
   );
-  const conversationContextLines = buildRepairConversationContextLines(chatHistory);
+  const conversationContextLines = buildRepairDerivedContextLines({
+    historySummary,
+    previousChangeSummaries,
+    previousUserMessages,
+  });
   const statementExcerptLines = buildStatementExcerptLines(sanitizedIssues, invalidSource);
   const hasUndefinedStateReferenceIssues = sanitizedIssues.some((issue) => issue.code === 'undefined-state-reference');
   const hasHints = repairHints.length > 0 || repairExemplars.length > 0 || requestExemplars.length > 0;
@@ -1210,6 +1249,8 @@ export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
       invalidSource: '{{invalidDraft}}',
       issues,
       maxRepairAttempts,
+      previousChangeSummaries: ['{{previousChangeSummary}}'],
+      previousUserMessages: ['{{previousUserMessage}}'],
       promptMaxChars: REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
       userPrompt: '{{userPrompt}}',
     });

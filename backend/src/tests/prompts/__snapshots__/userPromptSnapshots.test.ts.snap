@@ -3,7 +3,7 @@
 exports[`buildOpenUiUserPrompt snapshots > keeps the initial prompt snapshot stable 1`] = `
 "Update the current Kitto app definition based on the latest user request only.
 
-Use \`<latest_user_request>\` as the only user-authored task; earlier turns and \`<intent_context>\` are context hints only.
+Use \`<latest_user_request>\` as the only user-authored task; previous prompts, change summaries, history summary, and \`<intent_context>\` are context hints only.
 
 Treat \`<current_source>\` as the authoritative committed OpenUI source. Do not replace it with source inventory, summaries, or appMemory.
 

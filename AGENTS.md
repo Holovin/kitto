@@ -163,8 +163,8 @@ Steps:
 - Automatic repair requests are continuation requests only: the backend records one-use repair rate-limit credits after a completed generation or repair, and the next repair request consumes the matching `x-kitto-automatic-repair` / `x-kitto-repair-for` / `x-kitto-repair-attempt` credit
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules
 - During repair, keep `request.currentSource` pointed at the last committed valid source; include the invalid draft in the repair prompt instead of replacing the request baseline
-- Normal generation `chatHistory` should include only `user` messages and optional `assistant` generation summaries; exclude all `system` UI/operational messages from model context
-- Initial generation sends recent `chatHistory` as separate role-based `user` / `assistant` messages; the final user turn wraps only the latest user request and `currentSource` in explicit data blocks
+- Normal generation preserves the visible chat transcript for UX but sends the backend only derived context: the latest `prompt`, at most 5 `previousUserMessages`, at most 5 committed `previousChangeSummaries`, optional `historySummary`, current `appMemory`, and `currentSource`.
+- Initial generation does not send recent transcript turns as separate model messages; the final user turn wraps derived context, the latest user request, and `currentSource` in explicit data blocks.
 - The backend always asks the OpenAI Responses API for a strict JSON envelope shaped like `{ "summary": "...", "source": "..." }` and extracts `.source` before OpenUI validation, quality checks, repair, and commit
 - While a stream is in flight, Definition may temporarily show raw JSON envelope draft text from `chunk` events; only `done.source` is eligible for commit
 - Preview updates only after `completeStreaming` commits a validated source; invalid or partial streamed source must never become the active preview

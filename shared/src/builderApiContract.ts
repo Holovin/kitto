@@ -85,11 +85,14 @@ export interface PromptBuildValidationIssue {
 
 export interface PromptBuildRequest {
   appMemory?: AppMemory;
-  chatHistory: RawPromptBuildChatHistoryMessage[];
+  chatHistory?: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
+  historySummary?: string;
   invalidDraft?: string;
   mode: BuilderLlmRequestMode;
   parentRequestId?: string;
+  previousChangeSummaries?: string[];
+  previousUserMessages?: string[];
   previousSource?: string;
   prompt: string;
   repairAttemptNumber?: number;
@@ -112,6 +115,11 @@ export const APP_MEMORY_MAX_CHARS = 4_096;
 export const APP_MEMORY_ARRAY_MAX_ITEMS = 8;
 export const APP_MEMORY_ITEM_MAX_CHARS = 180;
 export const APP_MEMORY_SUMMARY_MAX_CHARS = 1_800;
+export const PREVIOUS_USER_MESSAGES_MAX_ITEMS = 5;
+export const PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS = 4_096;
+export const PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS = 5;
+export const PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS = 1_024;
+export const HISTORY_SUMMARY_MAX_CHARS = 4_096;
 
 export const appMemorySchema = z
   .object({
@@ -170,6 +178,26 @@ function normalizeAppMemoryArray(values: string[]) {
 
 function getAppMemorySerializedChars(appMemory: AppMemory) {
   return JSON.stringify(appMemory).length;
+}
+
+function getTotalTextChars(values: string[]) {
+  return values.reduce((total, value) => total + value.length, 0);
+}
+
+function createBoundedStringArraySchema(maxItems: number, maxTotalChars: number, label: string) {
+  return z
+    .array(z.string().trim().min(1).max(maxTotalChars))
+    .max(maxItems)
+    .superRefine((values, context) => {
+      if (getTotalTextChars(values) <= maxTotalChars) {
+        return;
+      }
+
+      context.addIssue({
+        code: 'custom',
+        message: `${label} are too large. Limit: ${maxTotalChars} total characters.`,
+      });
+    });
 }
 
 export function normalizeAppMemory(value: unknown): AppMemory {
@@ -359,7 +387,7 @@ function createValidationIssueSchema(maxValidationIssues: number) {
 }
 
 export function createBuilderLlmRequestSchema({
-  chatMessageMaxChars,
+  chatMessageMaxChars: _chatMessageMaxChars,
   maxValidationIssues = DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
   promptMaxChars,
   sourceMaxChars,
@@ -380,17 +408,17 @@ export function createBuilderLlmRequestSchema({
     appMemory: appMemorySchema.optional(),
     currentSource: currentSourceSchema.default(''),
     previousSource: currentSourceSchema.optional(),
-    chatHistory: z
-      .array(
-        z.object({
-          role: z.enum(BUILDER_CHAT_MESSAGE_ROLES),
-          content: z
-            .string()
-            .max(chatMessageMaxChars, `Chat history message is too large. Limit: ${chatMessageMaxChars} characters.`),
-          excludeFromLlmContext: z.boolean().optional(),
-        }),
-      )
-      .default([]),
+    historySummary: z.string().trim().min(1).max(HISTORY_SUMMARY_MAX_CHARS).optional(),
+    previousChangeSummaries: createBoundedStringArraySchema(
+      PREVIOUS_CHANGE_SUMMARIES_MAX_ITEMS,
+      PREVIOUS_CHANGE_SUMMARIES_MAX_TOTAL_CHARS,
+      'Previous change summaries',
+    ).default([]),
+    previousUserMessages: createBoundedStringArraySchema(
+      PREVIOUS_USER_MESSAGES_MAX_ITEMS,
+      PREVIOUS_USER_MESSAGES_MAX_TOTAL_CHARS,
+      'Previous user messages',
+    ).default([]),
   });
 
   const requestSchema = z.discriminatedUnion('mode', [

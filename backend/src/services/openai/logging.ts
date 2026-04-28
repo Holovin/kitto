@@ -100,10 +100,12 @@ function getPartialPromptBuildContext(partialBody: unknown) {
   }
 
   const partialRequest = partialBody as {
-    chatHistory?: unknown;
     currentSource?: unknown;
+    historySummary?: unknown;
     mode?: unknown;
     parentRequestId?: unknown;
+    previousChangeSummaries?: unknown;
+    previousUserMessages?: unknown;
     prompt?: unknown;
     repairAttemptNumber?: unknown;
     validationIssues?: unknown;
@@ -124,16 +126,20 @@ function getPartialPromptBuildContext(partialBody: unknown) {
     : undefined;
 
   return {
-    chatHistoryLen: Array.isArray(partialRequest.chatHistory) ? partialRequest.chatHistory.length : undefined,
+    chatHistoryLen:
+      (Array.isArray(partialRequest.previousUserMessages) ? partialRequest.previousUserMessages.length : 0) +
+      (Array.isArray(partialRequest.previousChangeSummaries) ? partialRequest.previousChangeSummaries.length : 0) +
+      (typeof partialRequest.historySummary === 'string' && partialRequest.historySummary.trim() ? 1 : 0),
     currentSourceLen: typeof partialRequest.currentSource === 'string' ? partialRequest.currentSource.length : undefined,
     mode,
     parentRequestId: typeof partialRequest.parentRequestId === 'string' ? partialRequest.parentRequestId : null,
     rawUserRequest:
       typeof partialRequest.prompt === 'string'
         ? buildOpenUiRawUserRequest({
-            chatHistory: [],
             currentSource: '',
             mode: mode ?? 'initial',
+            previousChangeSummaries: [],
+            previousUserMessages: [],
             prompt: partialRequest.prompt,
           })
         : undefined,
@@ -141,6 +147,14 @@ function getPartialPromptBuildContext(partialBody: unknown) {
       typeof partialRequest.repairAttemptNumber === 'number' ? partialRequest.repairAttemptNumber : undefined,
     validationIssues: sanitizeValidationIssues(partialValidationIssues),
   };
+}
+
+function getDerivedContextItemCount(request: PromptBuildRequest) {
+  return (
+    (request.previousUserMessages?.length ?? 0) +
+    (request.previousChangeSummaries?.length ?? 0) +
+    (request.historySummary?.trim() ? 1 : 0)
+  );
 }
 
 function coerceRawModelOutput(rawModelText: unknown) {
@@ -262,7 +276,7 @@ export async function writePromptIoLogSafely(
         currentSourceLen: request.currentSource.length,
         currentSourceProtected: promptContextMetadata?.currentSourceProtected,
         droppedSections: promptContextMetadata?.droppedSections,
-        chatHistoryLen: request.chatHistory.length,
+        chatHistoryLen: getDerivedContextItemCount(request),
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,
@@ -322,7 +336,7 @@ export async function writePromptIoFailureSafely(
         currentSourceLen: request.currentSource.length,
         currentSourceProtected: promptContextMetadata?.currentSourceProtected,
         droppedSections: promptContextMetadata?.droppedSections,
-        chatHistoryLen: request.chatHistory.length,
+        chatHistoryLen: getDerivedContextItemCount(request),
         requestBytes: options.requestBytes ?? null,
         compactedRequestBytes: options.compactedRequestBytes ?? null,
         omittedChatMessages: options.omittedChatMessages ?? null,

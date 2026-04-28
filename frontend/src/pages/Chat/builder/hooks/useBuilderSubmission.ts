@@ -13,6 +13,7 @@ import { useGenerationLifecycle } from './useGenerationLifecycle';
 import { useStreamingSummary } from './useStreamingSummary';
 import { useValidationRepair } from './useValidationRepair';
 import { runBuilderGeneration } from './builderGenerationService';
+import { buildPreviousChangeSummaries, buildPreviousUserMessages } from './generationContext';
 import { resolveBuilderComposerPrompt } from './submissionPrompt';
 import { resolveRuntimeConfigNotice } from '@pages/Chat/builder/components/chatNotices';
 import {
@@ -21,6 +22,7 @@ import {
   selectCommittedSource,
   selectDomainData,
   selectDraftPrompt,
+  selectPreviousChangeSummaries,
   selectPreviousCommittedSource,
   selectRetryPrompt,
 } from '@pages/Chat/builder/store/selectors';
@@ -42,6 +44,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
   const appMemory = useAppSelector(selectAppMemory);
   const committedSource = useAppSelector(selectCommittedSource);
   const previousSource = useAppSelector(selectPreviousCommittedSource);
+  const previousChangeSummaries = useAppSelector(selectPreviousChangeSummaries);
   const domainData = useAppSelector(selectDomainData);
   const draftPrompt = useAppSelector(selectDraftPrompt);
   const retryPrompt = useAppSelector(selectRetryPrompt);
@@ -110,14 +113,11 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
       appMemory,
       currentSource: committedSource,
       ...(previousSource !== undefined && previousSource !== committedSource ? { previousSource } : {}),
-      chatHistory: chatMessages.map(({ content, excludeFromLlmContext, role }) => ({
-        content,
-        excludeFromLlmContext,
-        role,
-      })),
+      previousChangeSummaries: buildPreviousChangeSummaries(previousChangeSummaries),
+      previousUserMessages: buildPreviousUserMessages(chatMessages),
       mode: 'initial',
     };
-    const transportRequest = getBuilderSanitizedLlmRequestForTransport(request, requestLimits);
+    const transportRequest = getBuilderSanitizedLlmRequestForTransport(request);
     const requestValidationError = validateBuilderLlmRequest(transportRequest, requestLimits);
 
     if (requestValidationError) {

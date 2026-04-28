@@ -419,7 +419,8 @@ describe('streamBuilderDefinition', () => {
     expect(JSON.parse(String(requestInit?.body))).toMatchObject({
       prompt: 'Build a todo app',
       currentSource: '',
-      chatHistory: [],
+      previousChangeSummaries: [],
+      previousUserMessages: [],
       invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
       mode: 'repair',
       parentRequestId: 'builder-request-parent',

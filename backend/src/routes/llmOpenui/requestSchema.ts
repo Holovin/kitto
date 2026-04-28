@@ -12,11 +12,8 @@ import { RequestValidationError } from '#backend/errors/publicError.js';
 import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
 import { getByteLength, getEffectiveSourceMaxChars } from '#backend/limits.js';
 import {
-  compactPromptBuildChatHistory,
-  filterPromptBuildChatHistory,
   type PromptBuildRequest,
   type PromptBuildValidationIssue,
-  type RawPromptBuildChatHistoryMessage,
 } from '#backend/prompts/openui.js';
 import { getRequestIdFromContext } from '#backend/requestMetadata.js';
 import type { IntakeFailureRecorder } from './telemetry.js';
@@ -34,12 +31,14 @@ export interface LlmRequestCompaction {
 
 interface RawParsedLlmRequest {
   appMemory?: AppMemory;
-  chatHistory: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
+  historySummary?: string;
   invalidDraft?: string;
   mode: 'initial' | 'repair';
   parentRequestId?: string;
   prompt: string;
+  previousChangeSummaries: string[];
+  previousUserMessages: string[];
   previousSource?: string;
   repairAttemptNumber?: number;
   validationIssues?: PromptBuildValidationIssue[];
@@ -75,7 +74,6 @@ function sanitizeLlmRequest(request: RawParsedLlmRequest): PromptBuildRequest {
   return {
     ...request,
     ...(request.appMemory ? { appMemory: normalizeAppMemory(request.appMemory) } : {}),
-    chatHistory: filterPromptBuildChatHistory(request.chatHistory),
   };
 }
 
@@ -130,31 +128,10 @@ async function validateAutomaticRepairTransportMetadata({
   }
 }
 
-function compactLlmRequest(request: PromptBuildRequest, env: AppEnv): CompactedLlmRequest {
-  const compactedHistory = compactPromptBuildChatHistory(request.chatHistory, {
-    getSizeBytes: (chatHistory) =>
-      getRequestSizeBytes({
-        ...request,
-        chatHistory,
-      }),
-    maxBytes: env.LLM_REQUEST_MAX_BYTES,
-    maxItems: env.LLM_CHAT_HISTORY_MAX_ITEMS,
-  });
-  const compactedRequest: PromptBuildRequest = {
-    ...request,
-    chatHistory: compactedHistory.chatHistory,
-  };
-
+function compactLlmRequest(request: PromptBuildRequest): CompactedLlmRequest {
   return {
-    compaction:
-      compactedHistory.omittedChatMessages > 0
-        ? {
-            compactedByBytes: compactedHistory.compactedByBytes,
-            compactedByItemLimit: compactedHistory.compactedByItemLimit,
-            omittedChatMessages: compactedHistory.omittedChatMessages,
-          }
-        : undefined,
-    request: compactedRequest,
+    compaction: undefined,
+    request,
   };
 }
 
@@ -209,7 +186,7 @@ export async function parseLlmRequest(
     requestId,
   });
 
-  const compactedRequest = compactLlmRequest(request, env);
+  const compactedRequest = compactLlmRequest(request);
   const compactedRequestBytes = getRequestSizeBytes(compactedRequest.request);
   const omittedChatMessages = compactedRequest.compaction?.omittedChatMessages ?? 0;
 

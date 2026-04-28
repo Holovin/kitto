@@ -66,12 +66,13 @@ This is not a full regression suite. Full edge cases live in `docs/qa/openui-man
 - The `Repair prompt` section explicitly mentions repair temperature `0.2`.
 - The `System prompt` filtering guidance lists supported `@Filter(...)` operators `==`, `!=`, `>`, `<`, `>=`, `<=`, and `contains`, and uses `contains` rather than invented `includes`.
 - The `System prompt` text does not include legacy generic OpenUI examples such as `Stack(...)`, `Col(...)`, `FormControl(...)`, `SelectItem(...)`, `TextContent(...)`, `SomeComp(...)`, or `SomeChart(...)`.
-- The user prompt template shows the role-based initial input shape: earlier user/assistant turns are sent as separate role-based messages, assistant summaries stay wrapped in `<assistant_summary>`, then the final user turn starts with `<intent_context>`, an explicit separator, and the latest request/current source blocks.
+- The user prompt template shows the initial input shape: earlier transcript turns are not sent as separate role-based messages; the final user turn starts with `<intent_context>`, then derived context blocks, and the latest request/current source blocks.
 - The user prompt template also shows the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / `<current_source_inventory>`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - The `<request_intent>` block inside `<intent_context>` is one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
 - The final user turn contains `<latest_user_request>` plus the full committed `<current_source>` for normal follow-up generation while source stays at or below the 50,000 character emergency cap; Kitto does not summarize or replace the authoritative source with inventory, appMemory, or summaries.
 - The final user turn includes `<previous_app_memory>` as compact LLM context shaped `{ version: 1, appSummary, userPreferences, avoid }`; it is not runtime state or exported preview memory.
+- Generation requests do not send the full visible chat transcript as `chatHistory`; they send derived context with the latest `prompt`, at most 5 `previousUserMessages`, at most 5 committed `previousChangeSummaries`, optional `historySummary`, compact `appMemory`, and the authoritative current source.
 - Builder revisions store committed source plus compact LLM app memory, while live preview runtime/domain state remains separate from model context memory.
 - When the backend receives `previousSource`, the final user turn may include `<previous_changes>` with a short source-delta summary before `<latest_user_request>`.
 - Source inventory is only a repair/debug context hint when present, not a replacement for authoritative source.
@@ -418,7 +419,7 @@ Skip if standalone export is intentionally disabled.
 - Chat toolbar previous-version, next-version, and reset buttons stay disabled until the generation is cancelled or otherwise finishes.
 - No scary red error appears for intentional cancel.
 - One neutral system chat message confirms that the user cancelled the in-flight generation.
-- The cancelled user prompt remains visible in chat but is excluded from the next `/api/llm/generate*` `chatHistory` payload.
+- The cancelled user prompt remains visible in chat but is excluded from the next `/api/llm/generate*` `previousUserMessages` payload.
 - Partial draft is not committed.
 - Late response does not overwrite the current app.
 - New prompt works.

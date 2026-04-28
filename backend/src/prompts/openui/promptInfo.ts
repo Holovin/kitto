@@ -164,7 +164,6 @@ function buildIntentContextVariant(
     label: definition.label,
     sampleRequest: definition.prompt,
     text: buildOpenUiIntentContextPrompt({
-      chatHistory: [],
       currentSource: '',
       mode: 'initial',
       prompt,
