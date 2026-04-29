@@ -18,8 +18,26 @@ describe('computeValue', () => {
   });
 
   it('normalizes primitive equality and inequality comparisons', () => {
-    expect(computeValue({ op: 'equals', left: '42', right: 42 })).toEqual({ value: true });
+    expect(computeValue({ op: 'equals', left: true, right: 'true' })).toEqual({ value: true });
+    expect(computeValue({ op: 'equals', left: 42, right: '42' })).toEqual({ value: true });
+    expect(computeValue({ op: 'equals', left: 42, right: ' 42 ' })).toEqual({ value: true });
+    expect(computeValue({ op: 'equals', left: undefined, right: null })).toEqual({ value: true });
+    expect(computeValue({ op: 'equals', left: 'abc', right: 'abc' })).toEqual({ value: true });
     expect(computeValue({ op: 'not_equals', left: 'Ada', right: 'Grace' })).toEqual({ value: true });
+  });
+
+  it.each([
+    ['equals rejects object operands', { op: 'equals', left: {}, right: {} } as const, 'left'],
+    ['equals rejects array operands', { op: 'equals', left: [], right: [] } as const, 'left'],
+    ['equals rejects object compared with primitive', { op: 'equals', left: {}, right: 'x' } as const, 'left'],
+    ['equals rejects array compared with primitive', { op: 'equals', left: ['x'], right: 'x' } as const, 'left'],
+    ['not_equals rejects object operands', { op: 'not_equals', left: {}, right: {} } as const, 'left'],
+    ['equals rejects function operands', { op: 'equals', left: () => 'x', right: 'x' } as const, 'left'],
+    ['equals reports right object operands', { op: 'equals', left: 'x', right: {} } as const, 'right'],
+  ])('%s', (_name, input, label) => {
+    expect(() => computeValue(input)).toThrow(
+      `compute_value ${label} for equals/not_equals must be a primitive string, number, boolean, null, or undefined.`,
+    );
   });
 
   it('handles numeric comparison operations', () => {

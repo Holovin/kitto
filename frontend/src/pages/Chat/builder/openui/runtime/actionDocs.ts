@@ -12,12 +12,14 @@ export const OPENUI_ACTION_DOCUMENTATION: Record<string, OpenUiActionDocumentati
   },
   compute_value: {
     summary: 'Runs a safe primitive-only calculation and returns an object shaped like `{ value }`.',
-    useWhen: 'Use this for simple boolean, number, string, random-int, or date calculations that OpenUI built-ins and normal expressions do not already cover well.',
+    useWhen:
+      'Use this for simple boolean, number, string, random-int, or date calculations that OpenUI built-ins and normal expressions do not already cover well. equals/not_equals compare primitive values only; do not use them to compare arrays or objects.',
     returns: 'Returns `{ value }`, where `value` is always a primitive string, number, or boolean.',
   },
   write_computed_state: {
     summary: 'Computes a safe primitive value, writes it into persisted state at a validated path, and returns `{ value }`.',
-    useWhen: 'Use this when a button or action should compute a new primitive result such as a random roll and keep it in persisted browser data.',
+    useWhen:
+      'Use this when a button or action should compute a new primitive result such as a random roll and keep it in persisted browser data. equals/not_equals compare primitive values only; do not use them to compare arrays or objects.',
     returns: 'Returns `{ value }`, and also writes that same primitive value into the target persisted state path.',
   },
   write_state: {

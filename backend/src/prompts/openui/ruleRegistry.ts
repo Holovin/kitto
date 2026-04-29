@@ -264,6 +264,7 @@ const OPENUI_RULE_GROUPS: readonly OpenUiRuleGroup[] = [
       'Follow the Date comparison pattern or Random dice pattern when the request matches them; otherwise prefer normal OpenUI expressions and built-ins (`@Each`, `@Filter`, `@Count`, arithmetic, comparisons, ternaries, property access) before compute tools.',
       'Use `compute_value` only for safe primitive calculations that expressions cannot cover; use `write_computed_state` only for button-triggered computed values that must persist for later rendering.',
       'Both compute tools return `{ value }`; date compute inputs must be strict `YYYY-MM-DD`; never use compute tools for simple CRUD/list apps, navigation, filtering, or normal input display.',
+      '`compute_value` equals/not_equals compare primitive values only. Do not use equals/not_equals to compare arrays or objects.',
       '`Query("read_state", ...)` returns the raw persisted value or `null`, not a `{ value }` object. Only `compute_value` and `write_computed_state` return `{ value }`.',
     ],
   },

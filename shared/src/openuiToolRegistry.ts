@@ -113,10 +113,12 @@ const openUiComputeToolSharedProperties = {
     description: 'Primary input value for unary operations.',
   },
   left: {
-    description: 'Left-hand operand for binary comparisons or math.',
+    description:
+      'Left-hand operand for binary comparisons or math. For equals/not_equals, use primitive values only; arrays and objects are not supported.',
   },
   right: {
-    description: 'Right-hand operand for binary comparisons or math.',
+    description:
+      'Right-hand operand for binary comparisons or math. For equals/not_equals, use primitive values only; arrays and objects are not supported.',
   },
   values: {
     type: 'array',
@@ -183,7 +185,7 @@ export const OPENUI_TOOL_REGISTRY = [
     shortDescription: 'Compute primitive value',
     signature: 'compute_value(op, input?, left?, right?, values?, options?, returnType?)',
     description:
-      'Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Do not use it for button-triggered roll-on-click randomness; use `write_computed_state` plus `Query("read_state", ...)` instead. Returns an object shaped like `{ value }`.',
+      'Run an opt-in safe primitive-only computation for booleans, comparisons, strings, numbers, dates, and random integers. equals/not_equals compare primitive values only; do not use them to compare arrays or objects. Do not use it for simple CRUD/list apps, basic screen navigation, filtering, or normal input display. Do not use it for button-triggered roll-on-click randomness; use `write_computed_state` plus `Query("read_state", ...)` instead. Returns an object shaped like `{ value }`.',
     actionInputSchema: actionObjectSchema(computeActionProperties, ['op']),
     promptInputSchema: promptObjectSchema(computePromptProperties, ['op']),
     outputSchema: {
@@ -198,7 +200,7 @@ export const OPENUI_TOOL_REGISTRY = [
     shortDescription: 'Compute and persist',
     signature: 'write_computed_state(path, op, input?, left?, right?, values?, options?, returnType?)',
     description:
-      'Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`. Use it for button-triggered computed values such as random rolls that should persist for later rendering. After the action, re-read the visible value with `Query("read_state", ...)` instead of rendering the Mutation ref directly.',
+      'Compute an opt-in safe primitive value, write it to a validated persisted state path, and return an object shaped like `{ value }`. equals/not_equals compare primitive values only; do not use them to compare arrays or objects. Use it for button-triggered computed values such as random rolls that should persist for later rendering. After the action, re-read the visible value with `Query("read_state", ...)` instead of rendering the Mutation ref directly.',
     actionInputSchema: actionObjectSchema({ path: pathActionProperty, ...computeActionProperties }, ['path', 'op']),
     promptInputSchema: promptObjectSchema(
       {

@@ -279,6 +279,7 @@ Add a button that rolls a random number from 1 to 100 and shows the result.
 - Visible result text reads the re-queried persisted value instead of a raw mutation object.
 - The re-queried `read_state` result is treated as the raw persisted primitive or `null`, not as a `{ value }` object.
 - Result displays as a primitive value, not `[object Object]`.
+- `compute_value` equals/not_equals compare primitive values only; array/object operands should surface a clear tool error instead of deep or reference equality.
 - Button click does not trigger fresh `/api/llm/generate*` requests.
 - No arbitrary JS appears.
 

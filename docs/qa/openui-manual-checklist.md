@@ -143,6 +143,7 @@ Guardrails:
 - For generated collection-row CRUD, do not mutate array elements through numeric persisted paths such as `app.items.0`; prefer id-based collection-item tools instead.
 - Collection-item tool field names such as `idField` and `field` must be safe single keys only and must reject `__proto__`, `prototype`, and `constructor`.
 - `compute_value` and `write_computed_state` must return `{ value }`, where `value` is always a primitive string, number, or boolean.
+- `compute_value` equals/not_equals must compare primitive values only and reject arrays, objects, and functions with a clear tool error.
 - Prefer OpenUI built-ins such as `@Each`, `@Filter`, `@Count`, equality checks, boolean expressions, ternaries, and normal property access before reaching for compute tools.
 - `write_computed_state` must validate the target persisted path using the same hardened rules as other persisted state tools.
 - Mutation statement refs are status objects. Do not render them directly into `Text(...)`; for visible compute results, write to persisted state and re-read through `Query("read_state", ...)` instead of relying on the raw mutation object.
@@ -437,6 +438,7 @@ Compute tool rules:
 - treat `compute_value` and `write_computed_state` as opt-in tools, not defaults
 - do not use compute tools for simple list CRUD, basic screen navigation, filtering, or normal input display
 - use compute tools only for random numbers, numeric calculations, date comparison, string transformations/checks that normal expressions do not handle, or primitive validation-like checks not covered by built-in validation rules
+- `compute_value` equals/not_equals compare primitive values only; do not use them to compare arrays or objects
 - for button-triggered random values, use `write_computed_state` with `op: "random_int"`
 - do not use `Query("compute_value", { op: "random_int" }, ...)` for roll-on-click behavior
 - for button-triggered randomness or other persisted compute results, always write to state and re-read with `Query("read_state", ...)`

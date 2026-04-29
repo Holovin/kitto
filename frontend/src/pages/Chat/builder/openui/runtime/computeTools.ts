@@ -210,18 +210,21 @@ function normalizePrimitiveForEquality(value: unknown): unknown {
   return value;
 }
 
-function compareEquality(left: unknown, right: unknown) {
-  const normalizedLeft = normalizePrimitiveForEquality(left);
-  const normalizedRight = normalizePrimitiveForEquality(right);
+function assertEqualityOperand(value: unknown, label: 'left' | 'right') {
+  const normalizedValue = normalizePrimitiveForEquality(value);
 
-  if (
-    (normalizedLeft && typeof normalizedLeft === 'object') ||
-    (normalizedRight && typeof normalizedRight === 'object') ||
-    typeof normalizedLeft === 'function' ||
-    typeof normalizedRight === 'function'
-  ) {
-    return Object.is(left, right);
+  if ((normalizedValue !== null && typeof normalizedValue === 'object') || typeof normalizedValue === 'function') {
+    throw createComputeError(
+      `compute_value ${label} for equals/not_equals must be a primitive string, number, boolean, null, or undefined.`,
+    );
   }
+
+  return normalizedValue;
+}
+
+function compareEquality(left: unknown, right: unknown) {
+  const normalizedLeft = assertEqualityOperand(left, 'left');
+  const normalizedRight = assertEqualityOperand(right, 'right');
 
   return Object.is(normalizedLeft, normalizedRight);
 }

@@ -131,6 +131,7 @@ Notes:
 - Plain `Checkbox(item.completed)` stays display-only; add an explicit `Action([...])` when the checkbox itself should persist a row toggle.
 - Use `toggle_item_field`, `update_item_field`, and `remove_item` for id-based row actions, and relay `item.id` through local state before `@Run(...)`.
 - `compute_value` and `write_computed_state` both return `{ value }`, where `value` is always a primitive string, number, or boolean.
+- `compute_value` equals/not_equals compare primitive values only. Do not use equals/not_equals to compare arrays or objects.
 - `write_computed_state` computes a safe primitive and writes it into persisted state at the validated path.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
 - Import/export uses a versioned JSON format. Any import attempt starts from a fresh builder state; invalid imports surface a clear failure message and leave Preview on the reset blank state.
