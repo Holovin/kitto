@@ -245,7 +245,7 @@ function expectStructuredOutputRequest(callArgument: unknown, options?: { temper
 }
 
 describe('parseOpenUiGenerationEnvelope', () => {
-  it('accepts the structured model envelope shape with required summary and source', () => {
+  it('accepts the structured model envelope shape with required summary, changeSummary, source, and appMemory', () => {
     expect(
       parseOpenUiGenerationEnvelope(
         JSON.stringify({
@@ -263,7 +263,7 @@ describe('parseOpenUiGenerationEnvelope', () => {
     });
   });
 
-  it('rejects the structured model envelope shape when summary or source are omitted', () => {
+  it('rejects the structured model envelope shape when summary, source, or appMemory are omitted', () => {
     expect(() =>
       parseOpenUiGenerationEnvelope(
         JSON.stringify({
@@ -278,6 +278,16 @@ describe('parseOpenUiGenerationEnvelope', () => {
           summary: 'Builds a simple one-screen app.',
           changeSummary: 'Test generation change.',
           appMemory: testAppMemory,
+        }),
+      ),
+    ).toThrow(UpstreamFailureError);
+
+    expect(() =>
+      parseOpenUiGenerationEnvelope(
+        JSON.stringify({
+          source: 'root = AppShell([])',
+          summary: 'Builds a simple one-screen app.',
+          changeSummary: 'Test generation change.',
         }),
       ),
     ).toThrow(UpstreamFailureError);
@@ -585,6 +595,43 @@ describe('generateOpenUiSource', () => {
       publicMessage: CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
     });
     expect(responsesCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('allows current source at the emergency cap and keeps it as protected source context', async () => {
+    const env = createTestEnv({
+      LLM_MODEL_PROMPT_MAX_CHARS: 1_000,
+      OPENAI_API_KEY: 'test-key-source-emergency-cap-inclusive',
+    });
+    const sourceTail = 'SOURCE-CAP-END';
+    const currentSource = `${'x'.repeat(50_000 - sourceTail.length)}${sourceTail}`;
+
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Keeps the capped source intact.',
+        changeSummary: 'Updated the capped source safely.',
+        appMemory: testAppMemory,
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(
+      generateOpenUiSource(env, {
+        currentSource,
+        mode: 'initial',
+        prompt: 'Update the app.',
+      }),
+    ).resolves.toEqual({
+      summary: 'Keeps the capped source intact.',
+      changeSummary: 'Updated the capped source safely.',
+      appMemory: testAppMemory,
+      source: 'root = AppShell([])',
+    });
+
+    const finalUserText = responsesCreateMock.mock.calls[0]?.[0]?.input?.at(-1)?.content?.[0]?.text ?? '';
+
+    expect(currentSource).toHaveLength(50_000);
+    expect(finalUserText).toContain(`<current_source>\n${currentSource}\n</current_source>`);
+    expect(finalUserText).not.toContain('<current_source_inventory>');
   });
 
   it('passes filtered conversation context into role-based repair input', async () => {

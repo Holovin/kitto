@@ -54,8 +54,8 @@ Notes:
 - The production SPA fallback route allowlist lives in `shared/frontend-routes.json`. Keep it aligned with `frontend/src/router/siteRoutes.ts`; backend fallback tests and frontend route contract tests both depend on it.
 - `backend/` is a Hono service that proxies generation requests to the OpenAI Responses API.
 - Generation follows a validation pipeline: parse/structural validation -> semantic validation -> configurable repair retry -> commit or reject.
-- The backend owns all model-visible prompt assembly for both initial generation and repair flows. The visible chat transcript is persisted for UX. Generation does not send the entire transcript; it sends a derived context package built from the latest prompt, committed source, compact app memory, recent user prompts, and recent committed change summaries.
-- The committed OpenUI source is authoritative. Context budgeting applies to optional context. The committed source is protected because it is the authoritative app definition. Kitto does not summarize or replace it during normal follow-up generation; if the committed source itself exceeds the emergency cap, generation is rejected safely.
+- The backend owns all model-visible prompt assembly for both initial generation and repair flows. The visible chat transcript is persisted for UX. Generation does not send the entire transcript; it sends a derived context package built from the latest prompt, committed source, compact app memory, recent user prompts, recent committed change summaries, and optional older-context summary.
+- The committed OpenUI source is authoritative. Context budgeting applies to optional context. The committed source is protected because it is the authoritative app definition. Kitto does not summarize it, replace it with inventory/currentSourceItems, or switch to inventory-only follow-up generation; if the committed source itself exceeds the emergency cap, generation is rejected safely.
 - Builder revisions store committed source plus compact LLM app memory. Live preview state is separate and is not part of exported runtime interactions.
 - Preview renders committed source only.
 
@@ -64,7 +64,7 @@ Notes:
 - The LLM is used only to generate or update OpenUI source from chat requests.
 - By default, the backend requests a structured model envelope shaped like `{"summary":"...","changeSummary":"...","source":"...","appMemory":{"version":1,"appSummary":"...","userPreferences":[],"avoid":[]}}` from the OpenAI Responses API.
 - The backend response payload is a separate JSON shape: `{"source":"...","model":"...","summary":"...","changeSummary":"...","appMemory":{...},"summaryExcludeFromLlmContext"?:true,"qualityIssues":[...],"compaction"?:{...}}`.
-- `appMemory` is a compact LLM context artifact only. It is not runtime state, not exported preview memory, and must not duplicate the OpenUI source, source inventory, runtime preview data, or previous change summaries.
+- `appMemory` is a compact LLM context artifact only. It is not runtime state, not exported preview memory, and must not duplicate the OpenUI source, prompt diagnostics, runtime preview data, or previous change summaries.
 - Internal preview interactions such as screen changes, form edits, and button clicks run locally; chat submissions hit the generation endpoints, and the client also sends fire-and-forget commit telemetry to `/api/llm/commit-telemetry` after validation or commit outcomes for real generation responses.
 - Generated apps run in the browser on top of the OpenUI runtime and persisted browser state.
 - The frontend validates generated drafts locally and triggers up to the configured repair limit before commit (default: 2 attempts).

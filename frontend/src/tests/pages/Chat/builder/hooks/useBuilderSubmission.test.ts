@@ -1026,8 +1026,16 @@ describe('useBuilderSubmission', () => {
   it('commits a valid streamed source without repair', async () => {
     setDraftPrompt('Add a welcome screen.');
     const submission = createSubmissionHarness();
+    const appMemory = {
+      version: 1 as const,
+      appSummary: 'Welcome screen app.',
+      userPreferences: ['Keep it concise.'],
+      avoid: [],
+    };
 
     testHarness.streamMock.mockResolvedValue({
+      appMemory,
+      changeSummary: 'Added a welcome screen.',
       source: VALID_STREAM_SOURCE,
     });
 
@@ -1043,6 +1051,14 @@ describe('useBuilderSubmission', () => {
       validationIssues: [],
     });
     expect(getBuilderState().committedSource).toBe(VALID_STREAM_SOURCE);
+    expect(getBuilderState().appMemory).toEqual(appMemory);
+    expect(getBuilderState().history.at(-1)).toEqual(
+      expect.objectContaining({
+        appMemory,
+        changeSummary: 'Added a welcome screen.',
+        source: VALID_STREAM_SOURCE,
+      }),
+    );
     expect(getBuilderState().streamError).toBeNull();
     expect(getBuilderState().history).toHaveLength(2);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
@@ -2024,11 +2040,19 @@ describe('useBuilderSubmission', () => {
     seedCommittedSource();
     setDraftPrompt('Create a todo list.');
     const submission = createSubmissionHarness();
+    const repairedAppMemory = {
+      version: 1 as const,
+      appSummary: 'A repaired todo list with persisted tasks.',
+      userPreferences: [],
+      avoid: ['Avoid display-only row toggles.'],
+    };
 
     testHarness.streamMock.mockResolvedValue({
       source: QUALITY_BLOCKED_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
+      appMemory: repairedAppMemory,
+      changeSummary: 'Repaired persisted todo row actions.',
       summary: 'Built the todo list.',
       source: VALID_TODO_SOURCE,
     });
@@ -2060,6 +2084,14 @@ describe('useBuilderSubmission', () => {
       validationIssues: [],
     });
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
+    expect(getBuilderState().appMemory).toEqual(repairedAppMemory);
+    expect(getBuilderState().history.at(-1)).toEqual(
+      expect.objectContaining({
+        appMemory: repairedAppMemory,
+        changeSummary: 'Repaired persisted todo row actions.',
+        source: VALID_TODO_SOURCE,
+      }),
+    );
     expect(getBuilderState().streamError).toBeNull();
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
@@ -2249,6 +2281,54 @@ describe('useBuilderSubmission', () => {
         tone: 'error',
       }),
     );
+
+    submission.unmount();
+  });
+
+  it('keeps previous memory and change history when quality repairs fail', async () => {
+    const previousAppMemory = {
+      version: 1 as const,
+      appSummary: 'Previous committed app.',
+      userPreferences: ['Keep existing memory.'],
+      avoid: [],
+    };
+    const previousSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, {}, {}, {
+      appMemory: previousAppMemory,
+      changeSummary: 'Created the previous app.',
+    });
+
+    seedHistorySnapshots(previousSnapshot);
+    setDraftPrompt('Create a todo list.');
+    const submission = createSubmissionHarness();
+
+    testHarness.streamMock.mockResolvedValue({
+      source: QUALITY_BLOCKED_SOURCE,
+    });
+    testHarness.generateMock.mockResolvedValue({
+      appMemory: {
+        version: 1,
+        appSummary: 'Invalid repair memory should not commit.',
+        userPreferences: [],
+        avoid: [],
+      },
+      changeSummary: 'Invalid repair summary should not commit.',
+      source: QUALITY_BLOCKED_SOURCE,
+    });
+
+    await submission.result().handleSubmit(createFormEvent());
+
+    expect(testHarness.generateMock).toHaveBeenCalledTimes(2);
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().appMemory).toEqual(previousAppMemory);
+    expect(getBuilderState().history).toHaveLength(1);
+    expect(getBuilderState().history.at(-1)).toEqual(
+      expect.objectContaining({
+        appMemory: previousAppMemory,
+        changeSummary: 'Created the previous app.',
+        source: PREVIOUS_SOURCE,
+      }),
+    );
+    expect(getBuilderState().previousChangeSummaries).toEqual([]);
 
     submission.unmount();
   });

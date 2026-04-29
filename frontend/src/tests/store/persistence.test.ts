@@ -143,6 +143,80 @@ describe('store persistence', () => {
     ]);
   });
 
+  it('rehydrates chat transcript, current source, revisions, and app memory after reload', () => {
+    const firstSnapshot = createBuilderSnapshot(
+      `root = AppShell([
+  Screen("first", "First", [])
+])`,
+      {},
+      {},
+      {
+        appMemory: {
+          version: 1,
+          appSummary: 'First committed memory.',
+          userPreferences: [],
+          avoid: [],
+        },
+        changeSummary: 'Created the first version.',
+      },
+    );
+    const latestSnapshot = createBuilderSnapshot(validSource, { $currentScreen: 'main' }, { app: { tasks: [] as string[] } }, {
+      appMemory: {
+        version: 1,
+        appSummary: 'Latest committed memory.',
+        userPreferences: ['Preserve compact UX.'],
+        avoid: ['Avoid stale screens.'],
+      },
+      changeSummary: 'Added the latest version.',
+      historySummary: 'Older context was compacted.',
+      summary: 'Added the latest version.',
+    });
+
+    const restored = unserializeRememberedState(
+      JSON.stringify({
+        appMemory: latestSnapshot.appMemory,
+        chatMessages: [
+          {
+            id: 'user-1',
+            role: 'user',
+            content: 'Create the first version.',
+            createdAt: '2026-04-19T09:00:00.000Z',
+          },
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'Created the first version.',
+            createdAt: '2026-04-19T09:00:01.000Z',
+          },
+          {
+            id: 'user-2',
+            role: 'user',
+            content: 'Add the latest version.',
+            createdAt: '2026-04-19T09:01:00.000Z',
+          },
+        ],
+        committedSource: latestSnapshot.source,
+        history: [firstSnapshot, latestSnapshot],
+        historySummary: latestSnapshot.historySummary,
+        previousChangeSummaries: ['Created the first version.'],
+        streamedSource: latestSnapshot.source,
+      }),
+      'builder',
+    ) as ReturnType<typeof normalizeBuilderState>;
+
+    expect(restored.chatMessages.map((message) => message.content)).toEqual([
+      'Create the first version.',
+      'Created the first version.',
+      'Add the latest version.',
+    ]);
+    expect(restored.committedSource).toBe(latestSnapshot.source);
+    expect(restored.streamedSource).toBe(latestSnapshot.source);
+    expect(restored.history.map((snapshot) => snapshot.source)).toEqual([firstSnapshot.source, latestSnapshot.source]);
+    expect(restored.appMemory).toEqual(latestSnapshot.appMemory);
+    expect(restored.historySummary).toBe('Older context was compacted.');
+    expect(restored.previousChangeSummaries).toEqual(['Created the first version.']);
+  });
+
   it('trims builder history when localStorage quota is exceeded', () => {
     let shouldThrowQuota = true;
     const storageData = new Map<string, string>();

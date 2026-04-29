@@ -35,9 +35,9 @@ The backend loads `backend/.env` relative to its own package path, so PM2 can ke
 
 ### Request limits and safeguards
 
-- `LLM_USER_PROMPT_MAX_CHARS` - default `4096`, maximum user-authored prompt and individual chat-history message characters accepted by the API and composer
+- `LLM_USER_PROMPT_MAX_CHARS` - default `4096`, maximum user-authored prompt characters accepted by the API and composer
 - `LLM_MODEL_PROMPT_MAX_CHARS` - default `50000`, prompt context budget used when dropping optional context before source; `currentSource` / `invalidDraft` are capped by the 50000-character emergency source limit
-- `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`
+- `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`, retained for public config compatibility; generation requests now send derived previous context instead of raw chat history
 - `LLM_REQUEST_MAX_BYTES` - default `300000`
 - `LLM_OUTPUT_MAX_BYTES` - default `100000`
 - `LLM_RATE_LIMIT_MAX_REQUESTS` - default `60`
@@ -79,9 +79,15 @@ Accepts:
 {
   "prompt": "Build a todo list",
   "currentSource": "",
-  "chatHistory": [
-    { "role": "user", "content": "Build a todo list" }
-  ]
+  "mode": "initial",
+  "previousUserMessages": [],
+  "previousChangeSummaries": [],
+  "appMemory": {
+    "version": 1,
+    "appSummary": "",
+    "userPreferences": [],
+    "avoid": []
+  }
 }
 ```
 
@@ -123,7 +129,7 @@ The backend then returns a response payload shaped like:
 }
 ```
 
-`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. For normal follow-up generation, the backend sends the full committed `currentSource` while it stays under the hard source cap and rejects larger requests safely instead of substituting inventory-only context. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, source inventory, runtime preview data, or full OpenUI source.
+`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. For normal follow-up generation, the backend sends the full committed `currentSource` while it stays under the hard source cap and rejects larger requests safely instead of substituting inventory-only or currentSourceItems context. The legacy `chatHistory` field is ignored for model context; clients send `previousUserMessages`, `previousChangeSummaries`, optional `historySummary`, and optional `appMemory` instead. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, prompt diagnostics, runtime preview data, or full OpenUI source.
 
 ### `POST /api/llm/generate/stream`
 
@@ -137,7 +143,7 @@ Accepts the same request shape and streams Server-Sent Events:
 
 - rejects oversized raw request bodies before JSON parsing with Hono body-limit middleware
 - rejects model output that exceeds `LLM_OUTPUT_MAX_BYTES` before returning JSON or completing an SSE response
-- compacts chat history when item or byte limits are exceeded
+- compacts derived previous user/change context when item or byte limits are exceeded
 - rate-limits LLM endpoints with in-memory middleware
 - cancels the upstream OpenAI request when the client disconnects
 - returns public validation, timeout, upstream, and internal error payloads

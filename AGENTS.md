@@ -24,6 +24,7 @@ Steps:
 - Frontend tests are type-checked by the reviewer build path via `tsc -b`. Keep test fixtures fully type-safe, and explicitly type empty arrays in fixtures when needed to avoid accidental `never[]` inference.
 - After code changes, run the relevant existing tests for the touched feature area before finishing. If the change is substantial and that area has no meaningful tests yet, add targeted tests for it. Do not add tests for every tiny refactor or trivial copy change.
 - Do not preserve legacy code paths, compatibility wrappers, transitional adapters, or dual old/new implementations unless the user explicitly asks for backward compatibility or the repository contract requires it.
+- Never delete, rename, move, or edit untracked files unless the user explicitly asks for that exact untracked file operation. Treat untracked files as user-owned scratch/review material even when they look obsolete or contradictory.
 - Documentation must not contain absolute local filesystem paths, local file URLs, usernames, home-directory references, tokens, API keys, secrets, or other personal or machine-specific data. Use plain text or project-relative paths only.
 
 ## Project Context
