@@ -222,6 +222,36 @@ describe('openui prompts', () => {
     expect(shortAmbiguousPromptVector).toBe('base');
   });
 
+  it('keeps validation intent detection scoped to form validation language', () => {
+    const positiveValidationPrompts = [
+      'show error when email is empty',
+      'required field',
+      'form validation',
+      'validation rules',
+      'form rules',
+      'field rules',
+      'input rules',
+      'error when invalid',
+      'error if required',
+      'error when empty',
+    ];
+    const negativeValidationPrompts = [
+      'business rules',
+      'game rules',
+      'pricing rules',
+      'error budget',
+      'show error count',
+    ];
+
+    for (const prompt of positiveValidationPrompts) {
+      expect(detectPromptRequestIntent(prompt).validation).toBe(true);
+    }
+
+    for (const prompt of negativeValidationPrompts) {
+      expect(detectPromptRequestIntent(prompt).validation).toBe(false);
+    }
+  });
+
   it('formats request intent blocks from the same detector used by scoped prompt rules', () => {
     expect(
       formatPromptRequestIntentBlock(

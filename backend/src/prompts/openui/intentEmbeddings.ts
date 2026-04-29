@@ -21,7 +21,6 @@ export const INTENT_ANCHOR_EXAMPLES: readonly IntentAnchorExample[] = [
   { intent: 'theme', text: 'color palette for the app' },
   { intent: 'validation', text: 'form validation' },
   { intent: 'validation', text: 'required field warning' },
-  { intent: 'validation', text: 'show an error when empty' },
   { intent: 'filtering', text: 'filter a list' },
   { intent: 'filtering', text: 'search catalog items' },
   { intent: 'filtering', text: 'show active and completed tasks' },

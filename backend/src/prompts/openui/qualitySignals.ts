@@ -22,7 +22,7 @@ const FILTER_REQUEST_PATTERN = /\b(filter(?:s|ed|ing)?|search)\b|(?:фильтр
 const DELETE_REQUEST_PATTERN =
   /\b(?:delete|remove|discard|clear)\s+(?:an?\s+|the\s+|this\s+|that\s+|last\s+|first\s+)?(?:item|task|todo|row|entry|screen|page|field|section|card|record|value|state|list)\b|^\s*(?:delete|remove|discard|clear)\b|(?:удали|убери|очисти|удалить|убрать|очистить)\s+(?:задач\w*|элемент\w*|строк\w*|экран\w*|пол[ея]\w*|секци\w*|значени\w*|спис\w*)/i;
 const VALIDATION_REQUEST_PATTERN =
-  /\b(?:validation|validate|validated|required|invalid|validation\s+rules?|form\s+rules?|field\s+rules?|input\s+rules?|(?:error|warning)\s+(?:when|if|for|on)\s+(?:invalid|required|empty)|show\s+(?:an?\s+)?(?:error|warning)\s+(?:when|if))\b|(?:валидац[а-яё]*|обязател[а-яё]*|некорректн[а-яё]*|(?:ошибк[а-яё]*|предупрежден[а-яё]*)\s+(?:если|при)\s+(?:некорректн[а-яё]*|пуст[а-яё]*|обязател[а-яё]*))/i;
+  /\b(?:validation|validate|required|invalid|validation\s+rules?|form\s+rules?|field\s+rules?|input\s+rules?|error\s+(?:when|if)\s+(?:invalid|required|empty)|show\s+(?:an?\s+)?error\s+(?:when|if))\b|(?:валидац[а-яё]*|обязател[а-яё]*|некорректн[а-яё]*|ошибк[а-яё]*\s+(?:если|при)\s+(?:некорректн[а-яё]*|пуст[а-яё]*|обязател[а-яё]*))/i;
 const RANDOM_REQUEST_PATTERN = /\b(random|roll|dice)\b|(?:случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
 const CONTROL_SHOWCASE_REQUEST_PATTERN =
   /\b(?:every|all|each)\s+(?:control|component|field|input)s?\b|\b(?:control|component)\s+showcase\b|(?:все\s+(?:контрол[а-яё]*|компонент[а-яё]*|пол[яеи])|кажд[а-яё]*\s+(?:контрол[а-яё]*|компонент[а-яё]*))/i;
