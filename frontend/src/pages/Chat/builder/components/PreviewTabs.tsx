@@ -131,6 +131,14 @@ function formatContextSectionChars(section: ContextMeterSection) {
   );
 }
 
+function formatContextSectionCharsTitle(section: ContextMeterSection) {
+  const baseChars = formatCharCount(section.chars);
+
+  return section.unminifiedChars === undefined || section.unminifiedChars === section.chars
+    ? baseChars
+    : `${baseChars} (${formatCharCount(section.unminifiedChars)})`;
+}
+
 function getContextSectionLimitLabels(section: ContextMeterSection) {
   if (section.limitLabels?.length) {
     return section.limitLabels;
@@ -293,7 +301,7 @@ function ContextPanel({ incompleteNotice, sections }: ContextPanelProps) {
                       <td className="truncate px-2 py-3 font-medium text-slate-900" title={section.name}>
                         {section.name}
                       </td>
-                      <td className="truncate px-2 py-3 font-mono tabular-nums text-slate-700" title={formatContextSectionChars(section)}>
+                      <td className="truncate px-2 py-3 font-mono tabular-nums text-slate-700" title={formatContextSectionCharsTitle(section)}>
                         {formatContextSectionChars(section)}
                       </td>
                       <td className="overflow-visible px-2 py-3 font-mono">

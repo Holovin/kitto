@@ -832,7 +832,6 @@ function assertCommittedSourceWithinRepairThreshold(committedSource: string, sou
 interface BuildOpenUiRepairPromptArgs {
   attemptNumber: number;
   appMemory?: AppMemory;
-  chatHistory?: unknown;
   committedSource: string;
   historySummary?: string;
   invalidSource: string;

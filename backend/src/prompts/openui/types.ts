@@ -1,6 +1,4 @@
 export type {
-  PromptBuildChatHistoryMessage,
-  PromptBuildChatHistoryRole,
   PromptBuildOptionsShapeIssueContext,
   PromptBuildRequest,
   PromptBuildStalePersistedQueryIssueContext,
@@ -9,7 +7,5 @@ export type {
   PromptBuildValidationIssueContext,
   PromptBuildValidationIssueSource,
   PromptBuildValidationIssueSuggestion,
-  PromptConversationChatHistoryRole,
-  RawPromptBuildChatHistoryMessage,
 } from '@kitto-openui/shared/builderApiContract.js';
 export { getPromptBuildValidationIssueCodes } from '@kitto-openui/shared/builderApiContract.js';

@@ -209,7 +209,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   const dispatch = useAppDispatch();
   const { isError: isBackendDisconnected } = useBackendConnectionState();
   const previouslyUnavailableRef = useRef<boolean | null>(null);
-  const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, promptMaxChars, retryPrompt } =
+  const { configStatus, draftPrompt, handleCancel, handleDraftPromptChange, handleSubmit, isSubmitting, retryPrompt, userPromptMaxChars } =
     useBuilderSubmission({
       onSystemNotice,
     });
@@ -217,7 +217,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
   const committedSource = useAppSelector(selectCommittedSource);
   const systemStatusMessage = findLatestSystemStatusMessage(chatMessages);
   const systemStatusContent = systemStatusMessage?.content ?? null;
-  const hasReachedPromptLimit = typeof promptMaxChars === 'number' && draftPrompt.length >= promptMaxChars;
+  const hasReachedPromptLimit = typeof userPromptMaxChars === 'number' && draftPrompt.length >= userPromptMaxChars;
   const submitButtonState = getBuilderComposerSubmitState({
     configStatus,
     draftPrompt,
@@ -231,7 +231,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
       : configStatus === 'failed'
         ? null
         : hasReachedPromptLimit
-          ? `Prompt is at the ${new Intl.NumberFormat().format(promptMaxChars)} character limit.`
+          ? `Prompt is at the ${new Intl.NumberFormat().format(userPromptMaxChars)} character limit.`
         : 'Press Cmd/Ctrl+Enter to send.';
   const composerHintToneClassName =
     configStatus === 'loading' || hasReachedPromptLimit
@@ -275,7 +275,7 @@ function ChatComposer({ onSystemNotice }: ChatComposerProps) {
         autoComplete="off"
         className="min-h-[8rem] w-full text-[0.8rem] leading-5 shadow-none"
         id="builder-prompt"
-        maxLength={promptMaxChars}
+        maxLength={userPromptMaxChars}
         name="builder-prompt"
         placeholder="Describe the app or change you want."
         value={draftPrompt}

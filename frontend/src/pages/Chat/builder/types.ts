@@ -5,8 +5,8 @@ import type {
   BuilderRequestId,
   BudgetDecisionSection,
   AppMemory,
+  BuilderUiChatMessageRole,
   OpenUiPromptInfoToolSpec,
-  PromptBuildChatHistoryRole,
 } from '@kitto-openui/shared/builderApiContract.js';
 
 export { toBuilderRequestId } from '@kitto-openui/shared/builderApiContract.js';
@@ -15,7 +15,6 @@ export type {
   AppMemory,
   BuilderCommitRepairOutcome,
   BuilderCommitSource,
-  RawPromptBuildChatHistoryMessage,
   PromptBuildRequest,
   BuilderLlmRequestCompaction,
   BuilderLlmRequestMode,
@@ -38,7 +37,7 @@ export type {
 
 export type BuilderConnectionStatus = 'loading' | 'connected' | 'disconnected';
 export type BuilderTabId = 'preview' | 'definition' | 'app-state' | 'context';
-type BuilderMessageRole = PromptBuildChatHistoryRole;
+type BuilderMessageRole = BuilderUiChatMessageRole;
 type BuilderMessageTone = 'default' | 'error' | 'info' | 'success';
 
 export interface BuilderChatMessage {
@@ -109,9 +108,10 @@ export interface BuilderConfigResponse {
   limits: {
     chatMessageMaxChars: number;
     chatHistoryMaxItems: number;
-    promptMaxChars: number;
+    modelPromptMaxChars: number;
     requestMaxBytes: number;
     sourceMaxChars: number;
+    userPromptMaxChars: number;
   };
   repair: {
     maxRepairAttempts: number;

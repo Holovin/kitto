@@ -16,9 +16,10 @@ import type { BuilderConfigResponse, PromptBuildRequest } from '@pages/Chat/buil
 const TEST_LIMITS: BuilderRequestLimits = {
   chatMessageMaxChars: 4_096,
   chatHistoryMaxItems: 40,
-  promptMaxChars: 4_096,
+  modelPromptMaxChars: 180_000,
   requestMaxBytes: 300_000,
   sourceMaxChars: 12_288,
+  userPromptMaxChars: 4_096,
 };
 const TEST_CONFIG: BuilderConfigResponse = {
   generation: {
@@ -71,7 +72,7 @@ describe('builder request preflight', () => {
           ...TEST_CONFIG,
           limits: {
             ...TEST_LIMITS,
-            promptMaxChars: 0,
+            userPromptMaxChars: 0,
           },
         } as BuilderConfigResponse,
       }),
@@ -107,8 +108,8 @@ describe('builder request preflight', () => {
     expect(
       validateBuilderLlmRequest(request, {
         ...TEST_LIMITS,
-        promptMaxChars: 8,
         requestMaxBytes: 64,
+        userPromptMaxChars: 8,
       }),
     ).toBe('Prompt is too large. Limit: 8 characters.');
   });

@@ -499,12 +499,6 @@ describe('generateOpenUiSource', () => {
         userPreferences: ['Keep the layout compact.'],
         avoid: ['Do not add charts.'],
       },
-      chatHistory: [
-        { role: 'user', content: 'Create the first version.' },
-        { role: 'assistant', content: 'Added the first version.' },
-        { role: 'assistant', content: '<history_summary>\nUser: create first version\nAssistant: added shell\n</history_summary>' },
-        { role: 'user', content: 'Add a settings screen.' },
-      ],
       currentSource,
       historySummary: 'Older context summary.'.repeat(20),
       mode: 'initial',
@@ -588,7 +582,6 @@ describe('generateOpenUiSource', () => {
 
     await expect(
       generateOpenUiSource(env, {
-        chatHistory: [],
         currentSource: 'x'.repeat(80_001),
         mode: 'initial',
         prompt: 'Update the app.',

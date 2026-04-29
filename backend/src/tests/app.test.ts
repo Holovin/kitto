@@ -47,9 +47,10 @@ describe('createApp', () => {
       limits: {
         chatMessageMaxChars: 321,
         chatHistoryMaxItems: 5,
-        promptMaxChars: 321,
+        modelPromptMaxChars: 987,
         requestMaxBytes: 654,
         sourceMaxChars: 80_000,
+        userPromptMaxChars: 321,
       },
       repair: {
         maxRepairAttempts: 2,

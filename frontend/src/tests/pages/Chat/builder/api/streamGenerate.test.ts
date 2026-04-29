@@ -9,7 +9,6 @@ import {
 const request: PromptBuildRequest = {
   prompt: 'Build a todo app',
   currentSource: '',
-  chatHistory: [],
   mode: 'initial',
 };
 

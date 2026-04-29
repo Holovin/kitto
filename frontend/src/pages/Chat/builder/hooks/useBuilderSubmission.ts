@@ -160,7 +160,7 @@ export function useBuilderSubmission({ onSystemNotice }: UseBuilderSubmissionOpt
     handleCancel: generationLifecycle.handleCancel,
     handleSubmit,
     isSubmitting: generationLifecycle.isSubmitting,
-    promptMaxChars: requestLimits?.promptMaxChars,
     retryPrompt,
+    userPromptMaxChars: requestLimits?.userPromptMaxChars,
   };
 }

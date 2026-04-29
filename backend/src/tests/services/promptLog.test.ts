@@ -105,11 +105,8 @@ describe('promptLog.write', () => {
       prompt: 'Build a todo app with filters and a second screen for settings.',
       currentSource: 'root = AppShell([Screen("main", "Main", [Text("Hello")], true)])',
       mode: 'initial' as const,
-      chatHistory: [
-        { role: 'user' as const, content: 'Start with a tiny todo app.' },
-        { role: 'assistant' as const, content: 'Built a one-screen todo app.' },
-        { role: 'user' as const, content: 'Add filters and settings.' },
-      ],
+      previousChangeSummaries: ['Built a one-screen todo app.'],
+      previousUserMessages: ['Start with a tiny todo app.', 'Add filters and settings.'],
     };
     const userPrompt = buildOpenUiUserPrompt(request);
     const rawUserRequest = buildOpenUiRawUserRequest(request);
@@ -121,7 +118,7 @@ describe('promptLog.write', () => {
       mode: request.mode,
       phase: null,
       currentSourceLen: request.currentSource.length,
-      chatHistoryLen: request.chatHistory.length,
+      chatHistoryLen: request.previousUserMessages.length + request.previousChangeSummaries.length,
       inputShape: 'role-based' as const,
       systemPromptHash: 'hash123',
       modelInput: {

@@ -65,7 +65,6 @@ describe('repair prompt assembly', () => {
       prompt: 'Create a todo app.',
       currentSource: 'root = AppShell([])',
       mode: 'initial',
-      chatHistory: [],
     });
 
     expect(prompt).toContain('<latest_user_request>');
@@ -82,7 +81,6 @@ describe('repair prompt assembly', () => {
       currentSource: 'root = AppShell([Screen("main", "Main", [])])',
       invalidDraft: 'root = AppShell([',
       mode: 'repair',
-      chatHistory: [],
       parentRequestId: 'req-1',
       repairAttemptNumber: 1,
       validationIssues: [

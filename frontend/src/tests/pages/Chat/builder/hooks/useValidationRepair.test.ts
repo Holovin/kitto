@@ -275,7 +275,8 @@ describe('useValidationRepair', () => {
     const requestLimits: BuilderRequestLimits = {
       chatMessageMaxChars: 4_096,
       chatHistoryMaxItems: 40,
-      promptMaxChars: 4_096,
+      modelPromptMaxChars: 180_000,
+      userPromptMaxChars: 4_096,
       requestMaxBytes: 300_000,
       sourceMaxChars: 12_288,
     };
@@ -283,7 +284,6 @@ describe('useValidationRepair', () => {
       prompt: 'Fix an invalid draft.',
       currentSource: 'root = AppShell([Screen("main", "Main", [])])',
       previousSource: 'root = AppShell([Screen("main", "Legacy", [])])',
-      chatHistory: [],
       mode: 'initial',
     };
     const runGenerateRequest = vi.fn<
@@ -331,14 +331,14 @@ describe('useValidationRepair', () => {
     const requestLimits: BuilderRequestLimits = {
       chatMessageMaxChars: 4_096,
       chatHistoryMaxItems: 40,
-      promptMaxChars: 4_096,
+      modelPromptMaxChars: 180_000,
+      userPromptMaxChars: 4_096,
       requestMaxBytes: 300_000,
       sourceMaxChars: 12_288,
     };
     const request: PromptBuildRequest = {
       prompt: 'Create a small app.',
       currentSource: 'root = AppShell([Screen("main", "Main", [])])',
-      chatHistory: [],
       mode: 'initial',
     };
     const runGenerateRequest = vi.fn<

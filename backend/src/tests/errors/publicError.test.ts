@@ -81,32 +81,6 @@ describe('toPublicErrorPayload', () => {
     });
   });
 
-  it('returns the chat history too_big message for nested chatHistory paths', () => {
-    const error = getZodError(
-      z
-        .object({
-          chatHistory: z.array(
-            z.object({
-              content: z.string().max(10),
-            }),
-          ),
-        })
-        .safeParse({
-          chatHistory: [
-            {
-              content: 'x'.repeat(11),
-            },
-          ],
-        }),
-    );
-
-    expect(toPublicErrorPayload(error)).toEqual({
-      code: 'validation_error',
-      error: 'Chat history is too large.',
-      status: 400,
-    });
-  });
-
   it('returns the current source too_big message for currentSource paths', () => {
     const error = getZodError(
       z

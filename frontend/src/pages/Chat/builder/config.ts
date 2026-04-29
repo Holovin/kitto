@@ -25,9 +25,10 @@ function formatLimitValue(value: number) {
 export interface BuilderRequestLimits {
   chatMessageMaxChars: number;
   chatHistoryMaxItems: number;
-  promptMaxChars: number;
+  modelPromptMaxChars: number;
   requestMaxBytes: number;
   sourceMaxChars: number;
+  userPromptMaxChars: number;
 }
 
 export interface BuilderStreamTimeouts {
@@ -54,27 +55,30 @@ export function getBuilderMaxRepairValidationIssues(config?: BuilderConfigRespon
 
 export function getBuilderRequestLimits(config?: BuilderConfigResponse): BuilderRequestLimits | null {
   const chatMessageMaxChars = parsePositiveInteger(config?.limits.chatMessageMaxChars);
-  const promptMaxChars = parsePositiveInteger(config?.limits.promptMaxChars);
   const chatHistoryMaxItems = parsePositiveInteger(config?.limits.chatHistoryMaxItems);
+  const modelPromptMaxChars = parsePositiveInteger(config?.limits.modelPromptMaxChars);
   const requestMaxBytes = parsePositiveInteger(config?.limits.requestMaxBytes);
   const sourceMaxChars = parsePositiveInteger(config?.limits.sourceMaxChars);
+  const userPromptMaxChars = parsePositiveInteger(config?.limits.userPromptMaxChars);
 
   if (
     chatMessageMaxChars === null ||
-    promptMaxChars === null ||
     chatHistoryMaxItems === null ||
+    modelPromptMaxChars === null ||
     requestMaxBytes === null ||
-    sourceMaxChars === null
+    sourceMaxChars === null ||
+    userPromptMaxChars === null
   ) {
     return null;
   }
 
   return {
     chatMessageMaxChars,
-    promptMaxChars,
     chatHistoryMaxItems,
+    modelPromptMaxChars,
     requestMaxBytes,
     sourceMaxChars,
+    userPromptMaxChars,
   };
 }
 
@@ -138,8 +142,8 @@ export function getApproximateBuilderRequestSizeBytes(request: PromptBuildReques
 }
 
 export function validateBuilderLlmRequest(request: PromptBuildRequest, limits: BuilderRequestLimits) {
-  if (request.prompt.length > limits.promptMaxChars) {
-    return `Prompt is too large. Limit: ${formatLimitValue(limits.promptMaxChars)} characters.`;
+  if (request.prompt.length > limits.userPromptMaxChars) {
+    return `Prompt is too large. Limit: ${formatLimitValue(limits.userPromptMaxChars)} characters.`;
   }
 
   if (request.currentSource.length > limits.sourceMaxChars) {

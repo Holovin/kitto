@@ -88,10 +88,6 @@ function getValidationMessage(error: ZodError) {
     return 'A validation issue field is too long.';
   }
 
-  if (tooBigIssues.some((issue) => issue.path[0] === 'chatHistory')) {
-    return 'Chat history is too large.';
-  }
-
   if (tooBigIssues.length > 0) {
     return REQUEST_BODY_TOO_LARGE_PUBLIC_MESSAGE;
   }

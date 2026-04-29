@@ -68,15 +68,16 @@ Returns frontend-safe request limits:
 {
   "limits": {
     "chatMessageMaxChars": 4096,
-    "promptMaxChars": 4096,
     "chatHistoryMaxItems": 5,
+    "modelPromptMaxChars": 180000,
     "requestMaxBytes": 1200000,
-    "sourceMaxChars": 80000
+    "sourceMaxChars": 80000,
+    "userPromptMaxChars": 4096
   }
 }
 ```
 
-`limits.promptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is backed by `CURRENT_SOURCE_EMERGENCY_MAX_CHARS`; `limits.chatHistoryMaxItems` is an internal generation contract constant.
+`limits.userPromptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.modelPromptMaxChars` is backed by `LLM_MODEL_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is backed by `CURRENT_SOURCE_EMERGENCY_MAX_CHARS`; `limits.chatHistoryMaxItems` is an internal generation contract constant.
 
 ### `POST /api/llm/generate`
 
@@ -136,7 +137,7 @@ The backend then returns a response payload shaped like:
 }
 ```
 
-`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. For normal follow-up generation, the backend sends the full committed `currentSource` while it stays under the hard source cap and rejects larger requests safely instead of substituting inventory-only or currentSourceItems context. The legacy `chatHistory` field is ignored for model context; clients send `previousUserMessages`, `previousChangeSummaries`, optional `historySummary`, and optional `appMemory` instead. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, prompt diagnostics, runtime preview data, or full OpenUI source.
+`summary`, `changeSummary`, and `appMemory` are always present. `source` remains the authoritative app definition. For normal follow-up generation, the backend sends the full committed `currentSource` while it stays under the hard source cap and rejects larger requests safely instead of substituting inventory-only or currentSourceItems context. Clients send derived context through `previousUserMessages`, `previousChangeSummaries`, optional `historySummary`, and optional `appMemory`. `appMemory` is a compact LLM context artifact only, not runtime state or exported preview memory, and it must not duplicate previous change summaries, prompt diagnostics, runtime preview data, or full OpenUI source.
 
 ### `POST /api/llm/generate/stream`
 

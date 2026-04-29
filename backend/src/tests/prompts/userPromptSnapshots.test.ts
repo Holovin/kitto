@@ -9,10 +9,8 @@ describe('buildOpenUiUserPrompt snapshots', () => {
           prompt: 'Build a compact todo app',
           currentSource: 'root = AppShell([])',
           mode: 'initial',
-          chatHistory: [
-            { role: 'assistant', content: 'Added a compact filter row and preserved the existing layout.' },
-            { role: 'user', content: 'Add due dates.' },
-          ],
+          previousChangeSummaries: ['Added a compact filter row and preserved the existing layout.'],
+          previousUserMessages: ['Add due dates.'],
         },
       ),
     ).toMatchSnapshot();
@@ -46,7 +44,6 @@ describe('buildOpenUiUserPrompt snapshots', () => {
               statementId: 'addItem',
             },
           ],
-          chatHistory: [],
         },
         {
           maxRepairAttempts: 1,

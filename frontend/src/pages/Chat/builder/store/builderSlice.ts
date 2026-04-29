@@ -1,6 +1,6 @@
 import { createSlice, current, isDraft, nanoid, type PayloadAction } from '@reduxjs/toolkit';
 import {
-  BUILDER_CHAT_MESSAGE_ROLES,
+  BUILDER_UI_CHAT_MESSAGE_ROLES,
   HISTORY_SUMMARY_MAX_CHARS,
   appMemorySchema,
   normalizeAppMemory,
@@ -151,7 +151,7 @@ function excludeGenerationUserMessageFromLlmContext(messages: BuilderChatMessage
 }
 
 function isBuilderChatRole(value: string): value is BuilderChatMessage['role'] {
-  return BUILDER_CHAT_MESSAGE_ROLES.includes(value as BuilderChatMessage['role']);
+  return BUILDER_UI_CHAT_MESSAGE_ROLES.includes(value as BuilderChatMessage['role']);
 }
 
 function normalizeChatMessages(value: unknown) {

@@ -22,6 +22,7 @@ const textEncoder = new TextEncoder();
 interface RuntimeConfigSource {
   currentSourceEmergencyMaxChars: number;
   maxRepairAttempts: number;
+  modelPromptMaxChars: number;
   openAiRequestTimeoutMs: number;
   requestMaxBytes: number;
   streamIdleTimeoutMs: number;
@@ -61,9 +62,10 @@ export function getPublicRuntimeConfig(config: RuntimeConfigSource) {
     limits: {
       chatMessageMaxChars: config.userPromptMaxChars,
       chatHistoryMaxItems: PREVIOUS_USER_MESSAGES_MAX_ITEMS,
-      promptMaxChars: config.userPromptMaxChars,
+      modelPromptMaxChars: config.modelPromptMaxChars,
       requestMaxBytes: config.requestMaxBytes,
       sourceMaxChars: getEffectiveSourceMaxChars(config),
+      userPromptMaxChars: config.userPromptMaxChars,
     },
     repair: {
       maxRepairAttempts: config.maxRepairAttempts,

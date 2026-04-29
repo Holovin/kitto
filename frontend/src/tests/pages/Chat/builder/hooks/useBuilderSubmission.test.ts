@@ -650,7 +650,8 @@ const DEFAULT_CONFIG = {
   limits: {
     chatMessageMaxChars: 4_096,
     chatHistoryMaxItems: 40,
-    promptMaxChars: 4_096,
+    modelPromptMaxChars: 180_000,
+    userPromptMaxChars: 4_096,
     requestMaxBytes: 300_000,
     sourceMaxChars: 12_288,
   },
@@ -1304,7 +1305,7 @@ describe('useBuilderSubmission', () => {
     await submission.result().handleSubmit(createFormEvent());
 
     const request = (testHarness.streamMock.mock.calls[0]?.[0] as {
-      request: { chatHistory?: unknown; previousUserMessages: string[] };
+      request: Record<string, unknown> & { previousUserMessages: string[] };
     }).request;
 
     expect(request).not.toHaveProperty('chatHistory');

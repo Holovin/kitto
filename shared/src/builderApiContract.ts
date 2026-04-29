@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 export const DEFAULT_MAX_REPAIR_VALIDATION_ISSUES = 20;
 
-export const BUILDER_CHAT_MESSAGE_ROLES = ['assistant', 'system', 'user'] as const;
-export const BUILDER_CONVERSATION_CHAT_MESSAGE_ROLES = ['assistant', 'user'] as const;
+export const BUILDER_UI_CHAT_MESSAGE_ROLES = ['assistant', 'system', 'user'] as const;
 export const BUILDER_LLM_REQUEST_MODES = ['initial', 'repair'] as const;
 export const BUILDER_COMMIT_SOURCES = ['fallback', 'streaming'] as const;
 export const BUILDER_COMMIT_REPAIR_OUTCOMES = ['failed', 'fixed'] as const;
@@ -12,8 +11,7 @@ export const BUILDER_QUALITY_ISSUE_SEVERITIES = ['blocking-quality', 'fatal-qual
 export const CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE =
   'The current app definition is too large to safely modify in one request. Export the definition or simplify/reset the app before continuing.';
 
-export type PromptBuildChatHistoryRole = (typeof BUILDER_CHAT_MESSAGE_ROLES)[number];
-export type PromptConversationChatHistoryRole = (typeof BUILDER_CONVERSATION_CHAT_MESSAGE_ROLES)[number];
+export type BuilderUiChatMessageRole = (typeof BUILDER_UI_CHAT_MESSAGE_ROLES)[number];
 export type BuilderLlmRequestMode = (typeof BUILDER_LLM_REQUEST_MODES)[number];
 export type BuilderCommitSource = (typeof BUILDER_COMMIT_SOURCES)[number];
 export type BuilderCommitRepairOutcome = (typeof BUILDER_COMMIT_REPAIR_OUTCOMES)[number];
@@ -62,17 +60,6 @@ export type PromptBuildValidationIssueContext =
   | PromptBuildStalePersistedQueryIssueContext
   | PromptBuildUndefinedStateReferenceIssueContext;
 
-export interface RawPromptBuildChatHistoryMessage {
-  content: string;
-  excludeFromLlmContext?: boolean;
-  role: PromptBuildChatHistoryRole;
-}
-
-export interface PromptBuildChatHistoryMessage {
-  content: string;
-  role: PromptConversationChatHistoryRole;
-}
-
 export interface PromptBuildValidationIssue {
   code: string;
   context?: PromptBuildValidationIssueContext;
@@ -85,7 +72,6 @@ export interface PromptBuildValidationIssue {
 
 export interface PromptBuildRequest {
   appMemory?: AppMemory;
-  chatHistory?: RawPromptBuildChatHistoryMessage[];
   currentSource: string;
   historySummary?: string;
   invalidDraft?: string;

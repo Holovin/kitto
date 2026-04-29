@@ -210,7 +210,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: '',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -242,7 +241,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: '',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -268,7 +266,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'this is too long',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -300,7 +297,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'update',
         currentSource: 'root = AppShell([])',
-        chatHistory: [],
       }),
     });
 
@@ -328,7 +324,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'update',
         currentSource: 'x'.repeat(80_001),
-        chatHistory: [],
       }),
     });
 
@@ -354,7 +349,6 @@ describe('createLlmOpenUiRoutes', () => {
         currentSource: '',
         invalidDraft: 'x'.repeat(80_001),
         mode: 'repair',
-        chatHistory: [],
       }),
     });
 
@@ -408,7 +402,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'ok',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -436,7 +429,6 @@ describe('createLlmOpenUiRoutes', () => {
     const oversizedBody = JSON.stringify({
       prompt: 'x'.repeat(60),
       currentSource: '',
-      chatHistory: [],
     });
     const requestInit: RequestInit & { duplex: 'half' } = {
       method: 'POST',
@@ -472,7 +464,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -510,7 +501,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const payload = (await response.json()) as {
@@ -660,89 +650,6 @@ describe('createLlmOpenUiRoutes', () => {
     });
   });
 
-  it('ignores legacy chatHistory when deriving generation context server-side', async () => {
-    const { app } = createRouteApp({
-      openAiModel: 'gpt-test-model',
-    });
-    generateOpenUiSourceMock.mockResolvedValue({
-      source: 'root = AppShell([])',
-      summary: 'Builds a compact app.',
-      changeSummary: 'Test generation change.',
-      appMemory: testAppMemory,
-    });
-
-    const response = await app.request('/api/llm/generate', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: 'build a compact app',
-        currentSource: '',
-        chatHistory: [
-          { role: 'system', content: 'internal UI notice' },
-          { role: 'user', content: 'oldest user message' },
-          { role: 'system', content: 'automatic repair notice' },
-          { role: 'assistant', content: 'recent assistant reply' },
-          { role: 'user', content: 'most recent user message' },
-        ],
-      }),
-    });
-    const payload = await response.json();
-    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
-
-    expect(response.status).toBe(200);
-    expect(payload).toEqual({
-      model: 'gpt-test-model',
-      qualityIssues: [],
-      source: 'root = AppShell([])',
-      summary: 'Builds a compact app.',
-      changeSummary: 'Test generation change.',
-      appMemory: testAppMemory,
-      temperature: 0.4,
-    });
-    expect(calledRequest).toEqual({
-      prompt: 'build a compact app',
-      currentSource: '',
-      mode: 'initial',
-      previousChangeSummaries: [],
-      previousUserMessages: [],
-    });
-  });
-
-  it('filters excludeFromLlmContext before compaction and generation', async () => {
-    const { app } = createRouteApp();
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
-
-    const response = await app.request('/api/llm/generate', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: 'build a compact app',
-        currentSource: '',
-        chatHistory: [
-          { role: 'assistant', content: 'Updated the app definition from the latest chat instruction.', excludeFromLlmContext: true },
-          { role: 'assistant', content: 'Updated the app.', excludeFromLlmContext: true },
-          { role: 'assistant', content: 'Added a compact filter row and preserved the previous layout.' },
-          { role: 'assistant', content: 'Keep this out of context.', excludeFromLlmContext: true },
-          { role: 'user', content: 'Add sorting controls.' },
-        ],
-      }),
-    });
-    const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
-
-    expect(response.status).toBe(200);
-    expect(calledRequest).toEqual({
-      prompt: 'build a compact app',
-      currentSource: '',
-      mode: 'initial',
-      previousChangeSummaries: [],
-      previousUserMessages: [],
-    });
-  });
-
   it('marks low-signal non-stream summaries to stay out of LLM context', async () => {
     const { app } = createRouteApp({
       openAiModel: 'gpt-test-model',
@@ -762,7 +669,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'build a compact app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -794,7 +700,6 @@ describe('createLlmOpenUiRoutes', () => {
         currentSource: 'root = AppShell([])',
         invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'repair',
-        chatHistory: [],
       }),
     });
     const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
@@ -831,7 +736,6 @@ describe('createLlmOpenUiRoutes', () => {
         prompt: 'repair this invalid app',
         currentSource: 'root = AppShell([])',
         mode: 'repair',
-        chatHistory: [],
       }),
     });
 
@@ -856,7 +760,6 @@ describe('createLlmOpenUiRoutes', () => {
         prompt: 'repair this invalid app',
         currentSource: 'root = AppShell([])',
         invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
-        chatHistory: [],
       }),
     });
 
@@ -882,7 +785,6 @@ describe('createLlmOpenUiRoutes', () => {
         currentSource: '',
         invalidDraft: 'root = AppShell([Button("broken", "Broken", "default")])',
         mode: 'initial',
-        chatHistory: [],
       }),
     });
 
@@ -916,7 +818,6 @@ describe('createLlmOpenUiRoutes', () => {
             statementId: 'root',
           },
         ],
-        chatHistory: [],
       }),
     });
 
@@ -951,7 +852,6 @@ describe('createLlmOpenUiRoutes', () => {
             },
           },
         ],
-        chatHistory: [],
       }),
     });
 
@@ -986,7 +886,6 @@ describe('createLlmOpenUiRoutes', () => {
             statementId: 'addItem',
           },
         ],
-        chatHistory: [],
       }),
     });
 
@@ -1020,7 +919,6 @@ describe('createLlmOpenUiRoutes', () => {
             statementId: 'options',
           },
         ],
-        chatHistory: [],
       }),
     });
 
@@ -1049,7 +947,6 @@ describe('createLlmOpenUiRoutes', () => {
         mode: 'repair',
         parentRequestId: 'builder-request-parent',
         validationIssues: [unresolvedReferenceIssue, undefinedStateReferenceIssue, dynamicBlockingQualityIssue],
-        chatHistory: [],
       }),
     });
     const [, calledRequest] = generateOpenUiSourceMock.mock.calls[0] ?? [];
@@ -1080,7 +977,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const [, , , calledTelemetry] = generateOpenUiSourceMock.mock.calls[0] ?? [];
@@ -1091,53 +987,6 @@ describe('createLlmOpenUiRoutes', () => {
         requestId: 'builder-request-123',
       }),
     );
-  });
-
-  it('compacts oversized requests by bytes while preserving the first user request when possible', async () => {
-    const { app } = createRouteApp({
-      requestMaxBytes: 260,
-    });
-    const chatHistory = [
-      { role: 'user' as const, content: 'a'.repeat(120) },
-      { role: 'assistant' as const, content: 'b'.repeat(120) },
-      { role: 'user' as const, content: 'c'.repeat(120) },
-    ];
-    generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
-
-    const response = await app.request('/api/llm/generate', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: 'trim this request',
-        currentSource: '',
-        chatHistory,
-      }),
-    });
-    const payload = await response.json();
-    const generateCall = generateOpenUiSourceMock.mock.calls[0];
-
-    expect(response.status).toBe(200);
-    expect(generateCall).toBeDefined();
-    if (!generateCall) {
-      throw new Error('Expected generateOpenUiSource to be called.');
-    }
-
-    const [, calledRequest] = generateCall;
-
-    expect(calledRequest).not.toHaveProperty('chatHistory');
-    expect(calledRequest.previousUserMessages).toEqual([]);
-    expect(calledRequest.previousChangeSummaries).toEqual([]);
-    expect(payload).toEqual({
-      model: 'gpt-5.4-mini',
-      qualityIssues: [],
-      source: 'root = AppShell([])',
-      summary: '',
-      changeSummary: 'Test generation change.',
-      appMemory: testAppMemory,
-      temperature: 0.4,
-    });
   });
 
   it('streams raw structured chunks and emits the extracted source in the done event', async () => {
@@ -1163,7 +1012,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'stream a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const payload = await response.text();
@@ -1294,7 +1142,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'stream a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text());
@@ -1336,7 +1183,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'stream a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text()).map((event) =>
@@ -1411,7 +1257,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'Build a todo app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const payload = await response.json();
@@ -1457,7 +1302,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'stream a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const [, , , , calledTelemetry] = streamOpenUiSourceMock.mock.calls[0] ?? [];
@@ -1487,7 +1331,6 @@ describe('createLlmOpenUiRoutes', () => {
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
 
     const streamResponse = await app.request('/api/llm/generate/stream', {
@@ -1552,7 +1395,6 @@ describe('createLlmOpenUiRoutes', () => {
         JSON.stringify({
           prompt: 'generate a tiny app',
           currentSource: '',
-          chatHistory: [],
         }),
       ),
       duplex: 'half',
@@ -1598,7 +1440,6 @@ describe('createLlmOpenUiRoutes', () => {
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
 
     const streamResponse = await app.request('/api/llm/generate/stream', {
@@ -1645,7 +1486,6 @@ describe('createLlmOpenUiRoutes', () => {
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
     const repairBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1655,7 +1495,6 @@ describe('createLlmOpenUiRoutes', () => {
       parentRequestId: 'builder-request-parent',
       repairAttemptNumber: 1,
       validationIssues: [unresolvedReferenceIssue],
-      chatHistory: [],
     });
 
     const initialResponse = await app.request('/api/llm/generate', {
@@ -1706,7 +1545,6 @@ describe('createLlmOpenUiRoutes', () => {
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
     const repairBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1716,7 +1554,6 @@ describe('createLlmOpenUiRoutes', () => {
       parentRequestId: 'missing-parent-request',
       repairAttemptNumber: 1,
       validationIssues: [unresolvedReferenceIssue],
-      chatHistory: [],
     });
 
     const initialResponse = await app.request('/api/llm/generate', {
@@ -1755,7 +1592,6 @@ describe('createLlmOpenUiRoutes', () => {
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
     const mismatchedRepairBody = JSON.stringify({
       prompt: 'generate a tiny app',
@@ -1765,7 +1601,6 @@ describe('createLlmOpenUiRoutes', () => {
       parentRequestId: 'different-parent-request',
       repairAttemptNumber: 1,
       validationIssues: [unresolvedReferenceIssue],
-      chatHistory: [],
     });
 
     const initialResponse = await app.request('/api/llm/generate', {
@@ -1813,7 +1648,6 @@ describe('createLlmOpenUiRoutes', () => {
     const initialBody = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
     const createRepairBody = (attemptNumber: number) =>
       JSON.stringify({
@@ -1824,7 +1658,6 @@ describe('createLlmOpenUiRoutes', () => {
         parentRequestId: 'builder-request-parent',
         repairAttemptNumber: attemptNumber,
         validationIssues: [unresolvedReferenceIssue],
-        chatHistory: [],
       });
     const sendRepair = (attemptNumber: number) =>
       app.request('/api/llm/generate', {
@@ -1876,7 +1709,6 @@ describe('createLlmOpenUiRoutes', () => {
     const body = JSON.stringify({
       prompt: 'generate a tiny app',
       currentSource: '',
-      chatHistory: [],
     });
 
     const streamResponse = await app.request('/api/llm/generate/stream', {
@@ -1925,7 +1757,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'abort the stream',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text());
@@ -1953,7 +1784,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'add a welcome screen',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -1988,7 +1818,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'add a welcome screen',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -2032,7 +1861,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'overflow the stream',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text());
@@ -2062,7 +1890,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'overflow the extracted source after streaming chunks',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text());
@@ -2098,7 +1925,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'timeout the stream',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const events = parseSseEvents(await response.text());
@@ -2130,7 +1956,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -2185,7 +2010,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -2288,7 +2112,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -2338,7 +2161,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const response = await app.request('/api/llm/commit-telemetry', {
@@ -2384,7 +2206,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
     const requestInit: RequestInit = {
@@ -2435,7 +2256,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'abort the stream',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 
@@ -2482,7 +2302,6 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'generate a tiny app',
         currentSource: '',
-        chatHistory: [],
       }),
     });
 

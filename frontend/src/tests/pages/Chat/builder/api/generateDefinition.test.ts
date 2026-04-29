@@ -5,7 +5,6 @@ import { generateBuilderDefinition } from '@pages/Chat/builder/api/generateDefin
 const request: PromptBuildRequest = {
   prompt: 'Build a todo app',
   currentSource: '',
-  chatHistory: [],
   mode: 'initial',
 };
 const testAppMemory = {
