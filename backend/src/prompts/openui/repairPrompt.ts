@@ -15,7 +15,6 @@ import {
   getStalePersistedQueryIssueContext,
 } from './repairHintRegistry.js';
 import { BUTTON_APPEARANCE_RULE, RADIO_SELECT_OPTIONS_SHAPE_RULE, buildIntentSpecificRulesForPrompt } from './rules.js';
-import { buildCurrentSourceInventory } from './sourceInventory.js';
 import { COMPACT_STRUCTURED_OUTPUT_SUMMARY_REQUIREMENT } from './summaryRules.js';
 import type { PromptBuildValidationIssue } from './types.js';
 
@@ -48,8 +47,6 @@ interface RepairCriticalRule {
 }
 
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
-const REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD = 5_000;
-const REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES = 5;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 1_024;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
@@ -248,47 +245,6 @@ function truncateText(value: string, maxChars: number) {
 
 function buildRepairSection(title: string, content: string) {
   return `${title}:\n${content}`;
-}
-
-function getRepairIssueStatementIds(issues: PromptBuildValidationIssue[]) {
-  return [...new Set(issues.flatMap((issue) => (issue.statementId ? [issue.statementId] : [])))];
-}
-
-function formatSourceLineExcerpt(source: string, startLine: number, endLine: number) {
-  const lines = source.split('\n');
-  const excerptLines = lines.slice(startLine - 1, endLine);
-
-  return `lines ${startLine}-${endLine}:\n${excerptLines.join('\n')}`;
-}
-
-function buildCommittedSourceContext(source: string, issues: PromptBuildValidationIssue[]) {
-  const trimmedSource = source.trim();
-
-  if (!trimmedSource || trimmedSource.length <= REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD) {
-    return source;
-  }
-
-  const inventory = buildCurrentSourceInventory(source);
-  const statements = collectTopLevelStatements(source);
-  const statementIds = new Set(getRepairIssueStatementIds(issues));
-  const sourceLines = source.split('\n');
-  const excerpts = statements
-    .filter((statement) => statementIds.has(statement.statementId))
-    .slice(0, 6)
-    .map((statement) => {
-      const startLine = Math.max(1, statement.lineNumber - REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES);
-      const endLine = Math.min(sourceLines.length, statement.lineNumber + REPAIR_COMMITTED_SOURCE_CONTEXT_SURROUNDING_LINES);
-
-      return formatSourceLineExcerpt(source, startLine, endLine);
-    });
-
-  return [
-    'Committed source is large; use this compact context instead of the full source.',
-    inventory ? `Inventory:\n${inventory}` : null,
-    excerpts.length > 0 ? `Affected committed-source excerpts:\n${excerpts.join('\n\n')}` : 'No matching committed-source statement excerpts were found.',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
 }
 
 function formatRepairExemplarLines(exemplars: ReturnType<typeof getRelevantRepairExemplars>) {
@@ -1032,9 +988,7 @@ function buildOpenUiRepairPromptParts(
     Number.MAX_SAFE_INTEGER,
     '- No matching draft statements were found.',
   );
-  const sourceContext = outputFormat === 'roleMessages'
-    ? committedSource
-    : buildCommittedSourceContext(committedSource, sanitizedIssues);
+  const sourceContext = committedSource;
   const sourceContextFallback =
     outputFormat === 'roleMessages'
       ? '(blank canvas, no committed OpenUI source yet)'
@@ -1094,7 +1048,7 @@ function buildOpenUiRepairPromptParts(
   );
   const userRequestSectionContent = buildRepairSourceSectionContent(
     userPrompt,
-    budgets.userPrompt,
+    outputFormat === 'roleMessages' ? Number.MAX_SAFE_INTEGER : budgets.userPrompt,
     '(empty user request)',
     budgetedSectionOptions,
   );
@@ -1147,7 +1101,7 @@ function buildOpenUiRepairPromptParts(
       : '';
   const draftSectionContent = buildRepairSourceSectionContent(
     invalidSource,
-    budgets.invalidSource,
+    outputFormat === 'roleMessages' ? Number.MAX_SAFE_INTEGER : budgets.invalidSource,
     draftSectionFallback,
     budgetedSectionOptions,
   );

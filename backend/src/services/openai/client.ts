@@ -20,7 +20,9 @@ import { buildPromptContextLimitSections, getPromptContextLimitSection } from '#
 import { getOpenUiMaxOutputTokens, getOpenUiTemperature } from '#backend/prompts/openui/requestConfig.js';
 import {
   createEmptyAppMemory,
+  CURRENT_SOURCE_ITEMS_MAX_CHARS,
   CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
+  SELECTED_EXAMPLES_MAX_CHARS,
   type AppMemory,
   type BudgetDecision,
   type BudgetDecisionSection,
@@ -272,6 +274,37 @@ function assertCurrentSourceWithinEmergencyCap(request: PromptBuildRequest) {
   );
 }
 
+function assertInvalidDraftWithinEmergencyCap(request: PromptBuildRequest) {
+  if (request.mode !== 'repair' || (request.invalidDraft?.length ?? 0) <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS) {
+    return;
+  }
+
+  throw new RequestValidationError(
+    `Invalid draft exceeded the emergency prompt cap of ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`,
+    400,
+    {
+      publicMessage: `Invalid draft is too large. Limit: ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`,
+    },
+  );
+}
+
+function assertProtectedPromptWithinModelBudget(env: AppEnv, input: ResponseInput) {
+  const promptChars = getResponseInputChars(input);
+
+  if (promptChars <= env.LLM_MODEL_PROMPT_MAX_CHARS) {
+    return;
+  }
+
+  throw new RequestValidationError(
+    `Protected prompt context is ${promptChars} characters after optional context was removed, exceeding LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}.`,
+    400,
+    {
+      publicMessage:
+        'The current app definition is too large to safely send with this request. Export the definition or simplify/reset the app before continuing.',
+    },
+  );
+}
+
 function createPromptContextMetadata(
   env: AppEnv,
   request: PromptBuildRequest,
@@ -414,7 +447,7 @@ function createBudgetDecision(
       ),
       createBudgetSection(
         'selectedExamples',
-        selectedExamplesIncluded ? Math.min(fullText.length, 2_500) : 0,
+        selectedExamplesIncluded ? Math.min(fullText.length, SELECTED_EXAMPLES_MAX_CHARS) : 0,
         selectedExamplesIncluded,
         false,
         droppedSectionSet.has('selectedExamples') ? 'dropped for optional context budget' : undefined,
@@ -422,7 +455,7 @@ function createBudgetDecision(
       ),
       createBudgetSection(
         'currentSourceItems',
-        currentSourceItemsIncluded ? Math.min(fullText.length, 3_000) : 0,
+        currentSourceItemsIncluded ? Math.min(fullText.length, CURRENT_SOURCE_ITEMS_MAX_CHARS) : 0,
         currentSourceItemsIncluded,
         false,
         droppedSectionSet.has('currentSourceItems') ? 'dropped for optional context budget' : 'omitted',
@@ -696,13 +729,8 @@ function cropAppMemorySummary(appMemory: AppMemory | undefined): AppMemory {
 }
 
 function trimOptionalStringArray(values: string[] | undefined) {
-  const normalizedValues = (values ?? []).map((value) => value.trim()).filter(Boolean);
-
-  if (normalizedValues.length <= 1) {
-    return [];
-  }
-
-  return normalizedValues.slice(Math.ceil(normalizedValues.length / 2));
+  void values;
+  return [];
 }
 
 function buildInitialResponseInputVariant(
@@ -781,6 +809,8 @@ function buildBudgetedInitialResponseInput(
     appMemory = cropAppMemorySummary(appMemory);
   });
 
+  assertProtectedPromptWithinModelBudget(env, input);
+
   return {
     droppedSections,
     input,
@@ -791,11 +821,68 @@ function buildBudgetedInitialResponseInput(
   };
 }
 
+function buildRepairResponseInputVariant(
+  env: AppEnv,
+  systemPrompt: string,
+  request: PromptBuildRequest,
+  options: {
+    appMemory?: AppMemory;
+    historySummary?: string;
+    previousChangeSummaries?: string[];
+    previousUserMessages?: string[];
+  } = {},
+): ResponseInput {
+  const repairMessages = buildOpenUiRepairRoleMessages({
+    attemptNumber: request.repairAttemptNumber ?? 1,
+    appMemory: options.appMemory,
+    committedSource: request.currentSource,
+    historySummary: options.historySummary,
+    invalidSource: request.invalidDraft ?? '',
+    issues: request.validationIssues ?? [],
+    maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
+    promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
+    previousChangeSummaries: options.previousChangeSummaries ?? [],
+    previousUserMessages: options.previousUserMessages ?? [],
+    userPrompt: buildOpenUiRawUserRequest(request),
+  });
+
+  return [
+    createTextInputMessage('system', [systemPrompt, repairMessages.systemInstruction].join('\n\n')),
+    createTextInputMessage('user', repairMessages.requestContext),
+    createTextInputMessage('assistant', repairMessages.failedDraft),
+    createTextInputMessage('user', repairMessages.correctionRequest),
+  ];
+}
+
+function buildBudgetedRepairResponseInput(env: AppEnv, systemPrompt: string, request: PromptBuildRequest): ResponseInput {
+  let input = buildRepairResponseInputVariant(env, systemPrompt, request, {
+    appMemory: request.appMemory,
+    historySummary: request.historySummary,
+    previousChangeSummaries: request.previousChangeSummaries ?? [],
+    previousUserMessages: request.previousUserMessages ?? [],
+  });
+
+  if (getResponseInputChars(input) <= env.LLM_MODEL_PROMPT_MAX_CHARS) {
+    return input;
+  }
+
+  input = buildRepairResponseInputVariant(env, systemPrompt, request, {
+    appMemory: cropAppMemorySummary(request.appMemory),
+    historySummary: undefined,
+    previousChangeSummaries: [],
+    previousUserMessages: [],
+  });
+
+  assertProtectedPromptWithinModelBudget(env, input);
+  return input;
+}
+
 function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest): {
   input: ResponseInput;
   metadata: PromptContextLogMetadata;
 } {
   assertCurrentSourceWithinEmergencyCap(request);
+  assertInvalidDraftWithinEmergencyCap(request);
   const requestIntent = detectPromptRequestIntent(request.prompt, {
     currentSource: request.currentSource,
     mode: request.mode,
@@ -803,26 +890,7 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
   const systemPrompt = buildOpenUiSystemPromptForIntents(requestIntent);
 
   if (request.mode === 'repair') {
-    const repairMessages = buildOpenUiRepairRoleMessages({
-      attemptNumber: request.repairAttemptNumber ?? 1,
-      appMemory: request.appMemory,
-      committedSource: request.currentSource,
-      historySummary: request.historySummary,
-      invalidSource: request.invalidDraft ?? '',
-      issues: request.validationIssues ?? [],
-      maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-      promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
-      previousChangeSummaries: request.previousChangeSummaries ?? [],
-      previousUserMessages: request.previousUserMessages ?? [],
-      userPrompt: buildOpenUiRawUserRequest(request),
-    });
-
-    const input = [
-      createTextInputMessage('system', [systemPrompt, repairMessages.systemInstruction].join('\n\n')),
-      createTextInputMessage('user', repairMessages.requestContext),
-      createTextInputMessage('assistant', repairMessages.failedDraft),
-      createTextInputMessage('user', repairMessages.correctionRequest),
-    ];
+    const input = buildBudgetedRepairResponseInput(env, systemPrompt, request);
 
     return {
       input,

@@ -46,7 +46,7 @@ describe('generationContext', () => {
       {
         chars: 0,
         content: '(populated by backend after Send)',
-        hardLimitChars: 50_000,
+        hardLimitChars: 80_000,
         included: false,
         name: 'currentSource',
         priority: 6,
@@ -59,10 +59,10 @@ describe('generationContext', () => {
         cacheKeyPrefix: 'kitto:openui',
         maxOutputTokens: 30_000,
         model: 'gpt-test',
-        modelPromptMaxChars: 50_000,
-        outputMaxBytes: 100_000,
+        modelPromptMaxChars: 180_000,
+        outputMaxBytes: 300_000,
         repairTemperature: 0.2,
-        requestMaxBytes: 300_000,
+        requestMaxBytes: 1_200_000,
         temperature: 0.4,
         userPromptMaxChars: 4_096,
       },
@@ -101,7 +101,7 @@ describe('generationContext', () => {
         {
           chars: 42,
           content: '<current_source>...</current_source>',
-          hardLimitChars: 50_000,
+          hardLimitChars: 80_000,
           included: true,
           name: 'currentSource',
           priority: 6,
@@ -113,10 +113,10 @@ describe('generationContext', () => {
           cacheKeyPrefix: 'kitto:openui',
           maxOutputTokens: 30_000,
           model: 'gpt-test',
-          modelPromptMaxChars: 50_000,
-          outputMaxBytes: 100_000,
+          modelPromptMaxChars: 180_000,
+          outputMaxBytes: 300_000,
           repairTemperature: 0.2,
-          requestMaxBytes: 300_000,
+          requestMaxBytes: 1_200_000,
           temperature: 0.4,
           userPromptMaxChars: 4_096,
         },
@@ -136,9 +136,9 @@ describe('generationContext', () => {
           {
             chars: 0,
             content: '(populated by backend after Send)',
-            hardLimitChars: 50_000,
+            hardLimitChars: 80_000,
             included: false,
-            limitLabels: ['HARD 50000'],
+            limitLabels: ['HARD 80000'],
             name: 'currentSource',
             priority: 6,
             protected: true,
@@ -159,6 +159,6 @@ describe('generationContext', () => {
       },
     );
 
-    expect(sections[0]?.limitLabels).toEqual(['HARD 50000']);
+    expect(sections[0]?.limitLabels).toEqual(['HARD 80000']);
   });
 });

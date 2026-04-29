@@ -317,7 +317,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects current source above the hard source cap even when the model prompt limit is higher', async () => {
     const { app } = createRouteApp({
-      LLM_MODEL_PROMPT_MAX_CHARS: 60_000,
+      LLM_MODEL_PROMPT_MAX_CHARS: 100_000,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -327,7 +327,7 @@ describe('createLlmOpenUiRoutes', () => {
       },
       body: JSON.stringify({
         prompt: 'update',
-        currentSource: 'x'.repeat(50_001),
+        currentSource: 'x'.repeat(80_001),
         chatHistory: [],
       }),
     });
@@ -352,7 +352,7 @@ describe('createLlmOpenUiRoutes', () => {
       body: JSON.stringify({
         prompt: 'repair it',
         currentSource: '',
-        invalidDraft: 'x'.repeat(50_001),
+        invalidDraft: 'x'.repeat(80_001),
         mode: 'repair',
         chatHistory: [],
       }),
@@ -361,7 +361,7 @@ describe('createLlmOpenUiRoutes', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       code: 'validation_error',
-      error: 'Invalid draft is too large. Limit: 50000 characters.',
+      error: 'Invalid draft is too large. Limit: 80000 characters.',
       status: 400,
     });
     expect(generateOpenUiSourceMock).not.toHaveBeenCalled();

@@ -26,7 +26,7 @@ The checked-in example is production-oriented for the PM2 deployment in [docs/de
 ### Runtime settings
 
 - `OPENAI_MODEL` - Responses API model, default `gpt-5.4-mini`
-- `OPENAI_REQUEST_TIMEOUT_MS` - upstream timeout in milliseconds, default `120000`
+- `OPENAI_REQUEST_TIMEOUT_MS` - upstream timeout in milliseconds, default `180000`
 - `PORT` - HTTP port, default `8787`
 - `FRONTEND_ORIGIN` - allowed browser origin for CORS, default `http://localhost:5555`
 - `LOG_LEVEL` - `debug`, `info`, `warn`, `error`, or `silent`
@@ -36,10 +36,10 @@ The backend loads `backend/.env` relative to its own package path, so PM2 can ke
 ### Request limits and safeguards
 
 - `LLM_USER_PROMPT_MAX_CHARS` - default `4096`, maximum user-authored prompt characters accepted by the API and composer
-- `LLM_MODEL_PROMPT_MAX_CHARS` - default `50000`, prompt context budget used when dropping optional context before source; `currentSource` / `invalidDraft` are capped by the 50000-character emergency source limit
+- `LLM_MODEL_PROMPT_MAX_CHARS` - default `180000`, prompt context budget used when dropping optional context; `currentSource` / `invalidDraft` are protected and capped by the 80000-character emergency source limit
 - `LLM_CHAT_HISTORY_MAX_ITEMS` - default `40`, retained for public config compatibility; generation requests now send derived previous context instead of raw chat history
-- `LLM_REQUEST_MAX_BYTES` - default `300000`
-- `LLM_OUTPUT_MAX_BYTES` - default `100000`
+- `LLM_REQUEST_MAX_BYTES` - default `1200000`
+- `LLM_OUTPUT_MAX_BYTES` - default `300000`
 - `LLM_RATE_LIMIT_MAX_REQUESTS` - default `60`
 - `LLM_RATE_LIMIT_WINDOW_MS` - default `60000`
 
@@ -63,13 +63,13 @@ Returns frontend-safe request limits:
     "chatMessageMaxChars": 4096,
     "promptMaxChars": 4096,
     "chatHistoryMaxItems": 40,
-    "requestMaxBytes": 300000,
-    "sourceMaxChars": 50000
+    "requestMaxBytes": 1200000,
+    "sourceMaxChars": 80000
   }
 }
 ```
 
-`limits.promptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is the hard 50000-character emergency source cap.
+`limits.promptMaxChars` and `limits.chatMessageMaxChars` are backed by `LLM_USER_PROMPT_MAX_CHARS`; `limits.sourceMaxChars` is the hard 80000-character emergency source cap.
 
 ### `POST /api/llm/generate`
 

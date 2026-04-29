@@ -187,7 +187,7 @@ function createMockResponseStream(
 function expectStructuredOutputRequest(callArgument: unknown, options?: { temperature?: number }) {
   expect(callArgument).toEqual(
     expect.objectContaining({
-      max_output_tokens: 25_000,
+      max_output_tokens: 75_000,
       temperature: options?.temperature ?? 0.4,
       text: {
         format: {
@@ -339,7 +339,7 @@ describe('parseOpenUiGenerationEnvelope', () => {
 describe('buildPromptContextSnapshot', () => {
   it('adds a global row with total prompt chars, global limits, and the full prompt preview', () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 12_345,
+      LLM_MODEL_PROMPT_MAX_CHARS: 40_000,
       LLM_OUTPUT_MAX_BYTES: 67_890,
       LLM_REQUEST_MAX_BYTES: 23_456,
     });
@@ -352,7 +352,7 @@ describe('buildPromptContextSnapshot', () => {
       chars: snapshot.totalChars,
       included: true,
       limitLabels: [
-        'optional context target LLM_MODEL_PROMPT_MAX_CHARS 12345',
+        'optional context target LLM_MODEL_PROMPT_MAX_CHARS 40000',
         'global LLM_REQUEST_MAX_BYTES 23456',
         'global LLM_OUTPUT_MAX_BYTES 67890',
       ],
@@ -487,7 +487,7 @@ describe('generateOpenUiSource', () => {
 
   it('protects full current source in follow-up prompts and records source-context metadata', async () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 1_200,
+      LLM_MODEL_PROMPT_MAX_CHARS: 35_000,
       OPENAI_API_KEY: 'test-key-protected-current-source',
       PROMPT_IO_LOG: true,
     });
@@ -506,8 +506,11 @@ describe('generateOpenUiSource', () => {
         { role: 'user', content: 'Add a settings screen.' },
       ],
       currentSource,
+      historySummary: 'Older context summary.'.repeat(20),
       mode: 'initial',
+      previousChangeSummaries: ['Added filters.'.repeat(200), 'Added settings.'.repeat(200)],
       previousSource: 'root = AppShell([])',
+      previousUserMessages: ['Create the first version.'.repeat(200), 'Add filters and a settings screen.'.repeat(200)],
       prompt: 'Add a delete button.',
     };
     promptLogWriteMock.mockResolvedValue(undefined);
@@ -587,7 +590,7 @@ describe('generateOpenUiSource', () => {
     await expect(
       generateOpenUiSource(env, {
         chatHistory: [],
-        currentSource: 'x'.repeat(50_001),
+        currentSource: 'x'.repeat(80_001),
         mode: 'initial',
         prompt: 'Update the app.',
       }),
@@ -599,11 +602,10 @@ describe('generateOpenUiSource', () => {
 
   it('allows current source at the emergency cap and keeps it as protected source context', async () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 1_000,
       OPENAI_API_KEY: 'test-key-source-emergency-cap-inclusive',
     });
     const sourceTail = 'SOURCE-CAP-END';
-    const currentSource = `${'x'.repeat(50_000 - sourceTail.length)}${sourceTail}`;
+    const currentSource = `${'x'.repeat(80_000 - sourceTail.length)}${sourceTail}`;
 
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -629,9 +631,87 @@ describe('generateOpenUiSource', () => {
 
     const finalUserText = responsesCreateMock.mock.calls[0]?.[0]?.input?.at(-1)?.content?.[0]?.text ?? '';
 
-    expect(currentSource).toHaveLength(50_000);
+    expect(currentSource).toHaveLength(80_000);
     expect(finalUserText).toContain(`<current_source>\n${currentSource}\n</current_source>`);
     expect(finalUserText).not.toContain('<current_source_inventory>');
+  });
+
+  it('rejects safely when protected current source cannot fit after optional context is dropped', async () => {
+    const env = createTestEnv({
+      LLM_MODEL_PROMPT_MAX_CHARS: 1_000,
+      OPENAI_API_KEY: 'test-key-source-protected-over-budget',
+    });
+
+    await expect(
+      generateOpenUiSource(env, {
+        appMemory: {
+          version: 1,
+          appSummary: 'Optional memory.',
+          userPreferences: ['Keep it compact.'],
+          avoid: ['No charts.'],
+        },
+        currentSource: 'x'.repeat(2_000),
+        historySummary: 'Optional history.',
+        mode: 'initial',
+        previousChangeSummaries: ['Optional change summary.'],
+        previousUserMessages: ['Optional previous prompt.'],
+        prompt: 'Update the app.',
+      }),
+    ).rejects.toMatchObject({
+      publicMessage:
+        'The current app definition is too large to safely send with this request. Export the definition or simplify/reset the app before continuing.',
+    });
+    expect(responsesCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps full protected repair draft and current source in role-based repair input', async () => {
+    const env = createTestEnv({
+      OPENAI_API_KEY: 'test-key-repair-protected-source-and-draft',
+    });
+    const sourceTail = 'COMMITTED-SOURCE-END';
+    const draftTail = 'INVALID-DRAFT-END';
+    const currentSource = `${'c'.repeat(8_000)}${sourceTail}`;
+    const invalidDraft = `${'d'.repeat(8_000)}${draftTail}`;
+
+    responsesCreateMock.mockResolvedValue({
+      output_text: JSON.stringify({
+        summary: 'Repairs the protected draft.',
+        changeSummary: 'Repaired the protected draft.',
+        appMemory: testAppMemory,
+        source: 'root = AppShell([])',
+      }),
+    });
+
+    await expect(
+      generateOpenUiSource(env, {
+        currentSource,
+        invalidDraft,
+        mode: 'repair',
+        prompt: 'Repair the app.',
+        validationIssues: [
+          {
+            code: 'invalid-prop',
+            message: 'Fix the broken prop.',
+            source: 'parser',
+            statementId: 'root',
+          },
+        ],
+      }),
+    ).resolves.toEqual({
+      summary: 'Repairs the protected draft.',
+      changeSummary: 'Repaired the protected draft.',
+      appMemory: testAppMemory,
+      source: 'root = AppShell([])',
+    });
+
+    const repairInput = responsesCreateMock.mock.calls[0]?.[0]?.input;
+    const repairContext = repairInput?.[1]?.content?.[0]?.text ?? '';
+    const failedDraft = repairInput?.[2]?.content ?? '';
+
+    expect(repairContext).toContain(`<current_source>\n${currentSource}\n</current_source>`);
+    expect(repairContext).not.toContain('Inventory:');
+    expect(failedDraft).toContain(`<model_draft_that_failed>\n${invalidDraft}\n</model_draft_that_failed>`);
+    expect(failedDraft).toContain(draftTail);
   });
 
   it('passes filtered conversation context into role-based repair input', async () => {

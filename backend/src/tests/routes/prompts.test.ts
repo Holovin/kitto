@@ -27,7 +27,7 @@ describe('GET /api/prompts/info', () => {
       cacheKeyPrefix: 'kitto:openui',
       maxOutputTokens: 30_000,
       model: 'gpt-5.4-mini',
-      modelPromptMaxChars: 50_000,
+      modelPromptMaxChars: 180_000,
       outputMaxBytes: 120_000,
       repairTemperature: 0.2,
       requestMaxBytes: 345_678,
@@ -43,7 +43,7 @@ describe('GET /api/prompts/info', () => {
           protected: true,
         }),
         expect.objectContaining({
-          hardLimitChars: 50_000,
+          hardLimitChars: 80_000,
           name: 'currentSource',
           protected: true,
         }),
@@ -140,7 +140,7 @@ describe('GET /api/prompts/info', () => {
           content: expect.any(String),
           included: true,
           limitLabels: [
-            'optional context target LLM_MODEL_PROMPT_MAX_CHARS 50000',
+            'optional context target LLM_MODEL_PROMPT_MAX_CHARS 180000',
             'global LLM_REQUEST_MAX_BYTES 345678',
             'global LLM_OUTPUT_MAX_BYTES 120000',
           ],

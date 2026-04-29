@@ -5,7 +5,7 @@ import {
 } from '@kitto-openui/shared/openuiToolRegistry.js';
 
 export const OPENUI_SOURCE_LIMITS = {
-  maxSourceChars: 50_000,
+  maxSourceChars: 80_000,
   maxStatements: 300,
 } as const;
 

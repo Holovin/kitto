@@ -50,15 +50,15 @@ describe('createApp', () => {
         chatHistoryMaxItems: 7,
         promptMaxChars: 321,
         requestMaxBytes: 654,
-        sourceMaxChars: 50_000,
+        sourceMaxChars: 80_000,
       },
       repair: {
         maxRepairAttempts: 2,
         maxValidationIssues: 20,
       },
       timeouts: {
-        streamIdleTimeoutMs: 45000,
-        streamMaxDurationMs: 120000,
+        streamIdleTimeoutMs: 60000,
+        streamMaxDurationMs: 180000,
       },
     });
   });
@@ -74,7 +74,7 @@ describe('createApp', () => {
     const payload = (await response.json()) as { limits: { sourceMaxChars: number } };
 
     expect(response.status).toBe(200);
-    expect(payload.limits.sourceMaxChars).toBe(50_000);
+    expect(payload.limits.sourceMaxChars).toBe(80_000);
   });
 
   it('serves model health from /api/health without leaking secrets', async () => {
