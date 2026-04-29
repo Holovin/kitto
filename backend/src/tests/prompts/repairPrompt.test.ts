@@ -162,11 +162,12 @@ describe('buildOpenUiRepairPrompt', () => {
 
     expect(prompt).toContain('Targeted repair hints:');
     expect(prompt).toContain(
-      'Use only full absolute URL literals for Link(...) and @OpenUrl(...): https://... or http://....',
+      'Safe URL literals for Link(...) and open_url/@OpenUrl are limited to full absolute https://... or http://... URLs.',
     );
     expect(prompt).toContain(
-      'Never use javascript:, data:, file:, blob:, mailto:, tel:, protocol-relative // URLs, relative paths, hash anchors, whitespace-padded URLs, or URLs containing spaces.',
+      'Do not generate relative URLs, hash routes, mailto:, tel:, protocol-relative URLs, javascript:, data:, file:, blob:, whitespace-padded URLs, or URLs containing spaces.',
     );
+    expect(prompt).toContain('If the user asks for an unsafe or non-absolute URL, omit the link or use a safe https:// placeholder.');
     expect(prompt).toContain('unsafe-url-literal in root: Link URL "javascript:alert(1)" is not allowed.');
   });
 

@@ -1405,7 +1405,7 @@ describe('useBuilderSubmission', () => {
     submission.unmount();
   });
 
-  it('resets the builder before reading a valid import and then loads the imported app', async () => {
+  it('loads a valid import atomically after reading and validating the file', async () => {
     const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
 
     seedHistorySnapshots(staleSnapshot);
@@ -1421,11 +1421,11 @@ describe('useBuilderSubmission', () => {
       createImportEvent({
         name: 'import.json',
         text: async () => {
-          expect(getBuilderState().committedSource).toBe('');
-          expect(getBuilderState().streamedSource).toBe('');
+          expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+          expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
           expect(getBuilderState().history).toHaveLength(1);
-          expect(getBuilderSessionState()).toEqual({});
-          expect(getDomainState()).toEqual({});
+          expect(getBuilderSessionState()).toEqual({ $draft: 'stale' });
+          expect(getDomainState()).toEqual({ app: { stale: true } });
 
           return createImportPayload(IMPORTED_SOURCE, {
             domainData: importedDomainData,
@@ -1443,7 +1443,7 @@ describe('useBuilderSubmission', () => {
     historyControls.unmount();
   });
 
-  it('resets stale app state when an import file is not valid JSON', async () => {
+  it('keeps committed preview and state when an import file is not valid JSON', async () => {
     const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
 
     seedHistorySnapshots(staleSnapshot);
@@ -1456,10 +1456,11 @@ describe('useBuilderSubmission', () => {
       }),
     );
 
-    expect(getBuilderState().committedSource).toBe('');
-    expect(getBuilderState().streamedSource).toBe('');
-    expect(getBuilderSessionState()).toEqual({});
-    expect(getDomainState()).toEqual({});
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().streamedSource).toBe(PREVIOUS_SOURCE);
+    expect(getBuilderState().hasRejectedDefinition).toBe(false);
+    expect(getBuilderSessionState()).toEqual({ $draft: 'stale' });
+    expect(getDomainState()).toEqual({ app: { stale: true } });
     expect(findChatMessage('Import failed: Import file is not valid JSON.')).toEqual(
       expect.objectContaining({
         role: 'system',
@@ -1470,7 +1471,7 @@ describe('useBuilderSubmission', () => {
     historyControls.unmount();
   });
 
-  it('resets stale app state when an import contains invalid OpenUI source', async () => {
+  it('keeps committed preview and state when an import contains invalid OpenUI source', async () => {
     const invalidImportedSource = 'root = UnknownComponent([])';
     const staleSnapshot = createBuilderSnapshot(PREVIOUS_SOURCE, { $draft: 'stale' }, { app: { stale: true } });
 
@@ -1484,7 +1485,7 @@ describe('useBuilderSubmission', () => {
       }),
     );
 
-    expect(getBuilderState().committedSource).toBe('');
+    expect(getBuilderState().committedSource).toBe(PREVIOUS_SOURCE);
     expect(getBuilderState().streamedSource).toBe(invalidImportedSource);
     expect(getBuilderState().hasRejectedDefinition).toBe(true);
     expect(getBuilderState().parseIssues).toEqual(
@@ -1495,8 +1496,8 @@ describe('useBuilderSubmission', () => {
         }),
       ]),
     );
-    expect(getBuilderSessionState()).toEqual({});
-    expect(getDomainState()).toEqual({});
+    expect(getBuilderSessionState()).toEqual({ $draft: 'stale' });
+    expect(getDomainState()).toEqual({ app: { stale: true } });
     expect(findChatMessage('Import failed: the OpenUI definition is invalid. Review the Definition tab for validation issues.')).toEqual(
       expect.objectContaining({
         role: 'system',

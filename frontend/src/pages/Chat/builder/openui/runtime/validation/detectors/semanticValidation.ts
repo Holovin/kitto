@@ -189,7 +189,7 @@ function collectActionSemanticIssues(root: unknown): BuilderQualityIssue[] {
     if (node.name === 'OpenUrl') {
       const url = Array.isArray(node.args) ? extractAstStringLiteral(node.args[0]) : null;
 
-      if (url && !parseSafeSourceUrlLiteral(url)) {
+      if (url !== null && !parseSafeSourceUrlLiteral(url)) {
         pushUniqueIssue(
           createOpenUiQualityIssue('fatal-quality', {
             code: 'unsafe-url-literal',

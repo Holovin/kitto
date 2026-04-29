@@ -263,7 +263,7 @@ function validateSourceUrlLiterals(result: ParseResult): PromptBuildValidationIs
 
     const url = extractObjectStringLiteralValue(mutation.argsAST, new Set(['url']));
 
-    if (url && !parseSafeSourceUrlLiteral(url)) {
+    if (url !== null && !parseSafeSourceUrlLiteral(url)) {
       issues.push(
         createUnsafeUrlLiteralIssue({
           owner: 'Mutation("open_url", ...)',

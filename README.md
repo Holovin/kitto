@@ -135,7 +135,7 @@ Notes:
 - `compute_value` equals/not_equals compare primitive values only. Do not use equals/not_equals to compare arrays or objects.
 - `write_computed_state` computes a safe primitive and writes it into persisted state at the validated path.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
-- Import/export uses a versioned JSON format. Any import attempt starts from a fresh builder state; invalid imports surface a clear failure message and leave Preview on the reset blank state.
+- Import/export uses a versioned JSON format. Imports are atomic: valid imports replace the app and start fresh chat context, while invalid JSON or invalid OpenUI imports surface one clear failure message and keep the previous committed Preview/runtime/domain state.
 - Standalone HTML export always uses the latest committed source and the committed snapshot baseline state, not the current live clicked state.
 
 ## 9. API surface

@@ -171,8 +171,9 @@ const REPAIR_HINT_HANDLERS: Record<string, RepairHintHandler> = {
     'Screen never contains another Screen at any depth. Keep Screens as top-level AppShell children and use Group for local layout inside a screen.',
   ],
   'unsafe-url-literal': () => [
-    'Use only full absolute URL literals for Link(...) and @OpenUrl(...): https://... or http://....',
-    'Never use javascript:, data:, file:, blob:, mailto:, tel:, protocol-relative // URLs, relative paths, hash anchors, whitespace-padded URLs, or URLs containing spaces.',
+    'Safe URL literals for Link(...) and open_url/@OpenUrl are limited to full absolute https://... or http://... URLs.',
+    'Do not generate relative URLs, hash routes, mailto:, tel:, protocol-relative URLs, javascript:, data:, file:, blob:, whitespace-padded URLs, or URLs containing spaces.',
+    'If the user asks for an unsafe or non-absolute URL, omit the link or use a safe https:// placeholder.',
   ],
 };
 

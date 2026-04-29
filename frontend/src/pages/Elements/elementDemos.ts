@@ -410,8 +410,8 @@ root = AppShell([
       Text("Inline link groups stay lightweight inside a block section.", "muted", "start"),
       Group("Inline links", "horizontal", [
         Link("Open OpenAI docs", "https://platform.openai.com/docs", true),
-        Link("Open schemas route in the same tab", "/elements", false),
-        Link("Email support", "mailto:support@example.com", false)
+        Link("Open examples catalog", "https://example.com/elements", false),
+        Link("Open support", "https://example.com/support", false)
       ], "inline")
     ])
   ])

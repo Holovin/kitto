@@ -487,7 +487,7 @@ describe('generateOpenUiSource', () => {
 
   it('protects full current source in follow-up prompts and records source-context metadata', async () => {
     const env = createTestEnv({
-      modelPromptMaxChars: 35_000,
+      modelPromptMaxChars: 35_200,
       openAiApiKey: 'test-key-protected-current-source',
       promptIoLog: true,
     });
@@ -573,7 +573,6 @@ describe('generateOpenUiSource', () => {
           'currentSourceItems',
           'appMemory.userPreferences',
           'appMemory.avoid',
-          'appMemory.appSummary',
         ]),
       }),
       {

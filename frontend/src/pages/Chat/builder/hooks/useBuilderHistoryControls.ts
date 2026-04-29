@@ -209,7 +209,6 @@ export function useBuilderHistoryControls({ onSystemNotice }: UseBuilderHistoryC
 
     cancelActiveRequest();
     onSystemNotice(null);
-    resetAppStateWithDispatch(dispatch);
 
     try {
       const rawValue = await file.text();

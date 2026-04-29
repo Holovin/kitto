@@ -1,5 +1,6 @@
 export const allowedUrlCases = [
   { label: 'https URLs', value: 'https://example.com' },
+  { label: 'https URLs with path, query, and hash', value: 'https://example.com/path?x=1#section' },
   { label: 'http localhost URLs', value: 'http://localhost:3000' },
 ] satisfies ReadonlyArray<{ label: string; value: unknown }>;
 
@@ -9,8 +10,10 @@ export const rejectedUrlCases = [
   { label: 'root-relative app URLs', value: '/chat' },
   { label: 'other app-relative routes', value: '/about' },
   { label: 'hash URLs', value: '#section' },
+  { label: 'help hash URLs', value: '#help' },
   { label: 'javascript URLs', value: 'javascript:alert(1)' },
   { label: 'data URLs', value: 'data:text/html,<script>alert(1)</script>' },
+  { label: 'base64 data URLs', value: 'data:text/html;base64,PGgxPkJhZDwvaDE+' },
   { label: 'blob URLs', value: 'blob:https://example.com/id' },
   { label: 'protocol-relative URLs', value: '//evil.com' },
   { label: 'leading-whitespace URLs', value: ' https://example.com' },

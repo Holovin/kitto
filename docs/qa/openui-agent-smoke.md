@@ -340,16 +340,16 @@ Expected:
 
 ### Invalid import
 
-1. Modify exported JSON so the OpenUI source is invalid.
-2. Import invalid JSON.
+1. With a valid app still committed, try importing a malformed JSON file.
+2. Then try importing a syntactically valid export whose OpenUI source is invalid.
 
 Expected:
 
 - Import is rejected.
 - Invalid import shows a single clear failure message.
-- The previous committed app is cleared because import resets the builder before applying the file.
-- Parser-invalid OpenUI imports may show the rejected source or validation issues in Definition while Preview stays on the reset blank state.
-- Chat/history/runtime/domain state are wiped.
+- The previous committed app remains active in Preview; invalid JSON imports must not clear Preview/runtime/domain state.
+- Parser-invalid OpenUI imports may show the rejected source or validation issues in Definition while Preview stays on the previous committed app.
+- Chat/history/runtime/domain state from the previous committed app remain intact until a valid import replaces them.
 - App does not crash.
 
 ## Scenario 10 — Draft issues and auto-repair
@@ -379,6 +379,21 @@ Create a complex app with two screens, filtering, a random number button, valida
 - Partial or bad draft is not committed.
 - The UI does not get stuck in loading/generating state.
 - If a clearly fatal structural draft occurs instead, such as nested `AppShell`, `Screen` inside `Screen`, or `Repeater` inside `Repeater`, the builder should fail cleanly without an automatic repair attempt.
+
+## Scenario 10b — URL and multiline action guardrails
+
+### Prompt
+
+```txt
+Create a simple app with a docs link and a button action that runs a saved task mutation.
+```
+
+### Expected
+
+- Safe absolute `https://...` and `http://...` links remain clickable.
+- Unsafe URL literals such as `/about`, `#help`, `mailto:`, `tel:`, `//example.com`, `javascript:`, `data:`, and `file:` are rejected by source validation with `unsafe-url-literal` and do not execute in Preview.
+- A valid multiline action such as `Action([ @Run( saveTask ) ])`, with line breaks around the ref, does not trigger `invalid-mutation-reference` and does not cause a false repair.
+- A bare mutation ref rendered in UI, such as `Text(saveTask)`, still triggers `invalid-mutation-reference`.
 
 ## Scenario 11 — Standalone HTML export
 
@@ -438,7 +453,7 @@ After smoke:
 - preview internal clicks do not trigger fresh `/api/llm/generate*` requests;
 - obviously oversized requests are blocked in the UI with a clear error before any `/api/llm/*` generation request is sent;
 - invalid generation drafts do not replace committed preview;
-- invalid imports reset the builder first, then surface one clear failure state with Preview on the blank reset state;
+- invalid imports surface one clear failure state while keeping Preview on the previous committed app;
 - import/export works;
 - undo/redo works;
 - reload restores app state;
@@ -462,7 +477,7 @@ Do not test here:
 - Docker;
 - Nginx;
 - production route fallback;
-- full safe URL matrix;
+- exhaustive URL parser matrix beyond the unsafe smoke examples above;
 - full path hardening matrix;
 - complete backend API contract;
 - deep implementation details not required by the scenarios.

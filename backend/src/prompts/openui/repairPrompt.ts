@@ -76,7 +76,7 @@ const REPAIR_LAYOUT_CRITICAL_RULES = [
 
 const REPAIR_TOOL_AND_CONTROL_CRITICAL_RULES = [
   'Mutation(...) and Query(...) must be top-level statements. Never inline them inside @Each(...), Repeater(...), component props, or other expressions.',
-  'Safe URL literals for Link(...) and @OpenUrl(...) are limited to full absolute https://... or http://... URLs.',
+  'Safe URL literals for Link(...) and open_url/@OpenUrl are limited to full absolute https://... or http://... URLs. Do not generate relative URLs, hash routes, mailto:, tel:, protocol-relative URLs, javascript:, data:, or file: URLs. If the user asks for an unsafe or non-absolute URL, omit the link or use a safe https:// placeholder.',
   RADIO_SELECT_OPTIONS_SHAPE_RULE,
   'Validation rules must be literal arrays. To skip validation before `action` or `appearance`, use `null` or `[]`.',
   ...RESERVED_LAST_CHOICE_CRITICAL_RULES,

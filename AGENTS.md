@@ -108,8 +108,8 @@ Steps:
   - `remove_state(path, index)`
 - Built-in action events exposed by the runtime:
   - `@OpenUrl(...)` uses the OpenUI action event bridge, not the persisted tool provider
-  - `Link(...)` and `@OpenUrl(...)` share the same safe URL allowlist: `https:`, `http:`, `mailto:`, `tel:`, app-relative `/...`, and hash `#...`
-  - when the standalone export is opened from `file://`, root-relative `/...` links and hash/self `#...` links are intentionally rejected because there is no hosted app router or stable origin behind the standalone file
+  - `Link(...)` and `@OpenUrl(...)` share the same strict URL policy: full absolute `https://...` and `http://...` URLs only
+  - relative paths, hash links, `mailto:`, `tel:`, protocol-relative `//...`, `javascript:`, `data:`, and `file:` URLs are invalid at source validation and inert at runtime
 - Persisted tool contract:
   - paths must be non-empty dot-paths no deeper than 10 segments
   - path segments may use only letters, numbers, `_`, or `-`
@@ -159,7 +159,7 @@ Steps:
 - The frontend prefers streaming via `POST /api/llm/generate/stream`
 - If streaming fails before the first chunk, the frontend falls back to `POST /api/llm/generate`
 - The frontend validates generated OpenUI locally against `builderOpenUiLibrary.toJSONSchema()`
-- The frontend rejects OpenUI source above 50,000 characters or 300 statements before commit, import, or restore; rejected streamed or imported source stays in Definition while Preview keeps the last committed source
+- The frontend rejects OpenUI source above 80,000 characters or 300 statements before commit, import, or restore; rejected streamed or imported source stays in Definition while Preview keeps the last committed source
 - If the generated source is invalid or fails blocking quality checks, the frontend performs up to the configured automatic repair limit by sending repair prompts back to the backend (default: 2 attempts)
 - Automatic repair requests are continuation requests only: the backend records one-use repair rate-limit credits after a completed generation or repair, and the next repair request consumes the matching `x-kitto-automatic-repair` / `x-kitto-repair-for` / `x-kitto-repair-attempt` credit
 - The repair prompt includes the original user request, the current committed valid source, the invalid draft, validation issues, and the current critical OpenUI syntax rules

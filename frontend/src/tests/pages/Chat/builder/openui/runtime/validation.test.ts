@@ -74,6 +74,18 @@ root = AppShell([
   ])
 ])`;
 
+const UNSAFE_URL_LITERALS = [
+  '/about',
+  '#section',
+  'mailto:test@example.com',
+  'tel:+491234',
+  '//example.com',
+  'javascript:alert(1)',
+  'data:text/html;base64,PGgxPkJhZDwvaDE+',
+  'file:///etc/passwd',
+  'https://example.com/foo bar',
+] as const;
+
 describe('validateOpenUiSource', () => {
   it('rejects empty source', () => {
     const result = validateOpenUiSource('   ');
@@ -869,29 +881,6 @@ root = AppShell([
     );
   });
 
-  it('reports a concrete unsafe URL issue for literal open_url mutations', () => {
-    const source = `openBad = Mutation("open_url", { url: "data:text/html;base64,PGgxPkJhZDwvaDE+" })
-root = AppShell([
-  Screen("main", "Main", [
-    Button("bad", "Open", "default", Action([@Run(openBad)]), false)
-  ])
-])`;
-    const result = validateOpenUiSource(source);
-
-    expect(result.isValid).toBe(false);
-    expect(result.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: 'unsafe-url-literal',
-          message: expect.stringContaining('data:text/html;base64,PGgxPkJhZDwvaDE+'),
-          severity: 'fatal-quality',
-          source: 'quality',
-          statementId: 'openBad',
-        }),
-      ]),
-    );
-  });
-
   it('rejects query and mutation tool names outside the allowlist', () => {
     const result = validateOpenUiSource(`items = Query("fetch_state", { path: "app.items" }, [])
 saveItem = Mutation("delete_state", { path: "app.items", index: 0 })
@@ -1180,15 +1169,10 @@ root = AppShell([
     expect(detectLocalRuntimeQualityIssues(source).find((issue) => issue.code === 'unsafe-url-literal')).toBeUndefined();
   });
 
-  it.each([
-    ['mailto:test@example.com'],
-    ['tel:+491234'],
-    ['/about'],
-    ['#section'],
-  ])('rejects non-http URL literal %s during source validation', (url) => {
+  it.each(UNSAFE_URL_LITERALS)('rejects unsafe Link URL literal %s during source validation', (url) => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
-    Link("Blocked", "${url}")
+    Link("Blocked", ${JSON.stringify(url)})
   ])
 ])`);
 
@@ -1201,6 +1185,49 @@ root = AppShell([
           severity: 'fatal-quality',
           source: 'quality',
           statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it.each(UNSAFE_URL_LITERALS)('rejects unsafe @OpenUrl URL literal %s during source validation', (url) => {
+    const result = validateOpenUiSource(`root = AppShell([
+  Screen("main", "Main", [
+    Button("bad", "Open", "default", Action([@OpenUrl(${JSON.stringify(url)})]), false)
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unsafe-url-literal',
+          message: expect.stringContaining(url),
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'root',
+        }),
+      ]),
+    );
+  });
+
+  it.each(UNSAFE_URL_LITERALS)('rejects unsafe open_url mutation URL literal %s during source validation', (url) => {
+    const result = validateOpenUiSource(`openBad = Mutation("open_url", { url: ${JSON.stringify(url)} })
+root = AppShell([
+  Screen("main", "Main", [
+    Button("bad", "Open", "default", Action([@Run(openBad)]), false)
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unsafe-url-literal',
+          message: expect.stringContaining(url),
+          severity: 'fatal-quality',
+          source: 'quality',
+          statementId: 'openBad',
         }),
       ]),
     );

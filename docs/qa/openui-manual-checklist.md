@@ -38,7 +38,7 @@ Guardrails:
 - Confirm the user prompt template documents the role-based repair input shape: system repair instruction, user `<original_user_request>` / optional `<conversation_context>` / protected full `<current_source>` up to `sourceMaxChars`, assistant `<model_draft_that_failed>`, and final user `<validation_issues>` / `<hints>` with the corrected-source instruction.
 - Confirm the `<request_intent>` block appears inside `<intent_context>` as one readable sentence beginning `This request appears to be:` and summarizes operation, screen flow, scope, and detected feature hints.
 - Confirm intent-specific rules live in the system intent layer; `<intent_context>` carries request intent, relevant fragment/full examples, and stable examples without duplicating those rules.
-- Confirm the final user turn contains `<latest_user_request>` plus full `<current_source>` for normal follow-up generation while the committed source stays at or below the 50,000 character emergency cap. It must not replace the authoritative source with inventory, currentSourceItems, summaries, or `appMemory`.
+- Confirm the final user turn contains `<latest_user_request>` plus full `<current_source>` for normal follow-up generation while the committed source stays at or below the 80,000 character emergency cap. It must not replace the authoritative source with inventory, currentSourceItems, summaries, or `appMemory`.
 - Confirm requests may include optional `previousSource`; when present, the final user turn may include `<previous_changes>` with a short source-delta summary after protected request/source blocks.
 - Confirm source-inventory/currentSourceItems diagnostics are optional hints only when present. Normal follow-up generation must keep protected `<current_source>` as the source of truth and must not switch to inventory-only or summary-only context.
 - Confirm the user prompt template says the structured `summary` must describe the visible app/change in one complete user-facing sentence under 200 characters, includes bad/good summary examples, and rejects generic phrasing such as `Updated the app`.
@@ -94,7 +94,7 @@ Guardrails:
 - After that generation failure, an empty composer shows an enabled `Repeat` primary action that resubmits the last failed prompt.
 - `Repeat` must use the normal initial-generation path instead of the automatic repair continuation path, so it starts with its own repair attempt budget and does not reuse a repair rate-limit credit from the prior failed run.
 - Typing any new prompt into the composer changes that primary action back to `Send` immediately.
-- If a rejected generation draft is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state. Imports are different: every import attempt resets the builder first, so invalid imports leave Preview on the reset blank state.
+- If a rejected generation draft is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state. Invalid imports are atomic: invalid JSON leaves the previous committed Preview active, and parser-invalid OpenUI imports may show the rejected source in Definition while Preview/runtime/domain state stay on the previous committed app.
 - Frontend stream idle timeout or max-duration timeout must abort the in-flight request, surface a controlled failure message, and keep the last committed Preview visible.
 - Automatic repair timeout or backend-reachability failures must keep the last committed Preview visible and surface repair-specific failure text instead of retrying the whole initial request as a silent fallback.
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.
@@ -114,7 +114,7 @@ Guardrails:
 - Starting a valid JSON import during an active generation also counts as an intentional abort: the in-flight request is cancelled, the import wins, and any late generation response is ignored.
 - Successful JSON import, demo load, and builder reset start fresh builder chat context for the new app or blank canvas; stale pre-change user requests must not be sent on the next generation.
 - Undo, redo, and builder reset in the chat toolbar are disabled during generation; use `Cancel` first before changing builder history or clearing the builder.
-- Invalid import resets the builder first, so the previous committed Preview/runtime/domain state is cleared before the failure is surfaced. Parser-invalid OpenUI imports may still show the rejected source in Definition with parse issues, while Preview falls back to the reset blank state.
+- Invalid import must not replace the committed source or clear the previous Preview/runtime/domain state. Invalid JSON leaves Definition and Preview on the previous committed source; parser-invalid OpenUI imports may show the rejected source in Definition with parse issues while Preview continues rendering the previous committed app.
 - Invalid import surfaces one clear failure status message instead of duplicate import errors.
 - Reload restores the last committed Preview source together with the current live runtime state, persisted domain data, and undo/redo history.
 - New chat-generated commits intentionally reset local runtime state instead of migrating screen/form variables across source versions.
@@ -151,7 +151,7 @@ Guardrails:
 - `random_int` uses integer `min` / `max` options only and must stay inside the clamped safe range.
 - Invalid tool arguments must surface as runtime/tool issues without crashing the app or mutating persisted data.
 - `@OpenUrl` is handled through the OpenUI built-in action event bridge, not through persisted tools.
-- `Link(...)` and `@OpenUrl(...)` must share the same URL allowlist: full absolute `https://...` and `http://...` URLs only. `mailto:`, `tel:`, app-relative `/...`, hash links `#...`, and protocol-relative `//...` URLs must be invalid at source validation and inert at runtime.
+- `Link(...)` and `@OpenUrl(...)` must share the same strict URL policy: full absolute `https://...` and `http://...` URLs only. `mailto:`, `tel:`, app-relative `/...`, hash links `#...`, and protocol-relative `//...` URLs must be invalid at source validation and inert at runtime.
 - `Link(...)` must render inert text instead of an anchor when the URL is empty, malformed, or uses blocked schemes such as `javascript:`, `data:`, or `blob:`.
 - `@OpenUrl(...)` must ignore empty, malformed, or blocked URLs without throwing.
 - Source validation must rely on the OpenUI parser AST/component/built-in allowlists for executable surface. Regex checks are only defence-in-depth for executable-looking syntax outside string literals; URL protocol decisions belong only to `safeUrl.ts`.
@@ -538,7 +538,7 @@ Builder controls that should stay working alongside generated apps:
 - import/export
 - standalone HTML export
 - builder feedback and backend connection notices append as chat history messages at the end of the dialog instead of showing a top feedback banner
-- invalid import should reset the builder first, then show one clear failure state; parser-invalid OpenUI imports may show Definition validation issues, but stale preview, chat, undo/redo history, runtime state, and persisted data should be cleared
+- invalid import should show one clear failure state without clearing the previous committed preview, chat, undo/redo history, runtime state, or persisted data; parser-invalid OpenUI imports may show Definition validation issues, but committed Preview stays on the previous valid app
 - undo/redo when generation is not active
 - reset when generation is not active
 
