@@ -12,32 +12,12 @@ import { domainActions } from '@pages/Chat/builder/store/domainSlice';
 import type {
   BuilderGeneratedDraft,
   PromptBuildRequest,
-  BuilderLlmRequestCompaction,
   PromptBuildValidationIssue,
   BuilderRequestId,
 } from '@pages/Chat/builder/types';
 import type { AppDispatch } from '@store/store';
 import { BuilderRequestAbortedError, isAbortError } from './useGenerationLifecycle';
 import { OpenUiValidationError } from './useValidationRepair';
-
-function createCompactionNotice(compaction?: BuilderLlmRequestCompaction) {
-  if (!compaction || compaction.omittedChatMessages <= 0) {
-    return null;
-  }
-
-  const omittedLabel = compaction.omittedChatMessages === 1 ? '1 older message' : `${compaction.omittedChatMessages} older messages`;
-  const omittedVerb = compaction.omittedChatMessages === 1 ? 'was' : 'were';
-
-  if (compaction.compactedByBytes) {
-    return `The request was too large, so ${omittedLabel} ${omittedVerb} omitted before sending it to the model.`;
-  }
-
-  if (compaction.compactedByItemLimit) {
-    return `The chat context was compacted to keep the earliest user request and the newest context, so ${omittedLabel} ${omittedVerb} omitted from this request.`;
-  }
-
-  return null;
-}
 
 type BuilderGenerationPhase = 'streaming' | 'fallback' | 'committing' | 'completed' | 'cancelled' | 'failed';
 
@@ -99,8 +79,8 @@ interface BuilderValidationRepairPort {
     appMemory: BuilderGeneratedDraft['appMemory'];
     changeSummary: BuilderGeneratedDraft['changeSummary'];
     commitSource: BuilderGeneratedDraft['commitSource'];
-    note?: string;
     promptContext?: BuilderGeneratedDraft['promptContext'];
+    repairAttemptCount?: number;
     requestId: BuilderRequestId;
     source: string;
     summary?: string;
@@ -123,30 +103,18 @@ interface RunBuilderGenerationOptions {
   validationRepair: BuilderValidationRepairPort;
 }
 
-function applyCompactionNotice({
-  compaction,
-  dispatch,
-  lifecycle,
-  requestId,
-}: {
-  compaction?: BuilderLlmRequestCompaction;
-  dispatch: AppDispatch;
-  lifecycle: BuilderGenerationLifecyclePort;
-  requestId: BuilderRequestId;
-}) {
-  const compactionNotice = createCompactionNotice(compaction);
+function appendRepairAttemptCount(summary: string | undefined, repairAttemptCount?: number) {
+  const trimmedSummary = summary?.trim() ?? '';
 
-  if (!compactionNotice || !lifecycle.isActiveRequest(requestId)) {
-    return;
+  if (!trimmedSummary) {
+    return undefined;
   }
 
-  dispatch(
-    builderActions.appendChatMessage({
-      role: 'system',
-      tone: 'info',
-      content: compactionNotice,
-    }),
-  );
+  if (!repairAttemptCount || repairAttemptCount <= 0) {
+    return trimmedSummary;
+  }
+
+  return `${trimmedSummary} (${repairAttemptCount})`;
 }
 
 async function commitGeneratedSource({
@@ -172,7 +140,14 @@ async function commitGeneratedSource({
   const validatedResult = await validationRepair.ensureValidGeneratedSource(response, request, requestId);
   lifecycle.throwIfInactiveRequest(requestId);
   const recoveredDomainData = recoverStaleNavigationDomainData(validatedResult.source, getDomainData());
-  const committedSummary = streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary);
+  const committedSummary = appendRepairAttemptCount(
+    streamingSummary.getCommittedSummary(requestId, validatedResult.summary ?? response.summary),
+    validatedResult.repairAttemptCount,
+  );
+  const finalSummary = committedSummary ?? appendRepairAttemptCount(
+    validatedResult.summary ?? response.summary,
+    validatedResult.repairAttemptCount,
+  );
   const committedSummaryExcludeFromLlmContext =
     validatedResult.summary !== undefined
       ? validatedResult.summaryExcludeFromLlmContext
@@ -180,7 +155,7 @@ async function commitGeneratedSource({
   const snapshot = createBuilderSnapshot(validatedResult.source, {}, recoveredDomainData.domainData, {
     appMemory: validatedResult.appMemory,
     changeSummary: validatedResult.changeSummary,
-    summary: committedSummary ?? validatedResult.summary ?? response.summary,
+    summary: finalSummary,
   });
 
   if (committedSummary) {
@@ -191,12 +166,6 @@ async function commitGeneratedSource({
     streamingSummary.clearStreamingSummaryMessage(requestId);
   }
 
-  applyCompactionNotice({
-    compaction: response.compaction,
-    dispatch,
-    lifecycle,
-    requestId,
-  });
   lifecycle.throwIfInactiveRequest(requestId);
   if (recoveredDomainData.didRecover) {
     dispatch(domainActions.replaceData(recoveredDomainData.domainData));
@@ -209,11 +178,10 @@ async function commitGeneratedSource({
       historySummary: response.historySummary ?? request.historySummary,
       requestId,
       source: validatedResult.source,
-      note: validatedResult.note,
       promptContext: validatedResult.promptContext,
       skipDefaultAssistantMessage: Boolean(committedSummary),
       snapshot,
-      summary: committedSummary ?? validatedResult.summary ?? response.summary,
+      summary: finalSummary,
       warnings: validatedResult.warnings,
     }),
   );

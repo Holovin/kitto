@@ -1319,6 +1319,11 @@ describe('useBuilderSubmission', () => {
     testHarness.streamMock.mockResolvedValue({
       source: VALID_STREAM_SOURCE,
       historySummary: 'Backend compacted summary.',
+      compaction: {
+        compactedByBytes: false,
+        compactedByItemLimit: true,
+        omittedChatMessages: 2,
+      },
     });
 
     await submission.result().handleSubmit(createFormEvent());
@@ -1344,6 +1349,9 @@ describe('useBuilderSubmission', () => {
       'Context request 6',
     ]);
     expect(getBuilderState().history.at(-1)?.historySummary).toBe('Backend compacted summary.');
+    expect(
+      getBuilderState().chatMessages.some((message) => message.content.includes('The chat context was compacted')),
+    ).toBe(false);
 
     submission.unmount();
   });
@@ -1698,6 +1706,7 @@ describe('useBuilderSubmission', () => {
       source: PARSER_INVALID_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
+      summary: 'Built the todo list.',
       source: VALID_TODO_SOURCE,
     });
 
@@ -1708,9 +1717,8 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had parser issues, so it was repaired automatically before commit.',
+        content: 'Built the todo list. (1)',
         role: 'assistant',
-        tone: 'success',
       }),
     );
 
@@ -1754,7 +1762,7 @@ describe('useBuilderSubmission', () => {
     await requestPromise;
 
     expect(findRepairStatusMessages()).toEqual([]);
-    expect(findChatMessage('Builds a repaired todo list')?.id).toBe(repairStatus?.id);
+    expect(findChatMessage('Builds a repaired todo list (1)')?.id).toBe(repairStatus?.id);
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
 
     submission.unmount();
@@ -1801,7 +1809,7 @@ describe('useBuilderSubmission', () => {
     });
     await requestPromise;
 
-    expect(findChatMessage('Builds a repaired todo list')?.id).toBe(secondRetryStatus?.id);
+    expect(findChatMessage('Builds a repaired todo list (2)')?.id).toBe(secondRetryStatus?.id);
     expect(getBuilderState().committedSource).toBe(VALID_TODO_SOURCE);
 
     submission.unmount();
@@ -1927,6 +1935,7 @@ describe('useBuilderSubmission', () => {
       source: FATAL_STRUCTURAL_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
+      summary: 'Built the app.',
       source: VALID_STREAM_SOURCE,
     });
 
@@ -1952,9 +1961,8 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
+        content: 'Built the app. (1)',
         role: 'assistant',
-        tone: 'success',
       }),
     );
 
@@ -2021,6 +2029,7 @@ describe('useBuilderSubmission', () => {
       source: QUALITY_BLOCKED_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
+      summary: 'Built the todo list.',
       source: VALID_TODO_SOURCE,
     });
 
@@ -2055,9 +2064,8 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
+        content: 'Built the todo list. (1)',
         role: 'assistant',
-        tone: 'success',
       }),
     );
 
@@ -2255,6 +2263,7 @@ describe('useBuilderSubmission', () => {
         source: invalidSource,
       });
       testHarness.generateMock.mockResolvedValue({
+        summary: `Repaired ${controlName}.`,
         source: repairedSource,
       });
 
@@ -2272,9 +2281,8 @@ describe('useBuilderSubmission', () => {
       expect(findRepairStatusMessages()).toEqual([]);
       expect(getBuilderState().chatMessages.at(-1)).toEqual(
         expect.objectContaining({
-          content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
+          content: `Repaired ${controlName}. (1)`,
           role: 'assistant',
-          tone: 'success',
         }),
       );
 
@@ -2326,6 +2334,7 @@ describe('useBuilderSubmission', () => {
       source: SMOKE_COMPLEX_LAST_CHOICE_SOURCE,
     });
     testHarness.generateMock.mockResolvedValue({
+      summary: 'Built the complex app.',
       source: REPAIRED_SMOKE_COMPLEX_SOURCE,
     });
 
@@ -2349,9 +2358,8 @@ describe('useBuilderSubmission', () => {
     expect(findRepairStatusMessages()).toEqual([]);
     expect(getBuilderState().chatMessages.at(-1)).toEqual(
       expect.objectContaining({
-        content: 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.',
+        content: 'Built the complex app. (1)',
         role: 'assistant',
-        tone: 'success',
       }),
     );
 

@@ -378,22 +378,6 @@ export function useValidationRepair({
       return getRepairAttemptCount();
     }
 
-    function buildRepairNote() {
-      if (parserRepairCount > 0 && qualityRepairCount > 0) {
-        return 'The first draft had parser issues and fatal or blocking quality issues, so it was repaired automatically before commit.';
-      }
-
-      if (parserRepairCount > 0) {
-        return 'The first draft had parser issues, so it was repaired automatically before commit.';
-      }
-
-      if (qualityRepairCount > 0) {
-        return 'The first draft had fatal or blocking quality issues, so it was repaired automatically before commit.';
-      }
-
-      return undefined;
-    }
-
     function reportRejectedCandidate(issues: PromptBuildValidationIssue[]) {
       if (candidateResponse.requestId.trim().length === 0) {
         return;
@@ -581,8 +565,8 @@ export function useValidationRepair({
           appMemory: candidateResponse.appMemory,
           changeSummary: candidateResponse.changeSummary,
           commitSource: candidateResponse.commitSource,
-          note: hasCompletedRepairRequest ? buildRepairNote() : undefined,
           promptContext: candidateResponse.promptContext,
+          repairAttemptCount: hasCompletedRepairRequest ? getRepairAttemptCount() : 0,
           requestId: candidateResponse.requestId,
           source: candidateResponse.source,
           summary: candidateResponse.summary,
