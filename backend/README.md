@@ -48,7 +48,9 @@ The backend loads `backend/.env` relative to its own package path, so PM2 can ke
 
 Environment variables are for deploy/runtime tuning. Fine-grained prompt section caps are intentionally code constants, not env variables, because they are part of the OpenUI generation contract.
 
-These values are parsed and validated in `src/env.ts`. The browser receives the public request limits from `GET /api/config`.
+These values are parsed and cross-validated in `src/env.ts`. Keep dependent limits compatible: `LLM_MODEL_PROMPT_MAX_CHARS` must fit two `CURRENT_SOURCE_EMERGENCY_MAX_CHARS` snapshots, one `LLM_USER_PROMPT_MAX_CHARS` prompt, and repair overhead; `LLM_REQUEST_MAX_BYTES` and `LLM_OUTPUT_MAX_BYTES` must also be large enough for the source cap. `REQUEST_BODY_LIMIT_BYTES` must be at least `LLM_REQUEST_MAX_BYTES`, and `STREAM_IDLE_TIMEOUT_MS` must not exceed `OPENAI_REQUEST_TIMEOUT_MS`.
+
+The browser receives the public request limits from `GET /api/config`.
 
 ## API
 
