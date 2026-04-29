@@ -304,19 +304,19 @@ function validateNavigateScreenTargets(result: ParseResult): PromptBuildValidati
   });
 }
 
-function isSafeMutationReferenceUse(line: string, referenceIndex: number, statementId: string) {
-  const beforeReference = line.slice(0, referenceIndex);
-  const afterReference = line.slice(referenceIndex + statementId.length);
+function isSafeMutationReferenceUse(maskedSource: string, referenceIndex: number, statementId: string) {
+  const beforeReference = maskedSource.slice(0, referenceIndex);
+  const afterReference = maskedSource.slice(referenceIndex + statementId.length);
 
-  if (/^\s*$/.test(beforeReference) && /^\s*=\s*Mutation\s*\(/.test(afterReference)) {
+  if (/(^|\n)\s*$/.test(beforeReference.slice(-120)) && /^\s*=\s*Mutation\s*\(/.test(afterReference)) {
     return true;
   }
 
-  if (/@Run\(\s*$/.test(beforeReference) && /^\s*\)/.test(afterReference)) {
+  if (/@Run\s*\(\s*$/.test(beforeReference.slice(-120)) && /^\s*\)/.test(afterReference.slice(0, 120))) {
     return true;
   }
 
-  if (/^\s*\.(data|status|error)\b/.test(afterReference)) {
+  if (/^\s*\.(data|status|error)\b/.test(afterReference.slice(0, 80))) {
     return true;
   }
 
@@ -333,27 +333,23 @@ function validateMutationReferenceUsage(source: string, result: ParseResult): Pr
 
   for (const mutation of result.mutationStatements) {
     const referencePattern = new RegExp(`(?<![\\w$])${escapeRegExp(mutation.statementId)}(?![\\w$])`, 'g');
-    const maskedLines = maskedSource.split('\n');
+    let match: RegExpExecArray | null = referencePattern.exec(maskedSource);
 
-    for (const line of maskedLines) {
-      let match: RegExpExecArray | null = referencePattern.exec(line);
+    while (match) {
+      const matchIndex = match.index ?? 0;
 
-      while (match) {
-        const matchIndex = match.index ?? 0;
-
-        if (!isSafeMutationReferenceUse(line, matchIndex, mutation.statementId)) {
-          issues.push(
-            createParserIssue({
-              code: 'invalid-mutation-reference',
-              message: `Mutation statement "${mutation.statementId}" cannot be used as a bare UI value. Read the persisted value with Query("read_state", ...) or use ${mutation.statementId}.data.value after checking ${mutation.statementId}.status.`,
-              statementId: mutation.statementId,
-            }),
-          );
-          break;
-        }
-
-        match = referencePattern.exec(line);
+      if (!isSafeMutationReferenceUse(maskedSource, matchIndex, mutation.statementId)) {
+        issues.push(
+          createParserIssue({
+            code: 'invalid-mutation-reference',
+            message: `Mutation statement "${mutation.statementId}" cannot be used as a bare UI value. Read the persisted value with Query("read_state", ...) or use ${mutation.statementId}.data.value after checking ${mutation.statementId}.status.`,
+            statementId: mutation.statementId,
+          }),
+        );
+        break;
       }
+
+      match = referencePattern.exec(maskedSource);
     }
   }
 

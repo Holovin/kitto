@@ -4,6 +4,7 @@ import {
   validateOpenUiSource,
   validateOpenUiSourceWithContext,
 } from '@pages/Chat/builder/openui/runtime/validation';
+import { OPENUI_SOURCE_LIMITS } from '@pages/Chat/builder/openui/runtime/validationLimits';
 import { createOpenUiProgramIndex, isElementNode, parser } from '@pages/Chat/builder/openui/runtime/validation/shared';
 
 const validSource = `root = AppShell([
@@ -452,6 +453,129 @@ root = AppShell([
     });
   });
 
+  it.each([
+    [
+      'inline @Run',
+      `Button("roll-button", "Roll", "default", Action([@Run(rollResult)]), false)`,
+    ],
+    [
+      'multiline @Run',
+      `Button("roll-button", "Roll", "default", Action([
+  @Run(
+    rollResult
+  )
+]), false)`,
+    ],
+    [
+      'multiline @Run inside a multi-step action',
+      `Button("roll-button", "Roll", "default", Action([
+  @Run(
+    rollResult
+  ),
+  @Run(
+    rollValue
+  )
+]), false)`,
+    ],
+  ])('accepts mutation refs in %s', (_name, actionSource) => {
+    const result = validateOpenUiSource(`rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+rollValue = Query("read_state", { path: "app.rollResult" }, null)
+
+root = AppShell([
+  Screen("main", "Roll", [
+    ${actionSource}
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it.each(['data', 'status', 'error'])('accepts mutation %s access', (propertyName) => {
+    const result = validateOpenUiSource(`rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+root = AppShell([
+  Screen("main", "Roll", [
+    Text(rollResult.${propertyName}, "body", "start")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
+  it.each([
+    ['inline Text', `Text(rollResult, "body", "start")`],
+    [
+      'multiline Text',
+      `Text(
+  rollResult,
+  "body",
+  "start"
+)`,
+    ],
+    ['Group child', `Group("x", "vertical", [rollResult])`],
+  ])('rejects bare mutation refs in %s', (_name, usageSource) => {
+    const result = validateOpenUiSource(`rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+root = AppShell([
+  Screen("main", "Roll", [
+    ${usageSource}
+  ])
+])`);
+
+    expect(result.isValid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'invalid-mutation-reference',
+          statementId: 'rollResult',
+        }),
+      ]),
+    );
+  });
+
+  it('does not flag mutation ids inside string literals', () => {
+    const result = validateOpenUiSource(`rollResult = Mutation("write_computed_state", {
+  path: "app.rollResult",
+  op: "random_int",
+  options: { min: 1, max: 100 },
+  returnType: "number"
+})
+
+root = AppShell([
+  Screen("main", "Roll", [
+    Button("roll-button", "Roll", "default", Action([@Run(rollResult)]), false),
+    Text("rollResult", "body", "start")
+  ])
+])`);
+
+    expect(result).toEqual({
+      isValid: true,
+      issues: [],
+    });
+  });
+
   it('accepts appearance props on the supported themed components', () => {
     const result = validateOpenUiSource(`root = AppShell([
   Screen("main", "Main", [
@@ -816,7 +940,7 @@ root = AppShell([
   it('rejects source above the configured size limit', () => {
     const oversizedSource = `root = AppShell([
   Screen("main", "Main", [
-    Text("${'A'.repeat(50_100)}", "body", "start")
+    Text("${'A'.repeat(OPENUI_SOURCE_LIMITS.maxSourceChars + 1)}", "body", "start")
   ])
 ])`;
 
