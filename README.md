@@ -133,7 +133,7 @@ Notes:
 - `compute_value` and `write_computed_state` both return `{ value }`, where `value` is always a primitive string, number, or boolean.
 - `write_computed_state` computes a safe primitive and writes it into persisted state at the validated path.
 - Persisted tool paths must be non-empty dot-paths up to 10 segments deep and reject `__proto__`, `prototype`, and `constructor`.
-- Import/export uses a versioned JSON format and validates before apply; invalid imports stay in Definition and do not replace the current committed preview.
+- Import/export uses a versioned JSON format. Any import attempt starts from a fresh builder state; invalid imports surface a clear failure message and leave Preview on the reset blank state.
 - Standalone HTML export always uses the latest committed source and the committed snapshot baseline state, not the current live clicked state.
 
 ## 9. API surface

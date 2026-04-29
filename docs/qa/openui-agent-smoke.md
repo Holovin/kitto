@@ -436,7 +436,8 @@ After smoke:
 - no uncaught Console errors;
 - preview internal clicks do not trigger fresh `/api/llm/generate*` requests;
 - obviously oversized requests are blocked in the UI with a clear error before any `/api/llm/*` generation request is sent;
-- invalid drafts/imports do not replace committed preview;
+- invalid generation drafts do not replace committed preview;
+- invalid imports reset the builder first, then surface one clear failure state with Preview on the blank reset state;
 - import/export works;
 - undo/redo works;
 - reload restores app state;

@@ -94,7 +94,7 @@ Guardrails:
 - After that generation failure, an empty composer shows an enabled `Repeat` primary action that resubmits the last failed prompt.
 - `Repeat` must use the normal initial-generation path instead of the automatic repair continuation path, so it starts with its own repair attempt budget and does not reuse a repair rate-limit credit from the prior failed run.
 - Typing any new prompt into the composer changes that primary action back to `Send` immediately.
-- If a rejected cached/imported definition is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state.
+- If a rejected generation draft is visible and there is no committed preview source to fall back to, Preview shows `Preview is unavailable` with a light error treatment instead of the normal empty state. Imports are different: every import attempt resets the builder first, so invalid imports leave Preview on the reset blank state.
 - Frontend stream idle timeout or max-duration timeout must abort the in-flight request, surface a controlled failure message, and keep the last committed Preview visible.
 - Automatic repair timeout or backend-reachability failures must keep the last committed Preview visible and surface repair-specific failure text instead of retrying the whole initial request as a silent fallback.
 - Preview runtime issues reflect the current committed preview only and clear after a different valid committed source replaces the crashing one.

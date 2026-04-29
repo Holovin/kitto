@@ -44,7 +44,7 @@ Do not write test results into `docs/qa/openui-agent-smoke.md`; keep that file a
 | No uncaught Console errors | TODO |  |
 | Preview internal clicks do not trigger fresh `/api/llm/generate*` requests | TODO |  |
 | Oversized requests are blocked in the UI before generation | TODO |  |
-| Invalid drafts/imports do not replace committed preview | TODO |  |
+| Invalid generation drafts keep committed preview; imports always reset first | TODO |  |
 | Import/export works | TODO |  |
 | Undo/redo works | TODO |  |
 | Reload restores app state | TODO |  |
