@@ -22,6 +22,9 @@ interface PromptIoLogEntryFields {
   phase: PromptIoLogPhase;
   rawUserRequest?: string;
   budgetDecision?: unknown;
+  committedSourceChars?: number;
+  committedSourceIncluded?: boolean;
+  committedSourceProtected?: boolean;
   currentSourceChars?: number;
   currentSourceIncluded?: boolean;
   currentSourceItemsIncluded?: boolean;
@@ -37,6 +40,7 @@ interface PromptIoLogEntryFields {
   modelInput?: unknown;
   modelOutputRaw?: string;
   parsedEnvelope?: unknown;
+  repairPromptMaxChars?: number;
   usage?: unknown;
   qualityWarnings?: string[];
   validationIssues: string[];

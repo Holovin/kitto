@@ -45,11 +45,15 @@ type DroppedPromptSection =
 
 export interface PromptContextLogMetadata {
   budgetDecision: BudgetDecision;
+  committedSourceChars: number;
+  committedSourceIncluded: boolean;
+  committedSourceProtected: boolean;
   currentSourceChars: number;
   currentSourceIncluded: boolean;
   currentSourceItemsIncluded: boolean;
   currentSourceProtected: boolean;
   droppedSections: DroppedPromptSection[];
+  repairPromptMaxChars?: number;
 }
 
 interface OpenAiRequestIdCapture {
@@ -318,11 +322,15 @@ function createPromptContextMetadata(
 
   return {
     budgetDecision,
+    committedSourceChars: request.currentSource.length,
+    committedSourceIncluded: currentSourceIncluded,
+    committedSourceProtected: currentSourceProtected,
     currentSourceChars: request.currentSource.length,
     currentSourceIncluded,
     currentSourceItemsIncluded: fullText.includes('<current_source_inventory>'),
     currentSourceProtected,
     droppedSections,
+    ...(request.mode === 'repair' ? { repairPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS } : {}),
   };
 }
 
@@ -854,7 +862,12 @@ function buildRepairResponseInputVariant(
   ];
 }
 
-function buildBudgetedRepairResponseInput(env: AppEnv, systemPrompt: string, request: PromptBuildRequest): ResponseInput {
+function buildBudgetedRepairResponseInput(
+  env: AppEnv,
+  systemPrompt: string,
+  request: PromptBuildRequest,
+): { droppedSections: DroppedPromptSection[]; input: ResponseInput; metadataRequest: PromptBuildRequest } {
+  const droppedSections: DroppedPromptSection[] = [];
   let input = buildRepairResponseInputVariant(env, systemPrompt, request, {
     appMemory: request.appMemory,
     historySummary: request.historySummary,
@@ -863,9 +876,21 @@ function buildBudgetedRepairResponseInput(env: AppEnv, systemPrompt: string, req
   });
 
   if (getResponseInputChars(input) <= env.LLM_MODEL_PROMPT_MAX_CHARS) {
-    return input;
+    return {
+      droppedSections,
+      input,
+      metadataRequest: request,
+    };
   }
 
+  droppedSections.push(
+    'previousChangeSummaries',
+    'previousUserMessages',
+    'historySummary',
+    'appMemory.avoid',
+    'appMemory.userPreferences',
+    'appMemory.appSummary',
+  );
   input = buildRepairResponseInputVariant(env, systemPrompt, request, {
     appMemory: cropAppMemorySummary(request.appMemory),
     historySummary: undefined,
@@ -874,7 +899,17 @@ function buildBudgetedRepairResponseInput(env: AppEnv, systemPrompt: string, req
   });
 
   assertProtectedPromptWithinModelBudget(env, input);
-  return input;
+  return {
+    droppedSections,
+    input,
+    metadataRequest: {
+      ...request,
+      appMemory: cropAppMemorySummary(request.appMemory),
+      historySummary: undefined,
+      previousChangeSummaries: [],
+      previousUserMessages: [],
+    },
+  };
 }
 
 function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest): {
@@ -890,11 +925,11 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
   const systemPrompt = buildOpenUiSystemPromptForIntents(requestIntent);
 
   if (request.mode === 'repair') {
-    const input = buildBudgetedRepairResponseInput(env, systemPrompt, request);
+    const { droppedSections, input, metadataRequest } = buildBudgetedRepairResponseInput(env, systemPrompt, request);
 
     return {
       input,
-      metadata: createPromptContextMetadata(env, request, input, []),
+      metadata: createPromptContextMetadata(env, metadataRequest, input, droppedSections),
     };
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
 import { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
 
@@ -118,6 +119,45 @@ describe('repair prompt assembly', () => {
     expect(extractDataBlock(messages.correctionRequest, 'validation_issues')).toBe(
       '- Validation issues were detected, but they could not be enumerated in full.',
     );
+  });
+
+  it('keeps committed source up to the emergency cap in role-based repair context', () => {
+    const tail = 'COMMITTED-SOURCE-TAIL';
+    const committedSource = `${'c'.repeat(CURRENT_SOURCE_EMERGENCY_MAX_CHARS - tail.length)}${tail}`;
+    const messages = buildOpenUiRepairRoleMessages({
+      attemptNumber: 1,
+      committedSource,
+      invalidSource: 'root = AppShell([missing])',
+      issues: [
+        {
+          code: 'unresolved-reference',
+          message: 'Missing statement.',
+          source: 'parser',
+          statementId: 'root',
+        },
+      ],
+      maxRepairAttempts: 1,
+      promptMaxChars: 180_000,
+      userPrompt: 'Repair the app.',
+    });
+
+    expect(extractDataBlock(messages.requestContext, 'current_source')).toBe(committedSource);
+    expect(messages.requestContext).not.toContain('Committed source is large; use this compact context instead of the full source.');
+    expect(messages.requestContext).not.toContain('Inventory:');
+  });
+
+  it('fails repair prompt building when committed source exceeds the emergency cap', () => {
+    expect(() =>
+      buildOpenUiRepairRoleMessages({
+        attemptNumber: 1,
+        committedSource: 'x'.repeat(CURRENT_SOURCE_EMERGENCY_MAX_CHARS + 1),
+        invalidSource: 'root = AppShell([missing])',
+        issues: [],
+        maxRepairAttempts: 1,
+        promptMaxChars: 180_000,
+        userPrompt: 'Repair the app.',
+      }),
+    ).toThrow(`Committed source exceeded the repair source cap of ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`);
   });
 
   it('includes derived repair context in the repair prompt with newest context first', () => {

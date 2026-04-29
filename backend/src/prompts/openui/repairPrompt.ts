@@ -1,3 +1,4 @@
+import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS, DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '#backend/limits.js';
 import {
   DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
   VALIDATION_ISSUES_MAX_CHARS,
@@ -46,7 +47,8 @@ interface RepairCriticalRule {
   text: string;
 }
 
-const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = 16_384;
+const REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD = CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
+const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 1_024;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
   'When RadioGroup or Select runs in action mode, the runtime writes the newly selected option to `$lastChoice` before the action runs.',
@@ -818,6 +820,16 @@ function buildAppMemorySectionContent(appMemory: AppMemory | undefined) {
   return JSON.stringify(appMemory ?? createEmptyAppMemory());
 }
 
+function assertCommittedSourceWithinRepairThreshold(committedSource: string) {
+  if (committedSource.length <= REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD) {
+    return;
+  }
+
+  throw new Error(
+    `Committed source exceeded the repair source cap of ${REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD} characters.`,
+  );
+}
+
 interface BuildOpenUiRepairPromptArgs {
   attemptNumber: number;
   appMemory?: AppMemory;
@@ -926,6 +938,7 @@ function buildOpenUiRepairPromptParts(
     promptMaxChars,
     userPrompt,
   } = args;
+  assertCommittedSourceWithinRepairThreshold(committedSource);
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);

@@ -667,6 +667,7 @@ describe('generateOpenUiSource', () => {
   it('keeps full protected repair draft and current source in role-based repair input', async () => {
     const env = createTestEnv({
       OPENAI_API_KEY: 'test-key-repair-protected-source-and-draft',
+      PROMPT_IO_LOG: true,
     });
     const sourceTail = 'COMMITTED-SOURCE-END';
     const draftTail = 'INVALID-DRAFT-END';
@@ -710,8 +711,24 @@ describe('generateOpenUiSource', () => {
 
     expect(repairContext).toContain(`<current_source>\n${currentSource}\n</current_source>`);
     expect(repairContext).not.toContain('Inventory:');
+    expect(repairContext).not.toContain('Committed source is large; use this compact context instead of the full source.');
     expect(failedDraft).toContain(`<model_draft_that_failed>\n${invalidDraft}\n</model_draft_that_failed>`);
     expect(failedDraft).toContain(draftTail);
+    expect(promptLogWriteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        committedSourceChars: currentSource.length,
+        committedSourceIncluded: true,
+        committedSourceProtected: true,
+        currentSourceChars: currentSource.length,
+        currentSourceIncluded: true,
+        currentSourceProtected: true,
+        droppedSections: [],
+        repairPromptMaxChars: 180_000,
+      }),
+      {
+        enabled: true,
+      },
+    );
   });
 
   it('passes filtered conversation context into role-based repair input', async () => {
