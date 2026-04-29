@@ -27,10 +27,10 @@ import {
   promptRequestsFiltering,
   promptRequestsRandom,
   promptRequestsStepFlow,
+  promptRequestsThemeOrVisualStyling,
   promptRequestsThemeState,
   promptRequestsTodo,
   promptRequestsValidation,
-  promptRequestsVisualStyling,
 } from './qualitySignals.js';
 
 const MAX_SIMPLE_PROMPT_BLOCK_GROUPS = 4;
@@ -163,7 +163,7 @@ export function detectPromptAwareQualityIssues(
   }
 
   if (
-    !promptRequestsVisualStyling(trimmedPrompt) &&
+    !promptRequestsThemeOrVisualStyling(trimmedPrompt) &&
     hasRequestUnrequestedNewFeature(compareAgainstBaseline, currentFeatureFlags?.theme, nextFeatureFlags.theme)
   ) {
     issues.push(

@@ -5,11 +5,9 @@ import {
   promptRequestsFiltering,
   promptRequestsMultiScreen,
   promptRequestsRandom,
-  promptRequestsTheme,
-  promptRequestsThemeState,
+  promptRequestsThemeOrVisualStyling,
   promptRequestsTodo,
   promptRequestsValidation,
-  promptRequestsVisualStyling,
   isSimplePromptRequest,
 } from './qualitySignals.js';
 import { mergePromptIntentsWithAnchorJaccardFallback } from './intentClassifier.js';
@@ -75,10 +73,7 @@ export function detectPromptIntents(prompt: string): PromptIntentVector {
     filtering: promptRequestsFiltering(trimmedPrompt),
     multiScreen: promptRequestsMultiScreen(trimmedPrompt),
     random,
-    theme:
-      promptRequestsTheme(trimmedPrompt) ||
-      promptRequestsThemeState(trimmedPrompt) ||
-      promptRequestsVisualStyling(trimmedPrompt),
+    theme: promptRequestsThemeOrVisualStyling(trimmedPrompt),
     todo: promptRequestsTodo(trimmedPrompt),
     validation: promptRequestsValidation(trimmedPrompt),
     },

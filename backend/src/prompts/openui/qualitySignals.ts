@@ -15,9 +15,9 @@ const THEME_REQUEST_PATTERN =
 const THEME_STATE_REQUEST_PATTERN =
   /\b(theme\s+(?:switch|toggle)|toggle\s+(?:the\s+)?theme|switch\s+(?:the\s+)?theme|(?:light|dark)\s+and\s+(?:light|dark)\s+(?:themes?|modes?)|(?:light|dark)\s*\/\s*(?:light|dark)\s+(?:themes?|modes?))\b|(?:переключател\w*\s+тем\w*|смен\w*\s+тем\w*|светл\w*.*темн\w*|тёмн\w*.*светл\w*)/i;
 const VISUAL_STYLING_REQUEST_PATTERN =
-  /\b(?:theme|theming|visual\s+styles?|styling|styled|palette|colou?r\s+(?:scheme|palette|theme|background|text|button|accent)s?|background\s+colou?r|text\s+colou?r|button\s+colou?r|accent\s+colou?r|dark\s+(?:background|surface|ui|interface)|light\s+(?:background|surface|ui|interface))\b|(?:цветов\w*\s+схем\w*|цвет\w*\s+(?:фон\w*|текст\w*|кноп\w*|акцент\w*)|палитр\w*|акцентн\w*\s+цвет\w*|т[её]мн\w*\s+(?:фон\w*|интерфейс\w*)|светл\w*\s+(?:фон\w*|интерфейс\w*))/i;
+  /\b(?:visual\s+styles?|styling|colou?r\s+(?:scheme|palette)|(?:background|text|button|accent)\s+colou?r|dark\s+(?:background|surface|ui|interface)|light\s+(?:background|surface|ui|interface))\b|(?:цветов\w*\s+схем\w*|цвет\w*\s+(?:фон\w*|текст\w*|кноп\w*|акцент\w*)|палитр\w*|акцентн\w*\s+цвет\w*|т[её]мн\w*\s+(?:фон\w*|интерфейс\w*)|светл\w*\s+(?:фон\w*|интерфейс\w*))/i;
 const COMPUTE_REQUEST_PATTERN =
-  /\b(compute|computed|random|calculate|calculation)\b|compare\s+dates?|\bdate\s+comparison\b|(?:расч[её]т[а-яё]*|посчита[а-яё]*|сравн[а-яё]*\s+дат[а-яё]*|случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
+  /\b(?:compute|computed|calculator)\b|\b(?:calculate|calculation)\s+(?:an?\s+|the\s+)?(?:totals?|sums?|scores?|averages?|percentages?|differences?|amounts?|prices?|costs?|budgets?|balances?|values?|results?|bmi|tax(?:es)?|dates?|deadlines?)\b|\b(?:total|sum|average|percentage|score|bmi)\s+(?:calculator|calculation)\b|compare\s+dates?|\bdate\s+comparison\b|(?:расч[её]т[а-яё]*|посчита[а-яё]*|сравн[а-яё]*\s+дат[а-яё]*|случайн[а-яё]*|рандом[а-яё]*|кубик[а-яё]*)/i;
 const FILTER_REQUEST_PATTERN = /\b(filter(?:s|ed|ing)?|search)\b|(?:фильтр[а-яё]*|поиск[а-яё]*)/i;
 const DELETE_REQUEST_PATTERN =
   /\b(?:delete|remove|discard|clear)\s+(?:an?\s+|the\s+|this\s+|that\s+|last\s+|first\s+)?(?:item|task|todo|row|entry|screen|page|field|section|card|record|value|state|list)\b|^\s*(?:delete|remove|discard|clear)\b|(?:удали|убери|очисти|удалить|убрать|очистить)\s+(?:задач\w*|элемент\w*|строк\w*|экран\w*|пол[ея]\w*|секци\w*|значени\w*|спис\w*)/i;
@@ -48,6 +48,10 @@ export function promptRequestsThemeState(prompt: string) {
 
 export function promptRequestsVisualStyling(prompt: string) {
   return !VISUAL_STYLING_NEGATION_PATTERN.test(prompt) && VISUAL_STYLING_REQUEST_PATTERN.test(prompt);
+}
+
+export function promptRequestsThemeOrVisualStyling(prompt: string) {
+  return promptRequestsTheme(prompt) || promptRequestsThemeState(prompt) || promptRequestsVisualStyling(prompt);
 }
 
 export function promptRequestsTodo(prompt: string) {
