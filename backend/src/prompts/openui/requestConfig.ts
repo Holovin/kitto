@@ -13,5 +13,5 @@ export function getOpenUiTemperature(mode: PromptBuildRequest['mode']) {
 export function getOpenUiMaxOutputTokens(env: AppEnv) {
   // Keep an explicit token ceiling instead of inheriting model defaults; the byte limit
   // remains the hard backend guardrail for the returned source/envelope.
-  return Math.max(OPENUI_MAX_OUTPUT_TOKENS_FLOOR, Math.ceil(env.LLM_OUTPUT_MAX_BYTES / 4));
+  return Math.max(OPENUI_MAX_OUTPUT_TOKENS_FLOOR, Math.ceil(env.outputMaxBytes / 4));
 }

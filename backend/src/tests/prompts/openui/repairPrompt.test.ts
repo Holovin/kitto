@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
+import { DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
 import type { PromptBuildValidationIssue } from '#backend/prompts/openui.js';
 import { buildOpenUiRepairPrompt, buildOpenUiRepairRoleMessages, buildOpenUiUserPrompt } from '#backend/prompts/openui.js';
 
@@ -123,7 +123,7 @@ describe('repair prompt assembly', () => {
 
   it('keeps committed source up to the emergency cap in role-based repair context', () => {
     const tail = 'COMMITTED-SOURCE-TAIL';
-    const committedSource = `${'c'.repeat(CURRENT_SOURCE_EMERGENCY_MAX_CHARS - tail.length)}${tail}`;
+    const committedSource = `${'c'.repeat(DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS - tail.length)}${tail}`;
     const messages = buildOpenUiRepairRoleMessages({
       attemptNumber: 1,
       committedSource,
@@ -150,14 +150,14 @@ describe('repair prompt assembly', () => {
     expect(() =>
       buildOpenUiRepairRoleMessages({
         attemptNumber: 1,
-        committedSource: 'x'.repeat(CURRENT_SOURCE_EMERGENCY_MAX_CHARS + 1),
+        committedSource: 'x'.repeat(DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS + 1),
         invalidSource: 'root = AppShell([missing])',
         issues: [],
         maxRepairAttempts: 1,
         promptMaxChars: 180_000,
         userPrompt: 'Repair the app.',
       }),
-    ).toThrow(`Committed source exceeded the repair source cap of ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`);
+    ).toThrow(`Committed source exceeded the repair source cap of ${DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`);
   });
 
   it('includes derived repair context in the repair prompt with newest context first', () => {

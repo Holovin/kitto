@@ -7,7 +7,7 @@ import { logger } from 'hono/logger';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { AppEnv } from './env.js';
 import { createRequestBodyTooLargeError, logServerError, toPublicErrorPayload } from '#backend/errors/publicError.js';
-import { getRawRequestMaxBytes } from './limits.js';
+import { getRequestBodyLimitBytes } from './limits.js';
 import { getRequestBytesFromContext, getRequestIdFromContext } from './requestMetadata.js';
 import { isFrontendRoute } from './frontendRoutes.js';
 import { createConfigRoutes } from '#backend/routes/config.js';
@@ -32,31 +32,31 @@ function isApiRoute(pathname: string) {
 export function createApp(env: AppEnv) {
   const app = new Hono();
 
-  if (env.LOG_LEVEL !== 'silent') {
+  if (env.logLevel !== 'silent') {
     app.use('*', logger());
   }
 
-  app.use('/api/*', cors({ origin: env.FRONTEND_ORIGIN }));
+  app.use('/api/*', cors({ origin: env.frontendOrigin }));
 
-  const rawRequestMaxBytes = getRawRequestMaxBytes(env);
+  const requestBodyLimitBytes = getRequestBodyLimitBytes(env);
   app.use(
     '/api/llm/*',
     bodyLimit({
-      maxSize: rawRequestMaxBytes,
+      maxSize: requestBodyLimitBytes,
       async onError(context) {
         const requestId = getRequestIdFromContext(context);
-        const requestBytes = getRequestBytesFromContext(context) ?? rawRequestMaxBytes + 1;
+        const requestBytes = getRequestBytesFromContext(context) ?? requestBodyLimitBytes + 1;
 
         await writePromptIoIntakeFailureSafely(env, {
           errorCode: 'validation_error',
-          errorMessage: `Request body exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`,
+          errorMessage: `Request body exceeded the request body limit of ${requestBodyLimitBytes} bytes.`,
           requestBytes,
           requestId,
         });
 
         const publicError = toPublicErrorPayload(
           createRequestBodyTooLargeError(
-            `Request body exceeded the raw request limit of ${rawRequestMaxBytes} bytes.`,
+            `Request body exceeded the request body limit of ${requestBodyLimitBytes} bytes.`,
           ),
         );
 

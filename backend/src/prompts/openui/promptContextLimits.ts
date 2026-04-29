@@ -33,7 +33,7 @@ function createPromptContextLimitSection(
 export function buildPromptContextLimitSections(env: AppEnv): BudgetDecisionSection[] {
   return [
     createPromptContextLimitSection('latestUserPrompt', true, {
-      hardLimitChars: env.LLM_USER_PROMPT_MAX_CHARS,
+      hardLimitChars: env.userPromptMaxChars,
     }),
     createPromptContextLimitSection('validationIssues', true, {
       hardLimitChars: VALIDATION_ISSUES_MAX_CHARS,

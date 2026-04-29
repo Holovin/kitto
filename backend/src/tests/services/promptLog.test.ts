@@ -111,9 +111,7 @@ describe('promptLog.write', () => {
         { role: 'user' as const, content: 'Add filters and settings.' },
       ],
     };
-    const userPrompt = buildOpenUiUserPrompt(request, {
-      chatHistoryMaxItems: 8,
-    });
+    const userPrompt = buildOpenUiUserPrompt(request);
     const rawUserRequest = buildOpenUiRawUserRequest(request);
     const sharedEntryFields = {
       ts: '2026-04-21T10:00:00.000Z',

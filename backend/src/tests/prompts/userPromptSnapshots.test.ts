@@ -14,9 +14,6 @@ describe('buildOpenUiUserPrompt snapshots', () => {
             { role: 'user', content: 'Add due dates.' },
           ],
         },
-        {
-          chatHistoryMaxItems: 2,
-        },
       ),
     ).toMatchSnapshot();
   });

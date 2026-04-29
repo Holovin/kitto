@@ -1,4 +1,4 @@
-import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS, DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '#backend/limits.js';
+import { DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS, DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS } from '#backend/limits.js';
 import {
   DEFAULT_MAX_REPAIR_VALIDATION_ISSUES,
   VALIDATION_ISSUES_MAX_CHARS,
@@ -47,7 +47,6 @@ interface RepairCriticalRule {
   text: string;
 }
 
-const REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD = CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
 const REPAIR_PROMPT_TEMPLATE_MAX_CHARS = DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS;
 const REPAIR_STATEMENT_EXCERPT_MAX_CHARS = 1_024;
 const RESERVED_LAST_CHOICE_CRITICAL_RULES = [
@@ -820,13 +819,13 @@ function buildAppMemorySectionContent(appMemory: AppMemory | undefined) {
   return JSON.stringify(appMemory ?? createEmptyAppMemory());
 }
 
-function assertCommittedSourceWithinRepairThreshold(committedSource: string) {
-  if (committedSource.length <= REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD) {
+function assertCommittedSourceWithinRepairThreshold(committedSource: string, sourceMaxChars: number) {
+  if (committedSource.length <= sourceMaxChars) {
     return;
   }
 
   throw new Error(
-    `Committed source exceeded the repair source cap of ${REPAIR_COMMITTED_SOURCE_CONTEXT_THRESHOLD} characters.`,
+    `Committed source exceeded the repair source cap of ${sourceMaxChars} characters.`,
   );
 }
 
@@ -842,6 +841,7 @@ interface BuildOpenUiRepairPromptArgs {
   promptMaxChars: number;
   previousChangeSummaries?: string[];
   previousUserMessages?: string[];
+  sourceMaxChars?: number;
   userPrompt: string;
 }
 
@@ -936,9 +936,10 @@ function buildOpenUiRepairPromptParts(
     previousChangeSummaries = [],
     previousUserMessages = [],
     promptMaxChars,
+    sourceMaxChars = DEFAULT_CURRENT_SOURCE_EMERGENCY_MAX_CHARS,
     userPrompt,
   } = args;
-  assertCommittedSourceWithinRepairThreshold(committedSource);
+  assertCommittedSourceWithinRepairThreshold(committedSource, sourceMaxChars);
   const sanitizedIssues = sanitizeRepairPromptIssues(issues);
   const issueMode = getRepairIssueMode(sanitizedIssues);
   const repairHints = buildRepairHints(sanitizedIssues, invalidSource);
@@ -1199,7 +1200,10 @@ export function buildOpenUiRepairPrompt(args: BuildOpenUiRepairPromptArgs) {
   );
 }
 
-export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
+export function buildOpenUiRepairPromptTemplate(
+  maxRepairAttempts: number,
+  options: { promptMaxChars?: number; sourceMaxChars?: number } = {},
+) {
   const parserExampleIssues: PromptBuildValidationIssue[] = [
     {
       code: 'invalid-prop',
@@ -1232,7 +1236,8 @@ export function buildOpenUiRepairPromptTemplate(maxRepairAttempts: number) {
       maxRepairAttempts,
       previousChangeSummaries: ['{{previousChangeSummary}}'],
       previousUserMessages: ['{{previousUserMessage}}'],
-      promptMaxChars: REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
+      promptMaxChars: options.promptMaxChars ?? REPAIR_PROMPT_TEMPLATE_MAX_CHARS,
+      sourceMaxChars: options.sourceMaxChars,
       userPrompt: '{{userPrompt}}',
     });
 

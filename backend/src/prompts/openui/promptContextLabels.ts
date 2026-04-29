@@ -2,9 +2,9 @@ import type { AppEnv } from '#backend/env.js';
 
 export function buildGlobalLimitLabels(env: AppEnv) {
   return [
-    `optional context target LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}`,
-    `global LLM_REQUEST_MAX_BYTES ${env.LLM_REQUEST_MAX_BYTES}`,
-    `global LLM_OUTPUT_MAX_BYTES ${env.LLM_OUTPUT_MAX_BYTES}`,
+    `optional context target LLM_MODEL_PROMPT_MAX_CHARS ${env.modelPromptMaxChars}`,
+    `global LLM_REQUEST_MAX_BYTES ${env.requestMaxBytes}`,
+    `global LLM_OUTPUT_MAX_BYTES ${env.outputMaxBytes}`,
   ];
 }
 

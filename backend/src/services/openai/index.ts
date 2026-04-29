@@ -89,7 +89,7 @@ export async function generateOpenUiSource(
   try {
     response = await client.responses.create(responseRequest, {
       signal,
-      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      timeout: env.openAiRequestTimeoutMs,
     });
   } catch (error) {
     if (!isAbortedRequestError(error, signal)) {
@@ -140,7 +140,7 @@ export async function streamOpenUiSource(
     const capturedStream = captureOpenAiRequestId(() =>
       client.responses.stream(responseRequest, {
         signal,
-        timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+        timeout: env.openAiRequestTimeoutMs,
       }),
     );
 

@@ -40,6 +40,8 @@ export interface PromptInfoIntentContextVariant {
 export interface PromptInfoSnapshot {
   config: {
     cacheKeyPrefix: string;
+    currentSourceEmergencyMaxChars: number;
+    maxRepairAttempts: number;
     maxOutputTokens: number;
     model: string;
     modelPromptMaxChars: number;
@@ -118,11 +120,13 @@ let cachedPromptInfoSnapshot: { cacheKey: string; snapshot: PromptInfoSnapshot }
 
 function buildPromptInfoSnapshotCacheKey(env: AppEnv) {
   return JSON.stringify({
-    model: env.OPENAI_MODEL,
-    modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
-    outputMaxBytes: env.LLM_OUTPUT_MAX_BYTES,
-    requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
-    userPromptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
+    currentSourceEmergencyMaxChars: env.currentSourceEmergencyMaxChars,
+    maxRepairAttempts: env.maxRepairAttempts,
+    model: env.openAiModel,
+    modelPromptMaxChars: env.modelPromptMaxChars,
+    outputMaxBytes: env.outputMaxBytes,
+    requestMaxBytes: env.requestMaxBytes,
+    userPromptMaxChars: env.userPromptMaxChars,
   });
 }
 
@@ -372,19 +376,24 @@ export function getPromptInfoSnapshot(env: AppEnv): PromptInfoSnapshot {
   }
 
   const requestPromptTemplate = buildOpenUiUserPromptTemplate();
-  const repairPromptTemplate = buildOpenUiRepairPromptTemplate(env.LLM_MAX_REPAIR_ATTEMPTS);
+  const repairPromptTemplate = buildOpenUiRepairPromptTemplate(env.maxRepairAttempts, {
+    promptMaxChars: env.modelPromptMaxChars,
+    sourceMaxChars: env.currentSourceEmergencyMaxChars,
+  });
   const promptContextLimits = buildPromptContextLimitSections(env);
   const snapshot: PromptInfoSnapshot = {
     config: {
       cacheKeyPrefix: OPENUI_SYSTEM_PROMPT_CACHE_KEY_PREFIX,
+      currentSourceEmergencyMaxChars: env.currentSourceEmergencyMaxChars,
+      maxRepairAttempts: env.maxRepairAttempts,
       maxOutputTokens: getOpenUiMaxOutputTokens(env),
-      model: env.OPENAI_MODEL,
-      modelPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
-      outputMaxBytes: env.LLM_OUTPUT_MAX_BYTES,
+      model: env.openAiModel,
+      modelPromptMaxChars: env.modelPromptMaxChars,
+      outputMaxBytes: env.outputMaxBytes,
       repairTemperature: getOpenUiTemperature('repair'),
-      requestMaxBytes: env.LLM_REQUEST_MAX_BYTES,
+      requestMaxBytes: env.requestMaxBytes,
       temperature: getOpenUiTemperature('initial'),
-      userPromptMaxChars: env.LLM_USER_PROMPT_MAX_CHARS,
+      userPromptMaxChars: env.userPromptMaxChars,
     },
     envelopeSchema: structuredClone(openUiEnvelopeFormat.schema) as Record<string, unknown>,
     intentContext: baseIntentContext,

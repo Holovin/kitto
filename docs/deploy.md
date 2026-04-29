@@ -43,14 +43,18 @@ The default example keeps:
 - `OPENAI_MODEL=gpt-5.4-mini`
 - `LOG_LEVEL=info`
 - `OPENAI_REQUEST_TIMEOUT_MS=180000`
-- `LLM_CHAT_HISTORY_MAX_ITEMS=40`
+- `STREAM_IDLE_TIMEOUT_MS=60000`
 - `LLM_USER_PROMPT_MAX_CHARS=4096`
+- `CURRENT_SOURCE_EMERGENCY_MAX_CHARS=80000`
 - `LLM_MODEL_PROMPT_MAX_CHARS=180000`
 - `LLM_REQUEST_MAX_BYTES=1200000`
 - `LLM_OUTPUT_MAX_BYTES=300000`
-- `LLM_RATE_LIMIT_MAX_ENTRIES=10000`
-- `LLM_RATE_LIMIT_MAX_REQUESTS=60`
-- `LLM_RATE_LIMIT_WINDOW_MS=60000`
+- `LLM_MAX_REPAIR_ATTEMPTS=2`
+- `RATE_LIMIT_MAX_REQUESTS=60`
+- `RATE_LIMIT_WINDOW_MS=60000`
+- `REQUEST_BODY_LIMIT_BYTES=1200000`
+
+Environment variables are for deploy/runtime tuning. Fine-grained prompt section caps are intentionally code constants, not env variables, because they are part of the OpenUI generation contract.
 
 ## First deploy
 

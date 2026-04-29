@@ -6,13 +6,13 @@ const env = loadEnv();
 const app = createApp(env);
 
 function logShutdown(message: string) {
-  if (env.LOG_LEVEL !== 'silent') {
+  if (env.logLevel !== 'silent') {
     console.log(message);
   }
 }
 
 function logShutdownError(message: string, error?: Error) {
-  if (env.LOG_LEVEL !== 'silent') {
+  if (env.logLevel !== 'silent') {
     console.error(message);
 
     if (error) {
@@ -24,10 +24,10 @@ function logShutdownError(message: string, error?: Error) {
 const server = serve(
   {
     fetch: app.fetch,
-    port: env.PORT,
+    port: env.port,
   },
   (info) => {
-    if (env.LOG_LEVEL !== 'silent') {
+    if (env.logLevel !== 'silent') {
       console.log(`Kitto backend listening on http://localhost:${info.port}`);
     }
   },

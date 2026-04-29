@@ -9,11 +9,11 @@ import type { PromptBuildRequest } from './types.js';
 
 interface BuildOpenUiUserPromptOptions {
   appMemory?: AppMemory;
-  chatHistoryMaxItems?: number;
   includeIntentExamples?: boolean;
   includePreviousChanges?: boolean;
   maxRepairAttempts?: number;
   modelPromptMaxChars?: number;
+  sourceMaxChars?: number;
 }
 
 function escapePromptDataBlockContent(content: string) {
@@ -320,6 +320,7 @@ export function buildOpenUiUserPrompt(request: PromptBuildRequest, options: Buil
       promptMaxChars: options.modelPromptMaxChars ?? DEFAULT_LLM_MODEL_PROMPT_MAX_CHARS,
       previousChangeSummaries: request.previousChangeSummaries ?? [],
       previousUserMessages: request.previousUserMessages ?? [],
+      sourceMaxChars: options.sourceMaxChars,
       userPrompt: buildOpenUiRawUserRequest(request),
     });
   }

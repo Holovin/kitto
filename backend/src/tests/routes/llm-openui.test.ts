@@ -27,7 +27,7 @@ vi.mock(import('#backend/services/openai/logging.js'), () => ({
 }));
 
 import { generateHistorySummary, generateOpenUiSource, streamOpenUiSource } from '#backend/services/openai.js';
-import { getRawRequestMaxBytes } from '#backend/limits.js';
+import { getRequestBodyLimitBytes } from '#backend/limits.js';
 import { CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE } from '@kitto-openui/shared/builderApiContract.js';
 
 const generateOpenUiSourceMock = vi.mocked(generateOpenUiSource);
@@ -257,7 +257,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects oversized prompts with a validation error', async () => {
     const { app } = createRouteApp({
-      LLM_USER_PROMPT_MAX_CHARS: 8,
+      userPromptMaxChars: 8,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -283,7 +283,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('keeps current source independent from the model prompt budget before calling the OpenAI service', async () => {
     const { app } = createRouteApp({
-      LLM_MODEL_PROMPT_MAX_CHARS: 8,
+      modelPromptMaxChars: 8,
     });
     generateOpenUiSourceMock.mockResolvedValue({
       appMemory: testAppMemory,
@@ -317,7 +317,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects current source above the hard source cap even when the model prompt limit is higher', async () => {
     const { app } = createRouteApp({
-      LLM_MODEL_PROMPT_MAX_CHARS: 100_000,
+      modelPromptMaxChars: 100_000,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -369,7 +369,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects previous user message context above the backend input hard limit', async () => {
     const { app } = createRouteApp({
-      LLM_USER_PROMPT_MAX_CHARS: 8,
+      userPromptMaxChars: 8,
     });
 
     const response = await app.request('/api/llm/generate', {
@@ -395,13 +395,14 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects oversized Content-Length before parsing or calling the OpenAI service', async () => {
     const { app, env } = createRouteApp({
-      LLM_REQUEST_MAX_BYTES: 20,
+      requestBodyLimitBytes: 20,
     });
+    const requestBodyLimitBytes = getRequestBodyLimitBytes(env);
 
     const response = await app.request('/api/llm/generate', {
       method: 'POST',
       headers: {
-        'content-length': String(getRawRequestMaxBytes(env) + 1),
+        'content-length': String(requestBodyLimitBytes + 1),
         'content-type': 'application/json',
       },
       body: JSON.stringify({
@@ -422,15 +423,15 @@ describe('createLlmOpenUiRoutes', () => {
       expect.anything(),
       expect.objectContaining({
         errorCode: 'validation_error',
-        errorMessage: `Request body exceeded the raw request limit of ${getRawRequestMaxBytes(env)} bytes.`,
-        requestBytes: getRawRequestMaxBytes(env) + 1,
+        errorMessage: `Request body exceeded the request body limit of ${requestBodyLimitBytes} bytes.`,
+        requestBytes: requestBodyLimitBytes + 1,
       }),
     );
   });
 
   it('rejects oversized streamed bodies before parsing or calling the OpenAI service', async () => {
     const { app } = createRouteApp({
-      LLM_REQUEST_MAX_BYTES: 20,
+      requestBodyLimitBytes: 20,
     });
     const oversizedBody = JSON.stringify({
       prompt: 'x'.repeat(60),
@@ -459,7 +460,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('rejects oversized model output with a controlled upstream error', async () => {
     const { app } = createRouteApp({
-      LLM_OUTPUT_MAX_BYTES: 12,
+      outputMaxBytes: 12,
     });
     generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
@@ -531,8 +532,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('passes derived context through without raw chat history', async () => {
     const { app, env } = createRouteApp({
-      LLM_CHAT_HISTORY_MAX_ITEMS: 2,
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -588,7 +588,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('summarizes only dropped previous context on the backend before non-stream generation', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     const previousUserMessages = Array.from({ length: 7 }, (_, index) => `Previous user request ${index + 1}`);
 
@@ -662,8 +662,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('ignores legacy chatHistory when deriving generation context server-side', async () => {
     const { app } = createRouteApp({
-      LLM_CHAT_HISTORY_MAX_ITEMS: 2,
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -712,9 +711,7 @@ describe('createLlmOpenUiRoutes', () => {
   });
 
   it('filters excludeFromLlmContext before compaction and generation', async () => {
-    const { app } = createRouteApp({
-      LLM_CHAT_HISTORY_MAX_ITEMS: 5,
-    });
+    const { app } = createRouteApp();
     generateOpenUiSourceMock.mockResolvedValue({ source: 'root = AppShell([])', summary: '', changeSummary: 'Test generation change.', appMemory: testAppMemory });
 
     const response = await app.request('/api/llm/generate', {
@@ -748,7 +745,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('marks low-signal non-stream summaries to stay out of LLM context', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1098,7 +1095,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('compacts oversized requests by bytes while preserving the first user request when possible', async () => {
     const { app } = createRouteApp({
-      LLM_REQUEST_MAX_BYTES: 260,
+      requestMaxBytes: 260,
     });
     const chatHistory = [
       { role: 'user' as const, content: 'a'.repeat(120) },
@@ -1145,7 +1142,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('streams raw structured chunks and emits the extracted source in the done event', async () => {
     const { app, env } = createRouteApp({
-      OPENAI_MODEL: 'gpt-stream-model',
+      openAiModel: 'gpt-stream-model',
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
       await onTextDelta('{"summary":"Builds a tiny app.","source":"root = ');
@@ -1210,7 +1207,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('emits a status event while compacting history before streaming model chunks', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-stream-model',
+      openAiModel: 'gpt-stream-model',
     });
     const previousUserMessages = Array.from({ length: 6 }, (_, index) => `Previous request ${index + 1}`);
 
@@ -1276,7 +1273,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('includes summaryExcludeFromLlmContext in done events for low-signal streamed summaries', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-stream-model',
+      openAiModel: 'gpt-stream-model',
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
       await onTextDelta('{"summary":"Updated the app.","source":"root = ');
@@ -1318,7 +1315,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('matches the baseline full SSE stream payload', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-stream-model',
+      openAiModel: 'gpt-stream-model',
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
       await onTextDelta('{"summary":"Builds a tiny app.","source":"root = ');
@@ -1475,8 +1472,8 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not count a marked fallback after a pre-activity stream failure as a second rate-limit request', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     const timeoutError = new Error('Timed out while waiting for the model stream.');
     timeoutError.name = 'TimeoutError';
@@ -1534,9 +1531,9 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not read streaming request bodies while recording rate-limit rejections', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
-      LLM_REQUEST_MAX_BYTES: 2,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
+      requestMaxBytes: 2,
     });
 
     const firstResponse = await app.request('/api/llm/generate', {
@@ -1578,8 +1575,8 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not grant a fallback rate-limit exemption after a pre-activity upstream API error', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     streamOpenUiSourceMock.mockRejectedValue(
       new APIError(
@@ -1636,8 +1633,8 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not count a marked automatic repair after a completed parent generation as a second rate-limit request', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1697,8 +1694,8 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not grant an automatic repair rate-limit exemption without a recorded parent generation', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1803,9 +1800,9 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('records one automatic repair credit per configured repair attempt', async () => {
     const { app } = createRouteApp({
-      LLM_MAX_REPAIR_ATTEMPTS: 2,
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      maxRepairAttempts: 2,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1863,8 +1860,8 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('does not grant a fallback rate-limit exemption after streaming activity was sent', async () => {
     const { app } = createRouteApp({
-      LLM_RATE_LIMIT_MAX_REQUESTS: 1,
-      LLM_RATE_LIMIT_WINDOW_MS: 60_000,
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
     });
     streamOpenUiSourceMock.mockImplementation(async (_env, _request, onTextDelta) => {
       onTextDelta('root = ');
@@ -1939,7 +1936,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('returns required summary and source fields from non-stream generation', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',
@@ -1974,7 +1971,7 @@ describe('createLlmOpenUiRoutes', () => {
 
   it('matches the baseline non-stream response payload', async () => {
     const { app } = createRouteApp({
-      OPENAI_MODEL: 'gpt-test-model',
+      openAiModel: 'gpt-test-model',
     });
     generateOpenUiSourceMock.mockResolvedValue({
       source: 'root = AppShell([])',

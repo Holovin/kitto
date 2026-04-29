@@ -32,6 +32,7 @@ Notes:
 - `npm run dev` starts the frontend and backend together and also watches/rebuilds the standalone player asset bundle used by `Download standalone HTML`.
 - In development, the builder is available at [http://localhost:5555](http://localhost:5555) and the backend runs at `http://localhost:8787`.
 - In development, the frontend talks to `/api/*` and Vite proxies those requests to the backend.
+- Backend env variables are for deploy/runtime tuning such as model, timeouts, request/body/output budgets, repair attempts, and rate limits. Fine-grained prompt section caps are intentionally code constants, not env variables, because they are part of the OpenUI generation contract.
 - `npm run start` runs the production build first, then launches the compiled backend and serves the built frontend.
 - `npm run build` also rebuilds the standalone player assets embedded into exported `.html` files.
 - `backend/.env.example` is production-oriented for PM2 deployment. For local development, set `PORT=8787` and `FRONTEND_ORIGIN=http://localhost:5555` in `backend/.env` after copying it.

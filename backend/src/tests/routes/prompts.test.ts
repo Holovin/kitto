@@ -6,10 +6,10 @@ import { createTestEnv } from '#backend/tests/createTestEnv.js';
 describe('GET /api/prompts/info', () => {
   it('returns the prompt info snapshot with public CORS headers', async () => {
     const env = createTestEnv({
-      FRONTEND_ORIGIN: 'https://builder.kitto.test',
-      LLM_OUTPUT_MAX_BYTES: 120_000,
-      LLM_REQUEST_MAX_BYTES: 345_678,
-      OPENAI_MODEL: 'gpt-5.4-mini',
+      frontendOrigin: 'https://builder.kitto.test',
+      outputMaxBytes: 120_000,
+      requestMaxBytes: 345_678,
+      openAiModel: 'gpt-5.4-mini',
     });
     const app = createApp(env);
 
@@ -25,6 +25,8 @@ describe('GET /api/prompts/info', () => {
     expect(response.headers.get('access-control-allow-origin')).toBe('https://builder.kitto.test');
     expect(payload.config).toEqual({
       cacheKeyPrefix: 'kitto:openui',
+      currentSourceEmergencyMaxChars: 80_000,
+      maxRepairAttempts: 2,
       maxOutputTokens: 30_000,
       model: 'gpt-5.4-mini',
       modelPromptMaxChars: 180_000,

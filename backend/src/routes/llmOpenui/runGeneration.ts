@@ -35,7 +35,7 @@ export function createLlmResponsePayload(
     changeSummary,
     compaction: invocation.compaction,
     historySummary: invocation.request.historySummary,
-    model: env.OPENAI_MODEL,
+    model: env.openAiModel,
     ...(promptContext ? { promptContext } : {}),
     qualityIssues: detectPromptAwareQualityIssues(
       source,

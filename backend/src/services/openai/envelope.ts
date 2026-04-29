@@ -87,9 +87,9 @@ export function parseOpenUiGenerationEnvelope(rawModelText: unknown, env?: AppEn
 export function assertModelOutputWithinLimit(source: string, env: AppEnv) {
   const outputSizeBytes = getByteLength(source);
 
-  if (outputSizeBytes > env.LLM_OUTPUT_MAX_BYTES) {
+  if (outputSizeBytes > env.outputMaxBytes) {
     throw new UpstreamFailureError(
-      `Model output size ${outputSizeBytes} bytes exceeded the backend limit of ${env.LLM_OUTPUT_MAX_BYTES} bytes.`,
+      `Model output size ${outputSizeBytes} bytes exceeded the backend limit of ${env.outputMaxBytes} bytes.`,
     );
   }
 }

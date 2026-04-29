@@ -7,9 +7,9 @@ export function createHealthRoutes(env: AppEnv) {
   healthRoutes.get('/health', (context) =>
     context.json({
       status: 'ok',
-      model: env.OPENAI_MODEL,
+      model: env.openAiModel,
       timestamp: new Date().toISOString(),
-      openaiConfigured: Boolean(env.OPENAI_API_KEY),
+      openaiConfigured: Boolean(env.openAiApiKey),
     }),
   );
 

@@ -212,7 +212,7 @@ interface PromptIoRequestMetrics {
 }
 
 export function logResponseUsage(env: AppEnv, phase: 'create' | 'stream', response: unknown) {
-  if (env.LOG_LEVEL !== 'debug' && env.LOG_LEVEL !== 'info') {
+  if (env.logLevel !== 'debug' && env.logLevel !== 'info') {
     return;
   }
 
@@ -295,7 +295,7 @@ export async function writePromptIoLogSafely(
         durationMs: options.durationMs,
       },
       {
-        enabled: env.PROMPT_IO_LOG,
+        enabled: env.promptIoLog,
       },
     );
   } catch (error) {
@@ -362,7 +362,7 @@ export async function writePromptIoFailureSafely(
         durationMs: options.durationMs,
       },
       {
-        enabled: env.PROMPT_IO_LOG,
+        enabled: env.promptIoLog,
       },
     );
   } catch (error) {
@@ -402,7 +402,7 @@ export async function writePromptIoIntakeFailureSafely(
         errorMessage: options.errorMessage,
       },
       {
-        enabled: env.PROMPT_IO_LOG,
+        enabled: env.promptIoLog,
       },
     );
   } catch (error) {
@@ -438,7 +438,7 @@ export async function writePromptIoCommitTelemetrySafely(
         repairOutcome: options.repairOutcome,
       },
       {
-        enabled: env.PROMPT_IO_LOG,
+        enabled: env.promptIoLog,
       },
     );
   } catch (error) {

@@ -23,12 +23,11 @@ describe('createApp', () => {
 
   it('serves runtime config from /api/config with API CORS headers', async () => {
     const env = createTestEnv({
-      FRONTEND_ORIGIN: 'https://builder.kitto.test',
-      LLM_CHAT_HISTORY_MAX_ITEMS: 7,
-      LLM_MAX_REPAIR_ATTEMPTS: 2,
-      LLM_MODEL_PROMPT_MAX_CHARS: 987,
-      LLM_REQUEST_MAX_BYTES: 654,
-      LLM_USER_PROMPT_MAX_CHARS: 321,
+      frontendOrigin: 'https://builder.kitto.test',
+      maxRepairAttempts: 2,
+      modelPromptMaxChars: 987,
+      requestMaxBytes: 654,
+      userPromptMaxChars: 321,
     });
     const app = createApp(env);
 
@@ -47,7 +46,7 @@ describe('createApp', () => {
       },
       limits: {
         chatMessageMaxChars: 321,
-        chatHistoryMaxItems: 7,
+        chatHistoryMaxItems: 5,
         promptMaxChars: 321,
         requestMaxBytes: 654,
         sourceMaxChars: 80_000,
@@ -66,7 +65,8 @@ describe('createApp', () => {
   it('exposes the hard current source maximum independently from the model prompt budget', async () => {
     const app = createApp(
       createTestEnv({
-        LLM_MODEL_PROMPT_MAX_CHARS: 20_000,
+        currentSourceEmergencyMaxChars: 30_000,
+        modelPromptMaxChars: 20_000,
       }),
     );
 
@@ -74,14 +74,14 @@ describe('createApp', () => {
     const payload = (await response.json()) as { limits: { sourceMaxChars: number } };
 
     expect(response.status).toBe(200);
-    expect(payload.limits.sourceMaxChars).toBe(80_000);
+    expect(payload.limits.sourceMaxChars).toBe(30_000);
   });
 
   it('serves model health from /api/health without leaking secrets', async () => {
     const app = createApp(
       createTestEnv({
-        OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-test-model',
+        openAiApiKey: '',
+        openAiModel: 'gpt-test-model',
       }),
     );
 

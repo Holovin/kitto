@@ -295,7 +295,7 @@ describe('parseOpenUiGenerationEnvelope', () => {
 
   it('can enforce the raw structured output limit during parsing', () => {
     const env = createTestEnv({
-      LLM_OUTPUT_MAX_BYTES: 5,
+      outputMaxBytes: 5,
     });
 
     expect(() =>
@@ -339,9 +339,9 @@ describe('parseOpenUiGenerationEnvelope', () => {
 describe('buildPromptContextSnapshot', () => {
   it('adds a global row with total prompt chars, global limits, and the full prompt preview', () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 40_000,
-      LLM_OUTPUT_MAX_BYTES: 67_890,
-      LLM_REQUEST_MAX_BYTES: 23_456,
+      modelPromptMaxChars: 40_000,
+      outputMaxBytes: 67_890,
+      requestMaxBytes: 23_456,
     });
 
     const snapshot = buildPromptContextSnapshot(env, requestWithHistory);
@@ -375,7 +375,7 @@ describe('generateOpenUiSource', () => {
 
   it('extracts source from a structured non-stream response', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-1',
+      openAiApiKey: 'test-key-1',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -399,7 +399,7 @@ describe('generateOpenUiSource', () => {
 
   it('uses lower temperature for repair requests while keeping explicit output limits', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-repair',
+      openAiApiKey: 'test-key-repair',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -424,7 +424,7 @@ describe('generateOpenUiSource', () => {
 
   it('builds role-based input for initial and repair requests', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-role-based',
+      openAiApiKey: 'test-key-role-based',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -487,9 +487,9 @@ describe('generateOpenUiSource', () => {
 
   it('protects full current source in follow-up prompts and records source-context metadata', async () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 35_000,
-      OPENAI_API_KEY: 'test-key-protected-current-source',
-      PROMPT_IO_LOG: true,
+      modelPromptMaxChars: 35_000,
+      openAiApiKey: 'test-key-protected-current-source',
+      promptIoLog: true,
     });
     const currentSource = `${'x'.repeat(2_500)}\nEND-OF-CURRENT-SOURCE`;
     const protectedRequest: PromptBuildRequest = {
@@ -584,7 +584,7 @@ describe('generateOpenUiSource', () => {
 
   it('rejects current source above the emergency cap before contacting the model', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-source-emergency-cap',
+      openAiApiKey: 'test-key-source-emergency-cap',
     });
 
     await expect(
@@ -602,7 +602,7 @@ describe('generateOpenUiSource', () => {
 
   it('allows current source at the emergency cap and keeps it as protected source context', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-source-emergency-cap-inclusive',
+      openAiApiKey: 'test-key-source-emergency-cap-inclusive',
     });
     const sourceTail = 'SOURCE-CAP-END';
     const currentSource = `${'x'.repeat(80_000 - sourceTail.length)}${sourceTail}`;
@@ -638,8 +638,8 @@ describe('generateOpenUiSource', () => {
 
   it('rejects safely when protected current source cannot fit after optional context is dropped', async () => {
     const env = createTestEnv({
-      LLM_MODEL_PROMPT_MAX_CHARS: 1_000,
-      OPENAI_API_KEY: 'test-key-source-protected-over-budget',
+      modelPromptMaxChars: 1_000,
+      openAiApiKey: 'test-key-source-protected-over-budget',
     });
 
     await expect(
@@ -666,8 +666,8 @@ describe('generateOpenUiSource', () => {
 
   it('keeps full protected repair draft and current source in role-based repair input', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-repair-protected-source-and-draft',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-repair-protected-source-and-draft',
+      promptIoLog: true,
     });
     const sourceTail = 'COMMITTED-SOURCE-END';
     const draftTail = 'INVALID-DRAFT-END';
@@ -733,7 +733,7 @@ describe('generateOpenUiSource', () => {
 
   it('passes filtered conversation context into role-based repair input', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-role-based-repair-context',
+      openAiApiKey: 'test-key-role-based-repair-context',
     });
     const repairRequestWithHistory: PromptBuildRequest = {
       ...repairRequest,
@@ -834,7 +834,7 @@ describe('generateOpenUiSource', () => {
 
   it('keeps the full filtered role-based history when request compaction has already finished upstream', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-pinned-role-based',
+      openAiApiKey: 'test-key-pinned-role-based',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -881,7 +881,7 @@ describe('generateOpenUiSource', () => {
 
   it('does not silently trim signup iteration history down to a stale assistant summary window', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-signup-history-window',
+      openAiApiKey: 'test-key-signup-history-window',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -925,7 +925,7 @@ describe('generateOpenUiSource', () => {
 
   it('keeps the same cached system prefix and prompt cache key across initial and repair requests', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-cache',
+      openAiApiKey: 'test-key-cache',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -965,7 +965,7 @@ describe('generateOpenUiSource', () => {
 
   it('reuses one stable prompt cache key while varying intent context by request', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-intent-cache',
+      openAiApiKey: 'test-key-intent-cache',
     });
     const todoAliasRequest: PromptBuildRequest = {
       ...request,
@@ -1019,8 +1019,8 @@ describe('generateOpenUiSource', () => {
 
   it('logs cached token usage from non-stream Responses API usage details', async () => {
     const env = createTestEnv({
-      LOG_LEVEL: 'info',
-      OPENAI_API_KEY: 'test-key-usage-log',
+      logLevel: 'info',
+      openAiApiKey: 'test-key-usage-log',
     });
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     responsesCreateMock.mockResolvedValue({
@@ -1058,8 +1058,8 @@ describe('generateOpenUiSource', () => {
 
   it('writes prompt I/O logs for completed non-stream responses', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-prompt-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-prompt-log',
+      promptIoLog: true,
     });
     const usage = {
       input_tokens: 18,
@@ -1120,8 +1120,8 @@ describe('generateOpenUiSource', () => {
 
   it('writes the concrete repair attempt number in prompt I/O logs', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-prompt-log-repair-attempt',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-prompt-log-repair-attempt',
+      promptIoLog: true,
     });
     const repairRequestWithAttempt: PromptBuildRequest = {
       ...repairRequest,
@@ -1162,8 +1162,8 @@ describe('generateOpenUiSource', () => {
 
   it('writes parse failure prompt logs with parent request linkage and repair validation issue codes', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-parse-failure-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-parse-failure-log',
+      promptIoLog: true,
     });
     const repairRequestWithContext: PromptBuildRequest = {
       ...repairRequest,
@@ -1217,8 +1217,8 @@ describe('generateOpenUiSource', () => {
 
   it('writes request-phase failure prompt logs for timed out non-stream responses', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-request-failure-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-request-failure-log',
+      promptIoLog: true,
     });
     const timeoutError = new Error('The model request timed out.');
 
@@ -1246,7 +1246,7 @@ describe('generateOpenUiSource', () => {
 
   it('rejects malformed structured JSON', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-2',
+      openAiApiKey: 'test-key-2',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: 'not-json',
@@ -1257,7 +1257,7 @@ describe('generateOpenUiSource', () => {
 
   it('rejects structured envelopes missing source', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-3',
+      openAiApiKey: 'test-key-3',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1273,7 +1273,7 @@ describe('generateOpenUiSource', () => {
 
   it('rejects empty structured sources', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-4',
+      openAiApiKey: 'test-key-4',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1289,7 +1289,7 @@ describe('generateOpenUiSource', () => {
 
   it('rejects structured envelopes with extra properties', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-5',
+      openAiApiKey: 'test-key-5',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1306,7 +1306,7 @@ describe('generateOpenUiSource', () => {
 
   it('accepts required summary and source fields in structured envelopes', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-envelope-extra-fields',
+      openAiApiKey: 'test-key-envelope-extra-fields',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1327,8 +1327,8 @@ describe('generateOpenUiSource', () => {
 
   it('rejects raw structured responses above the raw envelope limit', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-6',
-      LLM_OUTPUT_MAX_BYTES: 10,
+      openAiApiKey: 'test-key-6',
+      outputMaxBytes: 10,
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1344,8 +1344,8 @@ describe('generateOpenUiSource', () => {
 
   it('rejects extracted structured sources above the source limit', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-7',
-      LLM_OUTPUT_MAX_BYTES: 50,
+      openAiApiKey: 'test-key-7',
+      outputMaxBytes: 50,
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1368,7 +1368,7 @@ describe('generateHistorySummary', () => {
 
   it('summarizes dropped history without sending current source', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-history-summary',
+      openAiApiKey: 'test-key-history-summary',
     });
     responsesCreateMock.mockResolvedValue({
       output_text: JSON.stringify({
@@ -1419,7 +1419,7 @@ describe('streamOpenUiSource', () => {
 
   it('stops before processing a subsequent event after abort is observed', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-9',
+      openAiApiKey: 'test-key-9',
     });
     const abortController = new AbortController();
     const onTextDelta = vi.fn((delta: string) => {
@@ -1449,7 +1449,7 @@ describe('streamOpenUiSource', () => {
 
   it('stops before calling onTextDelta when abort is observed mid-event processing', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-10',
+      openAiApiKey: 'test-key-10',
     });
     const abortController = new AbortController();
     const onTextDelta = vi.fn();
@@ -1477,8 +1477,8 @@ describe('streamOpenUiSource', () => {
 
   it('logs client_aborted stream failures when the client aborts an in-flight stream', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-client-abort-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-client-abort-log',
+      promptIoLog: true,
     });
     const abortController = new AbortController();
     const onTextDelta = vi.fn((delta: string) => {
@@ -1516,7 +1516,7 @@ describe('streamOpenUiSource', () => {
 
   it('accumulates structured JSON chunks but returns the extracted source', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-11',
+      openAiApiKey: 'test-key-11',
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream(
@@ -1543,7 +1543,7 @@ describe('streamOpenUiSource', () => {
 
   it('rejects malformed structured streamed output', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-12',
+      openAiApiKey: 'test-key-12',
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: 'not-json' }], {
@@ -1557,7 +1557,7 @@ describe('streamOpenUiSource', () => {
 
   it('rejects truncated structured streamed output', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-13',
+      openAiApiKey: 'test-key-13',
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"summary":"Builds a blank app shell.","source":' }], {
@@ -1571,7 +1571,7 @@ describe('streamOpenUiSource', () => {
 
   it('rejects empty structured streamed output envelopes', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-14',
+      openAiApiKey: 'test-key-14',
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream(
@@ -1588,7 +1588,7 @@ describe('streamOpenUiSource', () => {
 
   it('rejects structured streamed output envelopes with extra properties', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-15',
+      openAiApiKey: 'test-key-15',
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream(
@@ -1605,8 +1605,8 @@ describe('streamOpenUiSource', () => {
 
   it('aborts the upstream stream when raw structured output exceeds the raw envelope limit', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-16',
-      LLM_OUTPUT_MAX_BYTES: 10,
+      openAiApiKey: 'test-key-16',
+      outputMaxBytes: 10,
     });
     const onTextDelta = vi.fn();
     const stream = createMockResponseStream([{ type: 'response.output_text.delta', delta: '{"summary":"","source":"1234567890"}' }], {
@@ -1624,8 +1624,8 @@ describe('streamOpenUiSource', () => {
 
   it('rejects streamed structured output when the extracted source exceeds the final source limit', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-16b',
-      LLM_OUTPUT_MAX_BYTES: 500,
+      openAiApiKey: 'test-key-16b',
+      outputMaxBytes: 500,
     });
     const onTextDelta = vi.fn();
     const oversizedSource = 'x'.repeat(501);
@@ -1658,8 +1658,8 @@ describe('streamOpenUiSource', () => {
 
   it('logs cached token usage from streamed Responses API usage details', async () => {
     const env = createTestEnv({
-      LOG_LEVEL: 'info',
-      OPENAI_API_KEY: 'test-key-stream-usage',
+      logLevel: 'info',
+      openAiApiKey: 'test-key-stream-usage',
     });
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const onTextDelta = vi.fn();
@@ -1702,8 +1702,8 @@ describe('streamOpenUiSource', () => {
 
   it('uses the captured streaming HTTP request id when the finalized response lacks one', async () => {
     const env = createTestEnv({
-      LOG_LEVEL: 'info',
-      OPENAI_API_KEY: 'test-key-stream-captured-request-id',
+      logLevel: 'info',
+      openAiApiKey: 'test-key-stream-captured-request-id',
     });
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const stream = createMockResponseStream(
@@ -1741,7 +1741,7 @@ describe('streamOpenUiSource', () => {
 
   it('warns when the finalized stream text differs from the streamed deltas', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-stream-mismatch',
+      openAiApiKey: 'test-key-stream-mismatch',
     });
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const onTextDelta = vi.fn();
@@ -1769,8 +1769,8 @@ describe('streamOpenUiSource', () => {
 
   it('writes prompt I/O logs after a finalized stream response', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-stream-prompt-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-stream-prompt-log',
+      promptIoLog: true,
     });
     const usage = {
       input_tokens: 20,
@@ -1817,8 +1817,8 @@ describe('streamOpenUiSource', () => {
 
   it('writes stream failure prompt logs when finalizing the stream fails', async () => {
     const env = createTestEnv({
-      OPENAI_API_KEY: 'test-key-stream-failure-log',
-      PROMPT_IO_LOG: true,
+      openAiApiKey: 'test-key-stream-failure-log',
+      promptIoLog: true,
     });
     const streamTimeoutError = new Error('The model request timed out.');
 

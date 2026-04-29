@@ -3,7 +3,6 @@ import OpenAI from 'openai';
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { AppEnv } from '#backend/env.js';
 import { RequestValidationError, UpstreamFailureError } from '#backend/errors/publicError.js';
-import { CURRENT_SOURCE_EMERGENCY_MAX_CHARS } from '#backend/limits.js';
 import {
   buildOpenUiIntentContextPrompt,
   buildOpenUiRawUserRequest,
@@ -155,7 +154,7 @@ export function captureOpenAiRequestId<T>(run: () => T) {
 
 function createDefaultOpenAiClient(env: AppEnv): OpenAiClient {
   return new OpenAI({
-    apiKey: env.OPENAI_API_KEY,
+    apiKey: env.openAiApiKey,
     fetch: captureOpenAiRequestIdFetch,
   });
 }
@@ -171,19 +170,19 @@ export function resetOpenAiClientForTesting() {
 }
 
 export function getClient(env: AppEnv) {
-  if (!env.OPENAI_API_KEY) {
+  if (!env.openAiApiKey) {
     throw new Error('OPENAI_API_KEY is not configured.');
   }
 
   if (
     !cachedClient ||
-    cachedClient.apiKey !== env.OPENAI_API_KEY ||
+    cachedClient.apiKey !== env.openAiApiKey ||
     cachedClient.overrideFactory !== openAiClientFactoryOverride
   ) {
     const clientFactory = openAiClientFactoryOverride ?? createDefaultOpenAiClient;
 
     cachedClient = {
-      apiKey: env.OPENAI_API_KEY,
+      apiKey: env.openAiApiKey,
       client: clientFactory(env),
       overrideFactory: openAiClientFactoryOverride,
     };
@@ -264,13 +263,13 @@ function buildGlobalPromptPreview(input: ResponseInput, structuredOutputContract
   ].join('\n\n');
 }
 
-function assertCurrentSourceWithinEmergencyCap(request: PromptBuildRequest) {
-  if (request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS) {
+function assertCurrentSourceWithinEmergencyCap(env: AppEnv, request: PromptBuildRequest) {
+  if (request.currentSource.length <= env.currentSourceEmergencyMaxChars) {
     return;
   }
 
   throw new RequestValidationError(
-    `Current source exceeded the emergency prompt cap of ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`,
+    `Current source exceeded the emergency prompt cap of ${env.currentSourceEmergencyMaxChars} characters.`,
     400,
     {
       publicMessage: CURRENT_SOURCE_TOO_LARGE_PUBLIC_MESSAGE,
@@ -278,16 +277,16 @@ function assertCurrentSourceWithinEmergencyCap(request: PromptBuildRequest) {
   );
 }
 
-function assertInvalidDraftWithinEmergencyCap(request: PromptBuildRequest) {
-  if (request.mode !== 'repair' || (request.invalidDraft?.length ?? 0) <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS) {
+function assertInvalidDraftWithinEmergencyCap(env: AppEnv, request: PromptBuildRequest) {
+  if (request.mode !== 'repair' || (request.invalidDraft?.length ?? 0) <= env.currentSourceEmergencyMaxChars) {
     return;
   }
 
   throw new RequestValidationError(
-    `Invalid draft exceeded the emergency prompt cap of ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`,
+    `Invalid draft exceeded the emergency prompt cap of ${env.currentSourceEmergencyMaxChars} characters.`,
     400,
     {
-      publicMessage: `Invalid draft is too large. Limit: ${CURRENT_SOURCE_EMERGENCY_MAX_CHARS} characters.`,
+      publicMessage: `Invalid draft is too large. Limit: ${env.currentSourceEmergencyMaxChars} characters.`,
     },
   );
 }
@@ -295,12 +294,12 @@ function assertInvalidDraftWithinEmergencyCap(request: PromptBuildRequest) {
 function assertProtectedPromptWithinModelBudget(env: AppEnv, input: ResponseInput) {
   const promptChars = getResponseInputChars(input);
 
-  if (promptChars <= env.LLM_MODEL_PROMPT_MAX_CHARS) {
+  if (promptChars <= env.modelPromptMaxChars) {
     return;
   }
 
   throw new RequestValidationError(
-    `Protected prompt context is ${promptChars} characters after optional context was removed, exceeding LLM_MODEL_PROMPT_MAX_CHARS ${env.LLM_MODEL_PROMPT_MAX_CHARS}.`,
+    `Protected prompt context is ${promptChars} characters after optional context was removed, exceeding LLM_MODEL_PROMPT_MAX_CHARS ${env.modelPromptMaxChars}.`,
     400,
     {
       publicMessage:
@@ -317,7 +316,7 @@ function createPromptContextMetadata(
 ): PromptContextLogMetadata {
   const fullText = input.map(getInputMessageText).join('\n');
   const currentSourceIncluded = fullText.includes('<current_source>\n') || fullText.includes('Current committed valid OpenUI source:');
-  const currentSourceProtected = request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
+  const currentSourceProtected = request.currentSource.length <= env.currentSourceEmergencyMaxChars;
   const budgetDecision = createBudgetDecision(env, request, fullText, droppedSections);
 
   return {
@@ -330,7 +329,7 @@ function createPromptContextMetadata(
     currentSourceItemsIncluded: fullText.includes('<current_source_inventory>'),
     currentSourceProtected,
     droppedSections,
-    ...(request.mode === 'repair' ? { repairPromptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS } : {}),
+    ...(request.mode === 'repair' ? { repairPromptMaxChars: env.modelPromptMaxChars } : {}),
   };
 }
 
@@ -388,7 +387,7 @@ function createBudgetDecision(
   const historySummaryIncluded = fullText.includes('<history_summary>\n');
   const previousUserMessagesIncluded = fullText.includes('<previous_user_messages>\n');
   const previousChangeSummariesIncluded = fullText.includes('<previous_change_summaries>\n');
-  const currentSourceProtected = request.currentSource.length <= CURRENT_SOURCE_EMERGENCY_MAX_CHARS;
+  const currentSourceProtected = request.currentSource.length <= env.currentSourceEmergencyMaxChars;
 
   return {
     currentSourceChars: request.currentSource.length,
@@ -773,7 +772,7 @@ function buildBudgetedInitialResponseInput(
   let includeIntentExamples = true;
   const includePreviousChanges = true;
   const droppedSections: DroppedPromptSection[] = [];
-  const isOverBudget = (input: ResponseInput) => getResponseInputChars(input) > env.LLM_MODEL_PROMPT_MAX_CHARS;
+  const isOverBudget = (input: ResponseInput) => getResponseInputChars(input) > env.modelPromptMaxChars;
   const buildInput = () =>
     buildInitialResponseInputVariant(systemPrompt, budgetedRequest, {
       appMemory,
@@ -847,10 +846,11 @@ function buildRepairResponseInputVariant(
     historySummary: options.historySummary,
     invalidSource: request.invalidDraft ?? '',
     issues: request.validationIssues ?? [],
-    maxRepairAttempts: env.LLM_MAX_REPAIR_ATTEMPTS,
-    promptMaxChars: env.LLM_MODEL_PROMPT_MAX_CHARS,
+    maxRepairAttempts: env.maxRepairAttempts,
+    promptMaxChars: env.modelPromptMaxChars,
     previousChangeSummaries: options.previousChangeSummaries ?? [],
     previousUserMessages: options.previousUserMessages ?? [],
+    sourceMaxChars: env.currentSourceEmergencyMaxChars,
     userPrompt: buildOpenUiRawUserRequest(request),
   });
 
@@ -875,7 +875,7 @@ function buildBudgetedRepairResponseInput(
     previousUserMessages: request.previousUserMessages ?? [],
   });
 
-  if (getResponseInputChars(input) <= env.LLM_MODEL_PROMPT_MAX_CHARS) {
+  if (getResponseInputChars(input) <= env.modelPromptMaxChars) {
     return {
       droppedSections,
       input,
@@ -916,8 +916,8 @@ function buildResponseInputWithMetadata(env: AppEnv, request: PromptBuildRequest
   input: ResponseInput;
   metadata: PromptContextLogMetadata;
 } {
-  assertCurrentSourceWithinEmergencyCap(request);
-  assertInvalidDraftWithinEmergencyCap(request);
+  assertCurrentSourceWithinEmergencyCap(env, request);
+  assertInvalidDraftWithinEmergencyCap(env, request);
   const requestIntent = detectPromptRequestIntent(request.prompt, {
     currentSource: request.currentSource,
     mode: request.mode,
@@ -953,7 +953,7 @@ export function buildResponseRequest(env: AppEnv, request: PromptBuildRequest) {
   const inputWithMetadata = buildResponseInputWithMetadata(env, request);
   const responseRequest = {
 
-    model: env.OPENAI_MODEL,
+    model: env.openAiModel,
     input: inputWithMetadata.input,
     max_output_tokens: getOpenUiMaxOutputTokens(env),
     prompt_cache_key: getOpenUiSystemPromptCacheKey(requestIntent),

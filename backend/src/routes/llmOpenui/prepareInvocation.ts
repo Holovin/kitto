@@ -173,9 +173,9 @@ export async function prepareLlmInvocation(
   const compactedRequestBytes = getLlmRequestSizeBytes(compacted.request);
   const omittedChatMessages = compacted.compaction?.omittedChatMessages ?? 0;
 
-  if (compactedRequestBytes > env.LLM_REQUEST_MAX_BYTES) {
+  if (compactedRequestBytes > env.requestMaxBytes) {
     const compactionError = new RequestValidationError(
-      `Compacted request still exceeded the safe request limit of ${env.LLM_REQUEST_MAX_BYTES} bytes.`,
+      `Compacted request still exceeded the safe request limit of ${env.requestMaxBytes} bytes.`,
       413,
       {
         publicMessage: 'Request body is too large to process safely.',

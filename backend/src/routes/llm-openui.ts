@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import type { AppEnv } from '#backend/env.js';
 import { normalizeHeaderValue, parsePositiveIntegerHeader } from '#backend/httpHeaders.js';
+import { RATE_LIMIT_CONTINUATION_MAX_ENTRIES } from '#backend/limits.js';
 import { createInMemoryRateLimitMiddleware } from '#backend/middleware/rateLimit.js';
 import {
   getClientProvidedRequestIdFromContext,
@@ -165,11 +166,11 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
   const llmRoutes = new Hono();
   const telemetry = createLlmOpenUiTelemetry(env);
   const continuationRateLimitRegistry = createGenerationContinuationRateLimitRegistry({
-    maxEntries: env.LLM_RATE_LIMIT_MAX_ENTRIES,
-    windowMs: env.LLM_RATE_LIMIT_WINDOW_MS,
+    maxEntries: RATE_LIMIT_CONTINUATION_MAX_ENTRIES,
+    windowMs: env.rateLimitWindowMs,
   });
   const recordAutomaticRepairCredit = (invocation: PreparedLlmInvocation) => {
-    const credit = getNextAutomaticRepairCredit(invocation, env.LLM_MAX_REPAIR_ATTEMPTS);
+    const credit = getNextAutomaticRepairCredit(invocation, env.maxRepairAttempts);
 
     if (!credit) {
       return;
@@ -186,10 +187,10 @@ export function createLlmOpenUiRoutes(env: AppEnv) {
     });
   };
   const generationRateLimitMiddleware = createInMemoryRateLimitMiddleware({
-    maxRequests: env.LLM_RATE_LIMIT_MAX_REQUESTS,
+    maxRequests: env.rateLimitMaxRequests,
     onRejected: createRateLimitRejectionRecorder,
     shouldCount: (context) => !continuationRateLimitRegistry.consume(context),
-    windowMs: env.LLM_RATE_LIMIT_WINDOW_MS,
+    windowMs: env.rateLimitWindowMs,
   });
 
   llmRoutes.use('/llm/generate', generationRateLimitMiddleware);

@@ -102,7 +102,7 @@ export async function generateHistorySummary(
 ): Promise<HistorySummaryEnvelope> {
   const client = getClient(env);
   const responseRequest = {
-    model: env.OPENAI_MODEL,
+    model: env.openAiModel,
     input: [
       {
         role: 'system' as const,
@@ -132,7 +132,7 @@ export async function generateHistorySummary(
 
   const response = await client.responses.create(responseRequest, {
     signal,
-    timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+    timeout: env.openAiRequestTimeoutMs,
   });
 
   return parseHistorySummaryEnvelope(extractResponseText(response));
